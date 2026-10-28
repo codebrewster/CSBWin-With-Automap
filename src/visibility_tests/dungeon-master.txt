@@ -1,0 +1,691 @@
+# Visibility regression tests: what the map counts as seen from where the party stands.
+# Run with "make visibility-test" in src (needs the game data and the save in Dungeons/Dungeonmaster).
+#
+# Coordinates as the map shows them: L<level> (<x>,<y>), the title of the map's right-click menu.
+# Light is the palette index of the map's debug light: 0 full light .. 5 darkest.
+# An item is named as the game shows it ("Scroll", any case), with its corner of the tile
+# (NW, NE, SE, SW) when two items there share the name; without either, a check judges the
+# tile's items together: seen when any of them is.
+# An item in an alcove (the Vi altar too) is checked as the alcove, by its wall face: the map
+# remembers what an alcove holds per face, not per item.
+# A tile is the cell itself, floor or wall, seen when the map's fog shows it: in the line of
+# sight and within the light's reach.
+# A save line starts a section: the cases below it, up to the next save line, are drawn in that
+# saved game (in Dungeons/Dungeonmaster). Each save is loaded by a run of its own.
+# A case without checks is a survey: the run prints a check line for every thing the frame drew,
+# with the numbers it was judged by, to compare with the screen and paste here.
+
+save csb-Visibility-test-01
+
+# Two items on one tile and a decoration two tiles ahead-right
+at L0 (4,12) facing S light 0
+  item (4,15) "Scroll"  seen            # patch 45
+  item (4,15) "Water"   seen            # patch 49
+  decoration (3,14) E   seen            # 73 contrasting
+at L0 (4,12) facing S light 5
+  item (4,15) "Scroll"  not seen        # nothing stands out
+  item (4,15) "Water"   not seen
+  decoration (3,14) E   not seen        # nothing contrasts
+at L0 (4,13) facing S light 5
+  item (4,13) "Club"    not seen
+  item (4,15) "Scroll"  glimpsed
+at L0 (4,15) facing E light 5
+  decoration (5,15) W   not seen        # Black Ring
+at L0 (4,15) facing S light 5
+  decoration (4,18) N glimpsed             # 11 contrasting of 785, patch 6
+  decoration (5,17) W not seen             # 0 contrasting of 22, patch 0
+  decoration (3,16) E not seen             # 2 contrasting of 86, patch 2
+at L0 (4,16) facing S light 5
+  decoration (4,18) N seen                 # 24 contrasting of 1489, patch 16
+  decoration (5,17) W seen                 # 72 contrasting of 100, patch 8
+  alcove (4,18) N seen                     # the scroll on the Vi altar
+at L0 (3,17) facing W light 0
+  decoration (0,17) E seen                 # 35 contrasting of 47, patch 35
+  decoration (2,16) S seen                 # 28 contrasting of 88, patch 67
+  tile (-1,19) not seen
+  tile (-1,15) not seen
+  tile (0,19) not seen
+  tile (0,15) not seen
+  tile (-1,18) not seen
+  tile (-1,16) not seen
+  tile (-1,17) not seen
+  tile (0,18) not seen
+  tile (0,16) seen
+  tile (0,17) seen
+  tile (1,19) not seen
+  tile (1,15) not seen
+  tile (1,18) seen
+  tile (1,16) seen
+  tile (1,17) seen
+  tile (2,18) seen
+  tile (2,16) seen
+  tile (2,17) seen
+  tile (3,18) seen
+  tile (3,16) seen
+at L0 (3,17) facing W light 5
+  decoration (0,17) E not seen             # 0 contrasting of 47, patch 0
+  decoration (2,16) S not seen             # 0 contrasting of 88, patch 0
+  tile (-1,19) not seen
+  tile (-1,15) not seen
+  tile (0,19) not seen
+  tile (0,15) not seen
+  tile (-1,18) not seen
+  tile (-1,16) not seen
+  tile (-1,17) not seen
+  tile (0,18) not seen
+  tile (0,16) not seen
+  tile (0,17) not seen
+  tile (1,19) not seen
+  tile (1,15) not seen
+  tile (1,18) not seen
+  tile (1,16) not seen
+  tile (1,17) not seen
+  tile (2,18) seen
+  tile (2,16) seen
+  tile (2,17) seen
+  tile (3,18) seen
+  tile (3,16) seen
+at L0 (2,17) facing N light 1
+  door (1,14) seen                         # 163 standing out of 173, patch 73
+  decoration (2,16) S seen                 # 641 contrasting of 666, patch 626
+  tile (0,13) not seen
+  tile (4,13) not seen
+  tile (0,14) seen
+  tile (4,14) not seen
+  tile (1,13) not seen
+  tile (3,13) not seen
+  tile (2,13) not seen
+  tile (1,14) seen
+  tile (3,14) not seen
+  tile (2,14) not seen
+  tile (0,15) not seen
+  tile (4,15) not seen
+  tile (1,15) seen
+  tile (3,15) not seen
+  tile (2,15) not seen
+  tile (1,16) seen
+  tile (3,16) seen
+  tile (2,16) seen
+  tile (1,17) seen
+  tile (3,17) seen
+at L1 (12,24) facing N light 5
+  item (13,22) "FALCHION" glimpsed         # 5 standing out of 12, patch 5
+  tile (10,20) not seen
+  tile (14,20) not seen
+  tile (10,21) not seen
+  tile (14,21) not seen
+  tile (11,20) not seen
+  tile (13,20) not seen
+  tile (12,20) not seen
+  tile (11,21) not seen
+  tile (13,21) not seen
+  tile (12,21) not seen
+  tile (10,22) not seen
+  tile (14,22) not seen
+  tile (11,22) not seen
+  tile (13,22) not seen
+  tile (12,22) not seen
+  tile (11,23) seen
+  tile (13,23) seen
+  tile (12,23) seen
+  tile (11,24) seen
+  tile (13,24) seen
+at L2 (32,13) facing N light 5
+  item (31,11) "BLUE GEM" not seen         # 0 standing out of 0, patch 0
+  item (31,11) "DRUMSTICK" not seen        # 0 standing out of 0, patch 0
+  decoration (31,12) E not seen            # 3 contrasting of 21, patch 0
+  tile (30,9) not seen
+  tile (34,9) not seen
+  tile (30,10) not seen
+  tile (34,10) not seen
+  tile (31,9) not seen
+  tile (33,9) not seen
+  tile (32,9) not seen
+  tile (31,10) not seen
+  tile (33,10) not seen
+  tile (32,10) not seen
+  tile (30,11) not seen
+  tile (34,11) not seen
+  tile (31,11) not seen
+  tile (33,11) not seen
+  tile (32,11) not seen
+  tile (31,12) seen
+  tile (33,12) seen
+  tile (32,12) seen
+  tile (31,13) seen
+  tile (33,13) seen
+at L2 (32,13) facing N light 4
+  item (31,11) "BLUE GEM" not seen         # 0 standing out of 0, patch 0
+  item (31,11) "DRUMSTICK" not seen        # 0 standing out of 0, patch 0
+  decoration (31,12) E not seen            # 3 contrasting of 21, patch 0
+  tile (30,9) not seen
+  tile (34,9) not seen
+  tile (30,10) not seen
+  tile (34,10) not seen
+  tile (31,9) not seen
+  tile (33,9) not seen
+  tile (32,9) not seen
+  tile (31,10) not seen
+  tile (33,10) not seen
+  tile (32,10) not seen
+  tile (30,11) not seen
+  tile (34,11) not seen
+  tile (31,11) not seen
+  tile (33,11) not seen
+  tile (32,11) seen
+  tile (31,12) seen
+  tile (33,12) seen
+  tile (32,12) seen
+  tile (31,13) seen
+  tile (33,13) seen
+at L2 (32,13) facing N light 3
+  item (31,11) "BLUE GEM" not seen         # 0 standing out of 0, patch 0
+  item (31,11) "DRUMSTICK" not seen        # 0 standing out of 0, patch 0
+  decoration (31,12) E not seen            # 3 contrasting of 21, patch 0
+  tile (30,9) not seen
+  tile (34,9) not seen
+  tile (30,10) not seen
+  tile (34,10) not seen
+  tile (31,9) not seen
+  tile (33,9) not seen
+  tile (32,9) not seen
+  tile (31,10) not seen
+  tile (33,10) not seen
+  tile (32,10) not seen
+  tile (30,11) not seen
+  tile (34,11) not seen
+  tile (31,11) not seen
+  tile (33,11) not seen
+  tile (32,11) seen
+  tile (31,12) seen
+  tile (33,12) seen
+  tile (32,12) seen
+  tile (31,13) seen
+  tile (33,13) seen
+at L2 (32,13) facing N light 2
+  item (31,11) "BLUE GEM" not seen         # 0 standing out of 0, patch 0
+  item (31,11) "DRUMSTICK" not seen        # 0 standing out of 0, patch 0
+  decoration (31,12) E seen                # 10 contrasting of 21, patch 0
+  tile (30,9) not seen
+  tile (34,9) not seen
+  tile (30,10) not seen
+  tile (34,10) not seen
+  tile (31,9) not seen
+  tile (33,9) not seen
+  tile (32,9) not seen
+  tile (31,10) not seen
+  tile (33,10) not seen
+  tile (32,10) not seen
+  tile (30,11) not seen
+  tile (34,11) not seen
+  tile (31,11) not seen
+  tile (33,11) not seen
+  tile (32,11) seen
+  tile (31,12) seen
+  tile (33,12) seen
+  tile (32,12) seen
+  tile (31,13) seen
+  tile (33,13) seen
+at L2 (32,12) facing W light 5
+  decoration (31,12) E seen                # 23 contrasting of 149, patch 3
+  tile (28,14) not seen
+  tile (28,10) not seen
+  tile (29,14) not seen
+  tile (29,10) not seen
+  tile (28,13) not seen
+  tile (28,11) not seen
+  tile (28,12) not seen
+  tile (29,13) not seen
+  tile (29,11) not seen
+  tile (29,12) not seen
+  tile (30,14) not seen
+  tile (30,10) not seen
+  tile (30,13) not seen
+  tile (30,11) not seen
+  tile (30,12) not seen
+  tile (31,13) seen
+  tile (31,11) not seen
+  tile (31,12) seen
+  tile (32,13) seen
+  tile (32,11) seen
+at L2 (34,20) facing W light 5
+  item (32,21) "CHEESE" not seen           # 0 standing out of 53, patch 0
+  monster (32,21) seen                     # 222 standing out of 476, patch 77
+  item (32,19) "APPLE" not seen            # 0 standing out of 36, patch 0
+  tile (30,22) not seen
+  tile (30,18) not seen
+  tile (31,22) not seen
+  tile (31,18) not seen
+  tile (30,21) not seen
+  tile (30,19) not seen
+  tile (30,20) not seen
+  tile (31,21) not seen
+  tile (31,19) not seen
+  tile (31,20) not seen
+  tile (32,22) not seen
+  tile (32,18) not seen
+  tile (32,21) not seen
+  tile (32,19) not seen
+  tile (32,20) not seen
+  tile (33,21) seen
+  tile (33,19) seen
+  tile (33,20) seen
+  tile (34,21) seen
+  tile (34,19) seen
+at L2 (34,20) facing W light 4
+  item (32,21) "CHEESE" not seen           # 0 standing out of 53, patch 0
+  monster (32,21) seen                     # 351 standing out of 476, patch 141
+  item (32,19) "APPLE" not seen            # 1 standing out of 36, patch 1
+  tile (30,22) not seen
+  tile (30,18) not seen
+  tile (31,22) not seen
+  tile (31,18) not seen
+  tile (30,21) not seen
+  tile (30,19) not seen
+  tile (30,20) not seen
+  tile (31,21) not seen
+  tile (31,19) not seen
+  tile (31,20) not seen
+  tile (32,22) not seen
+  tile (32,18) not seen
+  tile (32,21) seen
+  tile (32,19) seen
+  tile (32,20) not seen
+  tile (33,21) seen
+  tile (33,19) seen
+  tile (33,20) seen
+  tile (34,21) seen
+  tile (34,19) seen
+at L2 (34,20) facing W light 3
+  item (32,21) "CHEESE" seen               # 47 standing out of 53, patch 47
+  monster (32,21) seen                     # 351 standing out of 476, patch 141
+  item (32,19) "APPLE" seen                # 31 standing out of 36, patch 31
+  tile (30,22) not seen
+  tile (30,18) not seen
+  tile (31,22) not seen
+  tile (31,18) not seen
+  tile (30,21) not seen
+  tile (30,19) not seen
+  tile (30,20) not seen
+  tile (31,21) seen
+  tile (31,19) seen
+  tile (31,20) not seen
+  tile (32,22) not seen
+  tile (32,18) not seen
+  tile (32,21) seen
+  tile (32,19) seen
+  tile (32,20) not seen
+  tile (33,21) seen
+  tile (33,19) seen
+  tile (33,20) seen
+  tile (34,21) seen
+  tile (34,19) seen
+at L3 (19,20) facing W light 5
+  monster (16,21) not seen                 # 0 standing out of 438, patch 0
+  tile (15,22) not seen
+  tile (15,18) not seen
+  tile (16,22) not seen
+  tile (16,18) not seen
+  tile (15,21) not seen
+  tile (15,19) not seen
+  tile (15,20) not seen
+  tile (16,21) not seen
+  tile (16,19) not seen
+  tile (16,20) not seen
+  tile (17,22) not seen
+  tile (17,18) not seen
+  tile (17,21) not seen
+  tile (17,19) not seen
+  tile (17,20) not seen
+  tile (18,21) seen
+  tile (18,19) seen
+  tile (18,20) seen
+  tile (19,21) seen
+  tile (19,19) seen
+at L3 (19,20) facing W light 4
+  monster (16,21) seen                     # 58 standing out of 438, patch 8
+  tile (15,22) not seen
+  tile (15,18) not seen
+  tile (16,22) not seen
+  tile (16,18) not seen
+  tile (15,21) not seen
+  tile (15,19) not seen
+  tile (15,20) not seen
+  tile (16,21) not seen
+  tile (16,19) not seen
+  tile (16,20) not seen
+  tile (17,22) not seen
+  tile (17,18) not seen
+  tile (17,21) seen
+  tile (17,19) seen
+  tile (17,20) seen
+  tile (18,21) seen
+  tile (18,19) seen
+  tile (18,20) seen
+  tile (19,21) seen
+  tile (19,19) seen
+at L3 (18,30) facing S light 5
+  tile (20,32) not seen
+  tile (16,32) not seen
+  tile (19,32) not seen
+  tile (17,32) not seen
+  tile (18,32) not seen
+  tile (19,31) seen
+  tile (17,31) seen
+  tile (18,31) seen
+  tile (19,30) seen
+  tile (17,30) seen
+at L3 (18,30) facing S light 4
+  tile (20,32) not seen
+  tile (16,32) not seen
+  tile (19,32) not seen
+  tile (17,32) not seen
+  tile (18,32) seen
+  tile (19,31) seen
+  tile (17,31) seen
+  tile (18,31) seen
+  tile (19,30) seen
+  tile (17,30) seen
+at L3 (17,30) facing S light 5
+  decoration (17,31) N seen                # 22 contrasting of 71, patch 1
+  tile (19,32) not seen
+  tile (15,32) not seen
+  tile (18,32) not seen
+  tile (16,32) not seen
+  tile (17,32) not seen
+  tile (18,31) seen
+  tile (16,31) seen
+  tile (17,31) seen
+  tile (18,30) seen
+  tile (16,30) seen
+at L4 (17,13) facing E light 5
+  monster (20,14) seen                     # 65 standing out of 213, patch 20
+  tile (21,11) not seen
+  tile (21,15) not seen
+  tile (20,11) not seen
+  tile (20,15) not seen
+  tile (21,12) not seen
+  tile (21,14) not seen
+  tile (21,13) not seen
+  tile (20,12) not seen
+  tile (20,14) not seen
+  tile (20,13) not seen
+  tile (19,11) not seen
+  tile (19,15) not seen
+  tile (19,12) not seen
+  tile (19,14) not seen
+  tile (19,13) not seen
+  tile (18,12) seen
+  tile (18,14) seen
+  tile (18,13) seen
+  tile (17,12) seen
+  tile (17,14) seen
+at L4 (20,17) facing N light 5
+  monster (20,14) seen                     # 68 standing out of 230, patch 21
+  monster (21,16) seen                     # 68 standing out of 269, patch 46
+  tile (18,13) not seen
+  tile (22,13) not seen
+  tile (18,14) not seen
+  tile (22,14) not seen
+  tile (19,13) not seen
+  tile (21,13) not seen
+  tile (20,13) not seen
+  tile (19,14) not seen
+  tile (21,14) not seen
+  tile (20,14) not seen
+  tile (18,15) not seen
+  tile (22,15) not seen
+  tile (19,15) not seen
+  tile (21,15) not seen
+  tile (20,15) not seen
+  tile (19,16) seen
+  tile (21,16) seen
+  tile (20,16) seen
+  tile (19,17) seen
+  tile (21,17) seen
+at L6 (5,14) facing S light 0
+  decoration (6,15) W not seen             # 1 contrasting of 4, patch 1
+  tile (7,18) not seen
+  tile (7,17) not seen
+  tile (6,18) not seen
+  tile (4,18) not seen
+  tile (5,18) not seen
+  tile (6,17) seen
+  tile (4,17) seen
+  tile (5,17) seen
+  tile (7,16) not seen
+  tile (6,16) seen
+  tile (4,16) seen
+  tile (5,16) seen
+  tile (6,15) seen
+  tile (4,15) seen
+  tile (5,15) seen
+  tile (6,14) seen
+  tile (4,14) seen
+at L6 (5,15) facing E light 4
+  decoration (8,15) W not seen             # 0 contrasting of 0, patch 0
+  decoration (6,15) W not seen             # 4 contrasting of 35, patch 1
+  tile (9,13) not seen
+  tile (9,17) not seen
+  tile (8,13) not seen
+  tile (8,17) not seen
+  tile (9,14) not seen
+  tile (9,16) not seen
+  tile (9,15) not seen
+  tile (8,14) not seen
+  tile (8,16) not seen
+  tile (8,15) not seen
+  tile (7,13) not seen
+  tile (7,17) not seen
+  tile (7,14) not seen
+  tile (7,16) not seen
+  tile (7,15) not seen
+  tile (6,14) seen
+  tile (6,16) seen
+  tile (6,15) seen
+  tile (5,14) seen
+  tile (5,16) seen
+at L6 (5,15) facing E light 3
+  decoration (8,15) W not seen             # 0 contrasting of 0, patch 0
+  decoration (6,15) W seen                 # 25 contrasting of 35, patch 7
+  tile (9,13) not seen
+  tile (9,17) not seen
+  tile (8,13) not seen
+  tile (8,17) not seen
+  tile (9,14) not seen
+  tile (9,16) not seen
+  tile (9,15) not seen
+  tile (8,14) not seen
+  tile (8,16) not seen
+  tile (8,15) not seen
+  tile (7,13) not seen
+  tile (7,17) not seen
+  tile (7,14) not seen
+  tile (7,16) not seen
+  tile (7,15) not seen
+  tile (6,14) seen
+  tile (6,16) seen
+  tile (6,15) seen
+  tile (5,14) seen
+  tile (5,16) seen
+at L3 (30,17) facing W light 5
+  monster (27,17) seen                     # 2 standing out of 100, patch 1
+  tile (26,19) not seen
+  tile (26,15) not seen
+  tile (27,19) not seen
+  tile (27,15) not seen
+  tile (26,18) not seen
+  tile (26,16) not seen
+  tile (26,17) not seen
+  tile (27,18) not seen
+  tile (27,16) not seen
+  tile (27,17) not seen
+  tile (28,19) not seen
+  tile (28,15) not seen
+  tile (28,18) not seen
+  tile (28,16) not seen
+  tile (28,17) not seen
+  tile (29,18) seen
+  tile (29,16) seen
+  tile (29,17) seen
+  tile (30,18) seen
+  tile (30,16) seen
+at L9 (21,27) facing W light 5
+  monster (18,27) seen                     # 446 standing out of 966, patch 184
+  tile (17,29) not seen
+  tile (17,25) not seen
+  tile (18,29) not seen
+  tile (18,25) not seen
+  tile (17,28) not seen
+  tile (17,26) not seen
+  tile (17,27) not seen
+  tile (18,28) not seen
+  tile (18,26) not seen
+  tile (18,27) not seen
+  tile (19,29) not seen
+  tile (19,25) not seen
+  tile (19,28) not seen
+  tile (19,26) not seen
+  tile (19,27) not seen
+  tile (20,28) seen
+  tile (20,26) seen
+  tile (20,27) seen
+  tile (21,28) seen
+  tile (21,26) seen
+at L0 (4,17) facing N light 2
+  decoration (3,14) E seen                 # 0 contrasting of 28, patch 6, blot 1
+  decoration (5,15) W not seen             # 1 contrasting of 27, patch 1, blot 74
+  item (4,15) "WATER" seen                 # 49 standing out of 75, patch 49
+  item (4,15) "SCROLL" seen                # 44 standing out of 60, patch 44
+  decoration (3,16) E seen                 # 42 contrasting of 91, patch 29, blot 100
+  tile (2,13) not seen
+  tile (6,13) not seen
+  tile (2,14) not seen
+  tile (6,14) not seen
+  tile (3,13) not seen
+  tile (5,13) not seen
+  tile (4,13) not seen
+  tile (3,14) seen
+  tile (5,14) seen
+  tile (4,14) seen
+  tile (2,15) not seen
+  tile (6,15) not seen
+  tile (3,15) seen
+  tile (5,15) seen
+  tile (4,15) seen
+  tile (3,16) seen
+  tile (5,16) seen
+  tile (4,16) seen
+  tile (3,17) seen
+  tile (5,17) seen
+at L0 (4,17) facing N light 3
+  decoration (3,14) E not seen             # 0 contrasting of 28, patch 6, blot 9
+  decoration (5,15) W not seen             # 1 contrasting of 27, patch 1, blot 40
+  item (4,15) "WATER" seen                 # 49 standing out of 75, patch 49
+  item (4,15) "SCROLL" seen                # 44 standing out of 60, patch 44
+  decoration (3,16) E seen                 # 4 contrasting of 91, patch 2, blot 76
+  tile (2,13) not seen
+  tile (6,13) not seen
+  tile (2,14) not seen
+  tile (6,14) not seen
+  tile (3,13) not seen
+  tile (5,13) not seen
+  tile (4,13) not seen
+  tile (3,14) seen
+  tile (5,14) seen
+  tile (4,14) seen
+  tile (2,15) not seen
+  tile (6,15) not seen
+  tile (3,15) seen
+  tile (5,15) seen
+  tile (4,15) seen
+  tile (3,16) seen
+  tile (5,16) seen
+  tile (4,16) seen
+  tile (3,17) seen
+  tile (5,17) seen
+
+
+save csb-Visibility-test-02
+
+at L0 (4,15) facing S light 0
+  decoration (3,18) N not seen             # 0 contrasting of 0, patch 0
+  decoration (4,18) N seen                 # 293 contrasting of 736, patch 315
+  alcove (4,18) N seen                     # 91 standing out of 96, patch 91
+  decoration (5,17) W seen                 # 18 contrasting of 22, patch 7
+  item (3,17) "SCROLL" not seen            # 0 standing out of 0, patch 0
+  decoration (3,16) E seen                 # 42 contrasting of 86, patch 42
+  tile (6,19) not seen
+  tile (2,19) not seen
+  tile (6,18) not seen
+  tile (2,18) not seen
+  tile (5,19) not seen
+  tile (3,19) not seen
+  tile (4,19) not seen
+  tile (5,18) not seen
+  tile (3,18) seen
+  tile (4,18) seen
+  tile (6,17) not seen
+  tile (2,17) not seen
+  tile (5,17) seen
+  tile (3,17) seen
+  tile (4,17) seen
+  tile (5,16) seen
+  tile (3,16) seen
+  tile (4,16) seen
+  tile (5,15) seen
+  tile (3,15) seen
+at L0 (4,15) facing S light 3
+  decoration (3,18) N not seen             # 0 contrasting of 0, patch 0
+  decoration (4,18) N seen                 # 11 contrasting of 736, patch 10
+  alcove (4,18) N seen                     # 91 standing out of 96, patch 91
+  decoration (5,17) W seen                 # 18 contrasting of 22, patch 7
+  item (3,17) "SCROLL" not seen            # 0 standing out of 0, patch 0
+  decoration (3,16) E seen                 # 2 contrasting of 86, patch 2
+  tile (6,19) not seen
+  tile (2,19) not seen
+  tile (6,18) not seen
+  tile (2,18) not seen
+  tile (5,19) not seen
+  tile (3,19) not seen
+  tile (4,19) not seen
+  tile (5,18) not seen
+  tile (3,18) seen
+  tile (4,18) seen
+  tile (6,17) not seen
+  tile (2,17) not seen
+  tile (5,17) seen
+  tile (3,17) seen
+  tile (4,17) seen
+  tile (5,16) seen
+  tile (3,16) seen
+  tile (4,16) seen
+  tile (5,15) seen
+  tile (3,15) seen
+at L0 (4,15) facing S light 4
+  decoration (3,18) N not seen             # 0 contrasting of 0, patch 0
+  decoration (4,18) N glimpsed             # 11 contrasting of 736, patch 6
+  alcove (4,18) N not seen                 # 0 standing out of 96, patch 0
+  decoration (5,17) W not seen             # 0 contrasting of 22, patch 7
+  item (3,17) "SCROLL" not seen            # 0 standing out of 0, patch 0
+  decoration (3,16) E not seen             # 2 contrasting of 86, patch 2
+  tile (6,19) not seen
+  tile (2,19) not seen
+  tile (6,18) not seen
+  tile (2,18) not seen
+  tile (5,19) not seen
+  tile (3,19) not seen
+  tile (4,19) not seen
+  tile (5,18) not seen
+  tile (3,18) not seen
+  tile (4,18) not seen
+  tile (6,17) not seen
+  tile (2,17) not seen
+  tile (5,17) seen
+  tile (3,17) seen
+  tile (4,17) seen
+  tile (5,16) seen
+  tile (3,16) seen
+  tile (4,16) seen
+  tile (5,15) seen
+  tile (3,15) seen

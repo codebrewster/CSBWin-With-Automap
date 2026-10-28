@@ -1,0 +1,500 @@
+# objects held in hand, extracted from graphics.dat entry 556
+# not exactly a po file, but it allows to have colors for comments with editors which know how to colorize po files
+apple
+armet
+arrow
+ashes
+axe
+barbarian hide
+basinet
+bezerker helm
+blue gem
+blue pants
+bolt blade
+bones
+boots of speed
+boulder
+bow
+bread
+bro potion
+buckler
+calista
+cape
+casque 'n coif
+cheese
+chest
+choker
+cloak of night
+club
+compass
+copper coin
+corbamite
+corn
+crossbow
+cross key
+crown of nerra
+dagger
+dane potion
+delta
+des potion
+dexhelm
+diamond edge
+dragon spit
+dragon steak
+drumstick
+ee potion
+ekkhard cross
+elven boots
+elven doublet
+elven huke
+emerald key
+empty flask
+eye of time
+falchion
+fine robe
+flamebain
+flamitt
+foot plate
+ful bomb
+fury
+gem of ages
+ghi
+ghi trousers
+gold coin
+gold key
+greave of darc
+greave of lyte
+green gem
+gunna
+halter
+hardcleave
+helmet
+helm of darc
+helm of lyte
+hide shield
+horn of fear
+hosen
+illumulet
+iron key
+jewel symal
+kath bomb
+key of b
+kirtle
+ku potion
+large shield
+leather boots
+leather jerkin
+leather pants
+leg mail
+leg plate
+lock picks
+mace
+mace of order
+magical box
+magnifier
+mail aketon
+ma potion
+master key
+mirror of dawn
+mithral aketon
+mithral mail
+mon potion
+moonstone
+morningstar
+neta potion
+onyx key
+open chest
+open scroll
+orange gem
+pendant feral
+pew bomb
+plate of darc
+plate of lyte
+poison dart
+poleyn of darc
+poleyn of lyte
+powertowers
+rabbit's foot
+ra bomb
+ra key
+rapier
+robe
+rock
+rope
+ros potion
+ruby key
+sabre
+samurai sword
+sandals
+sapphire key
+sar potion
+sceptre of lyf
+screamer slice
+scroll
+shield of darc
+shield of lyte
+silk shirt
+silver coin
+skeleton key
+slayer
+sling
+small shield
+snake staff
+solid key
+speedbow
+square key
+staff
+staff of claws
+staff of manar
+stick
+stone club
+stormring
+suede boots
+sword
+tabard
+teowand
+the conduit
+the firestaff
+the hellion
+the inquisitor
+throwing star
+topaz key
+torch
+torso plate
+tourquoise key
+tunic
+um potion
+ven potion
+vi potion
+vorpal blade
+wand
+water
+water flask
+waterskin
+winged key
+wooden shield
+worm round
+ya potion
+yew staff
+zokathra spell
+zo potion
+# Menus
+File
+Select dungeon.dat...
+Select graphics.dat...
+Select playback file...
+Load saved game
+Save game
+Playback..
+Save params
+Quit
+Misc
+Keyboard shortcuts
+Party coordinates
+Non-CSB Items
+DM Rules
+Truetype text replacement
+Save to report.txt
+Extended character info...
+Launchers power
+Monsters vulnerable on attack
+Filter DSA door sounds (for Conflux/DMCoE!)
+Nostalgia Mode
+Speed
+Glacial
+Molasses
+Very Slow
+Slow
+Normal
+Fast
+Quick as a bunny
+Faster Than Light
+Extra Ticks
+Player Clock
+# Buttons interface (start screen)
+quit
+dungeon
+utility
+hint
+i am ready, master
+what is your wish?
+# dungeon.dat, raw text
+DAROOU\n\n
+HALK\nthe barbarian\n
+the barbarian
+WU TSE\nson of heaven\n
+son of heaven
+AZIZI\nJohari\n
+Johari
+hall of champions
+LEIF\nThe Valiant\n
+The Valiant
+ELIJA\nLion of Yaitopya\n
+Lion of Yaitopya
+SYRA\nChild of Nature\n
+Child of Nature
+TIGGY\nTamal\n
+IAIDO\nRuyito Chiburi\n
+ZED\nDuke of Banville\n
+Duke of Banville
+GANDO\nThurfoot\n
+test your strength
+none shall pass
+STAMM\nBladecaster\n
+Bladecaster
+LINFLAS\n\n
+WUUF\nThe Bika\n
+The Bika
+LEYLA\nShadowseek\n
+MOPHUS\nThe Healer\n
+The Healer
+CHANI\nSayyadina Sihaya\n
+BORIS\nWizard of Baldor\n
+Wizard of Baldor
+SONJA\nShe Devil\n
+She Devil
+HAWK\nThe Fearless\n
+The Fearless
+ALEX\nAnder\n
+YA BRO creates a magical shield potion
+drink these to gain magical defense
+put the gem back...
+This wall says nothing
+Step inside take a ride
+shortcut
+to close pit leave a valuable on floor
+welcome back brave adventurers.
+turn back
+invoke FUL for a magic torch
+this fountain accepts one wish.
+casting VI BRO into a flask creates a serum for curing poison.
+casting VI into a flask creates a serum that heals wounds.
+choose your door choose your fate
+DES VEN will conjure a poison spell.
+some doors can be opened with a ZO spell.
+the matrix
+YA will create a stamina potion.
+you must pay for your entrance.
+cast your influence cast your might
+only the touch of the proper spell will free the gem and only the firestaff can possess it.
+time is of the essence
+the spell OH VEN cast a cloud of poison.
+hit and run
+VI\naltar of rebirth
+fireball\n\nFUL IR.\n\nfire shield\n\nFUL BRO NETA.
+light\nOH IR RA.\n\ndarkness\nDES IR SAR.
+prepare to meet your doom
+dont let a closed door stop you
+DANGER\n\nenter with caution
+clean flasks
+notes scrolls formulas spells
+four potions for boosting skills\n\nFUL BRO KU\nOH BRO ROS\nYA BRO DAIN\nYA BRO NETA
+this is my prisoner. let him suffer.
+the spell YA BRO ROS leaves a trail of magic footprints.
+you will regret that.
+treasure stores
+creature cavern
+lightning bolt\n\nOH KATH RA.
+the spell\nOH EW RA\nbestows magic vision.
+shield potion\n\nYA BRO.\n\nmagic shield\n\nYA IR.
+mana potion\n\nZO BRO RA\ncreates a pure mana potion.
+invisibility\n\nOH EW SAR
+room of the gem
+store rooms
+the riddle room
+hard as rocks blue as sky twinkle in womans eye
+i arch yet have no back
+i am all i am none
+a golden head and tail but no body
+choose a door
+the vault
+neither chaos nor order is truly balanced
+the grave of king milias the golden who even
+in death thirsts for bullion.
+the grave of king filius explorer of combinations
+balance is the ultimate good
+step right up going down...
+ha ha ha
+the firestaff can restore balance or destroy it.
+if you want to stay alive you better turn and run
+the power gem is sealed in the mountain by a strange magical force.
+i hate cowards
+i dont like to be ignored
+the tomb of the firestaff
+sundry supplies
+zokathra might create a plasma that could burn through the amalgam encasing the gem.
+chambers of the guardian
+i fear for the people of the world should the power gem and firestaff get in the wrong hands
+by your brave deeds i am made whole again and harmony is restored to the world.
+clockwise
+HISSSSA\nLizar of Makan\n
+Lizar of Makan
+GOTHMOG\n\n
+i have given the firestaff much power. power to do and undo. power to break and mend.
+the firestaff can contain a being of pure alignment with its fluxcage.
+NABI\nTHE PROPHET\n
+once fluxcaged\Na being can be\Ntransmuted\Nby the power\Nof the staff\Nwhich should\Nalways be used\Nfor balance.
+when is rock\Nnot rock
+thank you my\Nfriends.  you\Nhave banished\Nchaos and\Nrejected the\Nfalse path of\Nuncompromising\Norder.
+what is under\Nfoot is soon\Noverhead
+bonly by learning\Nthe truth and\Nseeking the path\Nof balance\Ndid you guess the\Ntrue nature of\Nthe firestaff.
+lighter than\Na feather
+the spell\Ndes ew\Nweakens\Nnonmaterial\Nbeings
+beware my twisted humor the deceiver the snake
+small details can hide great rewards
+zooooom
+shortcut back
+the only way out is another way in.
+fire elements
+earth elements
+air elements
+water elements
+altar of vi
+it is too bad you did not discover the true secret of the firestaff. now that i have it i have no further need for you_b
+dyour names will be recorded in the great hall and remembered by the future generations you have made possible.
+reading room  keep out
+new lives for old bones
+enlarge my view
+cowards will be hunted down and killed
+the keys to passage lie hidden deep.
+# CSBCode.cpp, ShowHideInventory:7491
+health
+stamina
+mana
+# _ResurrectReincarnateCancel:6794
+ resurrected.
+ reincarnated.
+# DBank::Initialize:378
+fighter
+priest
+wizard
+north
+east
+south
+west
+strength
+dexterity
+wisdom
+vitality
+anti-magic
+anti-fire
+game loaded, ready to play.
+can't modify chaos strikes back disk!
+that's not the master disk!
+can't find saved game!
+unable to save game!
+unable to format disk!
+that's the chaos strikes back disk!
+that's a game save disk!
+that disk is write-protected!
+that disk is unreadable
+that's not the same game
+saved game damaged!
+put the game save disk in ~
+put the chaos strikes back disk in ~
+put a blank disk in ~
+saving game . . .
+loading game . . .
+formatting disk . . .
+format disk anyway?
+there is no disk in ~!
+load saved game
+save and play
+save and quit
+format floppy
+cancel
+# _TAG021028:10592
+Play game
+Ascii dump
+# _SelectSaveGame:9880
+Select game file
+# Character.cpp, DrawCharacterState:1431
+Load
+# DescribeObject:3724
+weighs
+(burnt out)
+damage
+distance
+shoot damage
+charges
+poisoned
+defense
+pierce res
+stamina potion
+mana potion
+health potion
+strength potion
+dexterity potion
+wisdom potion
+vitality potion
+cure poison potion
+shield potion
+poison potion
+raises influence skill and mana
+raises healing skill
+raises defend skill
+raises wizard skill
+raises anti-magic
+(empty)
+(almost empty)
+(almost full)
+(full)
+party facing
+consumable
+broken
+cursed
+# CSBlinux.cpp, post_render:2466
+Yes
+No
+Save params ?
+# CSBCode.cpp, DisplaySleepScreen:6585
+wake up
+# Attack Names (extracted from graphics.dat 560, but it's binary and initializes multiple fields, it can't be read directly)
+block
+chop
+blow horn
+flip
+punch
+kick
+war cry
+climb down
+freeze life
+hit
+swing
+thrust
+jab
+parry
+hack
+berzerk
+fireball
+dispell
+confuse
+lightning
+disrupt
+melee
+invoke
+slash
+cleave
+bash
+stun
+shoot
+spellshield
+fireshield
+fluxcage
+heal
+calm
+light
+window
+spit
+brandish
+throw
+fuse
+stab
+# Magic.cpp, SpellErrorMsg
+ needs more practice with this %S spell
+ mumbles a meaningless spell.
+ needs an empty flask in hand for potion.
+# SaveGame.cpp, _DisplaySaveMenu
+Ready to save game
+# Mouse.cpp, _HandleMouseEvents
+Game frozen

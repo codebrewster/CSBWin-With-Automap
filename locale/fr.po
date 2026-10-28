@@ -1,0 +1,500 @@
+# Objets tenus en main, extraits de graphics.dat entrée 558
+# Pas exactement un fichier po, mais ça permet d'avoir de la coloration syntaxique pour les commentaires !
+pomme
+bracelet
+flèche
+cendres
+hache
+peau de barbare
+bassin
+casque de berserker
+gemme bleue
+pantalon bleu
+lame de foudre
+os
+bottes de vitesse
+rocher
+arc
+pain
+potion BRO
+boucle
+calista
+cape
+casque et coif
+fromage
+coffre
+collier
+cape de nuit
+massue
+boussole
+pièce de cuivre
+corbamite
+maïs
+arbalète
+clé croisée
+couronne de Nerra
+dague
+potion danoise
+delta
+potion de des
+casque de dextre
+tranchant de diamant
+crachat de dragon
+steak de dragon
+pilon de poulet
+potion d'ee
+croix d'ekkhard
+bottes elfiques
+pourpoint elfe
+huke elfique
+clé d'émeraude
+flasque vide
+œil du temps
+falchion
+robe fine
+flamebaine
+flamitt
+plaque de pied
+bombe pleine
+fureur
+gemme des âges
+ghi
+pantalon ghi
+Pièce d'or
+Clé en or
+Jambières Darc
+Jambières Lyte
+Gemme verte
+Gunna
+Haleton
+Fendoir dur
+Casque
+Casque de Darc
+Casque de Lyte
+Bouclier en cuir
+Corne de la peur
+Bas
+Amulette d'illumination
+Clé en fer
+Symbole de bijou
+Bombe de Kath
+Clé de B
+Cuirle
+Potion de Ku
+Grand bouclier
+Bottes en cuir
+Pourpoint cuir
+Pantalon cuir
+Cotte de mailles pour jambières
+Plaque de jambières
+Croche-serruriers
+Masse
+Masse de l'ordre
+Boîte magique
+Loupe
+Cotte de mailles Aketon
+Potion de Ma
+Clé maîtresse
+Miroir de l'aube
+Armure mithril
+Jambières mith
+Potion de Mon
+Pierre de lune
+Étoile matin
+Potion de Neta
+Clé d'onyx
+Ouvrir coffre
+Ouvrir parch
+Gemme orange
+Pendentif sauv
+Bombe de pew
+Plaque de Darc
+Plaque de Lyte
+Fléchette pois
+Polyne de Darc
+Polyne de Lyte
+Tours de puiss
+Pied de lapin
+Bombe de Ra
+Ra clé
+rapière
+robe
+roche
+corde
+potion de ros
+clé de rubis
+sabre
+épée samouraï
+sandales
+clé de saphir
+potion de sar
+sceptre de vie
+tranche hurleu
+parchemin
+bouclier darc
+bouclier lyte
+chemise de soi
+pièce d'argent
+clé squelette
+tueur
+fronde
+petit bouclier
+bâton serpent
+clé solide
+arbalète vites
+clé carrée
+bâton
+bâton griffes
+bâton manar
+bâton
+massue pierre
+anneau tempête
+bottes en daim
+épée
+tabard
+baguette teowand
+le conduit
+le bâton de feu
+le hellion
+l'inquisiteur
+étoile de jet
+clé de topaze
+torche
+plaque de torse
+clé turquoise
+tunique
+potion d'um
+potion de ven
+potion de vi
+lame vorpale
+baguette
+eau
+gourde
+outre
+clé ailée
+bouclier en bois
+rond de ver
+potion de ya
+if Bâton
+Sort de Zokathra
+Potion de Zo
+# Menus lignes 182 à 212 utilisées dans le code, ne pas décaler cette section!
+Fichier
+Choisir dungeon.dat...
+Choisir graphics.dat...
+Choisir le fichier de lecture...
+Charger une partie sauvegardée
+Sauvegarder la partie
+Lecture...
+Enregistrer les paramètres
+Quitter
+Divers
+Raccourcis clavier
+Coordonnées du groupe
+Objets non CSB
+Règles DM
+Remplacement de texte TrueType
+Enregistrer dans report.txt
+Informations détaillées sur le personnage...
+Puissance des lanceurs
+Monstres vulnérables aux attaques
+Filtrer les sons DSA de portes (pour Conflux/DMCoE!)
+Mode Nostalgie
+Vitesse
+Glaciaire
+Mélasse
+Très lente
+Lente
+Normale
+Rapide
+Rapide comme l'éclair
+Plus rapide que la lumière
+Ticks supplémentaires
+Horloge du joueur
+# Interface des boutons (écran de démarrage)
+QUITTER
+DONJON
+UTILITAIRES
+INDICE
+JE SUIS PRET, MAITRE
+QUEL EST VOTRE SOUHAIT ?
+# dungeon.dat, texte brut
+Daroou\n\n
+Halk\nLe Barbare\n
+Le Barbare
+Wu Tse\nFils du Ciel\n
+Fils du Ciel
+Azizi\nJohari\n
+Johari
+Salle des champions
+Leif\nLe Vaillant\n
+Le Vaillant
+Elija\nLion de Yaitopya\n
+Lion de Yaitopya
+Syra\nEnfant de la Nature\n
+Enfant de la Nature
+Tiggy\nTamal\n
+Iaido\nRuyito Chiburi\n
+Zed\nDuc de Banville\n
+Duc de Banville
+Gando\nThurfoot\n
+Testez votre force
+Nul ne passera
+Stamm\nLanceur de Lames\n
+Lanceur de Lames
+Linflas\n\n
+Wuuf\nLe Bika\n
+Le Bika
+Leyla\nShadowseek\n
+Mophus\nLe Guérisseur\n
+Le Guérisseur
+Chani\nSayyadina Sihaya\n
+Boris\nMagicien de Baldor\n
+Magicien de Baldor
+Sonja\nLa Diablesse\n
+La Diablesse
+Hawk\nL'Intrépide\n
+L'Intrépide
+Alex\nAnder\n
+YA BRO crée une potion de bouclier magique
+Buvez ceci Pour obtenir une défense magique.
+Remettez la gemme en place...
+Ce mur ne dit rien.
+Entrez. Faites un tour.
+Raccourci.
+Pour fermer la fosse laissez un objet précieux au sol.
+Bienvenue braves aventuriers.
+Faites demi-tour.
+Invoquez Ful pour une torche magique.
+Cette fontaine accepte un vœu.
+Lancer Vi Bro dans une fiole crée un sérum pour soigner le poison.
+Lancer Vi dans une fiole crée un sérum qui guérit les blessures.
+Choisissez votre porte. Choisissez votre destin.
+Des Ven lancera un sort de poison.
+Certaines portes peuvent être ouvertes avec un sort Zo.
+La matrice
+YA créera une potion d'endurance.
+Vous devez payer votre entrée.
+Déploie ton influence déploie ta puissance.
+Seul le contact du sort approprié libérera la gemme et seul le bâton de feu pourra la posséder.
+Le temps presse.
+Le sort oh ven projette un nuage de poison.
+Frappe et cours
+VI Autel de la renaissance
+BOULE DE FEU\n\nFUL IR.\n\nBOUCLIER ANTI FEU\n\nFUL BRO NETA.
+lumière\nOH IR RA.\n\nTénèbres\nDES IR SAR.
+Préparez-vous à rencontrer votre destin
+Ne laissez pas une porte fermée  vous arrêter
+Danger\n\nentrez avec\nprécaution
+Filasses nettoyées
+notes\nparchemins\nformules\nsorts
+Quatre potions\npour améliorer\nvos\ncompétences\n\nFUL BRO KU\nOH BRO ROS\nYA BRO DAIN\nYA BRO NETA
+C'est mon prisonnier. laissez le souffrir.
+Le sort\nYA BRO ROS\nlaisse une trace\nd'empreintes\nmagiques.
+Tu le regarderas.
+Bureaux de trésors
+Caverne de créatures
+Éclair\n\nOH KATH RA.
+le sort\nOH EW RA\nconfère la vision magique.
+potion de bouclier\n\nYA BRO.\n\nAnti magie\n\nYA IR.
+Potion de mana\n\nZO BRO RA\ncrée une potion de mana pure.
+invisibilité\n\nOH EW SAR
+Salle de la gemme
+Réserves
+La salle des énigmes
+Dur comme la roche bleu comme le ciel brille dans l'oeil d'une femme
+je plie, mais j'ai pas de dos
+je suis tout je ne suis rien
+Une tête et une queue d'or mais pas corps
+Choisissez une porte
+le coffre-fort
+Ni le chaos ni l'ordre ne sont vraiment équilibrés
+La tombe du roi Milias le doré qui, même
+dans la mort, a soif de lingot.
+la tombe du roi filius explorateur des combinaisons
+L'équilibre est le bien sommaire
+Montez, on descend...
+Ha ha ha
+Le bâton de feu peut restaurer l'équilibre ou le détruire.
+Si vous voulez rester en vie, vous feriez mieux de vous retourner et courir.
+La gemme de pouvoir est scellée dans la montagne par une étrange force magique.
+Je hais les lâches
+Je n'aime pas être ignoré
+Le tombeau du bâton de feu
+Fournitures diverses
+ZOKATHRA\npourrait créer\nun plasma qui\npourrait brûler\nl'amalgam qui\nenveloppe la\ngemme.
+Chambres du gardien
+Je crainds pour les gens du monde si la gemme de puissance et le baton tombaient dans de mauvaises mains
+Grâce à vos actions courageuses, je suis à nouveau entier et l'harmonie est restaurée dans le monde.
+Dans le sens horaire
+Hissssa\nLézard de Makan\n
+Lézard de Makan
+Gothmog\n\n
+J'ai donné au baton beaucoup de pouvoir. pouvoir de faire et défaire. pouvoir de briser et réparer.
+Le bâton peut contenir un être en parfait alignement avec sa cage de flux.
+NABI\nLe prophète\n
+Une fois emprisonné dans la cage de flux, un être peut être transmuté par le pouvoir du bâton, qui doit toujours être utilisé pour l'équilibre.
+Quand la roche n'est-elle pas de la roche ?
+Merci mes amis. vous avez bannI le chaos et rejeté la fausse voie de l'ordre intransigeant.
+Ce qui est sous vos pieds sera bientôt au-dessus de votre tête.
+Ce n'est qu'en apprenant la vérité et en cherchant le chemin de l'équilibre que vous avez deviné la véritable nature du bâton de feu.
+Plus léger qu'une plume
+le sort DES EW\naffaiblit les êtres immatériels
+Méfiez-vous de mon humour tordu. Le trompeur, le serpent
+Les petits détails peuvent cacher de grandes récompenses.
+Zoom !
+Retour rapide.
+La seule issue est une autre entrée.
+Éléments de feu
+Éléments de terre
+Éléments d'air
+Éléments d'eau
+AUTEL DE VI
+C'est dommage que vous n'ayez pas découvert le véritable secret du bâton de feu. Maintenant que je l'ai, je n'ai plus besoin de vous.
+Vos noms seront inscrits dans la grande salle et souvenus des générations futures que vous avez rendues possibles.
+Salle de lecture\ninterdit d'entrer
+Nouvelles vies pour de vieux os
+Élargissez ma vue
+Les lâches seront pourchats et tués
+Les clés du passage sont cachées profondément.
+# CSBCode.cpp, ShowHideInventory:7491
+Santé
+Vigueur
+Magie
+# _ResurrectReincarnateCancel:6794
+ ressuscité.
+ réincarné.
+# DBank::Initialize:378
+Guerrier
+Prêtre
+Magicien
+Nord
+Est
+Sud
+Ouest
+Force
+Dextérité
+Sagesse
+Vitalité
+Anti-magie
+Anti-feu
+Partie chargée, prête à jouer.
+Impossible de modifier le disque de Chaos Strikes Back !
+Ce n'est pas le disque principal !
+Partie sauvegardée introuvable !
+Impossible de sauvegarder !
+Impossible de formater le disque !
+C'est le disque de Chaos Strikes Back !
+C'est un disque de sauvegarde !
+Ce disque est protégé en écriture !
+Ce disque est illisible.
+Ce n'est pas le même jeu.
+Partie sauvegardée endommagée !
+Insérez le disque de sauvegarde dans ~
+Insérez le disque de Chaos Strikes Back dans ~
+Insérez un disque vierge dans ~
+Sauvegarde en cours…
+Chargement du jeu…
+Formatage du disque…
+Formater le disque quand même ?
+Aucun disque n'est présent dans ~ !
+Charger une partie sauvegardée
+Sauvegarder et jouer
+Sauve / quitte
+Formater la disquette
+Annuler
+# _TAG021028:10592
+Jouer au jeu
+Dump ASCII
+# _SelectSaveGame:9880
+Choisir le fichier du jeu
+# Character.cpp, DrawCharacterState:1431
+Charge
+# DescribeObject:3724
+pèse
+(épuisée)
+dommage
+distance
+dommage de tir
+charges
+empoisonné
+defense
+Rés perce
+potion de vigueur
+potion de magie
+potion de santé
+potion de force
+potion de dextérité
+potion de sagesse
+potion de vitalité
+potion anti poison
+potion bouclier
+potion de poison
+accroît influence et magie
+accroît la compétence de soin
+accroît la compétence de défense
+accroît la compétence de magicien
+augmente l'anti-magie
+(vide)
+(presque vide)
+(presque pleine)
+(pleine)
+direction du groupe
+consommable
+cassé
+maudit
+# CSBlinux.cpp, post_render:2466 (numéros de lignes utilisées dans le code)
+Oui
+Non
+Enregistrer les paramètres ?
+# CSBCode.cpp, DisplaySleepScreen:6585
+Réveil
+# Attack Names (extracted from graphics.dat 560, but it's binary and initializes multiple fields, it can't be read directly)
+Bloquer
+Coup de hache
+Souffler corne
+Lancer
+Coup de poing
+Coup de pied
+Cri de guerre
+Descendre
+Geler la vie
+Frapper
+Balancer
+Plonger
+Poignarder
+Parer
+Tacle
+Berzerk
+Boule de feu
+Dissiper
+Confusion
+Foudre
+Perturber
+Mêlée
+Invoquer
+Tailler
+Fendre
+Couper
+Étourdir
+Tirer
+Bouclier anti-sorts
+Bouclier anti-feu
+Cage de flux
+Soigner
+Calmer
+Lumière
+Fenêtre
+Cracher
+Brandir
+Lancer
+Fuse
+Piquer
+# Magic.cpp, SpellErrorMsg
+ a besoin de + d'entrainement avec ce sort de %s
+ bredouille un sort sans signification.
+ a besoin d'une fiole vide en main pour la potion.
+# SaveGame.cpp, _DisplaySaveMenu
+Prêt à sauver la partie
+# Mouse.cpp, _HandleMouseEvents
+Jeu en pause

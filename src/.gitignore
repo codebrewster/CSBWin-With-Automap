@@ -1,0 +1,10 @@
+*.P
+*.mak
+*.o
+CSB
+CMake*
+tags
+csb
+csb.exe
+.vimrc
+obj

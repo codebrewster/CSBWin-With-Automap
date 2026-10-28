@@ -1,0 +1,21 @@
+Dungeons/
+__pycache__/
+build/
+third_party/
+session-ses_*.md
+tools/
+
+# Local tool and runtime state
+.claude/
+.superpowers/
+docs/superpowers/
+imgui.ini
+Automap-Data/
+automap-walls-L*.csv
+automap-things-L*.csv
+
+# Savegames and game data
+*.dat
+
+# Release archives
+dist/

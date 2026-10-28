@@ -1,0 +1,48 @@
+Licensing status of CSBwin
+==========================
+
+This repository contains the source of CSBwin, a reverse-engineered port of
+the games Dungeon Master and Chaos Strikes Back. It is NOT free software and
+is NOT released under the GPL or any other open-source license.
+
+The original games, their artwork, names and game data structures are
+copyrighted and trademarked products of Software Heaven, Inc. (FTL Games) and
+remain the property of their respective owners. No copyright or trademark
+rights to that material are granted by this repository.
+
+CSBwin was created by Paul R. Stevens, who describes its status as follows:
+
+    I translated the game (stole it!!!) from FTL. I cannot claim that it is
+    mine to give away. I have always said that as far as I am concerned,
+    people can do with it what they please until FTL asks that they do
+    otherwise. If FTL complains I will stop distributing it and will attempt
+    to notify as many people as possible who might have it. For now, it is
+    stolen-ware.
+
+    From: Paul R. Stevens
+    To:   Erik Svanberg
+    Subject: CSB: COPYING
+
+    This game is really not Freeware. It is Stolenware.
+
+Wayne Holder (producer of DM/CSB, Software Heaven, Inc.) wrote:
+
+    Please be aware that DM and CSB are both copyrighted and trademarked
+    products that belong to Software Heaven, Inc (SHI). The FTL swoosh is
+    also a trademark of SHI as are the images in the program, the design of
+    the game data structures and numerous other aspects of the original
+    product. You and your friend have no right to convert this intellectual
+    property to GPL because it belongs to SHI.
+
+This repository therefore distributes the source under the same informal
+understanding: use it as you please, do not sell it, and be aware that the
+underlying game remains the intellectual property of its owners. Game data
+files (dungeons, graphics, sounds) are not included and must be obtained
+separately.
+
+The original CSBwin sources and binaries are published by Paul R. Stevens at
+https://www.dianneandpaul.net/CSBwin/ and described at
+http://dmweb.free.fr/community/clones/chaos-strikes-back-for-windows-and-linux-raspbian-macos-x-pocket-pc/
+
+If you are a rights holder and object to this distribution, please open an
+issue and it will be removed.
