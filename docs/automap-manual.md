@@ -122,8 +122,8 @@ decoration as a small square against the face it hangs on, with a strip along
 that face, so the stone around it still reads as wall and on a pillar you can
 tell which face carries it. The strip is bright for a switch the map knows
 about and quiet for everything else. Switched off, a lone decoration fills its
-wall square, the larger picture of earlier versions. The choice holds at every
-spoiler level.
+wall square, the larger picture of earlier versions, and keeps the strip on its
+face. The choice holds at every spoiler level.
 
 ## What the map remembers
 

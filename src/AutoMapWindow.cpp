@@ -1614,10 +1614,9 @@ static void DrawWallSide(const SDL_Rect &cell, const AutoMapCellRecord &wall, in
     if (wallSide.portrait != AUTOMAP_NO_PICTURE) DrawPortrait(area, wallSide.portrait);
   }
   if (drawsWriting) DrawWriting(area);
-  // The strip marks the face; only a switch the party knows about gets the bright one. A big
-  // plain decoration fills its tile and needs none.
-  if (!plainDecoration) Fill(StripAlong(cell, side), WALL_SIDE_LINE);
-  else if (smallWallDecorations) Fill(StripAlong(cell, side), FLAVOR_TICK);
+  // The strip marks the face, also beside a big tile: on a pillar it tells which face carries
+  // the decoration. Only a switch the party knows about gets the bright one.
+  Fill(StripAlong(cell, side), plainDecoration ? FLAVOR_TICK : WALL_SIDE_LINE);
 }
 
 // Faint always-show markers for the machinery the hover tooltip details: a hollow
@@ -4354,10 +4353,7 @@ static void DrawLegendSwatch(const SDL_Rect &box, LegendSwatch swatch)
     if (swatch == SW_WALL_FEATURE) Fill(Inset(area, 30), WALL_SIDE_LINE);
     if (swatch == SW_WALL_NOSPRITE) Fill(Inset(area, 30), WALL_FEATURE_MARKER);
     if (swatch == SW_WALL_WRITING) DrawWriting(area);
-    if (!isBig)
-    {
-      Fill(StripAlong(box, AutoMapNorth), swatch == SW_WALL_WRITING ? FLAVOR_TICK : WALL_SIDE_LINE);
-    }
+    Fill(StripAlong(box, AutoMapNorth), swatch == SW_WALL_WRITING ? FLAVOR_TICK : WALL_SIDE_LINE);
     break;
   }
   case SW_WALL_FLAVOUR:
