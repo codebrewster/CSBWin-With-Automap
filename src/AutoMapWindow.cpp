@@ -123,6 +123,8 @@ static int pointerStateOfTheGame = SDL_ENABLE;
 static int zoomSteps = 0;
 // One bit per AutoMapShown; everything by default
 static unsigned shownThings = (1u << AUTOMAP_SHOWN_COUNT) - 1;
+// Wall decorations in a square by their face (true) or as big tiles across the wall (false)
+static bool smallWallDecorations = true;
 
 // Set map_timing = 1 in the settings and the map reports its renderer, paint times,
 // rebuild counts and cache use to the terminal. Off by default, costs nothing. The flag
@@ -287,6 +289,7 @@ void AutoMapWindow_ReadSettings(void)
   // The hidden things are kept, so that whatever a later version adds starts out shown
   unsigned everything = (1u << AUTOMAP_SHOWN_COUNT) - 1;
   shownThings = everything & ~(unsigned)csb_get_config_int(SETTINGS_SECTION, "map_hide", 0);
+  smallWallDecorations = csb_get_config_int(SETTINGS_SECTION, "map_small_decorations", 1) != 0;
 }
 
 static void RememberPlacement(void)
@@ -306,6 +309,7 @@ void AutoMapWindow_WriteSettings(void)
   csb_set_config_int(SETTINGS_SECTION, "map_height", placement.height);
   unsigned everything = (1u << AUTOMAP_SHOWN_COUNT) - 1;
   csb_set_config_int(SETTINGS_SECTION, "map_hide", (int)(everything & ~shownThings));
+  csb_set_config_int(SETTINGS_SECTION, "map_small_decorations", smallWallDecorations ? 1 : 0);
 }
 
 static bool Shows(AutoMapShown what)
@@ -338,6 +342,19 @@ static unsigned ShownItemKinds(void)
     if (Shows(ShownEntryOfItemKind((AutoMapItemKind)kind))) kinds |= 1u << kind;
   }
   return kinds;
+}
+
+bool AutoMapWindow_SmallWallDecorations(void)
+{
+  return smallWallDecorations;
+}
+
+void AutoMapWindow_SetSmallWallDecorations(bool isSmall)
+{
+  smallWallDecorations = isSmall;
+  // The static layer is cached per draw list: a new serial paints it again
+  drawListSerial++;
+  isDirty = true;
 }
 
 bool AutoMapWindow_Shows(AutoMapShown what)
@@ -1506,13 +1523,13 @@ static int CountFeatures(const AutoMapCellRecord &wall)
   return count;
 }
 
-// At All every switch carries its lock ring and goods dot by its face, so the features keep the
-// look they had there: a wall with one feature shows it across the whole cell, with several each
-// gets the half on its own side. Below All a feature keeps to its square by the face.
+// Small decorations keep to their square by the face, so the stone around them still reads as
+// wall. Big ones take the tile: a wall with one feature shows it across the whole cell, with
+// several each gets the half on its own side (the player's choice, Misc > Map).
 static SDL_Rect FeatureArea(const SDL_Rect &cell, const AutoMapCellRecord &wall, int side,
                             bool allowWholeCell)
 {
-  if (shownDrawList.spoilers != AutoMapSpoilersAll) return FeatureSquare(cell, side);
+  if (smallWallDecorations) return FeatureSquare(cell, side);
   return CountFeatures(wall) == 1 && allowWholeCell ? cell : HalfTowards(cell, side);
 }
 
@@ -1597,8 +1614,10 @@ static void DrawWallSide(const SDL_Rect &cell, const AutoMapCellRecord &wall, in
     if (wallSide.portrait != AUTOMAP_NO_PICTURE) DrawPortrait(area, wallSide.portrait);
   }
   if (drawsWriting) DrawWriting(area);
-  // The strip marks the face; only a switch the party knows about gets the bright one
-  Fill(StripAlong(cell, side), plainDecoration ? FLAVOR_TICK : WALL_SIDE_LINE);
+  // The strip marks the face; only a switch the party knows about gets the bright one. A big
+  // plain decoration fills its tile and needs none.
+  if (!plainDecoration) Fill(StripAlong(cell, side), WALL_SIDE_LINE);
+  else if (smallWallDecorations) Fill(StripAlong(cell, side), FLAVOR_TICK);
 }
 
 // Faint always-show markers for the machinery the hover tooltip details: a hollow
@@ -4326,16 +4345,16 @@ static void DrawLegendSwatch(const SDL_Rect &box, LegendSwatch swatch)
   case SW_WALL_NOSPRITE:
   case SW_WALL_WRITING:
   {
-    // Drawn like the map draws them: below All on the north face beside its strip, at All
-    // across the whole cell
-    bool atAll = shownDrawList.spoilers == AutoMapSpoilersAll;
-    SDL_Rect area = atAll ? box : FeatureSquare(box, AutoMapNorth);
+    // Drawn like the map draws them: small on the north face beside its strip, big across the
+    // whole cell
+    bool isBig = !smallWallDecorations;
+    SDL_Rect area = isBig ? box : FeatureSquare(box, AutoMapNorth);
     Fill(box, WALL);
     Fill(Inset(area, 6), WALL_FEATURE_BACKDROP);
     if (swatch == SW_WALL_FEATURE) Fill(Inset(area, 30), WALL_SIDE_LINE);
     if (swatch == SW_WALL_NOSPRITE) Fill(Inset(area, 30), WALL_FEATURE_MARKER);
     if (swatch == SW_WALL_WRITING) DrawWriting(area);
-    if (!atAll)
+    if (!isBig)
     {
       Fill(StripAlong(box, AutoMapNorth), swatch == SW_WALL_WRITING ? FLAVOR_TICK : WALL_SIDE_LINE);
     }

@@ -117,11 +117,13 @@ decorations are the dressing only (grates, moss, flame pits, cracks,
 puddles): pressure pads and pits always show. Hidden things still turn up in
 the search and in the tooltip.
 
-Below All, a wall decoration sits in a small square against the face it hangs
-on, with a strip along that face, so the stone around it still reads as wall
-and on a pillar you can tell which face carries it. The strip is bright for a
-switch the map knows about and quiet for everything else. At All a lone
-decoration fills its wall square, beside its lock ring and goods dot.
+**Misc → Map → Small wall decorations** (on by default) draws a wall
+decoration as a small square against the face it hangs on, with a strip along
+that face, so the stone around it still reads as wall and on a pillar you can
+tell which face carries it. The strip is bright for a switch the map knows
+about and quiet for everything else. Switched off, a lone decoration fills its
+wall square, the larger picture of earlier versions. The choice holds at every
+spoiler level.
 
 ## What the map remembers
 
@@ -273,6 +275,7 @@ most of them for you; only `map_debug` needs editing by hand.
 | `map_follow` | `1` follows the party's level | `1` |
 | `map_level` | The level shown when not following the party | `0` |
 | `map_highlight` | `1` tints the explored cells in whole level vision | `0` |
+| `map_small_decorations` | `1` small wall decorations by their face, `0` big tiles | `1` |
 | `map_hide` | What **Show** leaves out, one bit each: 1 scrolls, 2 chests, 4 potions, 8 weapons, 16 armour, 32 other items, 64 monsters, 128 wall decorations, 256 wall writing, 512 floor decorations, 1024 food, 2048 keys | `0` |
 | `map_debug` | `1` turns on the testing aids below | `0` |
 

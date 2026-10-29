@@ -47,6 +47,10 @@ enum AutoMapShown
   AUTOMAP_SHOWN_COUNT
 };
 bool AutoMapWindow_Shows(AutoMapShown what);
+// Wall decorations as a small square by the face they hang on (the default), or as big tiles
+// across the wall; kept in csb.cfg as map_small_decorations
+bool AutoMapWindow_SmallWallDecorations(void);
+void AutoMapWindow_SetSmallWallDecorations(bool isSmall);
 void AutoMapWindow_SetShows(AutoMapShown what, bool isShown);
 
 // Whether map_timing was set while the settings were read

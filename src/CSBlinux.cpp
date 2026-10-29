@@ -2495,6 +2495,8 @@ void post_render() {
 		}
 		if (ImGui::MenuItem(_("Highlight explored"), NULL, AutoMap_ExploredIsHighlighted(), AutoMap_Vision() == 2))
 		    AutoMap_SetExploredHighlight(!AutoMap_ExploredIsHighlighted());
+		if (ImGui::MenuItem(_("Small wall decorations"), NULL, AutoMapWindow_SmallWallDecorations()))
+		    AutoMapWindow_SetSmallWallDecorations(!AutoMapWindow_SmallWallDecorations());
 		if (ImGui::BeginMenu(_("Show"))) {
 		    struct { AutoMapShown what; const char *label; bool separatorAfter; } rows[] = {
 			{AutoMapShowWeapons, _("Weapons"), false},
