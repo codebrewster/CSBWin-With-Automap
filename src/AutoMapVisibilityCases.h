@@ -18,6 +18,8 @@
 //     door (12,3)           seen
 //     alcove (4,18) N       seen        # what the alcove in the wall's north face holds
 //     tile (4,17)           seen        # the cell itself, floor or wall, as the fog shows it
+//     floor (5,2)           not seen    # the cell's floor picture: a puddle, moss, a pad
+//     portrait (10,3) S     seen        # a champion's face in its mirror, not just the frame
 //
 // A case without checks is a survey: the run prints what the frame drew instead.
 // Another save line starts a section of its own, with the cases below it drawn in that save.
@@ -29,7 +31,9 @@ enum AutoMapVisibilityThing
   AutoMapVisibilityMonster,
   AutoMapVisibilityDoor,
   AutoMapVisibilityAlcove,
-  AutoMapVisibilityTile
+  AutoMapVisibilityTile,
+  AutoMapVisibilityFloor,
+  AutoMapVisibilityPortrait
 };
 
 enum AutoMapVisibilityVerdict

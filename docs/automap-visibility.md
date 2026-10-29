@@ -155,6 +155,29 @@ Explored, live and Whole level; the spoiler levels are Seen, Learned and All.
   the party does not know: an unknown false wall reads as wall, a hidden pit as floor, an
   invisible teleporter or spinner as floor.
 
+### Floor pictures and stairs
+
+A puddle, moss, a grate or a pad is not the cell itself: exploring a cell means only that some
+strip of it was on screen, and the picture can lie behind the corner of a nearer wall. Stairs
+are treated the same way: the viewport interpreter's stairs draws are measured too
+(`AutoMap_AfterStairsDrawn`, the stairs rectangles in `Viewport.cpp`), and below All an
+explored stairs cell reads as floor until its stairs were noticed.
+
+- **Seen:** each floor picture the 3D view draws is measured like a wall decoration
+  (`AutoMap_AfterFloorDecorationDrawn`, scored with `AutoMapSight_DecorationIsSeen` in
+  `LearnFromViewportDraws`). Noticed in the light, its cell's seen-floor bit is set
+  (`AutoMapExplored::MarkFloorSeen`, via `AutoMapRecorder::SeeFloorPicture`); beyond the light
+  nothing is recorded. Footprints are not measured.
+- **Drawn:** below All, under Fog of war and Explored, live, an explored cell shows its floor
+  picture only once its seen-floor bit is set (`HideFloorPictureNotSeenYet`). A pit keeps its
+  picture: it is the cell. At All, and in Whole level, every explored or shown cell has its
+  picture.
+- **Measured:** the puddle on DM L0 (5,2), walking north up column 4: from (4,5), (4,4) and
+  (4,3) it is drawn but the wall on (5,3) leaves 0 of its pixels; from (4,2) facing east 207 of
+  217 contrast. The moss on (4,3) three ahead: 6 of 6, seen. The stairs on L0 (3,15): from
+  (4,12) facing south not drawn at all, from (4,13) only their edge (39 pixels, patch 29),
+  from (4,14) 147 of 205 contrast.
+
 ### Walls and the rock around a level
 
 - **Seen:** a wall cell is explored by rule A like a floor. The reader adds a ring of rock
@@ -194,10 +217,23 @@ decoration (switch, lever, ring, fountain, writing, alcove) needs that face to b
   If the wall is in the light, the face is marked seen (`AutoMapExplored::MarkFace`). If not,
   it is marked glimpsed (`MarkGlimpsedFace`). See `AutoMapRecorder::MarkDrawnDecoration`
   (`src/AutoMapRecorder.cpp:185`).
-- **Special faces:** the champion portrait straight ahead is seen as soon as it is drawn. Wall
+- **Wall text from afar:** the 3D view draws it as scribbles, thin strokes in the wall's own
+  greys. Those are noticed only from `AUTOMAP_SEEN_SCRIBBLE_PIXELS` (24) contrasting pixels
+  (`AutoMapSight_ScribblesAreSeen`), not by the rules above: the writing beside the first Vi
+  altar (DM L0 (5,17) west) is a fleck of 10 pixels three ahead and a thin line of 18 two ahead,
+  and shows with 72 one ahead.
+- **Special faces:** a champion's mirror is a decoration like any other: from afar the 3D view
+  draws its frame. The champion's face is drawn only on the wall straight ahead; that draw
+  marks the face seen and read (`AutoMap_OnPortraitFaceDrawn`), and below All the map shows
+  the face only on a read face, the frame elsewhere (`HideTextsNotReadYet`). A mirror whose
+  champion was taken draws no face. Wall
   text counts as read only when drawn as words, which happens straight ahead in the light
-  (`MarkTextRead`). An alcove's contents count as looked into when an item in it stands out
-  like a floor item (`SeeAlcoveContents`), or when the party put the item there itself. A
+  (`MarkTextRead`). Each item in an alcove counts as seen on its own when it stands out like a
+  floor item (`SeeAlcoveItem`), or when the party put it there itself; it is remembered in the
+  item memory on the wall cell. A face looked into as a whole (a clicked portrait, a map from
+  before items were told apart) shows everything in it. Measured on DM L2 (36,40) west: at light 0
+  cheese (patch 173) and bread (45) seen, an apple almost hidden (1) not; at light 4 the bread
+  barely (6); at light 5 the cheese alone (79). A
   switch or other wall actuator the party clicked and fired straight ahead marks its face
   seen, however dark it was drawn (`AutoMapRecorder::UseFaceAhead`).
 - **Drawn** (`SeenSides`, `src/AutoMapScene.cpp:111`; `HideWallSidesNotSeenYet`, `:145`):
@@ -311,7 +347,8 @@ Raising a threshold makes the map see *less*; lowering it makes it see *more*.
 | `ONE_BRIGHTNESS_STEP` | 100 | `src/AutoMapSight.cpp:249` | brightness unit: one step of the 0..7 scale | |
 | `AUTOMAP_CAMOUFLAGE_RADIUS` | 2 px | `src/AutoMapSight.h:128` | how far around a pixel the background is searched for its colour | |
 | `AUTOMAP_DECORATION_CONTRAST_STEPS` | 2 | `src/AutoMapSight.h:96` | brightness steps from the wall's median for a decoration pixel to contrast | |
-| `AUTOMAP_SEEN_DECORATION_PIXELS` | 8 | `src/AutoMapSight.h:97` | contrasting pixels for a decoration to be noticed | noticed ≥ 10, missed ≤ 4 |
+| `AUTOMAP_SEEN_DECORATION_PIXELS` | 8 | `src/AutoMapSight.h:97` | contrasting pixels for a decoration or floor picture to be noticed | noticed ≥ 10, missed ≤ 4 |
+| `AUTOMAP_SEEN_SCRIBBLE_PIXELS` | 24 | `src/AutoMapSight.h` | contrasting pixels for wall text drawn as scribbles | missed 10 and 18 (three and two ahead), noticed 72 (one ahead) |
 | `AUTOMAP_SEEN_DECORATION_PATCH` | 8 | `src/AutoMapSight.h:105` | standing-out patch for a decoration in dark palettes | red board 38..258; light 5 always ≤ 1 |
 | `AUTOMAP_SEEN_DECORATION_TINT_PATCH` | 4 | `src/AutoMapSight.h:114` | tinted standing-out patch a step off the wall | brown line (2,1,0) light 2: 6 seen; (1,0,0) light 3: 0 missed; grey line 7 at light 4 missed |
 | `AUTOMAP_SEEN_DECORATION_DARKENING` | 60 | `src/AutoMapSight.h:121` | mean brightness difference, in hundredths of a step, between a decoration and the wall it covers | slot of 86 px: light 3 72 seen, light 4 47 only when looked for, light 5 23 missed |
@@ -356,7 +393,10 @@ The rule *shapes* matter as much as the numbers. Each one is a single line you c
    the place (as the map's right-click menu title writes it), facing and light, and one check
    line per thing, `seen`, `glimpsed` or `not seen`. Name an item of a pile as the game shows
    it, `item (4,15) "Scroll" seen`, adding its corner (`NW`, `NE`, `SE`, `SW`) when two items
-   there share the name. An `at` line without checks is a survey:
+   there share the name. A floor picture is checked by its cell, `floor (5,2) not seen`, a
+   champion's face by its wall face, `portrait (14,2) S seen`, an item in an alcove by its face
+   and name, `alcove (36,40) W "BREAD" seen` (without a name: anything in it). An
+   `at` line without checks is a survey:
    `make -C src visibility-test` then prints a check line for every thing the frame drew, with
    the numbers it was judged by. Keep the lines that match your eye and correct the others; a
    corrected line fails until the scoring agrees. Each `save` line starts a section whose cases

@@ -106,7 +106,7 @@ struct AutoMapItem
 {
   AutoMapItem(void)
     : worldPicture(AUTOMAP_NO_PICTURE), hasIcon(false),
-      iconGraphic(AUTOMAP_NO_PICTURE), iconTile(0), nameIndex(-1)
+      iconGraphic(AUTOMAP_NO_PICTURE), iconTile(0), nameIndex(-1), descIndex(-1)
   {
   }
   int worldPicture;
@@ -117,6 +117,8 @@ struct AutoMapItem
   int iconTile;
   // Object type for the engine's object names, -1 when unknown
   int nameIndex;
+  // The object description (d.ObjDesc), -1 when unknown; tells the kind of item
+  int descIndex;
 };
 
 inline bool operator==(const AutoMapItem &left, const AutoMapItem &right)
@@ -149,11 +151,15 @@ struct AutoMapChestContents
 // side has not been seen yet, the way it hides the wall decoration itself.
 struct AutoMapAlcoveEntry
 {
-  AutoMapAlcoveEntry(void) : side(-1), scroll(AUTOMAP_NO_RECORD), inChest(AUTOMAP_NO_RECORD)
+  AutoMapAlcoveEntry(void)
+    : side(-1), record(AUTOMAP_NO_RECORD), scroll(AUTOMAP_NO_RECORD), inChest(AUTOMAP_NO_RECORD)
   {
   }
   AutoMapItem item;
   int side;
+  // The item's record. Below All an entry shows once this item was noticed in the alcove (an
+  // item in a chest: once the chest was), not because another item there was.
+  AutoMapRecordId record;
   // Scroll excerpt when the alcoved item is a scroll with text, "" otherwise.
   // Hides with the entry under fog.
   std::string text;
@@ -639,6 +645,37 @@ struct AutoMapItemStack
 
 // Groups identical items in first-seen order for the icon tooltip.
 std::vector<AutoMapItemStack> AutoMapScene_GroupItems(const std::vector<AutoMapItem> &items);
+
+// What kind of thing an item is, for the map's show/hide choices. Read from the object
+// description, whose ranges the engine fixes (data.cpp): scroll 0, chest 1, potions 2..22,
+// weapons 23..68, clothing 69..126, everything else from 127. Among those, the name index
+// (Objects.h) picks out food (Apple..Dragon Steak) and keys (Iron Key..Master Key).
+enum AutoMapItemKind
+{
+  AutoMapItemScroll,
+  AutoMapItemChest,
+  AutoMapItemPotion,
+  AutoMapItemWeapon,
+  AutoMapItemArmour,
+  AutoMapItemOther,
+  AutoMapItemFood,
+  AutoMapItemKey,
+  AUTOMAP_ITEM_KIND_COUNT
+};
+
+static const unsigned AUTOMAP_ALL_ITEM_KINDS = (1u << AUTOMAP_ITEM_KIND_COUNT) - 1;
+
+// Whether a floor picture is mere dressing (grate, moss, flame pit, crack, puddle) rather than a
+// pressure pad, for hiding floor decorations. Floor ornament n draws picture 247 + 6 n + 5 (the
+// nearest view, Code390e.cpp); 1, 4 and 7 are the square, round and tiny pads. Pits and
+// ornaments past the standard nine are not dressing.
+bool AutoMapScene_FloorPictureIsFlavour(int floorPicture);
+
+// An item of unknown type counts as Other
+AutoMapItemKind AutoMapScene_KindOfItem(const AutoMapItem &item);
+// The items whose kind bit (1 << kind) is set in kinds, in pile order
+std::vector<AutoMapItem> AutoMapScene_ItemsOfKinds(const std::vector<AutoMapItem> &items,
+                                                   unsigned kinds);
 
 struct AutoMapShownMonster
 {

@@ -111,8 +111,9 @@ $Total   = $CppSources.Count + $ImguiSources.Count + $SdlSoundSources.Count + $C
 
 # Timestamp of the newest header anywhere in the tree. An object older than this
 # is rebuilt, which is a cheap stand-in for real dependency tracking: it never
-# misses a header change, at the cost of a few needless rebuilds.
-$NewestHeader = Get-ChildItem $Src -Recurse -Include *.h, *.hpp -File |
+# misses a header change, at the cost of a few needless rebuilds. The .inl files
+# are included like headers (system.cpp includes LinuxFileName.inl).
+$NewestHeader = Get-ChildItem $Src -Recurse -Include *.h, *.hpp, *.inl -File |
     Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty LastWriteTime
 
 function Invoke-Compile {

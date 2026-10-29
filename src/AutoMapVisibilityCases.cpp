@@ -17,6 +17,8 @@ const char *AutoMapVisibilityCases_ThingName(AutoMapVisibilityThing thing)
   case AutoMapVisibilityDoor: return "door";
   case AutoMapVisibilityAlcove: return "alcove";
   case AutoMapVisibilityTile: return "tile";
+  case AutoMapVisibilityFloor: return "floor";
+  case AutoMapVisibilityPortrait: return "portrait";
   }
   return "?";
 }
@@ -46,11 +48,14 @@ std::string AutoMapVisibilityCases_CheckLine(const AutoMapVisibilityCheck &check
                                              AutoMapVisibilityVerdict verdict)
 {
   char line[96];
-  bool hasSide = check.thing == AutoMapVisibilityDecoration || check.thing == AutoMapVisibilityAlcove;
+  bool hasSide = check.thing == AutoMapVisibilityDecoration || check.thing == AutoMapVisibilityAlcove
+                 || check.thing == AutoMapVisibilityPortrait;
   if (hasSide)
   {
-    std::snprintf(line, sizeof(line), "%s (%d,%d) %s %s", AutoMapVisibilityCases_ThingName(check.thing),
-                  check.x, check.y, AutoMapVisibilityCases_SideName(check.side),
+    // An item in an alcove is named after the face, as on the floor after the tile
+    std::string name = check.itemName.empty() ? "" : " \"" + check.itemName + "\"";
+    std::snprintf(line, sizeof(line), "%s (%d,%d) %s%s %s", AutoMapVisibilityCases_ThingName(check.thing),
+                  check.x, check.y, AutoMapVisibilityCases_SideName(check.side), name.c_str(),
                   AutoMapVisibilityCases_VerdictName(verdict));
   }
   else
@@ -168,16 +173,22 @@ static bool ReadCheck(const std::string &thingName, std::istringstream &words,
   else if (thingName == "door") check->thing = AutoMapVisibilityDoor;
   else if (thingName == "alcove") check->thing = AutoMapVisibilityAlcove;
   else if (thingName == "tile") check->thing = AutoMapVisibilityTile;
+  else if (thingName == "floor") check->thing = AutoMapVisibilityFloor;
+  else if (thingName == "portrait") check->thing = AutoMapVisibilityPortrait;
   else return false;
   if (!ReadCell(words, &check->x, &check->y)) return false;
   check->side = -1;
   check->corner = -1;
   check->itemName.clear();
   if (check->thing == AutoMapVisibilityItem && !ReadItemPlace(words, check)) return false;
-  if (check->thing == AutoMapVisibilityDecoration || check->thing == AutoMapVisibilityAlcove)
+  if (check->thing == AutoMapVisibilityDecoration || check->thing == AutoMapVisibilityAlcove
+      || check->thing == AutoMapVisibilityPortrait)
   {
     std::string side;
     if (!(words >> side) || (check->side = SideOfName(side)) < 0) return false;
+    // One item of an alcove: alcove (36,40) W "BREAD" seen
+    if (check->thing == AutoMapVisibilityAlcove && !ReadItemPlace(words, check)) return false;
+    if (check->corner >= 0) return false;
   }
   if (!ReadVerdict(words, &check->expected)) return false;
   // Only what the map can show as something in the dark is glimpsed

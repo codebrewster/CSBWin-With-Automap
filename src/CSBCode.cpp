@@ -3704,7 +3704,7 @@ i16 DrawWallDecoration(i32 graphicOrdinal,
     if (LOCAL_22.b.x2 >= LOCAL_22.b.x1 && LOCAL_22.b.y2 >= LOCAL_22.b.y1)
     {
       AutoMap_AfterWallDecorationDrawn(relativePosition, LOCAL_22.b.x1, LOCAL_22.b.x2,
-                                       LOCAL_22.b.y1, LOCAL_22.b.y2);
+                                       LOCAL_22.b.y1, LOCAL_22.b.y2, drawingText);
     };
   };
   if (relativePosition == 12)
@@ -3713,7 +3713,7 @@ i16 DrawWallDecoration(i32 graphicOrdinal,
     championPortraitOrdinal--;
     if (D0W != 0)
     {
-      AutoMap_OnWallDecorationDrawn(relativePosition);
+      AutoMap_OnPortraitFaceDrawn(relativePosition);
       if (championPortraitOrdinal <= 23)
       {
         TAG0088b2(GetBasicGraphicAddress(26),  // Draws portrait
@@ -3994,6 +3994,10 @@ void DrawFloorDecorations(i32 graphicOrdinal,i32 relativeCell)
         srcOffsetX = fullWidth - partialWidth;
       };
     };
+    // Footprints (index 15) are no picture of the floor; custom graphics have none the map shows
+    bool measured = !extFloorDec && graphicIndex != 15;
+    BYTE_RECTANGLE &shownRect = pDisplayDesc->rect;
+    if (measured) AutoMap_BeforeFloorDecorationDrawn(shownRect.x1, shownRect.x2, shownRect.y1, shownRect.y2);
     TAG0088b2((ui8 *)A3,
               (ui8 *)d.pViewportBMP,
               (RectPos *)&pDisplayDesc->rect,//(RectPos *)&pDesc[relativeCell].rect, //&pFDD_A2->rect,
@@ -4003,6 +4007,10 @@ void DrawFloorDecorations(i32 graphicOrdinal,i32 relativeCell)
               pA3Desc->width,//pFDD_A2->width,
               112,
               10);
+    if (measured)
+    {
+      AutoMap_AfterFloorDecorationDrawn(relativeCell, shownRect.x1, shownRect.x2, shownRect.y1, shownRect.y2);
+    };
     if (extFloorDec) UI_free(pDesc);
     if (mirrorBitmap!=NULL) UI_free(mirrorBitmap);
   };
@@ -11601,6 +11609,19 @@ switch (mystate) { case _0_: goto return_0_;
 static i32 mystate;
 
 bool chaosDisplayed,skipLogo,skipToDungeon;
+// The Hint Oracle reads hcsb.dat and hcsb.hct, which come with Chaos Strikes Back only
+static bool HintFilesArePresent(void)
+{
+  const char *names[] = {"hcsb.dat", "hcsb.hct"};
+  for (int i = 0; i < 2; i++)
+  {
+    i16 file = OPEN(names[i], "rb");
+    if (file < 0) return false;
+    CLOSE(file);
+  };
+  return true;
+}
+
 RESTARTABLE _AskWhatToDo(void)
 {//(i32)
  if (resetWhatToDo) {
@@ -11619,6 +11640,8 @@ RESTARTABLE _AskWhatToDo(void)
     RESTART(8)
     RESTART(9)
     RESTART(10)
+    RESTART(11)
+    RESTART(12)
   END_RESTARTMAP
   Cleanup(false);
 #ifdef MIDI
@@ -11667,6 +11690,7 @@ RESTARTABLE _AskWhatToDo(void)
 #ifdef CSB_CLASSIC_MAC
   MacShowCursor();
 #endif
+askAgain:
   if (!skipToDungeon) {
       skipToDungeon = false;
       DoMenu(_1_,  //build the menu
@@ -11720,6 +11744,26 @@ RESTARTABLE _AskWhatToDo(void)
     ASSERT(0,"utility");
     break;
   case 3://"Hint"
+    if (!HintFilesArePresent())
+    {
+      // Without them the oracle fails inside code its porter thought unused. Centred on a
+      // cleared screen like the menu it replaces (an in-game message goes in the viewport).
+      DoMenu(_11_,
+             "THE HINT ORACLE NEEDS",
+             "HCSB.DAT AND HCSB.HCT",
+             "OK",
+             NULL,
+             NULL,
+             NULL,
+             1,
+             1,
+             0);
+      STShowCursor(HC50);
+      WaitForMenuSelect(_12_, 1, 1, 0, 0); // the centred menu's button
+      clear_xy();
+      STHideCursor(HC53);
+      goto askAgain;
+    };
     StartHint(_9_);
     UI_PushMessage(UIM_TERMINATE);
     WAITFORMESSAGE(_10_); //Should never come back!

@@ -185,6 +185,115 @@ static void UnseenFaceHidesItsDecorationUnderFog(void)
   CHECK(FindCell(after, 1, 0)->cell.wallSides[AutoMapSouth].picture == LEVER_PICTURE);
 }
 
+static const int PUDDLE_PICTURE = 247 + 6 * 8 + 5;
+
+// A puddle on (2,1): exploring the cell shows a strip of its floor, the puddle only once the 3D
+// view showed enough of it. Pits keep their picture, the cell itself; At all shows every one.
+static void AFloorPictureShowsOnceItWasNoticed(void)
+{
+  AutoMapLevelSnapshot corridor = Corridor();
+  At(&corridor, 2, 1).floorPicture = PUDDLE_PICTURE;
+  AutoMapExplored explored = Explored();
+  explored.Mark(AutoMapCell{LEVEL, 1, 1});
+  explored.Mark(AutoMapCell{LEVEL, 2, 1});
+  AutoMapVisibleCells visibleNow;
+  AutoMapKnowledge knowledge;
+  AutoMapFog fog = Fog(true, AutoMapSpoilersLearned, explored, visibleNow, &knowledge);
+  CHECK(FindCell(AutoMapScene_BuildDrawList(corridor, fog), 2, 1)->cell.floorPicture == AUTOMAP_NO_PICTURE);
+  AutoMapFog all = Fog(true, AutoMapSpoilersAll, explored, visibleNow, &knowledge);
+  CHECK(FindCell(AutoMapScene_BuildDrawList(corridor, all), 2, 1)->cell.floorPicture == PUDDLE_PICTURE);
+  AutoMapFog whole = Fog(false, AutoMapSpoilersLearned, explored, visibleNow, &knowledge);
+  CHECK(FindCell(AutoMapScene_BuildDrawList(corridor, whole), 2, 1)->cell.floorPicture == PUDDLE_PICTURE);
+  explored.MarkFloorSeen(AutoMapCell{LEVEL, 2, 1});
+  CHECK(FindCell(AutoMapScene_BuildDrawList(corridor, fog), 2, 1)->cell.floorPicture == PUDDLE_PICTURE);
+  AutoMapLevelSnapshot pit = Corridor();
+  At(&pit, 1, 1).kind = AutoMapCellPit;
+  At(&pit, 1, 1).floorPicture = 54;
+  CHECK(FindCell(AutoMapScene_BuildDrawList(pit, fog), 1, 1)->cell.floorPicture == 54);
+}
+
+// A champion's mirror on the lever wall's face: from afar the 3D view draws the frame only, the
+// face when the party stands before it, which marks the face read like wall text
+static void APortraitShowsItsFaceOnceSeenUpClose(void)
+{
+  AutoMapLevelSnapshot corridor = Corridor();
+  At(&corridor, 1, 0).wallSides[AutoMapSouth].portrait = 5;
+  AutoMapExplored explored = Explored();
+  explored.Mark(AutoMapCell{LEVEL, 1, 1});
+  explored.Mark(AutoMapCell{LEVEL, 1, 0});
+  explored.MarkFace(AutoMapCell{LEVEL, 1, 0}, AutoMapSouth);
+  AutoMapVisibleCells visibleNow;
+  AutoMapKnowledge knowledge;
+  AutoMapFog fog = Fog(true, AutoMapSpoilersLearned, explored, visibleNow, &knowledge);
+  AutoMapDrawList drawList = AutoMapScene_BuildDrawList(corridor, fog);
+  const AutoMapWallSide &fromAfar = FindCell(drawList, 1, 0)->cell.wallSides[AutoMapSouth];
+  CHECK(fromAfar.portrait == AUTOMAP_NO_PICTURE);
+  CHECK(fromAfar.picture == LEVER_PICTURE);
+  AutoMapFog all = Fog(true, AutoMapSpoilersAll, explored, visibleNow, &knowledge);
+  CHECK(FindCell(AutoMapScene_BuildDrawList(corridor, all), 1, 0)->cell.wallSides[AutoMapSouth].portrait == 5);
+  explored.MarkTextRead(AutoMapCell{LEVEL, 1, 0}, AutoMapSouth);
+  CHECK(FindCell(AutoMapScene_BuildDrawList(corridor, fog), 1, 0)->cell.wallSides[AutoMapSouth].portrait == 5);
+}
+
+// Two items in the alcove of the lever wall's face: only the one that stood out in the 3D view
+// shows. A face looked into as a whole (a portrait clicked, an older map) shows both.
+static void AnAlcoveShowsOnlyTheItemsNoticedInIt(void)
+{
+  AutoMapLevelSnapshot corridor = Corridor();
+  AutoMapCellRecord &wall = At(&corridor, 1, 0);
+  wall.wallSides[AutoMapSouth].isAlcove = true;
+  AutoMapAlcoveEntry cheese;
+  cheese.item.worldPicture = 360;
+  cheese.side = AutoMapSouth;
+  cheese.record = 0x000a0001u;
+  AutoMapAlcoveEntry bread = cheese;
+  bread.item.worldPicture = 361;
+  bread.record = 0x000a0002u;
+  wall.alcoveContents.push_back(cheese);
+  wall.alcoveContents.push_back(bread);
+  AutoMapExplored explored = Explored();
+  explored.Mark(AutoMapCell{LEVEL, 1, 1});
+  explored.Mark(AutoMapCell{LEVEL, 1, 0});
+  explored.MarkFace(AutoMapCell{LEVEL, 1, 0}, AutoMapSouth);
+  AutoMapItemMemory items;
+  // A description the level knows, so the cheese could be drawn even from memory alone
+  corridor.itemOfDescIndex[160] = cheese.item;
+  AutoMapRememberedItem seenCheese = {cheese.record, 160, AutoMapCell{LEVEL, 1, 0}, false};
+  items.See(seenCheese);
+  AutoMapVisibleCells visibleNow;
+  AutoMapKnowledge knowledge;
+  AutoMapFog fog = Fog(true, AutoMapSpoilersLearned, explored, visibleNow, &knowledge);
+  fog.items = &items;
+  AutoMapDrawList drawList = AutoMapScene_BuildDrawList(corridor, fog);
+  const std::vector<AutoMapAlcoveEntry> &shown = FindCell(drawList, 1, 0)->cell.alcoveContents;
+  CHECK(shown.size() == 1);
+  CHECK(shown.size() == 1 && shown[0].record == cheese.record);
+  // Remembered on the wall cell, the cheese is no floor item there
+  CHECK(FindCell(drawList, 1, 0)->cell.itemPictures.empty());
+  explored.MarkAlcoveLookedInto(AutoMapCell{LEVEL, 1, 0}, AutoMapSouth);
+  CHECK(FindCell(AutoMapScene_BuildDrawList(corridor, fog), 1, 0)->cell.alcoveContents.size() == 2);
+}
+
+// Stairs on (2,1): a strip of the tile past a wall corner explores it, the stairs show once the
+// 3D view showed enough of them; until then the tile reads as floor. At All they show.
+static void StairsShowOnceTheyWereNoticed(void)
+{
+  AutoMapLevelSnapshot corridor = Corridor();
+  At(&corridor, 2, 1).kind = AutoMapCellStairs;
+  At(&corridor, 2, 1).stairsLeadUp = true;
+  AutoMapExplored explored = Explored();
+  explored.Mark(AutoMapCell{LEVEL, 1, 1});
+  explored.Mark(AutoMapCell{LEVEL, 2, 1});
+  AutoMapVisibleCells visibleNow;
+  AutoMapKnowledge knowledge;
+  AutoMapFog fog = Fog(true, AutoMapSpoilersLearned, explored, visibleNow, &knowledge);
+  CHECK(FindCell(AutoMapScene_BuildDrawList(corridor, fog), 2, 1)->cell.kind == AutoMapCellFloor);
+  AutoMapFog all = Fog(true, AutoMapSpoilersAll, explored, visibleNow, &knowledge);
+  CHECK(FindCell(AutoMapScene_BuildDrawList(corridor, all), 2, 1)->cell.kind == AutoMapCellStairs);
+  explored.MarkFloorSeen(AutoMapCell{LEVEL, 2, 1});
+  CHECK(FindCell(AutoMapScene_BuildDrawList(corridor, fog), 2, 1)->cell.kind == AutoMapCellStairs);
+}
+
 static bool HasGlimpsedFace(const AutoMapDrawList &drawList, int x, int y, int side)
 {
   for (size_t i = 0; i < drawList.glimpsedFaces.size(); i++)
@@ -2125,6 +2234,10 @@ static void PlayerNoteLinesWording(void)
 
 void TestAutoMapSpoilers(void)
 {
+  AFloorPictureShowsOnceItWasNoticed();
+  APortraitShowsItsFaceOnceSeenUpClose();
+  AnAlcoveShowsOnlyTheItemsNoticedInIt();
+  StairsShowOnceTheyWereNoticed();
   BelowAllNoHitPointsAreShown();
   BelowAllEachHitMemberShowsItsDamage();
   AtAllHitPointsShowAndDamageDoesNot();

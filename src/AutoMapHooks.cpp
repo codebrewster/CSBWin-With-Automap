@@ -248,10 +248,12 @@ static void LearnActuatorAndWatchItsLinks(int actuator)
   recorder.LinkWatch().Start(id, AutoMapLevelReader_ReadLevel(d.partyLevel), d.Time);
 }
 
-void AutoMap_OnWallDecorationDrawn(int drawLocation)
+void AutoMap_OnPortraitFaceDrawn(int drawLocation)
 {
   if (AutoMapMeasure_IsRunning() || !PartyLevelIsLoaded()) return;
   recorder.MarkDrawnDecoration(drawLocation);
+  // Only drawn on the wall straight ahead, like the words of wall text: the same bit says so
+  recorder.MarkTextRead(drawLocation);
 }
 
 void AutoMap_OnWallTextRead(int drawLocation)
@@ -267,11 +269,55 @@ void AutoMap_BeforeWallDecorationDrawn(int drawLocation, int x1, int x2, int y1,
   AutoMapMeasure_BeforeBlit(x1, x2, y1, y2);
 }
 
-void AutoMap_AfterWallDecorationDrawn(int drawLocation, int x1, int x2, int y1, int y2)
+void AutoMap_AfterWallDecorationDrawn(int drawLocation, int x1, int x2, int y1, int y2, bool isText)
 {
   MeasuringTimer timer;
-  AutoMapDrawKey key = {AutoMapDrawDecoration, drawLocation, AUTOMAP_NO_RECORD, -1, -1, -1};
+  AutoMapDrawKey key = {AutoMapDrawDecoration, drawLocation, AUTOMAP_NO_RECORD,
+                        isText ? AUTOMAP_SCRIBBLES_DRAWN : -1, -1, -1};
   AutoMapMeasure_AfterBlit(key, x1, x2, y1, y2);
+}
+
+static void PositionOfViewCell(int cellNumber, int *x, int *y);
+
+void AutoMap_BeforeFloorDecorationDrawn(int x1, int x2, int y1, int y2)
+{
+  MeasuringTimer timer;
+  if (!PartyLevelIsLoaded()) return;
+  AutoMapMeasure_BeforeBlit(x1, x2, y1, y2);
+}
+
+// What lies on a floor, a picture or stairs, is measured as one thing of its cell
+static void AfterFloorThingDrawn(int viewCell, int x1, int x2, int y1, int y2)
+{
+  int x = -1, y = -1;
+  PositionOfViewCell(viewCell, &x, &y);
+  AutoMapDrawKey key = {AutoMapDrawFloorDecoration, -1, AUTOMAP_NO_RECORD, -1, x, y};
+  AutoMapMeasure_AfterBlit(key, x1, x2, y1, y2);
+}
+
+void AutoMap_AfterFloorDecorationDrawn(int relativeCell, int x1, int x2, int y1, int y2)
+{
+  MeasuringTimer timer;
+  if (!PartyLevelIsLoaded()) return;
+  // The view cell of each relative cell (AutoMapSight.h numbers them): left, centre, right of
+  // three ahead, then of two ahead and one ahead; the right ones (2, 5, 8) are drawn mirrored
+  static const int VIEW_CELL[9] = {7, 9, 8, 12, 14, 13, 15, 17, 16};
+  if (relativeCell < 0 || relativeCell > 8) return;
+  AfterFloorThingDrawn(VIEW_CELL[relativeCell], x1, x2, y1, y2);
+}
+
+void AutoMap_BeforeStairsDrawn(int x1, int x2, int y1, int y2)
+{
+  MeasuringTimer timer;
+  if (!PartyLevelIsLoaded()) return;
+  AutoMapMeasure_BeforeBlit(x1, x2, y1, y2);
+}
+
+void AutoMap_AfterStairsDrawn(int viewCell, int x1, int x2, int y1, int y2)
+{
+  MeasuringTimer timer;
+  if (!PartyLevelIsLoaded()) return;
+  AfterFloorThingDrawn(viewCell, x1, x2, y1, y2);
 }
 
 // The cell whose objects the 3D view draws now: DrawSingleObject does not know it
@@ -407,10 +453,12 @@ void AutoMap_OnItemDropped(int item, int x, int y)
 }
 
 // The party knows what it put into an alcove, seen or not, as it knows what it dropped
-void AutoMap_OnItemPutIntoAlcove(int x, int y)
+void AutoMap_OnItemPutIntoAlcove(int item, int x, int y)
 {
   if (!PartyLevelIsLoaded()) return;
-  recorder.PutIntoAlcove(x, y);
+  AutoMapFloorItemTag tag = AutoMapLevelReader_FloorItemTag(item);
+  if (tag.record == AUTOMAP_NO_RECORD) return;
+  recorder.PutIntoAlcove(x, y, tag.record, tag.descIndex);
 }
 
 // For the visibility tests: the numbers each draw of the last frame was judged by, taken while
@@ -474,7 +522,9 @@ static void LearnFromViewportDraws(void)
       KeepMeasurement(key, contrasting, kept, largestPatch, darkening, tintPatch);
       trace += entry;
       hasDecorations = true;
-      if (!AutoMapSight_DecorationIsSeen(view)) continue;
+      bool isSeen = key.descIndex == AUTOMAP_SCRIBBLES_DRAWN ? AutoMapSight_ScribblesAreSeen(view)
+                                                             : AutoMapSight_DecorationIsSeen(view);
+      if (!isSeen) continue;
       recorder.MarkDrawnDecoration(key.drawLocation);
     }
     else if (key.kind == AutoMapDrawItem)
@@ -499,7 +549,10 @@ static void LearnFromViewportDraws(void)
                     key.x + offsetX, key.y + offsetY, shape.visible, shape.drawn, shape.largestPatch);
       itemTrace += entry;
       KeepMeasurement(key, shape.visible, shape.drawn, shape.largestPatch);
-      if (shape.largestPatch >= AUTOMAP_SEEN_ITEM_PATCH) recorder.SeeAlcoveContents(key.x, key.y);
+      if (shape.largestPatch >= AUTOMAP_SEEN_ITEM_PATCH)
+      {
+        recorder.SeeAlcoveItem(key.x, key.y, key.record, key.descIndex);
+      }
     }
     else if (key.kind == AutoMapDrawMonster)
     {
@@ -512,6 +565,22 @@ static void LearnFromViewportDraws(void)
       monsterTrace += entry;
       KeepMeasurement(key, shape.visible, shape.drawn, shape.largestPatch);
       if (shape.visible >= AUTOMAP_SEEN_MONSTER_PIXELS) recorder.SeeMonster(key.record);
+    }
+    else if (key.kind == AutoMapDrawFloorDecoration)
+    {
+      // Judged like a wall decoration, against the floor it lies on: a puddle around the corner
+      // whose picture the nearer wall hides is not noticed although a strip of its floor shows
+      AutoMapDrawView view = AutoMapMeasure_ViewOf(key, palette);
+      int contrasting = AutoMapSight_ContrastingPixels(view, NULL);
+      int kept = (int)std::count(view.isDrawn.begin(), view.isDrawn.end(), true);
+      int largestPatch = AutoMapSight_ShapeOfItem(view, NULL).largestPatch;
+      int darkening = AutoMapSight_DecorationDarkening(view);
+      int tintPatch = AutoMapSight_DecorationTintPatch(view);
+      std::snprintf(entry, sizeof(entry), " floor@%d,%d:%d of %d patch %d", key.x + offsetX,
+                    key.y + offsetY, contrasting, kept, largestPatch);
+      itemTrace += entry;
+      KeepMeasurement(key, contrasting, kept, largestPatch, darkening, tintPatch);
+      if (AutoMapSight_DecorationIsSeen(view)) recorder.SeeFloorPicture(key.x, key.y);
     }
     else if (key.kind == AutoMapDrawDoor)
     {
@@ -1151,6 +1220,29 @@ static bool IsSameName(const std::string &left, const std::string &right)
 }
 
 // The records of the items on the check's tile it names: all of them without a name or corner
+// The items in the alcoves of the wall (x, y) of the party's level, in level coordinates; items in
+// a chest there are left out, the chest stands for them
+static std::vector<AutoMapAlcoveEntry> AlcoveItemsAt(int x, int y)
+{
+  std::vector<AutoMapAlcoveEntry> items;
+  AutoMapLevelSnapshot snapshot = AutoMapLevelReader_ReadLevel(d.partyLevel);
+  int sx = x + snapshot.boundaryMarginX;
+  int sy = y + snapshot.boundaryMarginY;
+  if (sx < 0 || sy < 0 || sx >= snapshot.width || sy >= snapshot.height) return items;
+  const std::vector<AutoMapAlcoveEntry> &held = snapshot.cells[(size_t)(sy * snapshot.width + sx)].alcoveContents;
+  for (size_t i = 0; i < held.size(); i++)
+  {
+    if (held[i].inChest == AUTOMAP_NO_RECORD) items.push_back(held[i]);
+  }
+  return items;
+}
+
+static std::string AlcoveItemName(const AutoMapAlcoveEntry &entry)
+{
+  const char *name = AutoMapLevelReader_ItemName(entry.item.nameIndex);
+  return name == NULL ? std::string() : std::string(name);
+}
+
 static std::vector<AutoMapRecordId> ItemRecordsOf(const AutoMapVisibilityCheck &check, int offsetX, int offsetY)
 {
   std::vector<AutoMapRecordId> records;
@@ -1201,11 +1293,17 @@ static bool ThingOfDraw(const AutoMapDrawKey &key, int offsetX, int offsetY, Aut
   }
   else if (key.kind == AutoMapDrawAlcoveItem)
   {
-    // The face SeeAlcoveContents marks: the one turned to the party
+    // The face SeeAlcoveItem marks: the one turned to the party; the item by its name
     thing->thing = AutoMapVisibilityAlcove;
     thing->side = AutoMapSight_SideOfSummaryIndex(d.partyFacing, 1);
+    std::vector<AutoMapAlcoveEntry> held = AlcoveItemsAt(x, y);
+    for (size_t i = 0; i < held.size(); i++)
+    {
+      if (held[i].record == key.record) thing->itemName = AlcoveItemName(held[i]);
+    }
   }
   else if (key.kind == AutoMapDrawDoor) thing->thing = AutoMapVisibilityDoor;
+  else if (key.kind == AutoMapDrawFloorDecoration) thing->thing = AutoMapVisibilityFloor;
   else if (key.kind == AutoMapDrawMonster)
   {
     thing->thing = AutoMapVisibilityMonster;
@@ -1247,9 +1345,38 @@ static bool VerdictOf(const AutoMapVisibilityCheck &check, int offsetX, int offs
     if (recorder.Explored().IsExplored(cell)) *verdict = AutoMapVisibilitySeen;
     return true;
   }
+  if (check.thing == AutoMapVisibilityPortrait)
+  {
+    if (recorder.Explored().TextIsRead(cell, check.side)) *verdict = AutoMapVisibilitySeen;
+    return true;
+  }
+  if (check.thing == AutoMapVisibilityFloor)
+  {
+    if (recorder.Explored().FloorIsSeen(cell)) *verdict = AutoMapVisibilitySeen;
+    return true;
+  }
   if (check.thing == AutoMapVisibilityAlcove)
   {
+    // Without a name the alcove is seen when anything in it is; looked into as a whole, all is
     if (recorder.Explored().AlcoveIsLookedInto(cell, check.side)) *verdict = AutoMapVisibilitySeen;
+    std::vector<AutoMapAlcoveEntry> held = AlcoveItemsAt(cell.x, cell.y);
+    std::vector<AutoMapRememberedItem> remembered = recorder.Items().ItemsOn(cell);
+    bool isNamed = false;
+    for (size_t i = 0; i < held.size(); i++)
+    {
+      if (held[i].side != check.side) continue;
+      if (!check.itemName.empty() && !IsSameName(AlcoveItemName(held[i]), check.itemName)) continue;
+      isNamed = true;
+      for (size_t r = 0; r < remembered.size(); r++)
+      {
+        if (remembered[r].record == held[i].record) *verdict = AutoMapVisibilitySeen;
+      }
+    }
+    if (!check.itemName.empty() && !isNamed)
+    {
+      *problem = "no such item in the alcove";
+      return false;
+    }
     return true;
   }
   if (check.thing == AutoMapVisibilityItem)
@@ -1306,11 +1433,17 @@ static std::string MeasurementsOf(const AutoMapVisibilityCheck &check, int offse
       bool isNamed = std::find(itemRecords.begin(), itemRecords.end(), measurement.key.record) != itemRecords.end();
       if (thing.thing != AutoMapVisibilityItem || thing.x != check.x || thing.y != check.y || !isNamed) continue;
     }
+    else if (check.thing == AutoMapVisibilityAlcove && check.itemName.empty())
+    {
+      // An unnamed alcove check takes the numbers of every item in it
+      if (thing.thing != check.thing || thing.x != check.x || thing.y != check.y || thing.side != check.side) continue;
+    }
     else if (!IsSameThing(thing, check)) continue;
     char entry[96];
     std::snprintf(entry, sizeof(entry), "%s%d %s of %d, patch %d", text.empty() ? "" : "; ",
                   measurement.counted,
-                  check.thing == AutoMapVisibilityDecoration ? "contrasting" : "standing out",
+                  check.thing == AutoMapVisibilityDecoration || check.thing == AutoMapVisibilityFloor
+                      ? "contrasting" : "standing out",
                   measurement.drawn, measurement.largestPatch);
     text += entry;
     if (measurement.darkening >= 0)

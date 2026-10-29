@@ -1054,6 +1054,16 @@ static void Process_SDL_KEYDOWN(void)
 	captured_key = csbMessage.p2;
 	return;
     }
+    // The map's level keys: with Ctrl always, plain only when the Keys window has not bound
+    // them (the default csb.cfg makes Page Up and Page Down pick up items)
+    bool keyIsBound = keyxlate.translate(csbMessage.p2, TYPESCAN) != 0
+	|| keyxlate.translate(csbMessage.p2, TYPEMSCANL) != 0
+	|| keyxlate.translate(csbMessage.p2, TYPEMSCANR) != 0;
+    if ((!keyIsBound || (evert.key.keysym.mod & KMOD_CTRL))
+	&& AutoMapWindow_HandleLevelKey(evert.key.keysym.sym)) {
+	AutoMapWindow_PaintIfDirty();
+	return;
+    }
     //printf("key press %x %x mod %x\n",csbMessage.p1,csbMessage.p2,evert.key.keysym.mod);
     //printf("Key 0x%x pressed @%d\n",(int)csbMessage.p1, (ui32)UI_GetSystemTime());
 //    if ((csbMessage.p1 == 3) && (prevp1 == 3))
@@ -1806,6 +1816,7 @@ static int get_def(int chIdx,int mask = 8) {
 }
 
 extern bool skipToSavenPlay,skipReady;
+extern bool saveRequestedFromMenu;
 // The only test so far directly on nostaliga_mode : recharging ability of vi altars in Mouse.cpp
 bool monsters_vulnerable_on_attack = true,nostalgia_mode = false,filter_dsa_door_sound,experimental_overlay;
 extern char *PlayfileName; // csbui.cpp
@@ -2367,7 +2378,8 @@ void post_render() {
 		open_dungeon = true;
 	    if (ImGui::MenuItem(_("Load saved game"),NULL,false,d.NumGraphic>0))
 		open = true;
-	    if (ImGui::MenuItem(_("Save game"),NULL,false,d.partyLevel != 255 && d.NumGraphic>0))
+	    if (ImGui::MenuItem(_("Save game"),NULL,false,d.partyLevel != 255 && d.NumGraphic>0
+				&& d.NumCharacter > 0 && d.PotentialCharacterOrdinal == 0))
 		save = true;
 	    // Limited playback in front the dungeon door
 	    if (ImGui::MenuItem(_("Playback.."), NULL,false,d.partyLevel == 255 && d.NumGraphic > 0))
@@ -2483,6 +2495,35 @@ void post_render() {
 		}
 		if (ImGui::MenuItem(_("Highlight explored"), NULL, AutoMap_ExploredIsHighlighted(), AutoMap_Vision() == 2))
 		    AutoMap_SetExploredHighlight(!AutoMap_ExploredIsHighlighted());
+		if (ImGui::BeginMenu(_("Show"))) {
+		    struct { AutoMapShown what; const char *label; bool separatorAfter; } rows[] = {
+			{AutoMapShowWeapons, _("Weapons"), false},
+			{AutoMapShowArmour, _("Armour"), false},
+			{AutoMapShowPotions, _("Potions"), false},
+			{AutoMapShowScrolls, _("Scrolls"), false},
+			{AutoMapShowChests, _("Chests"), false},
+			{AutoMapShowFood, _("Food"), false},
+			{AutoMapShowKeys, _("Keys"), false},
+			{AutoMapShowOtherItems, _("Other items"), true},
+			{AutoMapShowMonsters, _("Monsters"), true},
+			{AutoMapShowWallDecorations, _("Wall decorations"), false},
+			{AutoMapShowWallWriting, _("Wall writing"), false},
+			{AutoMapShowFloorDecorations, _("Floor decorations"), false},
+		    };
+		    size_t rowCount = sizeof(rows) / sizeof(rows[0]);
+		    if (ImGui::MenuItem(_("Show all")))
+			for (size_t i = 0; i < rowCount; i++) AutoMapWindow_SetShows(rows[i].what, true);
+		    if (ImGui::MenuItem(_("Hide all")))
+			for (size_t i = 0; i < rowCount; i++) AutoMapWindow_SetShows(rows[i].what, false);
+		    ImGui::Separator();
+		    for (size_t i = 0; i < rowCount; i++) {
+			bool shown = AutoMapWindow_Shows(rows[i].what);
+			if (ImGui::MenuItem(rows[i].label, NULL, shown))
+			    AutoMapWindow_SetShows(rows[i].what, !shown);
+			if (rows[i].separatorAfter) ImGui::Separator();
+		    }
+		    ImGui::EndMenu();
+		}
 		ImGui::EndMenu();
 	    }
 	    bool enabled = (ItemsRemainingOK
@@ -2613,7 +2654,10 @@ void post_render() {
 	opened_file = (char*)file_dialog.selected_path.c_str();
 	fb2_shown = false;
 	skipToSavenPlay = true;
-	DispatchCSB(st_DisplayDiskMenu);
+	// Calling DispatchCSB(st_DisplayDiskMenu) here pushed the disk menu on top of
+	// whatever the game was suspended in and crashed when it returned. Ask instead,
+	// like the disk button; the game opens the menu at its next safe point.
+	saveRequestedFromMenu = true;
     } else if (fb2_shown && !ImGui::IsPopupOpen(_("Save game"))) {
 	// cancel was pressed!
 	fb2_shown = false;

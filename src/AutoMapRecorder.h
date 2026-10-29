@@ -39,19 +39,21 @@ public:
   // The 3D view has put the words of a wall text on screen at drawLocation: read when the frame
   // is on the party's level and the light reaches that wall (its view cell is explored)
   void MarkTextRead(int drawLocation);
-  // An item in the alcove of the wall (x, y) of the party's level, which the 3D view draws only
-  // on the face towards the party, stood out in the finished frame: the wall is explored and its
-  // face seen and looked into, even beyond the light's reach
-  void SeeAlcoveContents(int x, int y);
-  // The party put an item into the alcove of the wall (x, y) of its level, on the face towards
-  // it: explored, the face seen and looked into, in the dark too
-  void PutIntoAlcove(int x, int y);
+  // An item (record, descIndex) in the alcove of the wall (x, y) of the party's level, which the
+  // 3D view draws only on the face towards the party, stood out in the finished frame: the wall
+  // is explored, its face seen and that item remembered there, even beyond the light's reach
+  void SeeAlcoveItem(int x, int y, AutoMapRecordId record, int descIndex);
+  // The party put the item (record, descIndex) into the alcove of the wall (x, y) of its level,
+  // on the face towards it: explored, the face seen and the item remembered there, in the dark too
+  void PutIntoAlcove(int x, int y, AutoMapRecordId record, int descIndex);
   // The party clicked the wall (x, y) of its level straight ahead and an actuator on the face
   // towards it fired: explored and the face seen, in the dark too
   void UseFaceAhead(int x, int y);
   // The picture of the door on (x, y) of the party's level stood out in the finished frame: the
   // cell is explored and its look seen, even beyond the light's reach
   void SeeDoor(int x, int y);
+  // The floor picture of (x, y) was drawn and noticed; beyond the light it tells nothing
+  void SeeFloorPicture(int x, int y);
   // A champion portrait on side of the wall (x, y) of the party's level was clicked and the
   // champion's inventory shown: what the portrait holds is known now
   void LookIntoPortrait(int x, int y, int side);

@@ -9,9 +9,9 @@ struct SUMMARIZEROOMDATA;
 
 // DrawViewport has summarised its 21 cells
 void AutoMap_OnViewportDrawn(const SUMMARIZEROOMDATA *cellsInView);
-// DrawWallDecoration has put a champion portrait straight ahead on screen at drawLocation
-// 0..12: noticed at once
-void AutoMap_OnWallDecorationDrawn(int drawLocation);
+// DrawWallDecoration has put a champion's face on screen at drawLocation 12, the wall straight
+// ahead (from afar it draws the frame only): noticed at once, and the map shows the face
+void AutoMap_OnPortraitFaceDrawn(int drawLocation);
 // DrawWallDecoration has put the words of a wall text on screen at drawLocation 12, the wall
 // straight ahead: noticed, and read if the light reaches it
 void AutoMap_OnWallTextRead(int drawLocation);
@@ -21,8 +21,20 @@ void AutoMap_BeforeWallDecorationDrawn(int drawLocation, int x1, int x2, int y1,
 // DrawViewport has finished the frame, just before it is shown and the viewport is cleared
 // to floor and ceiling for the next one
 void AutoMap_OnViewportFinished(void);
-// DrawWallDecoration has drawn a decoration into the viewport rectangle x1..x2, y1..y2
-void AutoMap_AfterWallDecorationDrawn(int drawLocation, int x1, int x2, int y1, int y2);
+// DrawWallDecoration has drawn a decoration into the viewport rectangle x1..x2, y1..y2; isText
+// when it is wall text drawn as scribbles
+void AutoMap_AfterWallDecorationDrawn(int drawLocation, int x1, int x2, int y1, int y2, bool isText);
+// DrawFloorDecorations is about to draw, and has drawn, the floor decoration of relativeCell
+// (0..8: three ahead left, centre, right, then two ahead, then one ahead) into the viewport
+// rectangle x1..x2, y1..y2; the floor picture counts as noticed only if enough of it is still
+// visible in the finished frame. Footprints are not reported.
+void AutoMap_BeforeFloorDecorationDrawn(int x1, int x2, int y1, int y2);
+void AutoMap_AfterFloorDecorationDrawn(int relativeCell, int x1, int x2, int y1, int y2);
+// The viewport interpreter is about to draw, and has drawn, stairs in viewCell (AutoMapSight.h
+// numbers the cells) into the viewport rectangle x1..x2, y1..y2; they count, like a floor
+// picture, only if enough of them is still visible in the finished frame
+void AutoMap_BeforeStairsDrawn(int x1, int x2, int y1, int y2);
+void AutoMap_AfterStairsDrawn(int viewCell, int x1, int x2, int y1, int y2);
 // The 3D view is about to draw the objects of (x, y) of the loaded level; the item draws that
 // follow lie there
 void AutoMap_OnObjectCellDrawn(int x, int y);
@@ -50,8 +62,8 @@ void AutoMap_AfterMonsterDrawn(int group, int x1, int x2, int y1, int y2);
 void AutoMap_OnItemPickedUp(int item);
 // The party put the item onto (x, y) of the loaded level: dropped it, or a champion died
 void AutoMap_OnItemDropped(int item, int x, int y);
-// The party put an item into the alcove of the wall (x, y) straight ahead of it
-void AutoMap_OnItemPutIntoAlcove(int x, int y);
+// The party put the item into the alcove of the wall (x, y) straight ahead of it
+void AutoMap_OnItemPutIntoAlcove(int item, int x, int y);
 // What the party finds out by playing. Records are RN::ConvertToInteger(); cells are on the
 // level the engine has loaded unless a level is given.
 // A wall actuator fired from a click of the party; itemMatched: the item in hand was the one

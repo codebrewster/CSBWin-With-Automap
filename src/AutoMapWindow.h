@@ -27,6 +27,28 @@ void AutoMapWindow_PaintIfDirty(void);
 // over the whole dungeon, not just the shown level
 void AutoMapWindow_RefreshSearch(void);
 
+// What the map draws, each switched on and off from the menu and kept in csb.cfg. Hidden things
+// still answer the search and the tooltip. The numbers are the bits of map_hide: new entries go
+// last so that a saved csb.cfg keeps its meaning.
+enum AutoMapShown
+{
+  AutoMapShowScrolls,
+  AutoMapShowChests,
+  AutoMapShowPotions,
+  AutoMapShowWeapons,
+  AutoMapShowArmour,
+  AutoMapShowOtherItems,
+  AutoMapShowMonsters,
+  AutoMapShowWallDecorations,
+  AutoMapShowWallWriting,
+  AutoMapShowFloorDecorations,
+  AutoMapShowFood,
+  AutoMapShowKeys,
+  AUTOMAP_SHOWN_COUNT
+};
+bool AutoMapWindow_Shows(AutoMapShown what);
+void AutoMapWindow_SetShows(AutoMapShown what, bool isShown);
+
 // Whether map_timing was set while the settings were read
 bool AutoMapWindow_TimingReportsOn(void);
 // Whether map_debug was set while the settings were read
@@ -39,6 +61,9 @@ bool AutoMapWindow_HandlePointerEvent(const SDL_Event &event);
 // Key and text input for the item search: true when the map consumed the event
 // and the game must not see it (search open, or '/' / Ctrl+F opening it)
 bool AutoMapWindow_HandleKeyEvent(const SDL_Event &event);
+// Page Up / Page Down show the level above or below; true when the key was one of them and
+// the map is open. The game window calls it too, for keys the player has not bound.
+bool AutoMapWindow_HandleLevelKey(SDL_Keycode sym);
 // The game hides the system pointer because it draws its own; over the map there is none
 bool AutoMapWindow_PointerIsOverMap(void);
 

@@ -681,6 +681,7 @@ static AutoMapItem ItemForDescriptor(int descIndex)
   i32 graphicClass = d.ObjDesc[descIndex].GraphicClass();
   if (graphicClass < 0 || graphicClass >= GRAPHIC_CLASS_COUNT) return item;
   item.worldPicture = FIRST_ITEM_PICTURE + (ui8)d.s5604[graphicClass].objectGraphicIndex;
+  item.descIndex = descIndex;
   int objType = d.ObjDesc[descIndex].objectType();
   int names = (int)(sizeof(d.ObjectNames) / sizeof(d.ObjectNames[0]));
   if (objType < 0 || objType >= names) return item;
@@ -1206,6 +1207,7 @@ static void ReadObjectsAt(int x, int y, AutoMapCellRecord *record, AutoMapLevelS
         AutoMapAlcoveEntry entry;
         entry.item = item;
         entry.side = side;
+        entry.record = RecordIdOf(object);
         if (type == dbSCROLL)
         {
           entry.text = ScrollTextExcerpt(object);
@@ -1226,6 +1228,7 @@ static void ReadObjectsAt(int x, int y, AutoMapCellRecord *record, AutoMapLevelS
             AutoMapAlcoveEntry heldEntry;
             heldEntry.item = heldItem;
             heldEntry.side = side;
+            heldEntry.record = RecordIdOf(held);
             heldEntry.inChest = RecordIdOf(object);
             if (heldType == dbSCROLL)
             {

@@ -901,7 +901,7 @@ void DropObject(i16 pos)
              NULL,
              NULL);
   AutoMap_OnItemDropped(objD4.ConvertToInteger(), D6W, D5W);
-  if (dropInAlcove != 0) AutoMap_OnItemPutIntoAlcove(D6W, D5W);
+  if (dropInAlcove != 0) AutoMap_OnItemPutIntoAlcove(objD4.ConvertToInteger(), D6W, D5W);
   if (dropInAlcove != 0)
   {
     if (d.FacingViAltar != 0)
@@ -1498,6 +1498,11 @@ int TranslateMouseClick(void)
 //*********************************************************
 //   TAG01a7b2
 i32 lastTime;
+// Set by the File menu's "Save game". The menu runs outside the game's state
+// machine, so like the disk button it only asks, and we raise DiskMenuNeeded.
+bool saveRequestedFromMenu;
+extern char *opened_file;
+extern bool skipToSavenPlay;
 RESTARTABLE _HandleMouseEvents(const i32 delta)
 {//(int)
   static bool thawCommand;
@@ -1519,6 +1524,21 @@ RESTARTABLE _HandleMouseEvents(const i32 delta)
   //pnt A3;
   result = 0;
   DiskMenuNeeded = false;
+
+  if (saveRequestedFromMenu && (delta != -999887))
+  {
+    saveRequestedFromMenu = false;
+    // Same test as the disk button (D6W == 140 below)
+    if (((ui16)d.NumCharacter > 0) && (d.PotentialCharacterOrdinal == 0))
+    {
+      DiskMenuNeeded = true;
+    }
+    else
+    {
+      opened_file = NULL;
+      skipToSavenPlay = false;
+    };
+  };
 
   if (delta == -999887)
   {

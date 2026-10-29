@@ -6,7 +6,7 @@
 #include <ostream>
 
 static const char FILE_TYPE_MARKER[4] = {'C', 'S', 'B', 'M'};
-static const uint32_t FORMAT_VERSION = 11;
+static const uint32_t FORMAT_VERSION = 12;
 static const uint32_t FIRST_VERSION_WITH_FACES = 2;
 static const uint32_t FIRST_VERSION_WITH_ITEMS = 3;
 static const uint32_t FIRST_VERSION_WITH_GLIMPSES = 4;
@@ -17,6 +17,7 @@ static const uint32_t FIRST_VERSION_WITH_CELL_LOOKS = 8;
 static const uint32_t FIRST_VERSION_WITH_NOTES = 9;
 static const uint32_t FIRST_VERSION_WITH_DAMAGE = 10;
 static const uint32_t FIRST_VERSION_WITH_RIMS = 11;
+static const uint32_t FIRST_VERSION_WITH_SEEN_FLOORS = 12;
 // A floor link source has no side: it is stored as all ones in its byte
 static const uint32_t NO_SIDE_BYTE = 0xff;
 // A missing picture is stored as all ones in its two bytes
@@ -82,6 +83,8 @@ void AutoMapFile::Write(std::ostream &out, const AutoMapExplored &explored,
     out.write((const char *)readTextBits.data(), (std::streamsize)readTextBits.size());
     const std::vector<uint8_t> &lookedIntoBits = explored.LookedIntoBitsOfLevel(level);
     out.write((const char *)lookedIntoBits.data(), (std::streamsize)lookedIntoBits.size());
+    const std::vector<uint8_t> &floorBits = explored.FloorBitsOfLevel(level);
+    out.write((const char *)floorBits.data(), (std::streamsize)floorBits.size());
     for (int set = 0; set < AUTOMAP_BIT_SET_COUNT; set++)
     {
       const std::vector<uint8_t> &rimBits = explored.RimBitsOfLevel(level, (AutoMapBitSet)set);
@@ -228,8 +231,18 @@ static AutoMapFileResult ReadLevel(std::istream &in, uint32_t version, int level
     if (!in.good()) return AutoMapFileIsTruncated;
   }
   explored->ReplaceLookedIntoBitsOfLevel(level, lookedIntoBits);
+  // Before version 12 floors were not measured; Read marks those of the explored cells
+  if (version >= FIRST_VERSION_WITH_SEEN_FLOORS)
+  {
+    std::vector<uint8_t> floorBits(AutoMapExplored::ByteCountFor(expectedSize));
+    in.read((char *)floorBits.data(), (std::streamsize)floorBits.size());
+    if (!in.good()) return AutoMapFileIsTruncated;
+    explored->ReplaceFloorBitsOfLevel(level, floorBits);
+  }
   if (version < FIRST_VERSION_WITH_RIMS) return AutoMapFileRead;
-  for (int set = 0; set < AUTOMAP_BIT_SET_COUNT; set++)
+  // The sets stored, in the order of AutoMapBitSet: version 11 had all but the seen floors
+  int storedSets = version >= FIRST_VERSION_WITH_SEEN_FLOORS ? AUTOMAP_BIT_SET_COUNT : AutoMapSeenFloorBits;
+  for (int set = 0; set < storedSets; set++)
   {
     std::vector<uint8_t> rimBits(AutoMapExplored::RimByteCountFor(expectedSize, (AutoMapBitSet)set));
     in.read((char *)rimBits.data(), (std::streamsize)rimBits.size());
@@ -481,6 +494,8 @@ AutoMapFileResult AutoMapFile::Read(std::istream &in, AutoMapExplored *explored,
   }
   // Before version 11 a painted rim cell was kept on the floor beside it
   if (version < FIRST_VERSION_WITH_RIMS) readCells.TakeRimMarksFromTheEdge();
+  // Before version 12 an explored cell showed its floor picture, so what was explored stays seen
+  if (version < FIRST_VERSION_WITH_SEEN_FLOORS) readCells.MarkFloorsOfExploredCells();
   AutoMapKnowledge readFacts;
   if (version >= FIRST_VERSION_WITH_FACES)
   {

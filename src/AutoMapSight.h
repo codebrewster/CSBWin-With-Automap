@@ -176,6 +176,13 @@ int AutoMapSight_DecorationDarkening(const AutoMapDrawView &view);
 // each at least a brightness step from the wall's median around them
 int AutoMapSight_DecorationTintPatch(const AutoMapDrawView &view);
 bool AutoMapSight_DecorationIsSeen(const AutoMapDrawView &view);
+// Wall text seen from afar or from the side is drawn as scribbles: thin strokes in the wall's own
+// greys, so only contrast tells them, and more of it than a ring needs. Measured in the game (DM
+// L0, the writing on (5,17) west, party facing south in full light): three ahead 10 contrasting
+// pixels, two ahead 18, each a thin fleck by the wall's edge, not noticed as writing; one ahead
+// 72, the scribbles show. 24 is what the lever and the torch holder start at, noticed at once.
+const int AUTOMAP_SEEN_SCRIBBLE_PIXELS = 24;
+bool AutoMapSight_ScribblesAreSeen(const AutoMapDrawView &view);
 
 // How far ahead the light on screen reaches. The 3D view shows three rows ahead; in a dark
 // palette the far ones are drawn black, and what is black has not been seen. Row r (F1, F2, F3)

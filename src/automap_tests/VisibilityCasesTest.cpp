@@ -123,7 +123,7 @@ static void AnItemIsNamedAndPlacedOnItsTile(void)
   CHECK(AutoMapVisibilityCases_CheckLine(torch, AutoMapVisibilitySeen) == "item (2,12) \"Torch\" seen");
 }
 
-// What an alcove holds, by the wall face it opens on: the map remembers it per face, not per item
+// What an alcove holds, by the wall face it opens on, and each item in it by its name
 static void AnAlcoveIsNamedByItsWallFace(void)
 {
   AutoMapVisibilityCases parsed;
@@ -142,7 +142,19 @@ static void AnAlcoveIsNamedByItsWallFace(void)
   // It needs its face; the map shows what an alcove holds or nothing, never a glimpse of it
   CHECK(FailsOnLine("save s\nat L0 (1,1) facing N light 0\n  alcove (1,1) seen\n", "line 3"));
   CHECK(FailsOnLine("save s\nat L0 (1,1) facing N light 0\n  alcove (1,1) N glimpsed\n", "line 3"));
-  CHECK(FailsOnLine("save s\nat L0 (1,1) facing N light 0\n  alcove (1,1) N \"Scroll\" seen\n", "line 3"));
+  CHECK(FailsOnLine("save s\nat L0 (1,1) facing N light 0\n  alcove (1,1) N NW \"Scroll\" seen\n", "line 3"));
+  AutoMapVisibilityCases named;
+  CHECK(AutoMapVisibilityCases_Parse("save s\nat L2 (35,40) facing E light 5\n"
+                                     "  alcove (36,40) W \"BREAD\" not seen\n",
+                                     &named, &error));
+  if (named.sections.size() == 1 && named.sections[0].cases.size() == 1
+      && named.sections[0].cases[0].checks.size() == 1)
+  {
+    const AutoMapVisibilityCheck &bread = named.sections[0].cases[0].checks[0];
+    CHECK(bread.thing == AutoMapVisibilityAlcove && bread.side == 3 && bread.itemName == "BREAD");
+    CHECK(AutoMapVisibilityCases_CheckLine(bread, AutoMapVisibilityNotSeen)
+          == "alcove (36,40) W \"BREAD\" not seen");
+  }
   AutoMapVisibilityCheck alcove = {9, AutoMapVisibilityAlcove, 4, 18, 0, -1, "", AutoMapVisibilitySeen};
   CHECK(AutoMapVisibilityCases_CheckLine(alcove, AutoMapVisibilityNotSeen) == "alcove (4,18) N not seen");
 }

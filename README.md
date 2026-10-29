@@ -53,18 +53,24 @@ Fedora 39); on older systems, build from source.
 - A second, resizable window that updates while you play, drawn with the
   original game artwork.
 - Zoom with the wheel, pan with the middle button, and step between levels with
-  the mouse side buttons. Rulers along the edges show the coordinates.
+  the mouse side buttons or Page Up/Down (Ctrl+Page Up/Down from the game
+  window). Rulers along the edges show the coordinates.
 - Follows the party's level, or stays locked on any level you pick.
 - Three vision modes: **fog of war**, **explored, live**, and **whole level**.
 - Remembers how each cell looked: doors open or shut, pits, floor and wall
   pictures, and the items left on the floor.
+- **Misc → Map → Show** hides what you do not want to see: weapons, armour,
+  potions, scrolls, chests, food, keys, other items, monsters, wall
+  decorations, writing or floor decorations.
 - Keeps its memory in a `.map` file beside each saved game.
 
 ### A map that does not spoil the dungeon
 
 - Three spoiler levels: **seen**, **learned** (the default), and **all**.
-- Wall decorations, switches and writing appear only once the 3D view has shown
-  enough of them to be noticed, and light matters.
+- Wall decorations, switches, writing, floor pictures, stairs and each item in
+  an alcove appear only once the 3D view has shown enough of them to be
+  noticed, and light matters. A champion's face shows once you stood before
+  the mirror.
 - Hidden machinery (pads, relays, hidden pits, teleporters, false walls) stays
   hidden until the party learns of it.
 - Chest contents need the chest opened; scroll text needs the scroll read.

@@ -74,15 +74,15 @@ version string at startup (`CSBlinux.cpp:1309`).
 The automap keeps its own state — the explored cells, the wall faces the 3D view has
 shown, the facts the party has learned, the floor items it has seen and how it last saw each cell — in a `.map` file alongside the save, not in
 the savegame itself. The glue is described in [automap.md](automap.md). Numbers are
-stored lowest byte first. Layout of version 11 (`AutoMapFile.h`):
+stored lowest byte first. Layout of version 12 (`AutoMapFile.h`):
 
 | Size | Content |
 |------|---------|
 | 4 bytes | `CSBM` |
-| 2 bytes | format version (11) |
+| 2 bytes | format version (12) |
 | 4 + 4 bytes | the two signature words of the saved game |
 | 2 bytes | number of levels |
-| per level | 1 byte width, 1 byte height, the explored bits (one per cell, row by row, lowest bit first), the seen-face bits (four per cell: bit `4 * (y * width + x) + side`, side 0 north, 1 east, 2 south, 3 west), the glimpsed-face bits (same layout: something seen on that face in the dark), the read-text bits (same layout: the wall text on that face read), the looked-into bits (same layout: the alcove in that face seen from in front, its contents drawn), then the same five sets for the rim, the ring of cells one step outside the level where the engine makes up rock: its cells in the order row above (corners included), row below, column left, column right, one explored bit and four face bits per cell |
+| per level | 1 byte width, 1 byte height, the explored bits (one per cell, row by row, lowest bit first), the seen-face bits (four per cell: bit `4 * (y * width + x) + side`, side 0 north, 1 east, 2 south, 3 west), the glimpsed-face bits (same layout: something seen on that face in the dark), the read-text bits (same layout: the wall text on that face read), the looked-into bits (same layout: the alcove in that face seen from in front, its contents drawn), the seen-floor bits (one per cell like the explored bits: the cell's floor picture noticed in the 3D view), then the same six sets for the rim, the ring of cells one step outside the level where the engine makes up rock: its cells in the order row above (corners included), row below, column left, column right, one explored bit, four bits for each face set and one seen-floor bit per cell |
 | 4 bytes | number of facts |
 | per fact | 1 byte kind, 4 bytes record, 1 byte level, 1 byte x, 1 byte y |
 | 4 bytes | number of remembered floor items |
@@ -102,8 +102,9 @@ face bits nor facts, version 2 no floor items and version 3 no glimpse byte (its
 seen), version 4 no glimpsed-face bits, version 5 no read-text bits (a seen face counts as
 read), version 6 no looked-into bits (a seen face counts as looked into) and version 7 no cell
 looks (the loader gives every explored cell the look it has now), version 8 no player notes,
-version 9 no damage and version 10 no rims (it kept a painted rim cell as the seen face of the
-floor beside it towards the rim; the loader turns those into explored rim cells); all are still read. A mark or link outside the dungeon, a side other than 0-3 or `0xff`, an open byte other than 0 or 1, or a link target on another level makes the whole file be ignored.
+version 9 no damage, version 10 no rims (it kept a painted rim cell as the seen face of the
+floor beside it towards the rim; the loader turns those into explored rim cells) and version 11
+no seen-floor bits (the loader counts the floor of every explored cell as seen); all are still read. A mark or link outside the dungeon, a side other than 0-3 or `0xff`, an open byte other than 0 or 1, or a link target on another level makes the whole file be ignored.
 
 ## Item and attack tables
 

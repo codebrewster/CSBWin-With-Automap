@@ -593,7 +593,10 @@ void TAG0088b2(ui8 *src,
   i32 iA4;
   i32 iA5;
   bool H1Valid;
-  if (src == d.pViewportBMP)
+  // Where the viewport goes on screen, for the TrueType text drawn over it. A copy inside the
+  // viewport (DoMenu's two- and four-button layouts) tells nothing about that and used to move
+  // the text of an in-game menu off its buttons.
+  if (src == d.pViewportBMP && dst != d.pViewportBMP)
       viewport_xy(dstPos->w.x1,dstPos->w.y1);
   static ui16 masks[] = {
       0x0000, 0x8000, 0xc000, 0xe000, 0xf000, 0xf800, 0xfc00, 0xfe00,

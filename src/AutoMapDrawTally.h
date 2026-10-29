@@ -10,11 +10,15 @@
 // the recorder can tell which of them the party noticed. Shut doors too.
 
 enum AutoMapDrawKind { AutoMapDrawDecoration, AutoMapDrawItem, AutoMapDrawMonster, AutoMapDrawAlcoveItem,
-                       AutoMapDrawDoor };
+                       AutoMapDrawDoor, AutoMapDrawFloorDecoration };
 
 // What was drawn: drawLocation for a decoration; record, descIndex and the cell (level
 // coordinates) for an item, the wall cell for an item in an alcove; record (the group) for a
-// monster; the cell for a door. Unused fields are -1 / AUTOMAP_NO_RECORD.
+// monster; the cell for a door or a floor decoration. A decoration's descIndex is
+// AUTOMAP_SCRIBBLES_DRAWN when it is wall text drawn as scribbles. Unused fields are -1 /
+// AUTOMAP_NO_RECORD.
+const int AUTOMAP_SCRIBBLES_DRAWN = 1;
+
 struct AutoMapDrawKey
 {
   AutoMapDrawKind kind;

@@ -6,6 +6,12 @@ static size_t BitIndex(const AutoMapLevelSize &size, const AutoMapCell &cell)
   return (size_t)cell.y * size.width + cell.x;
 }
 
+// Explored and seen floor have one bit per cell, the face sets one per side
+static bool HasOneBitPerCell(AutoMapBitSet set)
+{
+  return set == AutoMapExploredBits || set == AutoMapSeenFloorBits;
+}
+
 static bool IsInside(const AutoMapLevelSize &size, const AutoMapCell &cell)
 {
   return cell.x >= 0 && cell.x < size.width && cell.y >= 0 && cell.y < size.height;
@@ -37,7 +43,7 @@ size_t AutoMapExplored::ByteCountFor(const AutoMapLevelSize &size)
 
 size_t AutoMapExplored::RimByteCountFor(const AutoMapLevelSize &size, AutoMapBitSet set)
 {
-  size_t bitsPerCell = set == AutoMapExploredBits ? 1 : 4;
+  size_t bitsPerCell = HasOneBitPerCell(set) ? 1 : 4;
   return (RimCellCount(size) * bitsPerCell + 7) / 8;
 }
 
@@ -53,6 +59,7 @@ void AutoMapExplored::Reset(const std::vector<AutoMapLevelSize> &levelSizes)
     level.glimpsedFaceBits.assign(FaceByteCountFor(level.size), 0);
     level.readTextBits.assign(FaceByteCountFor(level.size), 0);
     level.lookedIntoBits.assign(FaceByteCountFor(level.size), 0);
+    level.floorBits.assign(ByteCountFor(level.size), 0);
     for (int set = 0; set < AUTOMAP_BIT_SET_COUNT; set++)
     {
       level.rimBits[set].assign(RimByteCountFor(level.size, (AutoMapBitSet)set), 0);
@@ -70,6 +77,7 @@ void AutoMapExplored::ForgetLevel(int level)
   forgotten.glimpsedFaceBits.assign(forgotten.glimpsedFaceBits.size(), 0);
   forgotten.readTextBits.assign(forgotten.readTextBits.size(), 0);
   forgotten.lookedIntoBits.assign(forgotten.lookedIntoBits.size(), 0);
+  forgotten.floorBits.assign(forgotten.floorBits.size(), 0);
   for (int set = 0; set < AUTOMAP_BIT_SET_COUNT; set++)
   {
     forgotten.rimBits[set].assign(forgotten.rimBits[set].size(), 0);
@@ -98,16 +106,16 @@ const std::vector<uint8_t> *AutoMapExplored::BitOf(const AutoMapCell &cell, Auto
                                                    int side, size_t *bit) const
 {
   if (!Contains(cell)) return NULL;
-  if (set != AutoMapExploredBits && (side < 0 || side > 3)) return NULL;
+  if (!HasOneBitPerCell(set) && (side < 0 || side > 3)) return NULL;
   const Level &level = m_levels[cell.level];
   size_t index;
   if (RimIndex(level.size, cell, &index))
   {
-    *bit = set == AutoMapExploredBits ? index : 4 * index + side;
+    *bit = HasOneBitPerCell(set) ? index : 4 * index + side;
     return &level.rimBits[set];
   }
   index = BitIndex(level.size, cell);
-  *bit = set == AutoMapExploredBits ? index : 4 * index + side;
+  *bit = HasOneBitPerCell(set) ? index : 4 * index + side;
   switch (set)
   {
   case AutoMapExploredBits:      return &level.bits;
@@ -115,6 +123,7 @@ const std::vector<uint8_t> *AutoMapExplored::BitOf(const AutoMapCell &cell, Auto
   case AutoMapGlimpsedFaceBits: return &level.glimpsedFaceBits;
   case AutoMapReadTextBits:     return &level.readTextBits;
   case AutoMapLookedIntoBits:    return &level.lookedIntoBits;
+  case AutoMapSeenFloorBits:     return &level.floorBits;
   }
   return NULL;
 }
@@ -281,6 +290,35 @@ const std::vector<uint8_t> &AutoMapExplored::LookedIntoBitsOfLevel(int level) co
 void AutoMapExplored::ReplaceLookedIntoBitsOfLevel(int level, const std::vector<uint8_t> &bits)
 {
   m_levels[level].lookedIntoBits = bits;
+}
+
+void AutoMapExplored::MarkFloorSeen(const AutoMapCell &cell)
+{
+  SetBit(cell, AutoMapSeenFloorBits, 0);
+}
+
+bool AutoMapExplored::FloorIsSeen(const AutoMapCell &cell) const
+{
+  return GetBit(cell, AutoMapSeenFloorBits, 0);
+}
+
+const std::vector<uint8_t> &AutoMapExplored::FloorBitsOfLevel(int level) const
+{
+  return m_levels[level].floorBits;
+}
+
+void AutoMapExplored::ReplaceFloorBitsOfLevel(int level, const std::vector<uint8_t> &bits)
+{
+  m_levels[level].floorBits = bits;
+}
+
+void AutoMapExplored::MarkFloorsOfExploredCells(void)
+{
+  for (size_t l = 0; l < m_levels.size(); l++)
+  {
+    m_levels[l].floorBits = m_levels[l].bits;
+    m_levels[l].rimBits[AutoMapSeenFloorBits] = m_levels[l].rimBits[AutoMapExploredBits];
+  }
 }
 
 void AutoMapExplored::MarkFacesTowardsExploredCells(void)

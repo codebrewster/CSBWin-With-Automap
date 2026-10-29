@@ -2299,6 +2299,33 @@ ui8 *StdBitmapPointers(i32 n)
   return d.pDoorBitmaps[0];
 }
 
+// The view cell (AutoMapSight.h numbers them) a stairs rectangle draws in, -1 for any other
+// rectangle: the automap measures the stairs like a floor picture
+static int StairsViewCellOfRectangle(i32 n)
+{
+  switch ((RECT_POINTERS)n)
+  {
+  case RECT_StdStairFacingDownRectangleF3L1: case RECT_StdStairFacingUpRectangleF3L1: return 7;
+  case RECT_StdStairFacingDownRectangleF3:   case RECT_StdStairFacingUpRectangleF3:   return 9;
+  case RECT_StdStairFacingDownRectangleF3R1: case RECT_StdStairFacingUpRectangleF3R1: return 8;
+  case RECT_StdStairFacingDownRectangleF2L1: case RECT_StdStairFacingUpRectangleF2L1:
+  case RECT_StdStairEdgeRectangleF2L1:                                                return 12;
+  case RECT_StdStairFacingDownRectangleF2:   case RECT_StdStairFacingUpRectangleF2:   return 14;
+  case RECT_StdStairFacingDownRectangleF2R1: case RECT_StdStairFacingUpRectangleF2R1:
+  case RECT_StdStairEdgeRectangleF2R1:                                                return 13;
+  case RECT_StdStairFacingDownRectangleF1L1: case RECT_StdStairFacingUpRectangleF1L1:
+  case RECT_StdStairEdgeUpRectangleF1L1:     case RECT_StdStairEdgeDownRectangleF1L1: return 15;
+  case RECT_StdStairFacingDownRectangleF1:   case RECT_StdStairFacingUpRectangleF1:   return 17;
+  case RECT_StdStairFacingDownRectangleF1R1: case RECT_StdStairFacingUpRectangleF1R1:
+  case RECT_StdStairEdgeUpRectangleF1R1:     case RECT_StdStairEdgeDownRectangleF1R1: return 16;
+  case RECT_StdStairFacingDownRectangleF0L:  case RECT_StdStairFacingUpRectangleF0L:
+  case RECT_StdStairEdgeRectangleF0L:                                                 return 18;
+  case RECT_StdStairFacingDownRectangleF0R:  case RECT_StdStairFacingUpRectangleF0R:
+  case RECT_StdStairEdgeRectangleF0R:                                                 return 19;
+  default: return -1;
+  }
+}
+
 RectPos *StdRectanglePointers(i32 n)
 {
   RECT_POINTERS r;
@@ -2909,14 +2936,25 @@ void Interpret(ui16 *code,
       //           &d.teleporterRectangles[pRoomData->relativeCellNumber],
       //           &d.wallRectangles[pRoomData->relativeCellNumber]);
     case StdMirrorGraphicToViewport:
-      pRectangle = StdRectanglePointers(pop());
-      graphicNum = pop();
-      MirrorGraphicToViewport(graphicNum,pRectangle);
-      break;
     case StdGraphicToViewport:
-      pRectangle = StdRectanglePointers(pop());
-      graphicNum = pop();
-      GraphicToViewport(graphicNum,pRectangle);
+      {
+        i32 rectangle = pop();
+        int stairsCell = StairsViewCellOfRectangle(rectangle);
+        pRectangle = StdRectanglePointers(rectangle);
+        graphicNum = pop();
+        bool measured = stairsCell >= 0 && pRectangle->b.uByte4 != 0;
+        if (measured)
+        {
+          AutoMap_BeforeStairsDrawn(pRectangle->b.x1, pRectangle->b.x2, pRectangle->b.y1, pRectangle->b.y2);
+        };
+        // P[-1] is the opcode this case was entered by
+        if (P[-1] == StdMirrorGraphicToViewport) MirrorGraphicToViewport(graphicNum,pRectangle);
+        else GraphicToViewport(graphicNum,pRectangle);
+        if (measured)
+        {
+          AutoMap_AfterStairsDrawn(stairsCell, pRectangle->b.x1, pRectangle->b.x2, pRectangle->b.y1, pRectangle->b.y2);
+        };
+      }
       break;
     case StdDrawRoomObjects: //(contents x y relativeCell drawOrder ... )
       drawOrder = pop();

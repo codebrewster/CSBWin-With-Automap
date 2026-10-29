@@ -6,8 +6,11 @@
 # An item is named as the game shows it ("Scroll", any case), with its corner of the tile
 # (NW, NE, SE, SW) when two items there share the name; without either, a check judges the
 # tile's items together: seen when any of them is.
-# An item in an alcove (the Vi altar too) is checked as the alcove, by its wall face: the map
-# remembers what an alcove holds per face, not per item.
+# An item in an alcove (the Vi altar too) is checked by its wall face and its name; the alcove
+# without a name is seen when anything in it is.
+# A portrait is a champion's face in its mirror, by its wall face; from afar only the frame shows.
+# A floor is the picture on a floor cell (a puddle, moss, a pad), seen once the 3D view showed
+# enough of it to be noticed: floor (5,2) not seen.
 # A tile is the cell itself, floor or wall, seen when the map's fog shows it: in the line of
 # sight and within the light's reach.
 # A save line starts a section: the cases below it, up to the next save line, are drawn in that
@@ -606,13 +609,62 @@ at L0 (4,17) facing N light 3
   tile (5,17) seen
 
 
+# Reported on the forum: the puddle at the dungeon's entrance showed two tiles before the
+# corner. A strip of its floor shows from column 4, the puddle itself only round the corner.
+at L0 (4,5) facing N light 0
+  tile (5,2) seen
+  floor (5,2) not seen                     # 0 contrasting of 0: the wall on (5,3) hides it
+at L0 (4,3) facing N light 0
+  floor (5,2) not seen                     # 0 contrasting of 0
+at L0 (4,2) facing E light 0
+  floor (5,2) seen                         # 207 contrasting of 217, patch 217
+at L0 (4,6) facing N light 0
+  floor (4,3) seen                         # the moss three ahead: 6 contrasting of 6, patch 6
+
+# Reported on the forum: the writing beside the first Vi altar showed too early. From afar it
+# is scribbles, a fleck by the wall's edge; one ahead they show.
+at L0 (4,14) facing S light 0
+  decoration (5,17) W not seen             # 10 contrasting of 10, patch 3
+at L0 (4,16) facing S light 0
+  decoration (5,17) W seen                 # 72 contrasting of 100, patch 8
+
+# Reported on the forum: the map showed a champion's face before the 3D view did. From afar the
+# view draws the mirror's frame; the face only on the wall straight ahead.
+at L0 (14,4) facing N light 0
+  decoration (14,2) S seen                 # the frame
+  portrait (14,2) S not seen
+at L0 (14,3) facing N light 0
+  portrait (14,2) S seen
+at L0 (10,4) facing N light 0
+  portrait (10,3) S not seen               # the party took this champion: the mirror is empty
+
+# Stairs are measured like a floor picture: from (4,12) the 3D view draws none of the stairs on
+# (3,15), though a strip of the tile shows; from (4,14) they are plain
+at L0 (4,12) facing S light 0
+  tile (3,15) seen
+  floor (3,15) not seen                    # not drawn
+at L0 (4,14) facing S light 0
+  floor (3,15) seen                        # 147 contrasting of 205
+
+# Each item in an alcove is noticed on its own: in the dark only the cheese stands out
+at L2 (35,40) facing E light 0
+  alcove (36,40) W "CHEESE" seen           # 177 standing out of 309, patch 173
+  alcove (36,40) W "BREAD" seen            # 46 standing out of 71, patch 45
+  alcove (36,40) W "APPLE" not seen        # 2 standing out of 2, patch 1
+at L2 (35,40) facing E light 4
+  alcove (36,40) W "BREAD" seen            # 10 standing out of 71, patch 6: barely
+at L2 (35,40) facing E light 5
+  alcove (36,40) W "CHEESE" seen           # 92 standing out of 309, patch 79
+  alcove (36,40) W "BREAD" not seen        # 0 standing out of 71
+  alcove (36,40) W seen                    # something in it is
+
 save csb-Visibility-test-02
 
 at L0 (4,15) facing S light 0
   decoration (3,18) N not seen             # 0 contrasting of 0, patch 0
   decoration (4,18) N seen                 # 293 contrasting of 736, patch 315
   alcove (4,18) N seen                     # 91 standing out of 96, patch 91
-  decoration (5,17) W seen                 # 18 contrasting of 22, patch 7
+  decoration (5,17) W not seen             # 18 contrasting of 22: scribbles two ahead, a thin line
   item (3,17) "SCROLL" not seen            # 0 standing out of 0, patch 0
   decoration (3,16) E seen                 # 42 contrasting of 86, patch 42
   tile (6,19) not seen
@@ -639,7 +691,7 @@ at L0 (4,15) facing S light 3
   decoration (3,18) N not seen             # 0 contrasting of 0, patch 0
   decoration (4,18) N seen                 # 11 contrasting of 736, patch 10
   alcove (4,18) N seen                     # 91 standing out of 96, patch 91
-  decoration (5,17) W seen                 # 18 contrasting of 22, patch 7
+  decoration (5,17) W not seen             # 18 contrasting of 22: scribbles two ahead, a thin line
   item (3,17) "SCROLL" not seen            # 0 standing out of 0, patch 0
   decoration (3,16) E seen                 # 2 contrasting of 86, patch 2
   tile (6,19) not seen

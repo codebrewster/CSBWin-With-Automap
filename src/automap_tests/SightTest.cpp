@@ -485,6 +485,22 @@ static void ADecorationIsSeenFromEightContrastingPixels(void)
   CHECK(!AutoMapSight_DecorationIsSeen(ViewOf(rows, 3)));
 }
 
+// Writing seen from the side is drawn as scribbles in the wall's own greys: a thin line two
+// ahead (18 contrasting pixels) reads as nothing, a decoration of as many pixels as a ring would
+static void ScribblesNeedTwentyFourContrastingPixels(void)
+{
+  // Each row of a view is as wide as the first: the wall rows match the drawn row
+  std::string twentyThree = Row('.', "K", 23, 3);
+  std::string wallOfTwentyThree = Row('.', "", 0, 23 + 3);
+  const char *fewer[] = {wallOfTwentyThree.c_str(), twentyThree.c_str(), wallOfTwentyThree.c_str()};
+  CHECK(AutoMapSight_DecorationIsSeen(ViewOf(fewer, 3)));
+  CHECK(!AutoMapSight_ScribblesAreSeen(ViewOf(fewer, 3)));
+  std::string twentyFour = Row('.', "K", 24, 3);
+  std::string wallOfTwentyFour = Row('.', "", 0, 24 + 3);
+  const char *enough[] = {wallOfTwentyFour.c_str(), twentyFour.c_str(), wallOfTwentyFour.c_str()};
+  CHECK(AutoMapSight_ScribblesAreSeen(ViewOf(enough, 3)));
+}
+
 // A square decoration of side pixels in colour board, drawn in the middle of a wall of colour wall
 static AutoMapDrawView BoardOnAWall(int side, short board, short wall)
 {
@@ -668,6 +684,7 @@ static void CutAtLightReachDropsTheFartherRows(void)
 
 void TestAutoMapSight(void)
 {
+  ScribblesNeedTwentyFourContrastingPixels();
   CellNumbersFollowTheViewportTables();
   ThePartyCellIsAlwaysVisible();
   TheViewSeesNoFarRowAndNoCellTwoTilesToTheSide();

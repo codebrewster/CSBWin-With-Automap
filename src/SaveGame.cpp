@@ -3,6 +3,7 @@
 #include "UI.h"
 
 #include <stdio.h>
+#include <string>
 
 //#include "Objects.h"
 #include "Dispatch.h"
@@ -828,6 +829,23 @@ struct BlockDesc
 // TAG001de4c
 extern char *opened_file;
 bool skipToSavenPlay;
+
+// A file picked in the File menu takes the place of SelectSaveGame's choice, so it needs the
+// backup name SelectSaveGame would have made: the name with BAK for its extension, as
+// csbgame.dat has csbgame.BAK. Without it a save after a new game rotated the old file to a NULL
+// name, which the Windows build cannot take (FILENAME::createThreeNames).
+static void UseFileOfTheMenu(void)
+{
+  static std::string backupName;
+  d.SaveGameFilename = opened_file;
+  backupName = opened_file;
+  size_t folder = backupName.find_last_of("/\\");
+  size_t dot = backupName.find_last_of('.');
+  if (dot != std::string::npos && (folder == std::string::npos || dot > folder)) backupName.erase(dot);
+  backupName += ".BAK";
+  d.Pointer22980 = (char *)backupName.c_str();
+  opened_file = NULL; // So that it doesn't loop!
+}
 RESTARTABLE _DisplayDiskMenu(void)
 {//void
   static dReg D0, D1, D5, D6, D7;
@@ -933,8 +951,7 @@ RESTARTABLE _DisplayDiskMenu(void)
       if (!opened_file) {
 	  SelectSaveGame(_5_,0, 0, 1); //TAG0204bc
       } else {
-	  d.SaveGameFilename = opened_file;
-	  opened_file = NULL; // So that it doesn't loop!
+	  UseFileOfTheMenu();
       }
       STHideCursor(HC57);
       D7W = 1;
@@ -1714,8 +1731,7 @@ tag01ec6a:
   if (!opened_file) {
       SelectSaveGame(_9_, 1, 1, 1); //TAG0204bc
   } else {
-      d.SaveGameFilename = opened_file;
-      opened_file = NULL; // So that it doesn't loop!
+      UseFileOfTheMenu();
   }
   STHideCursor(HC33);
   d.Word22972 = 1;

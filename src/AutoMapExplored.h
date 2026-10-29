@@ -18,17 +18,18 @@ struct AutoMapCell
   int y;
 };
 
-// The bit sets kept per cell: explored (one bit) and the four sets of faces (four bits, one per
-// side)
+// The bit sets kept per cell: explored and seen floor (one bit each) and the four sets of faces
+// (four bits, one per side). New sets go last: the .map file stores the rims in this order.
 enum AutoMapBitSet
 {
   AutoMapExploredBits,
   AutoMapSeenFaceBits,
   AutoMapGlimpsedFaceBits,
   AutoMapReadTextBits,
-  AutoMapLookedIntoBits
+  AutoMapLookedIntoBits,
+  AutoMapSeenFloorBits
 };
-const int AUTOMAP_BIT_SET_COUNT = 5;
+const int AUTOMAP_BIT_SET_COUNT = 6;
 
 // Remembers which cells of each dungeon level the party has seen: one bit per cell. Every level
 // also has a rim, the ring of cells one step outside it: the rock the engine makes up there when
@@ -78,12 +79,23 @@ public:
   bool AlcoveIsLookedInto(const AutoMapCell &cell, int side) const;
   const std::vector<uint8_t> &LookedIntoBitsOfLevel(int level) const;
   void ReplaceLookedIntoBitsOfLevel(int level, const std::vector<uint8_t> &bits);
+  // Cells whose floor picture (a puddle, moss, a pad) the 3D view has shown so that it was
+  // noticed: exploring a cell only means some strip of it was on screen. One bit per cell.
+  void MarkFloorSeen(const AutoMapCell &cell);
+  bool FloorIsSeen(const AutoMapCell &cell) const;
+  const std::vector<uint8_t> &FloorBitsOfLevel(int level) const;
+  void ReplaceFloorBitsOfLevel(int level, const std::vector<uint8_t> &bits);
+  // Every explored cell's floor counts as seen, rims included: the rule of files from before
+  // floors were measured
+  void MarkFloorsOfExploredCells(void);
+
   // Marks every face whose neighbour on that side is explored: the rule of version-1 files
   void MarkFacesTowardsExploredCells(void);
 
   // The rim's bits of one set: the row above the level, corners included, then the row below,
   // then the column left of it and the column right, top to bottom; per cell 1 bit for
-  // AutoMapExploredBits, 4 (one per side) for the others, lowest bit first
+  // AutoMapExploredBits and AutoMapSeenFloorBits, 4 (one per side) for the others, lowest bit
+  // first
   const std::vector<uint8_t> &RimBitsOfLevel(int level, AutoMapBitSet set) const;
   void ReplaceRimBitsOfLevel(int level, AutoMapBitSet set, const std::vector<uint8_t> &bits);
   static size_t RimByteCountFor(const AutoMapLevelSize &size, AutoMapBitSet set);
@@ -100,6 +112,7 @@ private:
     std::vector<uint8_t> glimpsedFaceBits;
     std::vector<uint8_t> readTextBits;
     std::vector<uint8_t> lookedIntoBits;
+    std::vector<uint8_t> floorBits;
     std::vector<uint8_t> rimBits[AUTOMAP_BIT_SET_COUNT];
   };
   bool Contains(const AutoMapCell &cell) const;

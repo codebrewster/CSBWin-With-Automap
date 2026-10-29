@@ -365,6 +365,11 @@ bool AutoMapSight_DecorationIsSeen(const AutoMapDrawView &view)
          && AutoMapSight_DecorationDarkening(view) >= AUTOMAP_SEEN_DECORATION_DARKENING;
 }
 
+bool AutoMapSight_ScribblesAreSeen(const AutoMapDrawView &view)
+{
+  return AutoMapSight_ContrastingPixels(view, NULL) >= AUTOMAP_SEEN_SCRIBBLE_PIXELS;
+}
+
 static bool StandsOut(const AutoMapDrawView &view, int x, int y)
 {
   short colour = view.screen[(size_t)(y * view.width + x)];

@@ -62,6 +62,8 @@ The **Misc → Map** menu also holds the display settings:
 | Middle-drag | Pans the view; the map stops following the party |
 | Middle-click | Centres the view on the party again and follows it |
 | Mouse side buttons | Back goes down a level, forward goes up, centred on the tile under the pointer |
+| Page Down / Page Up | Goes down / up a level over the middle of the view |
+| Ctrl+Page Down / Ctrl+Page Up | The same from the game window, where the plain keys pick up items in the default `csb.cfg` |
 | **Misc → Map → Show level** | Picks a level, or follows the party again |
 
 The side buttons are the quickest way to follow stairs and pits between
@@ -90,12 +92,36 @@ game does:
 
 - Wall decorations, switches, alcoves and writing appear only after the 3D
   view has shown enough of them to be noticed. Light matters: in the dark,
-  less is noticed.
+  less is noticed. Writing seen from afar is only scribbles, so it appears
+  when you are close.
+- The same goes for floor pictures (puddles, moss, pads) and stairs: a tile
+  you only glimpsed past a corner shows as plain floor until you see what lies
+  on it.
+- Each item in an alcove appears on its own once it stood out; a cheese in
+  the dark does not give away the bread beside it.
+- A champion's mirror shows only its frame until you have stood in front of
+  it, as the 3D view does.
 - Hidden machinery (pads, relays, counters, generators, hidden pits,
   teleporters, false walls) stays hidden until the party learns of it.
 - A chest's contents need the chest opened, and a scroll's text needs the
   scroll read.
 - A breakable door looks like any other door.
+
+### What the map draws
+
+**Misc → Map → Show** switches kinds of things on and off: weapons, armour,
+potions, scrolls, chests, food, keys, other items, monsters, wall decorations, wall
+writing and floor decorations. **Show all** and **Hide all** set them all at
+once. Hiding an item kind also hides it in alcoves and on altars. Floor
+decorations are the dressing only (grates, moss, flame pits, cracks,
+puddles): pressure pads and pits always show. Hidden things still turn up in
+the search and in the tooltip.
+
+Below All, a wall decoration sits in a small square against the face it hangs
+on, with a strip along that face, so the stone around it still reads as wall
+and on a pillar you can tell which face carries it. The strip is bright for a
+switch the map knows about and quiet for everything else. At All a lone
+decoration fills its wall square, beside its lock ring and goods dot.
 
 ## What the map remembers
 
@@ -247,6 +273,7 @@ most of them for you; only `map_debug` needs editing by hand.
 | `map_follow` | `1` follows the party's level | `1` |
 | `map_level` | The level shown when not following the party | `0` |
 | `map_highlight` | `1` tints the explored cells in whole level vision | `0` |
+| `map_hide` | What **Show** leaves out, one bit each: 1 scrolls, 2 chests, 4 potions, 8 weapons, 16 armour, 32 other items, 64 monsters, 128 wall decorations, 256 wall writing, 512 floor decorations, 1024 food, 2048 keys | `0` |
 | `map_debug` | `1` turns on the testing aids below | `0` |
 
 ## Testing aids (debug mode)

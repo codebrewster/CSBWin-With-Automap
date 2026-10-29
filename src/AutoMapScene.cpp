@@ -122,24 +122,58 @@ static void SeenSides(const AutoMapCell &wallCell, const AutoMapCellRecord &reco
   }
 }
 
-// Seen from afar, writing is scribbles: the words show once the party has read them. Seen from
-// the side, an alcove shows no contents: they show once the party has looked into it.
+// Seen from afar, writing is scribbles: the words show once the party has read them. A
+// champion's mirror is likewise an empty frame: the face shows once the party stood before it,
+// which marks the face read (AutoMap_OnPortraitFaceDrawn). Seen from the side, an alcove shows no
+// contents: each item shows once it was noticed in it, all of them once the face was looked into
+// as a whole (a clicked portrait, a map from before items were told apart).
+// An item in an alcove the 3D view showed so that it was noticed; an item in a chest there goes
+// with its chest, whose contents HideItemSecrets keeps hidden until it was opened
+static bool AlcoveItemIsNoticed(const AutoMapCell &wallCell, const AutoMapFog &fog,
+                                const AutoMapAlcoveEntry &entry)
+{
+  if (fog.items == NULL) return false;
+  AutoMapRecordId drawn = entry.inChest != AUTOMAP_NO_RECORD ? entry.inChest : entry.record;
+  if (drawn == AUTOMAP_NO_RECORD) return false;
+  std::vector<AutoMapRememberedItem> remembered = fog.items->ItemsOn(wallCell);
+  for (size_t i = 0; i < remembered.size(); i++)
+  {
+    if (remembered[i].record == drawn) return true;
+  }
+  return false;
+}
+
 static void HideTextsNotReadYet(const AutoMapCell &wallCell, const AutoMapFog &fog, AutoMapCellRecord *record)
 {
   for (int side = 0; side < AUTOMAP_SIDE_COUNT; side++)
   {
-    if (!fog.explored->TextIsRead(wallCell, side)) record->wallSides[side].text.clear();
+    if (fog.explored->TextIsRead(wallCell, side)) continue;
+    record->wallSides[side].text.clear();
+    record->wallSides[side].portrait = AUTOMAP_NO_PICTURE;
   }
   std::vector<AutoMapAlcoveEntry> lookedAt;
   for (size_t i = 0; i < record->alcoveContents.size(); i++)
   {
     int side = record->alcoveContents[i].side;
-    if (side < 0 || side >= AUTOMAP_SIDE_COUNT || fog.explored->AlcoveIsLookedInto(wallCell, side))
+    if (side < 0 || side >= AUTOMAP_SIDE_COUNT || fog.explored->AlcoveIsLookedInto(wallCell, side)
+        || AlcoveItemIsNoticed(wallCell, fog, record->alcoveContents[i]))
     {
       lookedAt.push_back(record->alcoveContents[i]);
     }
   }
   record->alcoveContents = lookedAt;
+}
+
+// An explored cell only had some strip of it on screen: its floor picture (a puddle, moss, a
+// pad) and its stairs show once the 3D view showed enough of them; until then stairs read as
+// floor. A pit's picture is the cell itself and stays.
+static void HideFloorPictureNotSeenYet(const AutoMapCell &floorCell, const AutoMapFog &fog,
+                                       AutoMapCellRecord *record)
+{
+  if (record->kind == AutoMapCellPit) return;
+  if (fog.explored->FloorIsSeen(floorCell)) return;
+  record->floorPicture = AUTOMAP_NO_PICTURE;
+  if (record->kind == AutoMapCellStairs) record->kind = AutoMapCellFloor;
 }
 
 // Whole level shows what the party would see walking past every face. The 3D view draws the
@@ -205,6 +239,54 @@ static AutoMapShownCell ShowCell(const AutoMapCell &position, const AutoMapCellR
   shown.playerPit = -1;
   if (shown.hasMoreItems) shown.cell.itemPictures.resize(AUTOMAP_MOST_ITEMS_SHOWN);
   return shown;
+}
+
+bool AutoMapScene_FloorPictureIsFlavour(int floorPicture)
+{
+  static const int FIRST_ORNAMENT_PICTURE = 247;
+  static const int VIEWS_PER_ORNAMENT = 6;
+  static const int NEAREST_VIEW = 5;
+  static const int STANDARD_ORNAMENTS = 9;
+  int offset = floorPicture - FIRST_ORNAMENT_PICTURE - NEAREST_VIEW;
+  if (offset < 0 || offset % VIEWS_PER_ORNAMENT != 0) return false;
+  int ornament = offset / VIEWS_PER_ORNAMENT;
+  if (ornament >= STANDARD_ORNAMENTS) return false;
+  return ornament != 1 && ornament != 4 && ornament != 7;
+}
+
+AutoMapItemKind AutoMapScene_KindOfItem(const AutoMapItem &item)
+{
+  static const int FIRST_POTION = 2;
+  static const int FIRST_WEAPON = 23;
+  static const int FIRST_CLOTHING = 69;
+  static const int FIRST_MISC = 127;
+  // Name indices, Objects.h: objNI_Apple..objNI_DragonSteak, objNI_FirstKey..objNI_LastKey
+  static const int FIRST_FOOD_NAME = 168;
+  static const int LAST_FOOD_NAME = 175;
+  static const int FIRST_KEY_NAME = 176;
+  static const int LAST_KEY_NAME = 191;
+  int type = item.descIndex;
+  if (type < 0 || type >= FIRST_MISC)
+  {
+    if (item.nameIndex >= FIRST_FOOD_NAME && item.nameIndex <= LAST_FOOD_NAME) return AutoMapItemFood;
+    if (item.nameIndex >= FIRST_KEY_NAME && item.nameIndex <= LAST_KEY_NAME) return AutoMapItemKey;
+    return AutoMapItemOther;
+  }
+  if (type >= FIRST_CLOTHING) return AutoMapItemArmour;
+  if (type >= FIRST_WEAPON) return AutoMapItemWeapon;
+  if (type >= FIRST_POTION) return AutoMapItemPotion;
+  return type == 0 ? AutoMapItemScroll : AutoMapItemChest;
+}
+
+std::vector<AutoMapItem> AutoMapScene_ItemsOfKinds(const std::vector<AutoMapItem> &items,
+                                                   unsigned kinds)
+{
+  std::vector<AutoMapItem> kept;
+  for (size_t i = 0; i < items.size(); i++)
+  {
+    if (kinds & (1u << AutoMapScene_KindOfItem(items[i]))) kept.push_back(items[i]);
+  }
+  return kept;
 }
 
 std::vector<AutoMapItemStack> AutoMapScene_GroupItems(const std::vector<AutoMapItem> &items)
@@ -480,7 +562,25 @@ static void RememberItems(const AutoMapCell &levelCell, const AutoMapLevelSnapsh
                           const AutoMapItemMemory &memory, const AutoMapCellRecord &live,
                           AutoMapCellRecord *record)
 {
-  ShowItems(memory.ItemsOn(levelCell), snapshot, live, record);
+  // Items noticed in an alcove are remembered on its wall cell too: they are no floor items, nor
+  // is one that left the alcove unseen. Stone holds no floor items.
+  if (live.kind == AutoMapCellWall)
+  {
+    ShowItems(std::vector<AutoMapRememberedItem>(), snapshot, live, record);
+    return;
+  }
+  std::vector<AutoMapRememberedItem> onTheFloor;
+  std::vector<AutoMapRememberedItem> remembered = memory.ItemsOn(levelCell);
+  for (size_t r = 0; r < remembered.size(); r++)
+  {
+    bool isInAnAlcove = false;
+    for (size_t a = 0; a < live.alcoveContents.size() && !isInAnAlcove; a++)
+    {
+      isInAnAlcove = live.alcoveContents[a].record == remembered[r].record;
+    }
+    if (!isInAnAlcove) onTheFloor.push_back(remembered[r]);
+  }
+  ShowItems(onTheFloor, snapshot, live, record);
 }
 
 // Explored, live: the live pile, but only the items the 3D view has shown the party somewhere.
@@ -571,6 +671,7 @@ static void AddCells(const AutoMapLevelSnapshot &snapshot, const AutoMapFog &fog
       SeenSides(levelCell, shown.cell, fog, seen);
       if (fog.isOn) HideWallSidesNotSeenYet(seen, &shown.cell);
       if (fog.isOn && fog.spoilers != AutoMapSpoilersAll) HideTextsNotReadYet(levelCell, fog, &shown.cell);
+      if (fog.isOn && fog.spoilers != AutoMapSpoilersAll) HideFloorPictureNotSeenYet(levelCell, fog, &shown.cell);
       if (!fog.isOn && fog.spoilers != AutoMapSpoilersAll) HideGoodsNotDrawn(levelCell, fog, &shown.cell);
       if (fog.isOn && fog.items != NULL && fog.spoilers != AutoMapSpoilersAll)
       {

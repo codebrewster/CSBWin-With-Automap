@@ -403,6 +403,87 @@ static void TooltipGroupsIdenticalPicturesInFirstSeenOrder(void)
   CHECK(AutoMapScene_GroupItems(std::vector<AutoMapItem>()).empty());
 }
 
+static AutoMapItem ItemOfType(int worldPicture, int descIndex)
+{
+  AutoMapItem item;
+  item.worldPicture = worldPicture;
+  item.descIndex = descIndex;
+  return item;
+}
+
+static void ItemKindFollowsTheObjectTypeRanges(void)
+{
+  // Object descriptions (data.cpp): scroll 0, chest 1, potions 2..22, weapons from 23, clothing
+  // from 69, everything else from 127. The name index has another order and must not decide.
+  AutoMapItem scrollNamedLikeAWeapon = ItemOfType(360, 0);
+  scrollNamedLikeAWeapon.nameIndex = 30;
+  CHECK(AutoMapScene_KindOfItem(scrollNamedLikeAWeapon) == AutoMapItemScroll);
+  CHECK(AutoMapScene_KindOfItem(ItemOfType(360, 0)) == AutoMapItemScroll);
+  CHECK(AutoMapScene_KindOfItem(ItemOfType(360, 1)) == AutoMapItemChest);
+  CHECK(AutoMapScene_KindOfItem(ItemOfType(360, 2)) == AutoMapItemPotion);
+  CHECK(AutoMapScene_KindOfItem(ItemOfType(360, 22)) == AutoMapItemPotion);
+  CHECK(AutoMapScene_KindOfItem(ItemOfType(360, 23)) == AutoMapItemWeapon);
+  CHECK(AutoMapScene_KindOfItem(ItemOfType(360, 68)) == AutoMapItemWeapon);
+  CHECK(AutoMapScene_KindOfItem(ItemOfType(360, 69)) == AutoMapItemArmour);
+  CHECK(AutoMapScene_KindOfItem(ItemOfType(360, 126)) == AutoMapItemArmour);
+  CHECK(AutoMapScene_KindOfItem(ItemOfType(360, 127)) == AutoMapItemOther);
+  CHECK(AutoMapScene_KindOfItem(ItemOfType(360, -1)) == AutoMapItemOther);
+}
+
+static void OnlyFlavourFloorPicturesCountAsDecoration(void)
+{
+  // Floor ornament n draws picture 247 + 6 n, nearest view 5: 1, 4 and 7 are pressure pads
+  CHECK(!AutoMapScene_FloorPictureIsFlavour(247 + 6 * 1 + 5));
+  CHECK(!AutoMapScene_FloorPictureIsFlavour(247 + 6 * 4 + 5));
+  CHECK(!AutoMapScene_FloorPictureIsFlavour(247 + 6 * 7 + 5));
+  CHECK(AutoMapScene_FloorPictureIsFlavour(247 + 6 * 0 + 5));   // square grate
+  CHECK(AutoMapScene_FloorPictureIsFlavour(247 + 6 * 2 + 5));   // moss
+  CHECK(AutoMapScene_FloorPictureIsFlavour(247 + 6 * 6 + 5));   // crack
+  CHECK(AutoMapScene_FloorPictureIsFlavour(247 + 6 * 8 + 5));   // puddle
+  CHECK(!AutoMapScene_FloorPictureIsFlavour(247 + 6 * 9 + 5));  // unknown: kept
+  CHECK(!AutoMapScene_FloorPictureIsFlavour(AUTOMAP_NO_PICTURE));
+}
+
+static void FoodAndKeysAreKindsOfTheirOwn(void)
+{
+  // Misc items (description 127 on) whose name index is food (168..175) or a key (176..191)
+  AutoMapItem apple = ItemOfType(360, 156);
+  apple.nameIndex = 168;
+  AutoMapItem dragonSteak = ItemOfType(360, 163);
+  dragonSteak.nameIndex = 175;
+  AutoMapItem ironKey = ItemOfType(360, 136);
+  ironKey.nameIndex = 176;
+  AutoMapItem masterKey = ItemOfType(360, 151);
+  masterKey.nameIndex = 191;
+  AutoMapItem lockPicks = ItemOfType(360, 176);
+  lockPicks.nameIndex = 192;
+  CHECK(AutoMapScene_KindOfItem(apple) == AutoMapItemFood);
+  CHECK(AutoMapScene_KindOfItem(dragonSteak) == AutoMapItemFood);
+  CHECK(AutoMapScene_KindOfItem(ironKey) == AutoMapItemKey);
+  CHECK(AutoMapScene_KindOfItem(masterKey) == AutoMapItemKey);
+  CHECK(AutoMapScene_KindOfItem(lockPicks) == AutoMapItemOther);
+  // Only misc items: a weapon never turns into food whatever its name index
+  AutoMapItem weapon = ItemOfType(360, 30);
+  weapon.nameIndex = 170;
+  CHECK(AutoMapScene_KindOfItem(weapon) == AutoMapItemWeapon);
+}
+
+static void ItemsOfKindsKeepsThePileOrder(void)
+{
+  std::vector<AutoMapItem> pile;
+  pile.push_back(ItemOfType(360, 30));   // weapon
+  pile.push_back(ItemOfType(361, 80));   // armour
+  pile.push_back(ItemOfType(362, 150));  // other
+  pile.push_back(ItemOfType(363, 40));   // weapon
+  unsigned noWeapons = AUTOMAP_ALL_ITEM_KINDS & ~(1u << AutoMapItemWeapon);
+  std::vector<AutoMapItem> shown = AutoMapScene_ItemsOfKinds(pile, noWeapons);
+  CHECK(shown.size() == 2);
+  CHECK(shown[0].worldPicture == 361);
+  CHECK(shown[1].worldPicture == 362);
+  CHECK(AutoMapScene_ItemsOfKinds(pile, AUTOMAP_ALL_ITEM_KINDS).size() == 4);
+  CHECK(AutoMapScene_ItemsOfKinds(pile, 0).empty());
+}
+
 static void TooltipKeepsApartItemsSharingTheirWorldPicture(void)
 {
   // A skeleton key and a Ra key draw the same world sprite but carry different
@@ -5225,4 +5306,8 @@ void TestAutoMapScene(void)
   ExperienceToNextLevelReachesExactlyTheNextLevel();
   ExperienceToNextLevelIsZeroWhenTheCapForbidsIt();
   NearestSidePicksTheEdge();
+  ItemKindFollowsTheObjectTypeRanges();
+  ItemsOfKindsKeepsThePileOrder();
+  OnlyFlavourFloorPicturesCountAsDecoration();
+  FoodAndKeysAreKindsOfTheirOwn();
 }

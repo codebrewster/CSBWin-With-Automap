@@ -115,8 +115,9 @@ static void CheckRejected(const std::string &bytes, AutoMapFileResult expectedRe
   CHECK(NothingIsExplored(explored));
 }
 
-// A file of EmptyDungeon's shape as version 10 wrote it: the rims cut out of every level
-static std::string WithoutRims(std::string bytes)
+// A file of EmptyDungeon's shape as version 11 wrote it: the seen floors and their rim cut out
+// of every level
+static std::string WithoutSeenFloors(std::string bytes)
 {
   AutoMapExplored dungeon = EmptyDungeon();
   size_t at = FIRST_LEVEL_WIDTH_OFFSET;
@@ -124,8 +125,29 @@ static std::string WithoutRims(std::string bytes)
   {
     AutoMapLevelSize size = dungeon.SizeOfLevel(level);
     at += 2 + AutoMapExplored::ByteCountFor(size) + 4 * AutoMapExplored::FaceByteCountFor(size);
+    bytes.erase(at, AutoMapExplored::ByteCountFor(size));
+    for (int set = 0; set < AutoMapSeenFloorBits; set++)
+    {
+      at += AutoMapExplored::RimByteCountFor(size, (AutoMapBitSet)set);
+    }
+    bytes.erase(at, AutoMapExplored::RimByteCountFor(size, AutoMapSeenFloorBits));
+  }
+  bytes[VERSION_OFFSET] = 11;
+  return bytes;
+}
+
+// A file of EmptyDungeon's shape as version 10 wrote it: the rims cut out of every level too
+static std::string WithoutRims(std::string bytes)
+{
+  bytes = WithoutSeenFloors(bytes);
+  AutoMapExplored dungeon = EmptyDungeon();
+  size_t at = FIRST_LEVEL_WIDTH_OFFSET;
+  for (int level = 0; level < dungeon.LevelCount(); level++)
+  {
+    AutoMapLevelSize size = dungeon.SizeOfLevel(level);
+    at += 2 + AutoMapExplored::ByteCountFor(size) + 4 * AutoMapExplored::FaceByteCountFor(size);
     size_t rim = 0;
-    for (int set = 0; set < AUTOMAP_BIT_SET_COUNT; set++)
+    for (int set = 0; set < AutoMapSeenFloorBits; set++)
     {
       rim += AutoMapExplored::RimByteCountFor(size, (AutoMapBitSet)set);
     }
@@ -133,6 +155,45 @@ static std::string WithoutRims(std::string bytes)
   }
   bytes[VERSION_OFFSET] = 10;
   return bytes;
+}
+
+// A floor picture shows once noticed, kept per cell like the explored bit, rims included
+static void SeenFloorsRoundTrip(void)
+{
+  AutoMapExplored explored = EmptyDungeon();
+  explored.Mark(AutoMapCell{0, 2, 1});
+  explored.Mark(AutoMapCell{0, 3, 1});
+  explored.MarkFloorSeen(AutoMapCell{0, 2, 1});
+  explored.MarkFloorSeen(AutoMapCell{1, 31, 0});
+  explored.MarkFloorSeen(AutoMapCell{1, 32, 5});
+  std::ostringstream out;
+  AutoMapFile(SAVE_SIGNATURE).Write(out, explored, AutoMapKnowledge(), AutoMapItemMemory(), AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage());
+  AutoMapExplored readExplored = EmptyDungeon();
+  CHECK(ReadInto(out.str(), &readExplored) == AutoMapFileRead);
+  CHECK(readExplored.FloorIsSeen(AutoMapCell{0, 2, 1}));
+  CHECK(!readExplored.FloorIsSeen(AutoMapCell{0, 3, 1}));
+  CHECK(readExplored.FloorIsSeen(AutoMapCell{1, 31, 0}));
+  CHECK(readExplored.FloorIsSeen(AutoMapCell{1, 32, 5}));
+  CHECK(readExplored.IsExplored(AutoMapCell{0, 3, 1}));
+}
+
+// Before version 12 an explored cell showed its floor picture: what was explored stays seen
+static void OlderFilesSeeTheFloorsOfExploredCells(void)
+{
+  AutoMapExplored explored = EmptyDungeon();
+  explored.Mark(AutoMapCell{0, 2, 1});
+  explored.Mark(AutoMapCell{1, -1, 4});
+  explored.MarkFace(AutoMapCell{1, 3, 4}, 2);
+  std::ostringstream out;
+  AutoMapFile(SAVE_SIGNATURE).Write(out, explored, AutoMapKnowledge(), AutoMapItemMemory(), AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage());
+  AutoMapExplored readExplored = EmptyDungeon();
+  CHECK(ReadInto(WithoutSeenFloors(out.str()), &readExplored) == AutoMapFileRead);
+  CHECK(readExplored.FloorIsSeen(AutoMapCell{0, 2, 1}));
+  CHECK(readExplored.FloorIsSeen(AutoMapCell{1, -1, 4}));
+  CHECK(!readExplored.FloorIsSeen(AutoMapCell{0, 3, 1}));
+  // The rest of the level read in its old place
+  CHECK(readExplored.FaceIsSeen(AutoMapCell{1, 3, 4}, 2));
+  CHECK(readExplored.IsExplored(AutoMapCell{1, -1, 4}));
 }
 
 // The rim around each level is kept like the level's own cells: explored, faces, glimpses
@@ -199,7 +260,7 @@ static void FileOfAnotherKindIsRejected(void)
 static void UnknownVersionIsRejected(void)
 {
   std::string bytes = WrittenFile();
-  bytes[VERSION_OFFSET] = 12;
+  bytes[VERSION_OFFSET] = 13;
   CheckRejected(bytes, AutoMapFileHasUnknownVersion);
 }
 
@@ -247,8 +308,9 @@ static void DamageInALaterLevelLeavesTheMapEmpty(void)
 {
   std::string bytes = WrittenFile();
   // size, explored bits, seen-face bits, glimpsed-face bits, read-text bits, looked-into bits,
-  // then the rim: 20 cells, 3 explored bytes and 10 for each set of faces
-  size_t secondLevelWidthOffset = FIRST_LEVEL_WIDTH_OFFSET + 2 + 2 + 8 + 8 + 8 + 8 + 3 + 4 * 10;
+  // seen-floor bits, then the rim: 20 cells, 3 explored bytes, 10 for each set of faces and 3
+  // seen-floor bytes
+  size_t secondLevelWidthOffset = FIRST_LEVEL_WIDTH_OFFSET + 2 + 2 + 8 + 8 + 8 + 8 + 2 + 3 + 4 * 10 + 3;
   bytes[secondLevelWidthOffset] = 31;
   CheckRejected(bytes, AutoMapFileHasOtherLevels);
 }
@@ -1058,6 +1120,8 @@ void TestAutoMapFile(void)
   EmptyFileIsRejected();
   FileOfAnotherKindIsRejected();
   UnknownVersionIsRejected();
+  SeenFloorsRoundTrip();
+  OlderFilesSeeTheFloorsOfExploredCells();
   FileOfAnotherSaveIsRejected();
   OtherLevelCountIsRejected();
   AbsurdLevelCountIsRejected();

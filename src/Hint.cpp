@@ -77,21 +77,19 @@ public:
   i16  word4;
   i16  word6;
   i16  word8;
-  char byte10[1]; //Don't know how big
-  //char xxbyte11[14-11];
-  char Fill11[16-11];
+  // These three take strings ("A:\\", an error message, a 6-byte name): each runs up to the
+  // next known field, the padding it was declared with before, so the offsets stay the same
+  char byte10[16-10];
   i32  long14;
   i32  long18;
-  char byte22[1]; //Don't know how big. Error message?
-  char xxbyte23[82-23];
+  char byte22[82-22];
   pnt  pointer82;
   i32  long86;
   //pnt  pointer90;
   ui8  *bufferAddress_90;
   //i32  long94;
   i32  bufferSize_94;
-  char byte98[1]; //Don't know how big.
-  char xxbyte99[104-99];
+  char byte98[104-98];
   //char byte104[1];//Don't know how big
   char byte104[12];
   //char xxbyte105[116-105];

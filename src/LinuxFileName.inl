@@ -98,8 +98,8 @@ void FILENAME::createThreeNames (const char *filename)
   };
 #ifdef MINGW
   // with mingw this function does more harm than good, it destroys any absolute path begining with a drive letter
-  // so it's better to just return the same filename
-  m_name[0] = strdup(filename);
+  // so it's better to just return the same filename. No name gives no name, as below.
+  if (filename != NULL) m_name[0] = strdup(filename);
   return;
 #endif
   // Linux-specific check for absolute pathways.

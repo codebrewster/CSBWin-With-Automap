@@ -121,6 +121,8 @@ static bool drawListWasPainted = true;
 static bool pointerIsOverMap = false;
 static int pointerStateOfTheGame = SDL_ENABLE;
 static int zoomSteps = 0;
+// One bit per AutoMapShown; everything by default
+static unsigned shownThings = (1u << AUTOMAP_SHOWN_COUNT) - 1;
 
 // Set map_timing = 1 in the settings and the map reports its renderer, paint times,
 // rebuild counts and cache use to the terminal. Off by default, costs nothing. The flag
@@ -282,6 +284,9 @@ void AutoMapWindow_ReadSettings(void)
   placement.y = csb_get_config_int(SETTINGS_SECTION, "map_y", SDL_WINDOWPOS_UNDEFINED);
   placement.width = std::max(SMALLEST_SIZE, csb_get_config_int(SETTINGS_SECTION, "map_width", DEFAULT_SIZE));
   placement.height = std::max(SMALLEST_SIZE, csb_get_config_int(SETTINGS_SECTION, "map_height", DEFAULT_SIZE));
+  // The hidden things are kept, so that whatever a later version adds starts out shown
+  unsigned everything = (1u << AUTOMAP_SHOWN_COUNT) - 1;
+  shownThings = everything & ~(unsigned)csb_get_config_int(SETTINGS_SECTION, "map_hide", 0);
 }
 
 static void RememberPlacement(void)
@@ -299,6 +304,54 @@ void AutoMapWindow_WriteSettings(void)
   csb_set_config_int(SETTINGS_SECTION, "map_y", placement.y);
   csb_set_config_int(SETTINGS_SECTION, "map_width", placement.width);
   csb_set_config_int(SETTINGS_SECTION, "map_height", placement.height);
+  unsigned everything = (1u << AUTOMAP_SHOWN_COUNT) - 1;
+  csb_set_config_int(SETTINGS_SECTION, "map_hide", (int)(everything & ~shownThings));
+}
+
+static bool Shows(AutoMapShown what)
+{
+  return (shownThings & (1u << what)) != 0;
+}
+
+// The Show entry of each AutoMapItemKind
+static AutoMapShown ShownEntryOfItemKind(AutoMapItemKind kind)
+{
+  switch (kind)
+  {
+  case AutoMapItemScroll: return AutoMapShowScrolls;
+  case AutoMapItemChest: return AutoMapShowChests;
+  case AutoMapItemPotion: return AutoMapShowPotions;
+  case AutoMapItemWeapon: return AutoMapShowWeapons;
+  case AutoMapItemArmour: return AutoMapShowArmour;
+  case AutoMapItemFood: return AutoMapShowFood;
+  case AutoMapItemKey: return AutoMapShowKeys;
+  default: return AutoMapShowOtherItems;
+  }
+}
+
+// The item kinds shown, as AutoMapScene_ItemsOfKinds takes them
+static unsigned ShownItemKinds(void)
+{
+  unsigned kinds = 0;
+  for (int kind = 0; kind < AUTOMAP_ITEM_KIND_COUNT; kind++)
+  {
+    if (Shows(ShownEntryOfItemKind((AutoMapItemKind)kind))) kinds |= 1u << kind;
+  }
+  return kinds;
+}
+
+bool AutoMapWindow_Shows(AutoMapShown what)
+{
+  return Shows(what);
+}
+
+void AutoMapWindow_SetShows(AutoMapShown what, bool isShown)
+{
+  if (isShown) shownThings |= 1u << what;
+  else shownThings &= ~(1u << what);
+  // The static layer is cached per draw list: a new serial paints it again
+  drawListSerial++;
+  isDirty = true;
 }
 
 void AutoMapWindow_RestoreVisibility(void)
@@ -630,6 +683,7 @@ bool AutoMapWindow_HandleKeyEvent(const SDL_Event &event)
     LevelPanelClose();
     return true;
   }
+  if (AutoMapWindow_HandleLevelKey(sym)) return true;
   if (!searchOpen)
   {
     if (sym == SDLK_SLASH || (ctrl && sym == SDLK_f))
@@ -882,6 +936,28 @@ static void StepLevelCenteredOn(int delta, int cellX, int cellY)
     printf("Automap gesture: level %d -> %d centred on (%d,%d)\n", current, target, cellX,
            cellY);
   }
+}
+
+// Page Up and Page Down step one level over the spot in the middle of the view, the way the
+// side buttons do over the hovered tile
+bool AutoMapWindow_HandleLevelKey(SDL_Keycode sym)
+{
+  if (sym != SDLK_PAGEUP && sym != SDLK_PAGEDOWN) return false;
+  if (!isShown || shownDrawList.level == AUTOMAP_NO_LEVEL) return false;
+  int cellX = shownDrawList.width / 2;
+  int cellY = shownDrawList.height / 2;
+  if (!viewFollowsParty)
+  {
+    cellX = (int)std::floor(viewCenterX + 0.5f);
+    cellY = (int)std::floor(viewCenterY + 0.5f);
+  }
+  else if (shownDrawList.partyIsOnShownLevel)
+  {
+    cellX = shownDrawList.party.x;
+    cellY = shownDrawList.party.y;
+  }
+  StepLevelCenteredOn(sym == SDLK_PAGEDOWN ? 1 : -1, cellX, cellY);
+  return true;
 }
 
 static bool DebugMenuHandlePointerEvent(const SDL_Event &event);
@@ -1368,13 +1444,6 @@ static bool HasFeature(const AutoMapWallSide &side)
       || side.portrait != AUTOMAP_NO_PICTURE;
 }
 
-static int CountFeatures(const AutoMapCellRecord &wall)
-{
-  int count = 0;
-  for (int side = 0; side < AUTOMAP_SIDE_COUNT; side++) count += HasFeature(wall.wallSides[side]) ? 1 : 0;
-  return count;
-}
-
 static SDL_Rect HalfTowards(const SDL_Rect &cell, int side)
 {
   SDL_Rect half = cell;
@@ -1385,9 +1454,14 @@ static SDL_Rect HalfTowards(const SDL_Rect &cell, int side)
   return half;
 }
 
+static int StripThickness(const SDL_Rect &cell)
+{
+  return std::max(2, cell.w / 15);
+}
+
 static SDL_Rect StripAlong(const SDL_Rect &cell, int side)
 {
-  int thickness = std::max(2, cell.w / 15);
+  int thickness = StripThickness(cell);
   SDL_Rect strip = {cell.x + thickness, cell.y, cell.w - 2 * thickness, thickness};
   if (side == AutoMapSouth) strip.y = cell.y + cell.h - thickness;
   if (side == AutoMapEast || side == AutoMapWest)
@@ -1411,6 +1485,37 @@ static SDL_Rect WritingSquare(const SDL_Rect &area)
   return square;
 }
 
+// Where a decoration, a portrait or writing sits on its wall: a square half the cell wide, against
+// the face it hangs on and just inside that face's strip. The stone around it still reads as wall,
+// and on a pillar the square shows which face carries the decoration.
+static SDL_Rect FeatureSquare(const SDL_Rect &cell, int side)
+{
+  SDL_Rect square = WritingSquare(HalfTowards(cell, side));
+  int strip = StripThickness(cell);
+  if (side == AutoMapNorth) square.y += strip;
+  if (side == AutoMapSouth) square.y -= strip;
+  if (side == AutoMapEast) square.x -= strip;
+  if (side == AutoMapWest) square.x += strip;
+  return square;
+}
+
+static int CountFeatures(const AutoMapCellRecord &wall)
+{
+  int count = 0;
+  for (int side = 0; side < AUTOMAP_SIDE_COUNT; side++) count += HasFeature(wall.wallSides[side]) ? 1 : 0;
+  return count;
+}
+
+// At All every switch carries its lock ring and goods dot by its face, so the features keep the
+// look they had there: a wall with one feature shows it across the whole cell, with several each
+// gets the half on its own side. Below All a feature keeps to its square by the face.
+static SDL_Rect FeatureArea(const SDL_Rect &cell, const AutoMapCellRecord &wall, int side,
+                            bool allowWholeCell)
+{
+  if (shownDrawList.spoilers != AutoMapSpoilersAll) return FeatureSquare(cell, side);
+  return CountFeatures(wall) == 1 && allowWholeCell ? cell : HalfTowards(cell, side);
+}
+
 static void DrawWriting(const SDL_Rect &area)
 {
   SDL_Rect text = Inset(WritingSquare(area), 25);
@@ -1422,8 +1527,6 @@ static void DrawWriting(const SDL_Rect &area)
   }
 }
 
-// A wall with one feature shows it across the whole cell; with several, each feature gets the
-// half of the cell on its own side
 static void DrawDashedRect(const SDL_Rect &area, const SDL_Color &colour);
 
 static void DrawHollowDiamond(const SDL_Rect &area, const SDL_Color &colour)
@@ -1452,12 +1555,17 @@ static void DrawWallSide(const SDL_Rect &cell, const AutoMapCellRecord &wall, in
                          bool allowWholeCell)
 {
   const AutoMapWallSide &wallSide = wall.wallSides[side];
+  bool drawsPicture = Shows(AutoMapShowWallDecorations)
+      && (wallSide.picture != AUTOMAP_NO_PICTURE || wallSide.portrait != AUTOMAP_NO_PICTURE);
+  bool drawsWriting = Shows(AutoMapShowWallWriting) && wallSide.hasWriting;
   if (wallSide.hidden)
   {
     DrawHiddenSwitchMark(cell, side);
-    if (wallSide.portrait != AUTOMAP_NO_PICTURE) DrawPortrait(HalfTowards(cell, side),
-                                                             wallSide.portrait);
-    if (wallSide.hasWriting) DrawWriting(HalfTowards(cell, side));
+    if (drawsPicture && wallSide.portrait != AUTOMAP_NO_PICTURE)
+    {
+      DrawPortrait(HalfTowards(cell, side), wallSide.portrait);
+    }
+    if (drawsWriting) DrawWriting(HalfTowards(cell, side));
     return;
   }
   if (!HasFeature(wallSide)) return;
@@ -1466,20 +1574,31 @@ static void DrawWallSide(const SDL_Rect &cell, const AutoMapCellRecord &wall, in
   bool plainDecoration = !wallSide.functional && shownDrawList.spoilers != AutoMapSpoilersAll;
   if (!wallSide.functional && !plainDecoration)
   {
+    if (!drawsPicture && !drawsWriting) return;
     // Random dressing: a quiet tick where a switch would strip the wall
     Fill(StripAlong(cell, side), FLAVOR_TICK);
-    if (wallSide.hasWriting) DrawWriting(HalfTowards(cell, side));
+    if (drawsWriting) DrawWriting(FeatureArea(cell, wall, side, false));
     return;
   }
-  SDL_Rect area = CountFeatures(wall) == 1 && allowWholeCell ? cell : HalfTowards(cell, side);
+  if (!drawsPicture && !drawsWriting)
+  {
+    // A known switch keeps its strip with its picture hidden
+    if (!plainDecoration) Fill(StripAlong(cell, side), WALL_SIDE_LINE);
+    return;
+  }
+  SDL_Rect area = FeatureArea(cell, wall, side, allowWholeCell);
   Fill(Inset(area, 6), WALL_FEATURE_BACKDROP);
-  const AutoMapSprite *sprite = SpriteOfTheGame(wallSide.picture);
-  bool pictureIsMissing = sprite == NULL && wallSide.picture != AUTOMAP_NO_PICTURE;
-  if (sprite != NULL) DrawSprite(*sprite, FitInto(Inset(area, 8), *sprite));
-  if (pictureIsMissing) Fill(Inset(area, 30), WALL_FEATURE_MARKER);
-  if (wallSide.portrait != AUTOMAP_NO_PICTURE) DrawPortrait(area, wallSide.portrait);
-  if (wallSide.hasWriting) DrawWriting(area);
-  if (!plainDecoration) Fill(StripAlong(cell, side), WALL_SIDE_LINE);
+  if (drawsPicture)
+  {
+    const AutoMapSprite *sprite = SpriteOfTheGame(wallSide.picture);
+    bool pictureIsMissing = sprite == NULL && wallSide.picture != AUTOMAP_NO_PICTURE;
+    if (sprite != NULL) DrawSprite(*sprite, FitInto(Inset(area, 8), *sprite));
+    if (pictureIsMissing) Fill(Inset(area, 30), WALL_FEATURE_MARKER);
+    if (wallSide.portrait != AUTOMAP_NO_PICTURE) DrawPortrait(area, wallSide.portrait);
+  }
+  if (drawsWriting) DrawWriting(area);
+  // The strip marks the face; only a switch the party knows about gets the bright one
+  Fill(StripAlong(cell, side), plainDecoration ? FLAVOR_TICK : WALL_SIDE_LINE);
 }
 
 // Faint always-show markers for the machinery the hover tooltip details: a hollow
@@ -1528,6 +1647,7 @@ static void DrawWallMarkers(const SDL_Rect &cell, const AutoMapCellRecord &recor
     const AutoMapAlcoveEntry &entry = record.alcoveContents[i];
     if (entry.item.worldPicture == AUTOMAP_NO_PICTURE) continue;
     if (entry.side < 0 || entry.side >= AUTOMAP_SIDE_COUNT) continue;
+    if (!Shows(ShownEntryOfItemKind(AutoMapScene_KindOfItem(entry.item)))) continue;
     // Below all, `functional` is cleared for unknown switches, but goods in an alcove show
     if (!isDoor && !record.wallSides[entry.side].functional
         && (shownDrawList.spoilers == AutoMapSpoilersAll || !record.wallSides[entry.side].isAlcove))
@@ -1856,13 +1976,23 @@ static void DrawGlimpses(const AutoMapView &view, const AutoMapDrawList &drawLis
 
 static void DrawItems(const SDL_Rect &cell, const AutoMapShownCell &shown)
 {
-  int count = (int)shown.cell.itemPictures.size();
+  std::vector<AutoMapItem> items = shown.cell.itemPictures;
+  bool hasMoreItems = shown.hasMoreItems;
+  unsigned kinds = ShownItemKinds();
+  if (kinds != AUTOMAP_ALL_ITEM_KINDS)
+  {
+    // Only the kinds shown fill the slots, from the whole pile
+    items = AutoMapScene_ItemsOfKinds(shown.allItemPictures, kinds);
+    hasMoreItems = (int)items.size() > AUTOMAP_MOST_ITEMS_SHOWN;
+    if (hasMoreItems) items.resize(AUTOMAP_MOST_ITEMS_SHOWN);
+  }
+  int count = (int)items.size();
   for (int i = 0; i < count; i++)
   {
     SDL_Rect slot = {cell.x + cell.w * i / count, cell.y, cell.w / count, cell.h};
-    DrawItem(slot, shown.cell.itemPictures[i].worldPicture);
+    DrawItem(slot, items[i].worldPicture);
   }
-  if (shown.hasMoreItems) DrawMoreItemsMark(cell);
+  if (hasMoreItems) DrawMoreItemsMark(cell);
 }
 
 // A lingering cloud settles over the floor but under what lies on it
@@ -2201,7 +2331,11 @@ static void DrawCellBase(const AutoMapView &view, const AutoMapShownCell &shown,
       DrawLevelPlate(cell, record.teleporterDestLevel);
     }
   }
-  if (hasFloorPicture) DrawFloorPicture(cell, record);
+  if (hasFloorPicture && (record.kind == AutoMapCellPit || Shows(AutoMapShowFloorDecorations)
+                          || !AutoMapScene_FloorPictureIsFlavour(record.floorPicture)))
+  {
+    DrawFloorPicture(cell, record);
+  }
   // A closed switchable pit keeps its floor look; the flag survives only at All
   if ((record.kind == AutoMapCellPit && record.pitIsHidden) || record.pitIsClosedSwitchable)
   {
@@ -4189,20 +4323,24 @@ static void DrawLegendSwatch(const SDL_Rect &box, LegendSwatch swatch)
     break;
   }
   case SW_WALL_FEATURE:
-    Fill(box, WALL);
-    Fill(Inset(box, 6), WALL_FEATURE_BACKDROP);
-    Fill(Inset(box, 30), WALL_SIDE_LINE);
-    break;
   case SW_WALL_NOSPRITE:
-    Fill(box, WALL);
-    Fill(Inset(box, 6), WALL_FEATURE_BACKDROP);
-    Fill(Inset(box, 30), WALL_FEATURE_MARKER);
-    break;
   case SW_WALL_WRITING:
+  {
+    // Drawn like the map draws them: below All on the north face beside its strip, at All
+    // across the whole cell
+    bool atAll = shownDrawList.spoilers == AutoMapSpoilersAll;
+    SDL_Rect area = atAll ? box : FeatureSquare(box, AutoMapNorth);
     Fill(box, WALL);
-    Fill(Inset(box, 6), WALL_FEATURE_BACKDROP);
-    DrawWriting(box);
+    Fill(Inset(area, 6), WALL_FEATURE_BACKDROP);
+    if (swatch == SW_WALL_FEATURE) Fill(Inset(area, 30), WALL_SIDE_LINE);
+    if (swatch == SW_WALL_NOSPRITE) Fill(Inset(area, 30), WALL_FEATURE_MARKER);
+    if (swatch == SW_WALL_WRITING) DrawWriting(area);
+    if (!atAll)
+    {
+      Fill(StripAlong(box, AutoMapNorth), swatch == SW_WALL_WRITING ? FLAVOR_TICK : WALL_SIDE_LINE);
+    }
     break;
+  }
   case SW_WALL_FLAVOUR:
     Fill(box, WALL);
     Fill(StripAlong(box, AutoMapNorth), FLAVOR_TICK);
@@ -5312,7 +5450,7 @@ static void DrawDynamicLayer(const AutoMapView &view)
     DrawMissiles(CellArea(view, shown.x, shown.y), shown, shownDrawList);
   }
   if (shownDrawList.partyIsOnShownLevel) DrawParty(view, shownDrawList.party);
-  DrawMonsters(view, shownDrawList);
+  if (Shows(AutoMapShowMonsters)) DrawMonsters(view, shownDrawList);
   DrawSearchMarkers(view);
   DrawLinkArrows(view);
   DrawLinkModeHighlights(view);

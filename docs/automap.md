@@ -70,8 +70,8 @@ together. The automap writes its own settings (window size, whether it was open)
 into `csb.cfg` via `AutoMapWindow_ReadSettings`/`AutoMapWindow_WriteSettings`
 (`AutoMapWindow.h`).
 
-The file is format version 11. After the explored bits of each level it holds four
-seen-face bits per cell, four glimpsed-face bits per cell, four read-text bits per cell and four looked-into bits per cell, then the same five sets for the level's rim (since version 11, see the rim rock below), and after the levels the list of learned facts: kind, record,
+The file is format version 12. After the explored bits of each level it holds four
+seen-face bits per cell, four glimpsed-face bits per cell, four read-text bits per cell, four looked-into bits per cell and one seen-floor bit per cell (since version 12: the floor picture was noticed), then the same six sets for the level's rim (since version 11, see the rim rock below), and after the levels the list of learned facts: kind, record,
 level, x, y, then the floor items the 3D view last showed (`AutoMapItemMemory`): record,
 description index, level, x, y and whether it was a mere glimpse, in the order seen, and
 last the remembered cell looks (`AutoMapCellMemory`): level, x, y, kind, door state, pit
@@ -215,8 +215,8 @@ Below `all`:
 
 - A wall face keeps its decoration only once the 3D view has shown enough of it, in the
   light on screen, for a player to notice, and the sight rule sees that face. A tiny switch
-  passed on the side stays off the map; faced from the tile in front it is seen. Every decoration looks alike (a plain picture, no side strip, no link
-  badge) until the party has used that actuator. With fog off, every face counts as seen.
+  passed on the side stays off the map; faced from the tile in front it is seen. Every decoration looks alike (a plain picture, a quiet side tick, no bright side strip, no
+  link badge) until the party has used that actuator. With fog off, every face counts as seen.
   The 3D view records faces of stone only, so a door's side (its button, its lock) counts as
   seen once the floor cell in front of it is explored, as at `all`.
 - The rock the reader adds around a level (`ADDED ROCK: OUTSIDE THE LEVEL`) is the rock the
@@ -342,10 +342,11 @@ those that do not, yellow those drawn over, and the background they are judged a
   scroll. The items in an alcove are measured like floor items, in the light or beyond its
   reach, against the alcove they cover (`AutoMap_AfterAlcoveItemDrawn`,
   `AutoMapDrawAlcoveItem`): one with a patch of `AUTOMAP_SEEN_ITEM_PATCH` standing out, such as
-  a scroll in an altar of Vi two ahead at light 5, makes the wall explored and the face seen and
-  looked into (`AutoMapRecorder::SeeAlcoveContents`), so the "?" turns into the altar with its
-  scroll; a black club on the altar in the dark, camouflaged even right in front of the party,
-  leaves the alcove not looked into. What the party puts into an alcove itself it knows, as it
+  a scroll in an altar of Vi two ahead at light 5, makes the wall explored, the face seen and
+  that item remembered on the wall cell (`AutoMapRecorder::SeeAlcoveItem`), so the "?" turns
+  into the altar with its scroll; a black club on the altar in the dark, camouflaged even right
+  in front of the party, stays unknown. Each item counts on its own: a cheese standing out in
+  the dark tells nothing of the bread beside it. What the party puts into an alcove itself it knows, as it
   knows what it dropped: the face is seen and looked into at once (`AutoMap_OnItemPutIntoAlcove`,
   `AutoMapRecorder::PutIntoAlcove`), in the dark too. The
   items line of the trace lists them as `alcove record@x,y:visible of kept patch largest`, in

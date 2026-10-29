@@ -211,7 +211,7 @@ void AutoMapRecorder::MarkTextRead(int drawLocation)
   m_explored.MarkTextRead(wallCell, AutoMapSight_SideOfSummaryIndex(m_frameFacing, summaryIndex));
 }
 
-void AutoMapRecorder::SeeAlcoveContents(int x, int y)
+void AutoMapRecorder::SeeAlcoveItem(int x, int y, AutoMapRecordId record, int descIndex)
 {
   if (m_frameLevel != d.partyLevel) return;
   for (int i = 0; i < AUTOMAP_SIGHT_CELL_COUNT; i++)
@@ -223,16 +223,20 @@ void AutoMapRecorder::SeeAlcoveContents(int x, int y)
     // The wall is seen with it, or the map would draw neither the wall nor its glimpse
     m_explored.Mark(wallCell);
     m_explored.MarkFace(wallCell, side);
-    m_explored.MarkAlcoveLookedInto(wallCell, side);
+    // This item, not the others in the alcove: a cheese that stands out in the dark tells
+    // nothing of the bread beside it. Kept on the wall cell, where floor items never lie.
+    AutoMapRememberedItem seen = {record, descIndex, wallCell, false};
+    m_items.See(seen);
     return;
   }
 }
 
-void AutoMapRecorder::PutIntoAlcove(int x, int y)
+void AutoMapRecorder::PutIntoAlcove(int x, int y, AutoMapRecordId record, int descIndex)
 {
   UseFaceAhead(x, y);
   AutoMapCell wallCell = {d.partyLevel, x, y};
-  m_explored.MarkAlcoveLookedInto(wallCell, (d.partyFacing + 2) % AUTOMAP_SIDE_COUNT);
+  AutoMapRememberedItem put = {record, descIndex, wallCell, false};
+  m_items.See(put);
 }
 
 void AutoMapRecorder::UseFaceAhead(int x, int y)
@@ -248,6 +252,14 @@ void AutoMapRecorder::SeeDoor(int x, int y)
   AutoMapCell doorCell = {m_frameLevel, x, y};
   m_explored.Mark(doorCell);
   m_cells.See(doorCell, VisibleLookAt(doorCell));
+}
+
+void AutoMapRecorder::SeeFloorPicture(int x, int y)
+{
+  if (m_frameLevel != d.partyLevel) return;
+  if (!IsLitInFrame(x, y)) return;
+  AutoMapCell floorCell = {m_frameLevel, x, y};
+  m_explored.MarkFloorSeen(floorCell);
 }
 
 void AutoMapRecorder::LookIntoPortrait(int x, int y, int side)
