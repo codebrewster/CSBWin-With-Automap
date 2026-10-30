@@ -9,6 +9,9 @@
 #include <utility>
 #include <vector>
 
+// The same layout whatever was included before: CSB.h leaves #pragma pack(1) switched on
+#pragma pack(push, 8)
+
 typedef uint16_t HeroStatsChampion;              // CHARDESC::fingerPrint
 const HeroStatsChampion HERO_STATS_NOBODY = 0xffff;
 const HeroStatsChampion HERO_STATS_PARTY = 0xfffe; // "all champions" in queries
@@ -169,5 +172,7 @@ private:
   int m_partyWipes = 0;
   int m_reloads = 0;
 };
+
+#pragma pack(pop)
 
 #endif

@@ -4,6 +4,9 @@
 #include <map>
 #include "HeroStats.h"
 
+// The same layout whatever was included before: CSB.h leaves #pragma pack(1) switched on
+#pragma pack(push, 8)
+
 // Who launched a missile, made a cloud, brewed a potion. Keyed by the record's index in its
 // database, like ShotMissiles: the engine's records have no room for it.
 class HeroStatsOrigins
@@ -39,5 +42,7 @@ private:
   std::map<int, HeroStatsBlow> m_clouds;
   std::map<int, HeroStatsChampion> m_brewers;
 };
+
+#pragma pack(pop)
 
 #endif

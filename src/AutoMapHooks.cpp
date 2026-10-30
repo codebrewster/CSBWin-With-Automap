@@ -28,6 +28,7 @@
 #include "confile.h"
 #include "HeroStats.h"
 #include "HeroStatsOrigins.h"
+#include "HeroStatsHooks.h"
 
 struct SavedGameFile
 {
@@ -42,7 +43,6 @@ struct SavedGameFile
 #include "Data.h"
 
 #include "AutoMapHooks.h"
-#include "HeroStatsHooks.h"
 
 char *GETFILENAME(i32 f);
 void AddToSkill(i32 chIdx, i32 skillNumber, i32 experience);

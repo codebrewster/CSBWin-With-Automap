@@ -4,6 +4,9 @@
 #include <stddef.h>
 #include <vector>
 
+// The same layout whatever was included before: CSB.h leaves #pragma pack(1) switched on
+#pragma pack(push, 8)
+
 // Mana is taken per rune as it is clicked. This keeps the cost of each rune of the incantation
 // being entered, per slot, so the spell row gets its mana when the spell resolves.
 class HeroStatsRunes
@@ -17,5 +20,7 @@ public:
 private:
   std::vector<int> m_runes[4];
 };
+
+#pragma pack(pop)
 
 #endif

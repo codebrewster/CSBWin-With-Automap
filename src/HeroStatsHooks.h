@@ -2,8 +2,9 @@
 #define HEROSTATSHOOKS_H
 
 // Owns the hero statistics of the game in play and connects them with loading, saving and the
-// engine. Include it before CSB.h: HeroStats.h defines structs and pulls in the standard library,
-// neither of which may be compiled under the #pragma pack(1) that CSB.h leaves switched on.
+// engine. Include it before CSB.h, which leaves #pragma pack(1) switched on: HeroStats.h pulls in
+// the standard library, which must not be compiled packed. The HeroStats* headers wrap their own
+// types in #pragma pack(push, 8), so those keep one layout even if this order is broken.
 
 #include "HeroStats.h"
 #include "HeroStatsOrigins.h"

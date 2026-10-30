@@ -10,6 +10,9 @@
 #include <vector>
 #include "HeroStats.h"
 
+// The same layout whatever was included before: CSB.h leaves #pragma pack(1) switched on
+#pragma pack(push, 8)
+
 inline void HeroBytes_Put(std::vector<uint8_t> *out, uint32_t value, int byteCount)
 {
   for (int i = 0; i < byteCount; i++) out->push_back((uint8_t)((value >> (8 * i)) & 0xff));
@@ -79,5 +82,7 @@ struct HeroBytesReader
     return true;
   }
 };
+
+#pragma pack(pop)
 
 #endif

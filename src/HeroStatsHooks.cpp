@@ -9,14 +9,13 @@
 #include <vector>
 #include "HeroStatsDump.h"
 #include "HeroStatsGame.h"
+#include "HeroStatsHooks.h"
 #include "AutoMapWindow.h"
 
 #include "UI.h"
 #include "Dispatch.h"
 #include "CSB.h"
 #include "Data.h"
-
-#include "HeroStatsHooks.h"
 
 static HeroStats store;
 static HeroStatsOrigins origins;
