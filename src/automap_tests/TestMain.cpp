@@ -22,6 +22,7 @@ int main(void)
   TestShotMissiles();
   TestHeroStats();
   TestHeroStatsOrigins();
+  TestHeroStatsPending();
   if (failedCheckCount != 0)
   {
     std::printf("%d checks failed\n", failedCheckCount);

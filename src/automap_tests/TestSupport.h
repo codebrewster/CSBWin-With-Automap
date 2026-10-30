@@ -32,5 +32,6 @@ void TestAutoMapVisibilityCases(void);
 void TestShotMissiles(void);
 void TestHeroStats(void);
 void TestHeroStatsOrigins(void);
+void TestHeroStatsPending(void);
 
 #endif

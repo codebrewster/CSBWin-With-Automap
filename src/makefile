@@ -89,8 +89,8 @@ SHOT_MISSILES_TESTS = automap_tests/ShotMissilesTest.o
 OBJS += $(SHOT_MISSILES_TESTED)
 
 # The hero statistics store. Engine-free as well; "make test" runs its tests with the others.
-HERO_STATS_TESTED = HeroStats.o HeroStatsOrigins.o
-HERO_STATS_TESTS = automap_tests/HeroStatsTest.o automap_tests/HeroStatsOriginsTest.o
+HERO_STATS_TESTED = HeroStats.o HeroStatsOrigins.o HeroStatsPending.o HeroStatsRunes.o
+HERO_STATS_TESTS = automap_tests/HeroStatsTest.o automap_tests/HeroStatsOriginsTest.o automap_tests/HeroStatsPendingTest.o
 OBJS += $(HERO_STATS_TESTED)
 
 ifdef MACOS
