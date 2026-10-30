@@ -2228,17 +2228,21 @@ RESTARTABLE _ProcessTimersViewportAndSound(void)
 extern void Process_SDL_WINDOWEVENT(const SDL_Event &event); // CSBlinux
 extern void cbAppDestroy(void); // also
 extern void post_render();
+extern void ProcessMenuEvent(const SDL_Event &event); // also
 void my_Delay(int ms) {
     SDL_Event ev;
     for (int t=0; t<ms; t+=100) {
 	SDL_Delay(100);
 	while (SDL_PollEvent(&ev)) {
-	    // Minimum events handling while end sequence is playing, quit and window operations
+	    // Minimum events handling while end sequence is playing: quit, window operations,
+	    // and the menu bar and map window, which the player can still use; the game itself
+	    // takes no input here
 	    switch(ev.type) {
 	    case SDL_WINDOWEVENT:     Process_SDL_WINDOWEVENT(ev);    break;
 	    case SDL_QUIT:
 				      cbAppDestroy();
 				      break;
+	    default:                  ProcessMenuEvent(ev);           break;
 	    }
 	}
 	post_render();

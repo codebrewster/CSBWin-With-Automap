@@ -1466,6 +1466,18 @@ void DumpImages(void)
 ui8 prevScreen[32000];
 
 bool pc1, pc2;
+// After the game is won or lost the picture stands still, but presenting a frame is what draws
+// the menu bar and lets it take clicks: keep presenting there, 20 times a second
+static bool EndScreenNeedsFrame(void)
+{
+  static i64 lastFrameTime = 0;
+  if ((videoMode != VM_CAST) && (videoMode != VM_THEEND)) return false;
+  i64 now = UI_GetSystemTime();
+  if (now - lastFrameTime < 50) return false;
+  lastFrameTime = now;
+  return true;
+}
+
 void display (void){
   static bool initialized = false;
   int areaChangedCount;
@@ -1643,6 +1655,10 @@ void display (void){
     if (areaChangedCount)
     {
       memcpy(prevScreen, physbase(), 32000);
+      UI_ScreenPresent();
+    }
+    else if (EndScreenNeedsFrame())
+    {
       UI_ScreenPresent();
     };
   };

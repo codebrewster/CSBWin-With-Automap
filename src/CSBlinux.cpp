@@ -1203,6 +1203,15 @@ ImGuiIO io;
 static int drawn = 0;
 void post_render();
 
+// The share of an event that the menu bar and the map window take, for loops that keep the
+// game itself waiting (the end sequence after a win): the game gets nothing of it
+void ProcessMenuEvent(const SDL_Event &event)
+{
+  if (AutoMapWindow_HandlePointerEvent(event)) return;
+  if ((event.type == SDL_KEYDOWN || event.type == SDL_TEXTINPUT) && AutoMapWindow_HandleKeyEvent(event)) return;
+  ImGui_ImplSDL2_ProcessEvent(&event);
+}
+
 // The game hides the system pointer because it draws its own. The map window has no drawn
 // pointer, so the system pointer stays while it is over the map.
 static void hide_system_pointer() {
