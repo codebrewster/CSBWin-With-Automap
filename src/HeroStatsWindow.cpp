@@ -6,6 +6,7 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdio>
+#include <map>
 #include <string>
 #include <vector>
 #include "imgui.h"
@@ -18,6 +19,8 @@
 #include "confile.h"
 
 extern char pwd[]; // LinCSBUI.cpp
+// Statistics.cpp: the monster's name as the game shows it, custom dungeon names included
+void GetMonsterName(int monsterType, int graphic, char *name);
 
 static const char *SETTINGS_SECTION = "settings";
 static const int DEFAULT_WIDTH = 900;
@@ -50,6 +53,10 @@ static const ImU32 HEALED_RGB = 0x4ab0a0;
 static const ImU32 GIVEN_RGB = 0xe0c060;
 static const ImU32 GENERATED_RGB = 0x4a9a6a;
 static const ImU32 TAKEN_RGB = 0x888888;
+static const ImU32 DOOR_RGB = 0xb0a070;
+static const ImU32 PIT_RGB = 0x7a7a7a;
+static const ImU32 OTHER_RGB = 0x555555;
+static const ImU32 HERO_RGB[4] = {0xc9764a, 0x5aa86a, 0x5a9bd8, 0xa77ad8};
 
 // The front pages, as stats_page keeps them
 enum StatsPage
@@ -86,6 +93,10 @@ static bool hasPainted = false;
 static int shownLevel = HERO_STATS_WHOLE_RUN;
 // The hero page a click on a name asked for (drawn by a later task); HERO_STATS_PARTY for the party
 static bool heroPageOpen = false;
+// What the By level page adds up; kept while the program runs, not in csb.cfg
+enum ByLevelMetric { MetricDealt, MetricKills, MetricTaken, MetricHealed, MetricSpent, BY_LEVEL_METRIC_COUNT };
+static const char *const METRIC_LABELS[BY_LEVEL_METRIC_COUNT] = {"Damage dealt", "Kills", "Damage taken", "Healed", "Mana spent"};
+static int shownMetric = MetricDealt;
 static HeroStatsChampion heroPageWho = HERO_STATS_PARTY;
 
 static ImVec4 Colour(ImU32 rgb, float alpha = 1.0f)
@@ -503,9 +514,17 @@ static void DrawTopBar(const HeroStatsPicker &picker, bool showPicker)
   }
   if (showPicker)
   {
+    float spacing = ImGui::GetStyle().ItemSpacing.x;
+    float pagesEnd = GUTTER;
+    for (int page = 0; page < STATS_PAGE_COUNT; page++)
+      pagesEnd += ButtonWidth(PAGE_LABELS[page]) + (page > 0 ? spacing : 0);
     float left = ImGui::GetWindowWidth() - GUTTER - PickerWidth(picker);
-    ImGui::SameLine();
-    if (left > ImGui::GetCursorPosX()) ImGui::SetCursorPosX(left);
+    if (left > pagesEnd + 2 * spacing)
+    {
+      ImGui::SameLine();
+      ImGui::SetCursorPosX(left);
+    }
+    else ImGui::SetCursorPosX(GUTTER);  // too narrow to sit beside the page buttons: its own line
     DrawPicker(picker);
   }
   ImGui::SetCursorPosY(ImGui::GetCursorPosY() + BAR_PADDING - ImGui::GetStyle().ItemSpacing.y);
@@ -601,7 +620,8 @@ static void DrawTable(const StatsPageData &data)
   if (!ImGui::BeginTable("##table", columnCount, flags, ImGui::GetContentRegionAvail())) return;
   ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 230);
   for (int i = 1; i < columnCount; i++) ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 92);
-  ImGui::TableNextRow();
+  ImGui::TableSetupScrollFreeze(1, 1);
+  ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
   for (size_t i = 0; i < data.cells.size(); i++)
   {
     ImGui::TableSetColumnIndex((int)i + 1);
@@ -782,6 +802,276 @@ static void DrawBars(const StatsPageData &data)
 }
 
 // ---------------------------------------------------------------------------------------------
+// Share bars, By level and Monsters
+
+// A bar of the segments side by side, as wide as the cell, each as wide as its share of total
+static void ShareBar(const std::vector<BarSegment> &segments, int total)
+{
+  ImVec2 at = ImGui::GetCursorScreenPos();
+  float width = std::max(10.0f, ImGui::GetContentRegionAvail().x - 6);
+  float height = ImGui::GetTextLineHeight();
+  ImDrawList *drawList = ImGui::GetWindowDrawList();
+  if (total > 0)
+  {
+    float x = at.x;
+    for (size_t i = 0; i < segments.size(); i++)
+    {
+      if (segments[i].value <= 0) continue;
+      float w = std::max(2.0f, std::floor(width * segments[i].value / total + 0.5f));
+      drawList->AddRectFilled(ImVec2(x, at.y + 2), ImVec2(x + w, at.y + height - 2), PackedColour(segments[i].rgb));
+      x += w;
+    }
+  }
+  ImGui::Dummy(ImVec2(width, height));
+}
+
+static int MetricOf(const HeroStats &stats, HeroStatsChampion who, int level, int metric)
+{
+  switch (metric)
+  {
+  case MetricDealt:
+    return stats.DamageDealt(who, level, HeroDamageMelee) + stats.DamageDealt(who, level, HeroDamageRanged) +
+           stats.DamageDealt(who, level, HeroDamageMagic);
+  case MetricKills: return stats.Kills(who, level);
+  case MetricTaken: return stats.Harm(who, level);
+  case MetricHealed: return stats.Healed(who, level);
+  default: return stats.ManaSpent(who, level);
+  }
+}
+
+struct ByLevelRow
+{
+  int level;                // HERO_STATS_WHOLE_RUN for the last row
+  std::vector<int> values;  // per column, then the party
+};
+
+static void DrawMetricButtons(const std::vector<HeroStatsColumn> &columns)
+{
+  ImGui::SetCursorPos(ImVec2(GUTTER, ImGui::GetCursorPosY() + 4));
+  for (int m = 0; m < BY_LEVEL_METRIC_COUNT; m++)
+  {
+    if (m > 0) ImGui::SameLine();
+    if (PageButton(METRIC_LABELS[m], m == shownMetric)) shownMetric = m;
+  }
+  ImGui::SameLine(0, 30);
+  for (size_t i = 0; i < columns.size(); i++) LegendEntry(HERO_RGB[i % 4], columns[i].name.c_str(), i == 0);
+}
+
+static void DrawByLevel(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
+                        const HeroStatsPicker &picker)
+{
+  DrawMetricButtons(columns);
+  size_t n = columns.size();
+  // One query per level, column and metric, once per frame
+  std::vector<ByLevelRow> rows;
+  for (size_t r = 0; r <= picker.levels.size(); r++)
+  {
+    ByLevelRow row;
+    row.level = r < picker.levels.size() ? picker.levels[r] : HERO_STATS_WHOLE_RUN;
+    for (size_t i = 0; i < n; i++) row.values.push_back(MetricOf(stats, columns[i].id, row.level, shownMetric));
+    row.values.push_back(MetricOf(stats, HERO_STATS_PARTY, row.level, shownMetric));
+    rows.push_back(row);
+  }
+  ImGui::SetCursorPos(ImVec2(GUTTER, ImGui::GetCursorPosY() + 4));
+  int columnCount = (int)n + 3;
+  ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY;
+  if (!ImGui::BeginTable("##bylevel", columnCount, flags, ImGui::GetContentRegionAvail())) return;
+  ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 100);
+  for (int i = 1; i < columnCount - 1; i++) ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 92);
+  ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 240);
+  ImGui::TableSetupScrollFreeze(1, 1);
+  ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+  ImGui::TableSetColumnIndex(0);
+  ImGui::TextColored(DimmedColour(), "Level");
+  for (size_t i = 0; i <= n; i++)
+  {
+    ImGui::TableSetColumnIndex((int)i + 1);
+    if (i < n) ClickableName(columns[i].name, columns[i].hasLeft, columns[i].id);
+    else ClickableName("Party", false, HERO_STATS_PARTY);
+  }
+  ImGui::TableSetColumnIndex(columnCount - 1);
+  ImGui::TextColored(DimmedColour(), "Share");
+  for (size_t r = 0; r < rows.size(); r++)
+  {
+    const ByLevelRow &row = rows[r];
+    bool isRun = row.level == HERO_STATS_WHOLE_RUN;
+    ImGui::TableNextRow();
+    if (isRun) ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, PackedColour(FRAME_RGB));
+    ImGui::TableSetColumnIndex(0);
+    ImGui::PushID((int)r);
+    std::string label = isRun ? "Whole run" : LevelLabel(row.level);
+    if (isRun) ImGui::TextColored(Colour(TITLE_TEXT_RGB), "%s", label.c_str());
+    else if (ImGui::Selectable(label.c_str(), false, ImGuiSelectableFlags_SpanAllColumns))
+    {
+      shownLevel = row.level;
+      shownPage = StatsPageTable;
+    }
+    ImGui::PopID();
+    std::vector<BarSegment> segments;
+    for (size_t i = 0; i <= n; i++)
+    {
+      ImGui::TableSetColumnIndex((int)i + 1);
+      bool greyed = i < n && columns[i].hasLeft;
+      RightText(HeroStatsView_Number(row.values[i]), greyed ? DimmedColour() : Colour(TEXT_RGB));
+      if (i < n) segments.push_back({row.values[i], HERO_RGB[i % 4]});
+    }
+    ImGui::TableSetColumnIndex(columnCount - 1);
+    ShareBar(segments, row.values[n]);
+  }
+  ImGui::EndTable();
+}
+
+struct MonsterLine
+{
+  std::string name;
+  std::vector<int> byColumn;  // per champion column
+  int door, pit, other, total;
+};
+
+static bool MonsterLineBefore(const MonsterLine &a, const MonsterLine &b)
+{
+  if (a.total != b.total) return a.total > b.total;
+  return a.name < b.name;
+}
+
+static MonsterLine EmptyMonsterLine(const std::string &name, size_t columnCount)
+{
+  MonsterLine line;
+  line.name = name;
+  line.byColumn.assign(columnCount, 0);
+  line.door = line.pit = line.other = line.total = 0;
+  return line;
+}
+
+static std::vector<MonsterLine> BuildMonsterLines(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
+                                                  int level)
+{
+  std::vector<HeroStatsMonsterRow> kills = stats.MonsterKills(level);
+  std::map<std::pair<int, int>, size_t> lineOf;
+  std::vector<MonsterLine> lines;
+  for (size_t k = 0; k < kills.size(); k++)
+  {
+    const HeroStatsMonsterRow &kill = kills[k];
+    if (kill.count <= 0) continue;
+    std::pair<int, int> key(kill.monsterType, kill.variant);
+    std::map<std::pair<int, int>, size_t>::iterator found = lineOf.find(key);
+    if (found == lineOf.end())
+    {
+      char raw[80] = "";
+      GetMonsterName(kill.monsterType, kill.variant, raw);
+      lines.push_back(EmptyMonsterLine(raw[0] != 0 ? std::string(raw) : "Monster #" + std::to_string(kill.monsterType),
+                                       columns.size()));
+      found = lineOf.insert(std::make_pair(key, lines.size() - 1)).first;
+    }
+    MonsterLine &line = lines[found->second];
+    line.total += kill.count;
+    if (kill.by == HeroBlowByDoor) line.door += kill.count;
+    else if (kill.by == HeroBlowByPit) line.pit += kill.count;
+    else
+    {
+      int column = -1;
+      if (kill.by == HeroBlowByChampion)
+        for (size_t i = 0; i < columns.size(); i++)
+          if (columns[i].id == kill.champion) column = (int)i;
+      if (column >= 0) line.byColumn[column] += kill.count;
+      else line.other += kill.count;  // clouds, traps, monsters, unknown
+    }
+  }
+  std::sort(lines.begin(), lines.end(), MonsterLineBefore);
+  return lines;
+}
+
+static void MonsterCount(int value, bool greyed)
+{
+  if (value == 0) RightText("\xc2\xb7", Colour(OTHER_RGB));
+  else RightText(HeroStatsView_Number(value), greyed ? DimmedColour() : Colour(TEXT_RGB));
+}
+
+static void DrawMonsters(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns)
+{
+  std::vector<MonsterLine> lines = BuildMonsterLines(stats, columns, shownLevel);
+  ImGui::SetCursorPos(ImVec2(GUTTER, ImGui::GetCursorPosY() + 4));
+  if (lines.empty())
+  {
+    ImGui::TextColored(DimmedColour(), "No monsters killed yet.");
+    return;
+  }
+  size_t n = columns.size();
+  MonsterLine all = EmptyMonsterLine("All monsters", n);
+  for (size_t l = 0; l < lines.size(); l++)
+  {
+    for (size_t i = 0; i < n; i++) all.byColumn[i] += lines[l].byColumn[i];
+    all.door += lines[l].door;
+    all.pit += lines[l].pit;
+    all.other += lines[l].other;
+    all.total += lines[l].total;
+  }
+  // Door, Pit and Other only when something was killed that way
+  const char *extraLabel[3] = {"Door", "Pit", "Other"};
+  int extraTotal[3] = {all.door, all.pit, all.other};
+  std::vector<int> shownExtra;
+  for (int e = 0; e < 3; e++)
+    if (extraTotal[e] > 0) shownExtra.push_back(e);
+  int columnCount = 1 + (int)n + (int)shownExtra.size() + 2;
+  ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY;
+  ImVec2 size = ImGui::GetContentRegionAvail();
+  size.y = std::max(40.0f, size.y - ImGui::GetTextLineHeightWithSpacing() - 4);  // room for the note
+  if (!ImGui::BeginTable("##monsters", columnCount, flags, size)) return;
+  ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 190);
+  for (int i = 1; i < columnCount - 1; i++) ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 72);
+  ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 240);
+  ImGui::TableSetupScrollFreeze(1, 1);
+  ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+  ImGui::TableSetColumnIndex(0);
+  ImGui::TextColored(DimmedColour(), "Monster");
+  for (size_t i = 0; i < n; i++)
+  {
+    ImGui::TableSetColumnIndex((int)i + 1);
+    ClickableName(columns[i].name, columns[i].hasLeft, columns[i].id);
+  }
+  for (size_t e = 0; e < shownExtra.size(); e++)
+  {
+    ImGui::TableSetColumnIndex((int)(n + 1 + e));
+    RightText(extraLabel[shownExtra[e]], DimmedColour());
+  }
+  ImGui::TableSetColumnIndex(columnCount - 2);
+  RightText("Total", DimmedColour());
+  ImGui::TableSetColumnIndex(columnCount - 1);
+  ImGui::TextColored(DimmedColour(), "Killed by");
+  for (size_t l = 0; l <= lines.size(); l++)
+  {
+    bool isAll = l == lines.size();
+    const MonsterLine &line = isAll ? all : lines[l];
+    ImGui::TableNextRow();
+    if (isAll) ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, PackedColour(FRAME_RGB));
+    ImGui::TableSetColumnIndex(0);
+    ImGui::TextColored(isAll ? Colour(TITLE_TEXT_RGB) : Colour(TEXT_RGB), "%s", line.name.c_str());
+    std::vector<BarSegment> segments;
+    for (size_t i = 0; i < n; i++)
+    {
+      ImGui::TableSetColumnIndex((int)i + 1);
+      MonsterCount(line.byColumn[i], columns[i].hasLeft);
+      segments.push_back({line.byColumn[i], HERO_RGB[i % 4]});
+    }
+    int lineExtra[3] = {line.door, line.pit, line.other};
+    ImU32 extraRgb[3] = {DOOR_RGB, PIT_RGB, OTHER_RGB};
+    for (size_t e = 0; e < shownExtra.size(); e++)
+    {
+      ImGui::TableSetColumnIndex((int)(n + 1 + e));
+      MonsterCount(lineExtra[shownExtra[e]], false);
+    }
+    for (int e = 0; e < 3; e++) segments.push_back({lineExtra[e], extraRgb[e]});
+    ImGui::TableSetColumnIndex(columnCount - 2);
+    RightText(HeroStatsView_Number(line.total), Colour(KILLS_RGB));
+    ImGui::TableSetColumnIndex(columnCount - 1);
+    ShareBar(segments, line.total);
+  }
+  ImGui::EndTable();
+  ImGui::SetCursorPosX(GUTTER);
+  ImGui::TextColored(DimmedColour(), "Other = clouds, traps and monsters");
+}
+
+// ---------------------------------------------------------------------------------------------
 
 static void DrawWindowContents(void)
 {
@@ -815,6 +1105,10 @@ static void DrawWindowContents(void)
       if (shownPage == StatsPageTable) DrawTable(data);
       else DrawBars(data);
     }
+    else if (shownPage == StatsPageByLevel)
+      DrawByLevel(stats, HeroStatsView_Columns(stats, HeroStats_PartyNow()), picker);
+    else if (shownPage == StatsPageMonsters)
+      DrawMonsters(stats, HeroStatsView_Columns(stats, HeroStats_PartyNow()));
   }
   ImGui::End();
 }
