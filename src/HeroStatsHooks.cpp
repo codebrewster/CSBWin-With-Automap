@@ -70,7 +70,7 @@ static std::string CurrentDungeon(void)
   return dungeonName == NULL ? std::string() : std::string(dungeonName);
 }
 
-static std::vector<HeroStatsChampion> PartyNow(void)
+std::vector<HeroStatsChampion> HeroStats_PartyNow(void)
 {
   std::vector<HeroStatsChampion> party;
   for (int i = 0; i < d.NumCharacter && i < 4; i++) party.push_back(d.hero[i].fingerPrint);
@@ -129,7 +129,7 @@ void HeroStats_OnDungeonLoaded(void)
 
 void HeroStats_OnMapFileRead(const HeroStats &fromFile, const HeroStatsOrigins &originsFromFile)
 {
-  if (HeroStatsGame_IsSame(gameInPlay, dungeonInPlay, CurrentDungeon(), PartyNow(), fromFile))
+  if (HeroStatsGame_IsSame(gameInPlay, dungeonInPlay, CurrentDungeon(), HeroStats_PartyNow(), fromFile))
   {
     store.TakeFromFile(fromFile);
     store.CountReload();
@@ -146,7 +146,7 @@ void HeroStats_OnMapFileRead(const HeroStats &fromFile, const HeroStatsOrigins &
 
 void HeroStats_OnNoMapFile(void)
 {
-  if (HeroStatsGame_IsSame(gameInPlay, dungeonInPlay, CurrentDungeon(), PartyNow(), gameBeforeLoad))
+  if (HeroStatsGame_IsSame(gameInPlay, dungeonInPlay, CurrentDungeon(), HeroStats_PartyNow(), gameBeforeLoad))
   {
     store.CountReload();
   }

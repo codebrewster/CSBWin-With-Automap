@@ -11,6 +11,8 @@
 
 HeroStats &HeroStats_Store(void);
 HeroStatsOrigins &HeroStats_Origins(void);
+// Fingerprints of the champions in the party now, slot order (empty with no game loaded)
+std::vector<HeroStatsChampion> HeroStats_PartyNow(void);
 
 // AutoMap_OnDungeonLoaded: forgets the stores of the last dungeon. A new game starts empty; for
 // a saved game the hardship stays in memory until HeroStats_OnMapFileRead (or, without a usable
