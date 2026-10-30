@@ -5,6 +5,8 @@
 #include <stdio.h>
 
 //#include "Objects.h"
+// Before CSB.h, which leaves #pragma pack(1) switched on
+#include "HeroStatsHooks.h"
 #include "Dispatch.h"
 #include "CSB.h"
 #include "Data.h"
@@ -34,6 +36,8 @@ i16 LaunchMissile(
   // Taken before any return: a shot that finds no free record must not mark the next missile
   const bool shotWithLauncher = TakeExpectedShotMissile();
   objD6 = FindEmptyDB14Entry(false);
+  // Before the return, like the shot above: an expectation must not mark a later missile
+  HeroStats_OnMissileLaunched(objD6 == RNnul ? -1 : db.GetDBIndex(GetRecordAddressDB14(objD6), dbMISSILE));
   if (objD6 == RNnul) return (-1);
   objD6.pos(pos);
   DB14A3 = GetRecordAddressDB14(objD6);
@@ -1279,6 +1283,8 @@ i16 CastSpell(i16 chIdx, SPELL_PARAMETERS& spellParameters)
       {
         RN temp;
         temp.CreateSpell(missileType);
+        HeroStats_ExpectHeroMissile(chIdx, HeroDamageMagic, HERO_STATS_NO_WEAPON, false, HERO_STATS_NO_OPTION,
+                                    HeroStats_RuneSpellKey(incantation));
         CharacterThrowsSpell(
                      chIdx,
                      //RN(3,15,BITS4_9(pSpell->word6)+0x380), //0xff80+type

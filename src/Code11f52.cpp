@@ -5,6 +5,8 @@
 #include <stdio.h>
 
 //#include "Objects.h"
+// Before CSB.h, which leaves #pragma pack(1) switched on
+#include "HeroStatsHooks.h"
 #include "Dispatch.h"
 #include "CSB.h"
 #include "Data.h"
@@ -988,6 +990,7 @@ void ProcessMonsterDeleteFilter(i32 mapX, i32 mapY, DELETEMONSTERPARAMETERS *pdm
     {
       pRecord[subtype]++;
     };
+    HeroStats_OnMonsterDied(mt, subtype, pdmp->why);
   };
   //
   //
@@ -1436,6 +1439,7 @@ void CreateCloud(RN P1,
   if (objCloud == RNnul) return;
   //unkA3 = d.misc1052eight[15] + objMissile.idx();
   DB15A3 = GetRecordAddressDB15(objCloud);
+  HeroStats_OnCloudMade(db.GetDBIndex(DB15A3, dbCLOUD));
   //if (missileX <= 255) // mapY
   //{
   //  objX = missileX;
@@ -1545,8 +1549,10 @@ void CreateCloud(RN P1,
   snprintf(levelText,25,"SPELL DAMAGE %d",damage);
   QuePrintLines(11, levelText, false); // 11 is yellow
   AutoMap_OnGroupDamageShown(objMonster.ConvertToInteger(), damage);
+  HeroStats_OnSpellDamage(damage, pDB4_4->numMonM1() + 1);
   d.MonsterDamageResult
      = (i16)DamageMonsterGroup(pDB4_4, objX, objY, damage, 1, false, pmmr);
+  HeroStats_EndMonsterBlow();
 }
 
 // *********************************************************
@@ -2061,6 +2067,7 @@ i16 ProcessMissileEncounter(
 	QuePrintLines(15, levelText, false);
         AutoMap_OnMonsterDamageShown(FindFirstMonster(objX, objY).ConvertToInteger(),
                                      monsterOrdinal-1, D5W+D1W);
+        HeroStats_OnMissileDamage(db.GetDBIndex(pDBmissile, dbMISSILE), D5W+D1W);
 
         monsterDamageResult = DamageMonster(
                                             DBmonA2,
@@ -2071,6 +2078,7 @@ i16 ProcessMissileEncounter(
                                             1,
                                             false,
                                             pmmr);
+        HeroStats_EndMonsterBlow();
         if (monsterDamageResult != ALL_MONSTERS_DIED)
         { //At least one monster in group remains.
           ProcessTimers29to41(objX, objY, TT_M2, 0);
@@ -2145,7 +2153,9 @@ i16 ProcessMissileEncounter(
     {
       D0W = sw(objectPos);
     };
+    HeroStats_BeginCloud(db.GetDBIndex(pDBmissile, dbMISSILE));
     CreateCloud(RNprojectile, w_52, objX, objY, missileX, missileY, D0W, pmmr); //cause damage
+    HeroStats_EndCloud();
   }
   else
   {
@@ -3142,8 +3152,10 @@ i16 MoveObject(const RN        object,
               ASSERT(AttachedLevel_4 >= 0,"attached_level");
               LoadLevel(AttachedLevel_4);
 
+              HeroStats_BeginMonsterBlow(HeroBlowByPit);
               monsterDamageResult =
                 DamageMonsterGroup(GetRecordAddressDB4(objD7), oldX, oldY, 20, 0, !item16Attached, pmmr);
+              HeroStats_EndMonsterBlow();
               LoadLevel(curLevel);
               LOCAL_18 = (I16)((monsterDamageResult == 2) ? 1 : 0);
               if (LOCAL_18 != 0) break;
@@ -3205,7 +3217,11 @@ i16 MoveObject(const RN        object,
         };
         TAG00b522(objD7, newX, newY);
         ASSERT(AttachedLevel_4 >= 0,"attachedLevel");
+        // The fall killed the group (DamageMonsterGroup without removal leaves the last monster
+        // to this deletion), or the monster may not stay on the level
+        HeroStats_BeginMonsterBlow(LOCAL_18 != 0 ? HeroBlowByPit : HeroBlowByOther);
         if (oldX >= 0) ProcessMonsterDeleteFilter(oldX, oldY, &dmp, AttachedLevel_4);
+        HeroStats_EndMonsterBlow();
         DropMonsterRemains(newX,
                            newY,
                            objD7,

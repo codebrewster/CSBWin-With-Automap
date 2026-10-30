@@ -5,6 +5,8 @@
 #include <stdio.h>
 
 //#include "Objects.h"
+// Before CSB.h, which leaves #pragma pack(1) switched on
+#include "HeroStatsHooks.h"
 #include "Dispatch.h"
 #include "CSB.h"
 #include "Data.h"
@@ -1197,6 +1199,7 @@ bool MonsterAttacks(RN  monster,
     };
     if (missile != RNnul)
     {
+      HeroStats_ExpectMonsterMissile((int)attackParameters.monsterType);
       LaunchMissile(
                     missile,
                     attackParameters.monsterX,

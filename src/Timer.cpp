@@ -5,6 +5,8 @@
 #include <stdio.h>
 
 //#include "Objects.h"
+// Before CSB.h, which leaves #pragma pack(1) switched on
+#include "HeroStatsHooks.h"
 #include "Dispatch.h"
 #include "CSB.h"
 #include "Data.h"
@@ -169,6 +171,7 @@ void ProcessObjectFromMissile(RN missile, RN *pDest, i32 mapX, i32 mapY)
   //DB14A3->link(RNnul);
   // Every missile ends here, and the next missile may be given this record
   ForgetShotMissile(db.GetDBIndex(DB14A3, dbMISSILE));
+  HeroStats_OnMissileFreed(db.GetDBIndex(DB14A3, dbMISSILE));
   DeleteDBEntry(DB14A3);
 }
 
@@ -517,6 +520,9 @@ void ProcessTT_25(TIMER *pTimer)
             D5W = sw(D5W - w_14);
             w_14 = sw(2*w_14 + 1);
             D4W = pDB4_4->numMonM1(); //#monsters-1
+            // Each member's damage is drawn inside its DamageMonster call and never shown:
+            // only the kills are counted
+            HeroStats_OnCloudDamage(db.GetDBIndex(DB15A2, dbCLOUD), 0, 0);
             do
             {
               D0W = sw(pDB4_4->groupIndex());
@@ -546,10 +552,13 @@ void ProcessTT_25(TIMER *pTimer)
               };
               D4W--;
             } while (D4W >= 0);
+            HeroStats_EndMonsterBlow();
           }
           else
           {
+            HeroStats_OnCloudDamage(db.GetDBIndex(DB15A2, dbCLOUD), D5W, pDB4_4->numMonM1() + 1);
             DamageMonsterGroup(pDB4_4, D7W, D6W, D5W, 1, false, NULL);
+            HeroStats_EndMonsterBlow();
           };
         };
       };
@@ -582,6 +591,7 @@ void ProcessTT_25(TIMER *pTimer)
           if (D5W != 0)
           {
             MONSTER_DAMAGE_RESULT monsterDamageResult;
+            HeroStats_OnCloudDamage(db.GetDBIndex(DB15A2, dbCLOUD), D5W, pDB4_4->numMonM1() + 1);
             monsterDamageResult = DamageMonsterGroup(
                       pDB4_4,
                       D7W,
@@ -590,6 +600,7 @@ void ProcessTT_25(TIMER *pTimer)
                       1,
                       false,
                       NULL);
+            HeroStats_EndMonsterBlow();
             if (monsterDamageResult != ALL_MONSTERS_DIED)
             {
               if (D5W > 2)
@@ -619,6 +630,7 @@ tag00f020:
                        D6W,
                        NULL);
   //DB15A2->link(RNnul);
+  HeroStats_OnCloudFreed(db.GetDBIndex(DB15A2, dbCLOUD));
   DeleteDBEntry(DB15A2);
 }
 
@@ -1331,6 +1343,7 @@ void ProcessTT_1(TIMER *pTimer)
         if (D4W >= D1W)
         {
           MONSTER_DAMAGE_RESULT monsterDamageResult;
+          HeroStats_BeginMonsterBlow(HeroBlowByDoor);
           monsterDamageResult = DamageMonsterGroup(
                     GetRecordAddressDB4(obj_6),
                     x,
@@ -1339,6 +1352,7 @@ void ProcessTT_1(TIMER *pTimer)
                     1,
                     false,
                     NULL);
+          HeroStats_EndMonsterBlow();
           if (monsterDamageResult != ALL_MONSTERS_DIED)
           {
             ProcessTimers29to41(x, y, TT_M3, 0);

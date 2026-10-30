@@ -323,8 +323,24 @@ static void TakeFromFileReplacesTheRestAndKeepsHardship(void)
   CHECK(memory.PartyWipes() == 1);
 }
 
+static void RuneSpellKeyLeavesOutThePowerRune(void)
+{
+  // FUL IR at power LO and at power MON: one row
+  const signed char lo[4] = {0x60, 0x66, 0x6c + 1, 0};
+  const signed char mon[4] = {0x60 + 5, 0x66, 0x6c + 1, 0};
+  CHECK(HeroStats_RuneSpellKey(lo) == (0x66u | 0x6du << 8));
+  CHECK(HeroStats_RuneSpellKey(mon) == HeroStats_RuneSpellKey(lo));
+  // All four runes fill the array; there is no terminator to read past
+  const signed char four[4] = {0x60, 0x67, 0x6d, 0x73};
+  CHECK(HeroStats_RuneSpellKey(four) == (0x67u | 0x6du << 8 | 0x73u << 16));
+  // A short incantation: whatever follows the first 0 is not a rune
+  const signed char shortOne[4] = {0x61, 0x68, 0, 0x75};
+  CHECK(HeroStats_RuneSpellKey(shortOne) == 0x68u);
+}
+
 void TestHeroStats(void)
 {
+  RuneSpellKeyLeavesOutThePowerRune();
   ChampionsKeepOrderAndRename();
   BlowsAreCountedPerChampionAndLevel();
   BlowsOfMonstersCreditNothing();

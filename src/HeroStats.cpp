@@ -18,6 +18,14 @@ HeroStatsBlow HeroStatsBlow_Nobody(HeroBlowBy by)
   return blow;
 }
 
+uint32_t HeroStats_RuneSpellKey(const void *incantation)
+{
+  const uint8_t *runes = (const uint8_t *)incantation;
+  uint32_t key = 0;
+  for (int i = 1; i < 4 && runes[i] != 0; i++) key |= (uint32_t)runes[i] << (8 * (i - 1));
+  return key;
+}
+
 bool HeroStats::Matches(HeroStatsChampion want, HeroStatsChampion have)
 {
   return want == HERO_STATS_PARTY || want == have;

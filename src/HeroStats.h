@@ -50,6 +50,10 @@ const uint32_t HERO_SPELL_SHIELD_ACTION = 0x02000000;
 const uint32_t HERO_SPELL_HEAL_ACTION   = 0x03000000;
 const uint32_t HERO_SPELL_ITEM_SPELLS   = 0x04000000;  // spells cast from staffs and wands
 const uint32_t HERO_SPELL_NO_SUCH_SPELL = 0x80000000;  // ORed onto runes that form no spell
+// The rune key of an incantation (CHARDESC::incantation: four bytes, no terminator when all four
+// are entered): incantation[1] | incantation[2] << 8 | incantation[3] << 16, the power rune
+// left out and nothing after the first 0 taken as a rune
+uint32_t HeroStats_RuneSpellKey(const void *incantation);
 
 struct HeroStatsChampionInfo { HeroStatsChampion id; std::string name; };
 struct HeroStatsAttackRow { int weapon; bool thrown; int option; int tries, hits, damage, kills; };

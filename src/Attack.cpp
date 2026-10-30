@@ -3,6 +3,8 @@
 
 #include <stdio.h>
 
+// Before CSB.h, which leaves #pragma pack(1) switched on
+#include "HeroStatsHooks.h"
 #include "Dispatch.h"
 #include "CSB.h"
 #include "Data.h"
@@ -455,6 +457,10 @@ void PhysicalAttackFilter(ATTACKPARAMETERS *pParam, FILTER *pFilter, const char 
   AutoMap_OnMonsterDamageShown(pParam->monsterUnderAttack,
                                pParam->attdep.physicalAttack.attackedMonsterOrdinal-1,
                                pParam->attdep.physicalAttack.monsterDamage);
+  // Ordinal 0: no member of the group could be attacked, so there was no attack at a monster
+  HeroStats_OnMeleeAttack(pParam->charIdx, pParam->attackType,
+                          pParam->attdep.physicalAttack.attackedMonsterOrdinal == 0 ? 0 : pParam->monsterUnderAttack,
+                          pParam->attdep.physicalAttack.monsterDamage);
   monsterDamageResult = DamageMonster(GetRecordAddressDB4(objMon),//DB4A2,
                       pParam->attdep.physicalAttack.attackedMonsterOrdinal-1, //monsterPosIndex,
                       pParam->attackX,
@@ -463,6 +469,7 @@ void PhysicalAttackFilter(ATTACKPARAMETERS *pParam, FILTER *pFilter, const char 
                       1,
                       false,
                       NULL);
+  HeroStats_EndMonsterBlow();
   if (traceID!=NULL)
   {
     fprintf(GETFILE(TraceFile),"%sw_2 = DamageMonster() --> %d\n",
@@ -1318,11 +1325,15 @@ i32 AttackWithSpell(//i32   chIdx,
   pParam->attdep.spellAttack.decrementCharges = 1;
   CallAttackFilter(pFilter, pParam, 1);
   objSpell = (RNVAL)pParam->attdep.spellAttack.spellType;
+  // The spell flies from the item in the weapon hand; with too little mana nothing flies
+  HeroStats_ExpectHeroMissile(pParam->charIdx, HeroDamageMagic, HeroStats_WeaponInHand(pParam->charIdx),
+                              false, pParam->attackType, HERO_STATS_NO_SPELL);
   success = CharacterThrowsSpell(
                 pParam->charIdx,
                 objSpell,//rnD5,
                 pParam->attdep.spellAttack.spellRange,
                 pParam->neededMana);
+  HeroStats_DropExpectedMissile();
   if (success == 0)
   {
       experienceGained /= 2;
@@ -1911,6 +1922,9 @@ RESTARTABLE _Attack(const i32 initialChIdx, const ATTACKTYPE initialAttackType)
       pParam->attdep.shoot.success = 1;
       CallAttackFilter(&filter, pParam, 1);
       ExpectShotMissile();
+      // A shot belongs to the launcher in the weapon hand, not to the ammunition
+      HeroStats_ExpectHeroMissile(pParam->charIdx, HeroDamageRanged, HeroStats_WeaponInHand(pParam->charIdx),
+                                  false, pParam->attackType, HERO_STATS_NO_SPELL);
       LaunchObject(
                    pChar,
                    obj_4,
