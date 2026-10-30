@@ -28,6 +28,10 @@ public:
   void Restore(const std::map<int, HeroStatsBlow> &missiles, const std::map<int, HeroStatsBlow> &clouds,
                const std::map<int, HeroStatsChampion> &brewers);
 
+  // For the .map file, like HeroStats: the expected missile is not stored
+  void Serialize(std::vector<uint8_t> *out) const;
+  bool Deserialize(const uint8_t *data, size_t size);
+
 private:
   bool m_expecting = false;
   HeroStatsBlow m_expected = HeroStatsBlow_Nobody(HeroBlowByOther);

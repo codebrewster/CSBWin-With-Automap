@@ -1945,12 +1945,17 @@ void AutoMap_AfterSaveIsRotated(void)
   pathOfSaveBeforeRotation.clear();
 }
 
+// Stand-ins until HeroStatsHooks (Task 7) owns the stores and replaces these two
+static HeroStats heroStats;
+static HeroStatsOrigins heroStatsOrigins;
+
 static bool WriteMapFile(const SavedGameFile &save)
 {
   if (save.path.empty()) return false;
   std::ofstream out(MapFileOf(save.path).c_str(), std::ios::binary | std::ios::trunc);
   AutoMapFile(save.signature).Write(out, recorder.Explored(), recorder.Knowledge(), recorder.Items(),
-                                        recorder.Cells(), recorder.Notes(), recorder.Damage());
+                                        recorder.Cells(), recorder.Notes(), recorder.Damage(), heroStats,
+                                        heroStatsOrigins);
   out.close();
   return !out.fail();
 }
@@ -2000,11 +2005,17 @@ static void ReadMapFile(const SavedGameFile &save)
   if (!in.is_open()) return;
   bool hadItemMemory = false;
   bool hadCellMemory = false;
+  HeroStats statsFromFile;
+  HeroStatsOrigins originsFromFile;
   AutoMapFileResult result = AutoMapFile(save.signature).Read(
     in, &recorder.Explored(), &recorder.Knowledge(), &recorder.Items(), &hadItemMemory,
-    &recorder.Cells(), &hadCellMemory, &recorder.Notes(), &recorder.Damage());
+    &recorder.Cells(), &hadCellMemory, &recorder.Notes(), &recorder.Damage(), &statsFromFile,
+    &originsFromFile);
   if (result == AutoMapFileRead)
   {
+    // The hardship in memory outlives a reload of the same game
+    heroStats.TakeFromFile(statsFromFile);
+    heroStatsOrigins = originsFromFile;
     // An older map file showed every live item on an explored cell: keep showing those
     if (!hadItemMemory) RememberItemsOfExploredCells();
     if (!hadCellMemory) RememberLooksOfExploredCells();

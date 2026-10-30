@@ -1,5 +1,6 @@
 // HeroStats.cpp : what the champions did, per champion and dungeon level.
 #include "HeroStats.h"
+#include "HeroStatsBytes.h"
 
 #include <algorithm>
 
@@ -501,4 +502,252 @@ void HeroStats::TakeFromFile(const HeroStats &fromFile)
   HeroStats inMemory(*this);
   *this = fromFile;
   MergeHardship(inMemory);
+}
+
+// The layout is documented in AutoMapFile.h. Every map is a count and then its records.
+void HeroStats::Serialize(std::vector<uint8_t> *out) const
+{
+  HeroBytes_Put(out, (uint32_t)m_champions.size(), 4);
+  for (size_t i = 0; i < m_champions.size(); i++)
+  {
+    std::string name = m_champions[i].name.substr(0, 255);
+    HeroBytes_Put(out, m_champions[i].id, 2);
+    HeroBytes_Put(out, (uint32_t)name.size(), 1);
+    out->insert(out->end(), name.begin(), name.end());
+  }
+  HeroBytes_Put(out, (uint32_t)m_levels.size(), 4);
+  for (size_t i = 0; i < m_levels.size(); i++) HeroBytes_PutInt(out, m_levels[i]);
+
+  HeroBytes_Put(out, (uint32_t)m_attacks.size(), 4);
+  for (std::map<AttackKey, AttackCounts>::const_iterator it = m_attacks.begin(); it != m_attacks.end(); ++it)
+  {
+    HeroBytes_Put(out, std::get<0>(it->first), 2);
+    HeroBytes_PutInt(out, std::get<1>(it->first));
+    HeroBytes_PutInt(out, std::get<2>(it->first));
+    HeroBytes_Put(out, std::get<3>(it->first) ? 1 : 0, 1);
+    HeroBytes_PutInt(out, std::get<4>(it->first));
+    HeroBytes_PutInt(out, it->second.tries);
+    HeroBytes_PutInt(out, it->second.hits);
+    HeroBytes_PutInt(out, it->second.damage);
+    HeroBytes_PutInt(out, it->second.kills);
+  }
+  HeroBytes_Put(out, (uint32_t)m_damage.size(), 4);
+  for (std::map<DamageKey, int>::const_iterator it = m_damage.begin(); it != m_damage.end(); ++it)
+  {
+    HeroBytes_Put(out, std::get<0>(it->first), 2);
+    HeroBytes_PutInt(out, std::get<1>(it->first));
+    HeroBytes_PutInt(out, std::get<2>(it->first));
+    HeroBytes_PutInt(out, it->second);
+  }
+  HeroBytes_Put(out, (uint32_t)m_kills.size(), 4);
+  for (std::map<std::pair<HeroStatsChampion, int>, int>::const_iterator it = m_kills.begin(); it != m_kills.end(); ++it)
+  {
+    HeroBytes_Put(out, it->first.first, 2);
+    HeroBytes_PutInt(out, it->first.second);
+    HeroBytes_PutInt(out, it->second);
+  }
+  HeroBytes_Put(out, (uint32_t)m_monsterKills.size(), 4);
+  for (std::map<MonsterKey, int>::const_iterator it = m_monsterKills.begin(); it != m_monsterKills.end(); ++it)
+  {
+    HeroBytes_PutInt(out, std::get<0>(it->first));
+    HeroBytes_PutInt(out, std::get<1>(it->first));
+    HeroBytes_PutInt(out, std::get<2>(it->first));
+    HeroBytes_PutInt(out, std::get<3>(it->first));
+    HeroBytes_Put(out, std::get<4>(it->first), 2);
+    HeroBytes_PutInt(out, it->second);
+  }
+  HeroBytes_Put(out, (uint32_t)m_harm.size(), 4);
+  for (std::map<HarmKey, int>::const_iterator it = m_harm.begin(); it != m_harm.end(); ++it)
+  {
+    HeroBytes_Put(out, std::get<0>(it->first), 2);
+    HeroBytes_PutInt(out, std::get<1>(it->first));
+    HeroBytes_PutInt(out, std::get<2>(it->first));
+    HeroBytes_Put(out, std::get<3>(it->first), 2);
+    HeroBytes_PutInt(out, std::get<4>(it->first));
+    HeroBytes_PutInt(out, it->second);
+  }
+  HeroBytes_Put(out, (uint32_t)m_healing.size(), 4);
+  for (std::map<HealKey, int>::const_iterator it = m_healing.begin(); it != m_healing.end(); ++it)
+  {
+    HeroBytes_Put(out, std::get<0>(it->first), 2);
+    HeroBytes_PutInt(out, std::get<1>(it->first));
+    HeroBytes_PutInt(out, std::get<2>(it->first));
+    HeroBytes_Put(out, std::get<3>(it->first), 2);
+    HeroBytes_PutInt(out, it->second);
+  }
+  HeroBytes_Put(out, (uint32_t)m_manaGained.size(), 4);
+  for (std::map<GainKey, int>::const_iterator it = m_manaGained.begin(); it != m_manaGained.end(); ++it)
+  {
+    HeroBytes_Put(out, std::get<0>(it->first), 2);
+    HeroBytes_PutInt(out, std::get<1>(it->first));
+    HeroBytes_PutInt(out, std::get<2>(it->first));
+    HeroBytes_PutInt(out, it->second);
+  }
+  HeroBytes_Put(out, (uint32_t)m_spells.size(), 4);
+  for (std::map<SpellKey, SpellCounts>::const_iterator it = m_spells.begin(); it != m_spells.end(); ++it)
+  {
+    HeroBytes_Put(out, std::get<0>(it->first), 2);
+    HeroBytes_PutInt(out, std::get<1>(it->first));
+    HeroBytes_Put(out, std::get<2>(it->first), 4);
+    HeroBytes_PutInt(out, it->second.casts);
+    HeroBytes_PutInt(out, it->second.mana);
+    HeroBytes_PutInt(out, it->second.failed);
+    HeroBytes_PutInt(out, it->second.wasted);
+    HeroBytes_PutInt(out, it->second.damage);
+    HeroBytes_PutInt(out, it->second.kills);
+  }
+  HeroBytes_Put(out, (uint32_t)m_deaths.size(), 4);
+  for (size_t i = 0; i < m_deaths.size(); i++)
+  {
+    HeroBytes_Put(out, m_deaths[i].who, 2);
+    HeroBytes_PutInt(out, m_deaths[i].level);
+    HeroBytes_PutInt(out, (int)m_deaths[i].cause);
+    HeroBytes_PutBlow(out, m_deaths[i].by);
+  }
+  HeroBytes_Put(out, (uint32_t)m_resurrections.size(), 4);
+  for (std::map<std::pair<HeroStatsChampion, int>, int>::const_iterator it = m_resurrections.begin(); it != m_resurrections.end(); ++it)
+  {
+    HeroBytes_Put(out, it->first.first, 2);
+    HeroBytes_PutInt(out, it->first.second);
+    HeroBytes_PutInt(out, it->second);
+  }
+  HeroBytes_PutInt(out, m_partyWipes);
+  HeroBytes_PutInt(out, m_reloads);
+}
+
+bool HeroStats::Deserialize(const uint8_t *data, size_t size)
+{
+  HeroBytesReader in(data, size);
+  HeroStats read;
+  uint32_t count = in.GetCount(3);
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    HeroStatsChampionInfo info;
+    info.id = (HeroStatsChampion)in.Get(2);
+    uint32_t length = in.Get(1);
+    if (!in.ok || in.left < length) return false;
+    info.name.assign((const char *)in.p, length);
+    in.p += length;
+    in.left -= length;
+    read.m_champions.push_back(info);
+  }
+  count = in.GetCount(4);
+  for (uint32_t i = 0; i < count && in.ok; i++) read.m_levels.push_back(in.GetInt());
+
+  count = in.GetCount(2 + 4 + 4 + 1 + 4 + 16);
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    HeroStatsChampion who = (HeroStatsChampion)in.Get(2);
+    int level = in.GetInt();
+    int weapon = in.GetInt();
+    bool thrown = in.Get(1) != 0;
+    int option = in.GetInt();
+    AttackCounts counts;
+    counts.tries = in.GetInt();
+    counts.hits = in.GetInt();
+    counts.damage = in.GetInt();
+    counts.kills = in.GetInt();
+    read.m_attacks[AttackKey(who, level, weapon, thrown, option)] = counts;
+  }
+  count = in.GetCount(2 + 4 + 4 + 4);
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    HeroStatsChampion who = (HeroStatsChampion)in.Get(2);
+    int level = in.GetInt();
+    int kind = in.GetInt();
+    int damage = in.GetInt();
+    if (kind < 0 || kind >= HERO_DAMAGE_KIND_COUNT) return false;
+    read.m_damage[DamageKey(who, level, kind)] = damage;
+  }
+  count = in.GetCount(2 + 4 + 4);
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    HeroStatsChampion who = (HeroStatsChampion)in.Get(2);
+    int level = in.GetInt();
+    read.m_kills[std::make_pair(who, level)] = in.GetInt();
+  }
+  count = in.GetCount(4 * 4 + 2 + 4);
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    int level = in.GetInt();
+    int type = in.GetInt();
+    int variant = in.GetInt();
+    int by = in.GetInt();
+    HeroStatsChampion who = (HeroStatsChampion)in.Get(2);
+    int number = in.GetInt();
+    if (by < 0 || by > (int)HeroBlowByOther) return false;
+    read.m_monsterKills[MonsterKey(level, type, variant, by, who)] = number;
+  }
+  count = in.GetCount(2 + 4 + 4 + 2 + 4 + 4);
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    HeroStatsChampion victim = (HeroStatsChampion)in.Get(2);
+    int level = in.GetInt();
+    int source = in.GetInt();
+    HeroStatsChampion causer = (HeroStatsChampion)in.Get(2);
+    int type = in.GetInt();
+    int amount = in.GetInt();
+    if (source < 0 || source >= HERO_HARM_SOURCE_COUNT) return false;
+    read.m_harm[HarmKey(victim, level, source, causer, type)] = amount;
+  }
+  count = in.GetCount(2 + 4 + 4 + 2 + 4);
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    HeroStatsChampion who = (HeroStatsChampion)in.Get(2);
+    int level = in.GetInt();
+    int kind = in.GetInt();
+    HeroStatsChampion brewer = (HeroStatsChampion)in.Get(2);
+    int amount = in.GetInt();
+    if (kind < 0 || kind >= HERO_HEAL_KIND_COUNT) return false;
+    read.m_healing[HealKey(who, level, kind, brewer)] = amount;
+  }
+  count = in.GetCount(2 + 4 + 4 + 4);
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    HeroStatsChampion who = (HeroStatsChampion)in.Get(2);
+    int level = in.GetInt();
+    int gain = in.GetInt();
+    int amount = in.GetInt();
+    if (gain < 0 || gain >= HERO_MANA_GAIN_COUNT) return false;
+    read.m_manaGained[GainKey(who, level, gain)] = amount;
+  }
+  count = in.GetCount(2 + 4 + 4 + 24);
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    HeroStatsChampion who = (HeroStatsChampion)in.Get(2);
+    int level = in.GetInt();
+    uint32_t spell = in.Get(4);
+    SpellCounts counts;
+    counts.casts = in.GetInt();
+    counts.mana = in.GetInt();
+    counts.failed = in.GetInt();
+    counts.wasted = in.GetInt();
+    counts.damage = in.GetInt();
+    counts.kills = in.GetInt();
+    read.m_spells[SpellKey(who, level, spell)] = counts;
+  }
+  count = in.GetCount(2 + 4 + 4 + HERO_BYTES_BLOW_SIZE);
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    HeroStatsDeath death;
+    death.who = (HeroStatsChampion)in.Get(2);
+    death.level = in.GetInt();
+    int cause = in.GetInt();
+    if (cause < 0 || cause >= HERO_HARM_SOURCE_COUNT) return false;
+    death.cause = (HeroHarmSource)cause;
+    if (!in.GetBlow(&death.by)) return false;
+    read.m_deaths.push_back(death);
+  }
+  count = in.GetCount(2 + 4 + 4);
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    HeroStatsChampion who = (HeroStatsChampion)in.Get(2);
+    int level = in.GetInt();
+    read.m_resurrections[std::make_pair(who, level)] = in.GetInt();
+  }
+  read.m_partyWipes = in.GetInt();
+  read.m_reloads = in.GetInt();
+  if (!in.ok || in.left != 0) return false;
+  *this = read;
+  return true;
 }

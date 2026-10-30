@@ -5,6 +5,8 @@
 #include "../AutoMapKnowledge.h"
 #include "../AutoMapMonsterDamage.h"
 #include "../AutoMapPlayerNotes.h"
+#include "../HeroStats.h"
+#include "../HeroStatsOrigins.h"
 
 #include <cstddef>
 #include <sstream>
@@ -19,6 +21,34 @@ static const size_t LEVEL_COUNT_OFFSET = 14;
 static const size_t FIRST_LEVEL_WIDTH_OFFSET = 16;
 // A file with no damaged monster group ends in its count of 4 bytes
 static const size_t NO_DAMAGE_BYTES = 4;
+
+// What a version 13 file ends in when both statistics stores are empty: the block length, the
+// length of the statistics, and their empty tables
+static std::string EmptyStatistics(void)
+{
+  std::ostringstream out;
+  AutoMapFile(SAVE_SIGNATURE).Write(out, AutoMapExplored(), AutoMapKnowledge(), AutoMapItemMemory(),
+                                    AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage(),
+                                    HeroStats(), HeroStatsOrigins());
+  std::string bytes = out.str();
+  // Header (14), level count (2), five empty counts (facts, items, looks, marks, links) and the
+  // damage count are 4 bytes each
+  return bytes.substr(14 + 2 + 6 * 4);
+}
+
+// The tests of the older blocks cut and extend the end of a file: they work on files without the
+// statistics, as the code wrote them before version 13, and Check*FileLeavesEveryStore adds the
+// empty statistics again
+static std::string WithoutStatistics(std::string bytes)
+{
+  bytes.erase(bytes.size() - EmptyStatistics().size());
+  return bytes;
+}
+
+static std::string Complete(const std::string &withoutStatistics)
+{
+  return withoutStatistics + EmptyStatistics();
+}
 
 static AutoMapExplored EmptyDungeon(void)
 {
@@ -43,7 +73,7 @@ static AutoMapExplored ExploredDungeon(void)
 static std::string WrittenFile(void)
 {
   std::ostringstream out;
-  AutoMapFile(SAVE_SIGNATURE).Write(out, ExploredDungeon(), AutoMapKnowledge(), AutoMapItemMemory(), AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage());
+  AutoMapFile(SAVE_SIGNATURE).Write(out, ExploredDungeon(), AutoMapKnowledge(), AutoMapItemMemory(), AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage(), HeroStats(), HeroStatsOrigins());
   return out.str();
 }
 
@@ -54,8 +84,10 @@ static AutoMapFileResult ReadInto(const std::string &bytes, AutoMapExplored *exp
                                   AutoMapMonsterDamage *damage)
 {
   std::istringstream in(bytes);
+  HeroStats stats;
+  HeroStatsOrigins origins;
   return AutoMapFile(SAVE_SIGNATURE).Read(in, explored, knowledge, items, hadItemMemory, cells,
-                                          hadCellMemory, notes, damage);
+                                          hadCellMemory, notes, damage, &stats, &origins);
 }
 
 static AutoMapFileResult ReadInto(const std::string &bytes, AutoMapExplored *explored,
@@ -167,7 +199,7 @@ static void SeenFloorsRoundTrip(void)
   explored.MarkFloorSeen(AutoMapCell{1, 31, 0});
   explored.MarkFloorSeen(AutoMapCell{1, 32, 5});
   std::ostringstream out;
-  AutoMapFile(SAVE_SIGNATURE).Write(out, explored, AutoMapKnowledge(), AutoMapItemMemory(), AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage());
+  AutoMapFile(SAVE_SIGNATURE).Write(out, explored, AutoMapKnowledge(), AutoMapItemMemory(), AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage(), HeroStats(), HeroStatsOrigins());
   AutoMapExplored readExplored = EmptyDungeon();
   CHECK(ReadInto(out.str(), &readExplored) == AutoMapFileRead);
   CHECK(readExplored.FloorIsSeen(AutoMapCell{0, 2, 1}));
@@ -185,7 +217,7 @@ static void OlderFilesSeeTheFloorsOfExploredCells(void)
   explored.Mark(AutoMapCell{1, -1, 4});
   explored.MarkFace(AutoMapCell{1, 3, 4}, 2);
   std::ostringstream out;
-  AutoMapFile(SAVE_SIGNATURE).Write(out, explored, AutoMapKnowledge(), AutoMapItemMemory(), AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage());
+  AutoMapFile(SAVE_SIGNATURE).Write(out, explored, AutoMapKnowledge(), AutoMapItemMemory(), AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage(), HeroStats(), HeroStatsOrigins());
   AutoMapExplored readExplored = EmptyDungeon();
   CHECK(ReadInto(WithoutSeenFloors(out.str()), &readExplored) == AutoMapFileRead);
   CHECK(readExplored.FloorIsSeen(AutoMapCell{0, 2, 1}));
@@ -205,7 +237,7 @@ static void RimsRoundTrip(void)
   explored.MarkGlimpsedFace(AutoMapCell{1, 32, 0}, 3);
   explored.Mark(AutoMapCell{1, 5, -1});
   std::ostringstream out;
-  AutoMapFile(SAVE_SIGNATURE).Write(out, explored, AutoMapKnowledge(), AutoMapItemMemory(), AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage());
+  AutoMapFile(SAVE_SIGNATURE).Write(out, explored, AutoMapKnowledge(), AutoMapItemMemory(), AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage(), HeroStats(), HeroStatsOrigins());
   AutoMapExplored readExplored = EmptyDungeon();
   CHECK(ReadInto(out.str(), &readExplored) == AutoMapFileRead);
   CHECK(readExplored.IsExplored(AutoMapCell{0, -1, 1}));
@@ -224,7 +256,7 @@ static void OlderFilesTakeTheRimFromTheFloorBesideIt(void)
   explored.MarkFace(AutoMapCell{0, 0, 1}, 3);
   explored.MarkFace(AutoMapCell{1, 4, 4}, 2);
   std::ostringstream out;
-  AutoMapFile(SAVE_SIGNATURE).Write(out, explored, AutoMapKnowledge(), AutoMapItemMemory(), AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage());
+  AutoMapFile(SAVE_SIGNATURE).Write(out, explored, AutoMapKnowledge(), AutoMapItemMemory(), AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage(), HeroStats(), HeroStatsOrigins());
   AutoMapExplored readExplored = EmptyDungeon();
   CHECK(ReadInto(WithoutRims(out.str()), &readExplored) == AutoMapFileRead);
   CHECK(readExplored.IsExplored(AutoMapCell{0, -1, 1}));
@@ -260,7 +292,7 @@ static void FileOfAnotherKindIsRejected(void)
 static void UnknownVersionIsRejected(void)
 {
   std::string bytes = WrittenFile();
-  bytes[VERSION_OFFSET] = 13;
+  bytes[VERSION_OFFSET] = 14;
   CheckRejected(bytes, AutoMapFileHasUnknownVersion);
 }
 
@@ -380,7 +412,7 @@ static void GlimpsedFacesRoundTrip(void)
   AutoMapExplored explored = EmptyDungeon();
   explored.MarkGlimpsedFace(AutoMapCell{1, 3, 4}, 2);
   std::ostringstream out;
-  AutoMapFile(SAVE_SIGNATURE).Write(out, explored, AutoMapKnowledge(), AutoMapItemMemory(), AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage());
+  AutoMapFile(SAVE_SIGNATURE).Write(out, explored, AutoMapKnowledge(), AutoMapItemMemory(), AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage(), HeroStats(), HeroStatsOrigins());
   AutoMapExplored readExplored = EmptyDungeon();
   AutoMapKnowledge readKnowledge;
   CHECK(ReadInto(out.str(), &readExplored, &readKnowledge) == AutoMapFileRead);
@@ -396,7 +428,7 @@ static void ReadTextsRoundTrip(void)
   explored.MarkTextRead(AutoMapCell{1, 3, 4}, 2);
   explored.MarkFace(AutoMapCell{1, 5, 4}, 2);
   std::ostringstream out;
-  AutoMapFile(SAVE_SIGNATURE).Write(out, explored, AutoMapKnowledge(), AutoMapItemMemory(), AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage());
+  AutoMapFile(SAVE_SIGNATURE).Write(out, explored, AutoMapKnowledge(), AutoMapItemMemory(), AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage(), HeroStats(), HeroStatsOrigins());
   AutoMapExplored readExplored = EmptyDungeon();
   AutoMapKnowledge readKnowledge;
   CHECK(ReadInto(out.str(), &readExplored, &readKnowledge) == AutoMapFileRead);
@@ -410,7 +442,7 @@ static void OlderFilesHaveTheirSeenTextsRead(void)
   AutoMapExplored explored = EmptyDungeon();
   explored.MarkFace(AutoMapCell{1, 3, 4}, 2);
   std::ostringstream out;
-  AutoMapFile(SAVE_SIGNATURE).Write(out, explored, AutoMapKnowledge(), AutoMapItemMemory(), AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage());
+  AutoMapFile(SAVE_SIGNATURE).Write(out, explored, AutoMapKnowledge(), AutoMapItemMemory(), AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage(), HeroStats(), HeroStatsOrigins());
   std::string bytes = out.str();
   bytes = WithoutRims(bytes);
   bytes[VERSION_OFFSET] = 5;
@@ -439,7 +471,7 @@ static void LookedIntoAlcovesRoundTrip(void)
   explored.MarkAlcoveLookedInto(AutoMapCell{1, 3, 4}, 2);
   explored.MarkFace(AutoMapCell{1, 5, 4}, 2);
   std::ostringstream out;
-  AutoMapFile(SAVE_SIGNATURE).Write(out, explored, AutoMapKnowledge(), AutoMapItemMemory(), AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage());
+  AutoMapFile(SAVE_SIGNATURE).Write(out, explored, AutoMapKnowledge(), AutoMapItemMemory(), AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage(), HeroStats(), HeroStatsOrigins());
   AutoMapExplored readExplored = EmptyDungeon();
   AutoMapKnowledge readKnowledge;
   CHECK(ReadInto(out.str(), &readExplored, &readKnowledge) == AutoMapFileRead);
@@ -453,7 +485,7 @@ static void OlderFilesHaveTheirSeenAlcovesLookedInto(void)
   AutoMapExplored explored = EmptyDungeon();
   explored.MarkFace(AutoMapCell{1, 3, 4}, 2);
   std::ostringstream out;
-  AutoMapFile(SAVE_SIGNATURE).Write(out, explored, AutoMapKnowledge(), AutoMapItemMemory(), AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage());
+  AutoMapFile(SAVE_SIGNATURE).Write(out, explored, AutoMapKnowledge(), AutoMapItemMemory(), AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage(), HeroStats(), HeroStatsOrigins());
   std::string bytes = out.str();
   bytes = WithoutRims(bytes);
   bytes[VERSION_OFFSET] = 6;
@@ -485,7 +517,7 @@ static void FacesAndFactsRoundTrip(void)
   knowledge.Learn(pit);
   knowledge.Learn(link);
   std::ostringstream out;
-  AutoMapFile(SAVE_SIGNATURE).Write(out, explored, knowledge, AutoMapItemMemory(), AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage());
+  AutoMapFile(SAVE_SIGNATURE).Write(out, explored, knowledge, AutoMapItemMemory(), AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage(), HeroStats(), HeroStatsOrigins());
 
   AutoMapExplored readExplored = EmptyDungeon();
   AutoMapKnowledge readKnowledge;
@@ -551,8 +583,8 @@ static AutoMapRememberedItem ItemAt(AutoMapRecordId record, int descIndex, int l
 static std::string FileWithItems(const AutoMapItemMemory &items)
 {
   std::ostringstream out;
-  AutoMapFile(SAVE_SIGNATURE).Write(out, ExploredDungeon(), AutoMapKnowledge(), items, AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage());
-  return out.str();
+  AutoMapFile(SAVE_SIGNATURE).Write(out, ExploredDungeon(), AutoMapKnowledge(), items, AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage(), HeroStats(), HeroStatsOrigins());
+  return WithoutStatistics(out.str());
 }
 
 static void VersionThreeKeepsRememberedItems(void)
@@ -564,7 +596,7 @@ static void VersionThreeKeepsRememberedItems(void)
   AutoMapKnowledge knowledge;
   AutoMapItemMemory read;
   bool hadItemMemory = false;
-  CHECK(ReadInto(FileWithItems(items), &explored, &knowledge, &read, &hadItemMemory) == AutoMapFileRead);
+  CHECK(ReadInto(Complete(FileWithItems(items)), &explored, &knowledge, &read, &hadItemMemory) == AutoMapFileRead);
   CHECK(hadItemMemory);
   std::vector<AutoMapRememberedItem> back = read.Items();
   CHECK(back.size() == 2);
@@ -588,7 +620,7 @@ static void AGlimpseStaysAGlimpse(void)
   AutoMapKnowledge knowledge;
   AutoMapItemMemory read;
   bool hadItemMemory = false;
-  CHECK(ReadInto(FileWithItems(items), &explored, &knowledge, &read, &hadItemMemory) == AutoMapFileRead);
+  CHECK(ReadInto(Complete(FileWithItems(items)), &explored, &knowledge, &read, &hadItemMemory) == AutoMapFileRead);
   std::vector<AutoMapRememberedItem> back = read.Items();
   CHECK(back.size() == 2 && back[0].isGlimpsed && !back[1].isGlimpsed);
 }
@@ -660,7 +692,7 @@ static void ItemOutsideTheDungeonIsRejected(void)
   AutoMapKnowledge knowledge;
   AutoMapItemMemory items;
   bool hadItemMemory = false;
-  CHECK(ReadInto(FileWithItems(written), &explored, &knowledge, &items, &hadItemMemory)
+  CHECK(ReadInto(Complete(FileWithItems(written)), &explored, &knowledge, &items, &hadItemMemory)
         == AutoMapFileHasOtherLevels);
   CHECK(items.Items().empty());
 }
@@ -693,8 +725,8 @@ static bool SameLook(const AutoMapCellLook &a, const AutoMapCellLook &b)
 static std::string FileWithCells(const AutoMapCellMemory &cells)
 {
   std::ostringstream out;
-  AutoMapFile(SAVE_SIGNATURE).Write(out, ExploredDungeon(), AutoMapKnowledge(), AutoMapItemMemory(), cells, AutoMapPlayerNotes(), AutoMapMonsterDamage());
-  return out.str();
+  AutoMapFile(SAVE_SIGNATURE).Write(out, ExploredDungeon(), AutoMapKnowledge(), AutoMapItemMemory(), cells, AutoMapPlayerNotes(), AutoMapMonsterDamage(), HeroStats(), HeroStatsOrigins());
+  return WithoutStatistics(out.str());
 }
 
 static void CellLooksRoundTrip(void)
@@ -717,7 +749,7 @@ static void CellLooksRoundTrip(void)
   bool hadItemMemory = false;
   AutoMapCellMemory cells;
   bool hadCellMemory = false;
-  CHECK(ReadInto(FileWithCells(written), &explored, &knowledge, &items, &hadItemMemory, &cells,
+  CHECK(ReadInto(Complete(FileWithCells(written)), &explored, &knowledge, &items, &hadItemMemory, &cells,
                  &hadCellMemory) == AutoMapFileRead);
   CHECK(hadCellMemory);
   CHECK(cells.Looks().size() == 3);
@@ -791,11 +823,13 @@ static void LookOutsideTheDungeonIsRejected(void)
   AutoMapCellMemory written;
   written.Restore(AutoMapCell{9, 1, 1}, LookWith(AutoMapCellDoor, AutoMapDoorClosed, false, 3, 4));
   AutoMapExplored explored = EmptyDungeon();
-  CHECK(ReadInto(FileWithCells(written), &explored) == AutoMapFileHasOtherLevels);
+  CHECK(ReadInto(Complete(FileWithCells(written)), &explored) == AutoMapFileHasOtherLevels);
 }
 
 // Every store must be as it was before the failed read
-static void CheckLooksFileLeavesEveryStore(const std::string &bytes, AutoMapFileResult expected)
+// A file that is meant to end early or in a huge count must not get its statistics added
+static void CheckLooksFileLeavesEveryStore(const std::string &bytes, AutoMapFileResult expected,
+                                           bool addStatistics = true)
 {
   AutoMapExplored explored = EmptyDungeon();
   AutoMapKnowledge knowledge;
@@ -810,7 +844,7 @@ static void CheckLooksFileLeavesEveryStore(const std::string &bytes, AutoMapFile
   cells.Restore(kept, keptLook);
   bool hadItemMemory = false;
   bool hadCellMemory = false;
-  CHECK(ReadInto(bytes, &explored, &knowledge, &items, &hadItemMemory, &cells, &hadCellMemory)
+  CHECK(ReadInto(addStatistics ? Complete(bytes) : bytes, &explored, &knowledge, &items, &hadItemMemory, &cells, &hadCellMemory)
         == expected);
   CHECK(NothingIsExplored(explored));
   CHECK(knowledge.Facts().size() == 1);
@@ -830,7 +864,7 @@ static void HugeLookCountIsTruncatedNotAllocated(void)
   AppendNumber(&bytes, 0, 4);
   AppendNumber(&bytes, 0, 4);
   AppendNumber(&bytes, 0, NO_DAMAGE_BYTES);
-  CheckLooksFileLeavesEveryStore(bytes, AutoMapFileIsTruncated);
+  CheckLooksFileLeavesEveryStore(bytes, AutoMapFileIsTruncated, false);
 }
 
 static void BadLookKindOrDoorIsRejected(void)
@@ -854,8 +888,8 @@ static std::string FileWithNotes(const AutoMapPlayerNotes &notes)
 {
   std::ostringstream out;
   AutoMapFile(SAVE_SIGNATURE).Write(out, ExploredDungeon(), AutoMapKnowledge(), AutoMapItemMemory(),
-                                    AutoMapCellMemory(), notes, AutoMapMonsterDamage());
-  return out.str();
+                                    AutoMapCellMemory(), notes, AutoMapMonsterDamage(), HeroStats(), HeroStatsOrigins());
+  return WithoutStatistics(out.str());
 }
 
 static void NotesRoundTrip(void)
@@ -874,7 +908,7 @@ static void NotesRoundTrip(void)
   bool hadItemMemory = false;
   bool hadCellMemory = false;
   AutoMapPlayerNotes notes;
-  CHECK(ReadInto(FileWithNotes(written), &explored, &knowledge, &items, &hadItemMemory, &cells,
+  CHECK(ReadInto(Complete(FileWithNotes(written)), &explored, &knowledge, &items, &hadItemMemory, &cells,
                  &hadCellMemory, &notes) == AutoMapFileRead);
   CHECK(notes.Pits().size() == 2);
   CHECK(notes.PitAt(AutoMapCell{0, 2, 1}) == 1);
@@ -915,7 +949,9 @@ static void VersionEightHasNoNotes(void)
 }
 
 // Every store must be as it was before the failed read
-static void CheckNotesFileLeavesEveryStore(const std::string &bytes, AutoMapFileResult expected)
+// A file that is meant to end early or in a huge count must not get its statistics added
+static void CheckNotesFileLeavesEveryStore(const std::string &bytes, AutoMapFileResult expected,
+                                           bool addStatistics = true)
 {
   AutoMapExplored explored = EmptyDungeon();
   AutoMapKnowledge knowledge;
@@ -929,7 +965,7 @@ static void CheckNotesFileLeavesEveryStore(const std::string &bytes, AutoMapFile
   notes.SetPit(keptPit, true);
   bool hadItemMemory = false;
   bool hadCellMemory = false;
-  CHECK(ReadInto(bytes, &explored, &knowledge, &items, &hadItemMemory, &cells, &hadCellMemory,
+  CHECK(ReadInto(addStatistics ? Complete(bytes) : bytes, &explored, &knowledge, &items, &hadItemMemory, &cells, &hadCellMemory,
                  &notes) == expected);
   CHECK(NothingIsExplored(explored));
   CHECK(knowledge.Facts().size() == 1);
@@ -948,12 +984,12 @@ static void HugeNoteCountIsTruncatedNotAllocated(void)
   AppendNumber(&hugeMarks, 0xFFFFFFFFu, 4);
   AppendNumber(&hugeMarks, 0, 4);
   AppendNumber(&hugeMarks, 0, 4);
-  CheckNotesFileLeavesEveryStore(hugeMarks, AutoMapFileIsTruncated);
+  CheckNotesFileLeavesEveryStore(hugeMarks, AutoMapFileIsTruncated, false);
   std::string hugeLinks = none;
   hugeLinks.erase(hugeLinks.size() - 4 - NO_DAMAGE_BYTES);
   AppendNumber(&hugeLinks, 0xFFFFFFFFu, 4);
   AppendNumber(&hugeLinks, 0, 4);
-  CheckNotesFileLeavesEveryStore(hugeLinks, AutoMapFileIsTruncated);
+  CheckNotesFileLeavesEveryStore(hugeLinks, AutoMapFileIsTruncated, false);
 }
 
 static void BadNoteFieldsAreRejected(void)
@@ -1013,7 +1049,7 @@ static void DuplicateLinkLoadsOnce(void)
   bool hadItemMemory = false;
   bool hadCellMemory = false;
   AutoMapPlayerNotes notes;
-  CHECK(ReadInto(bytes, &explored, &knowledge, &items, &hadItemMemory, &cells, &hadCellMemory,
+  CHECK(ReadInto(Complete(bytes), &explored, &knowledge, &items, &hadItemMemory, &cells, &hadCellMemory,
                  &notes) == AutoMapFileRead);
   CHECK(notes.Links().size() == 1);
   std::vector<AutoMapCell> targets = notes.LinksFrom(source);
@@ -1024,8 +1060,8 @@ static std::string FileWithDamage(const AutoMapMonsterDamage &damage)
 {
   std::ostringstream out;
   AutoMapFile(SAVE_SIGNATURE).Write(out, ExploredDungeon(), AutoMapKnowledge(), AutoMapItemMemory(),
-                                    AutoMapCellMemory(), AutoMapPlayerNotes(), damage);
-  return out.str();
+                                    AutoMapCellMemory(), AutoMapPlayerNotes(), damage, HeroStats(), HeroStatsOrigins());
+  return WithoutStatistics(out.str());
 }
 
 static AutoMapFileResult ReadDamage(const std::string &bytes, AutoMapMonsterDamage *damage)
@@ -1048,7 +1084,7 @@ static void DamageRoundTrips(void)
   written.Credit(0x40002, 3, 4);
   written.Credit(0x40009, 1, 65535);
   AutoMapMonsterDamage damage;
-  CHECK(ReadDamage(FileWithDamage(written), &damage) == AutoMapFileRead);
+  CHECK(ReadDamage(Complete(FileWithDamage(written)), &damage) == AutoMapFileRead);
   CHECK(damage.Groups() == written.Groups());
 }
 
@@ -1067,7 +1103,9 @@ static void OlderFilesKeepTheDamageAsItIs(void)
 }
 
 // Every store must be as it was before the failed read
-static void CheckDamageFileLeavesEveryStore(const std::string &bytes, AutoMapFileResult expected)
+// A file that is meant to end early or in a huge count must not get its statistics added
+static void CheckDamageFileLeavesEveryStore(const std::string &bytes, AutoMapFileResult expected,
+                                            bool addStatistics = true)
 {
   AutoMapExplored explored = EmptyDungeon();
   AutoMapKnowledge knowledge;
@@ -1080,7 +1118,7 @@ static void CheckDamageFileLeavesEveryStore(const std::string &bytes, AutoMapFil
   damage.Credit(0x40002, 1, 6);
   bool hadItemMemory = false;
   bool hadCellMemory = false;
-  CHECK(ReadInto(bytes, &explored, &knowledge, &items, &hadItemMemory, &cells, &hadCellMemory,
+  CHECK(ReadInto(addStatistics ? Complete(bytes) : bytes, &explored, &knowledge, &items, &hadItemMemory, &cells, &hadCellMemory,
                  &notes, &damage) == expected);
   CHECK(NothingIsExplored(explored));
   CHECK(knowledge.Facts().size() == 1);
@@ -1094,12 +1132,12 @@ static void ADamagedDamageBlockLeavesTheStoresUnchanged(void)
   std::string huge = FileWithDamage(AutoMapMonsterDamage());
   huge.erase(huge.size() - NO_DAMAGE_BYTES);
   AppendNumber(&huge, 0xFFFFFFFFu, 4);
-  CheckDamageFileLeavesEveryStore(huge, AutoMapFileIsTruncated);
+  CheckDamageFileLeavesEveryStore(huge, AutoMapFileIsTruncated, false);
   AutoMapMonsterDamage one;
   one.Credit(0x40003, 2, 9);
   std::string cut = FileWithDamage(one);
   cut.erase(cut.size() - 3);
-  CheckDamageFileLeavesEveryStore(cut, AutoMapFileIsTruncated);
+  CheckDamageFileLeavesEveryStore(cut, AutoMapFileIsTruncated, false);
 }
 
 static void ANoRecordGroupIsRejected(void)
@@ -1112,8 +1150,221 @@ static void ANoRecordGroupIsRejected(void)
   CheckDamageFileLeavesEveryStore(bytes, AutoMapFileHasOtherLevels);
 }
 
+// One record of every kind the statistics keep
+static HeroStats FilledStats(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(3, "TIGGY");
+  stats.MeetChampion(9, "SYRA");
+  stats.MarkLevelVisited(0);
+  stats.MarkLevelVisited(2);
+  HeroStatsBlow sword = HeroStatsBlow_Nobody(HeroBlowByChampion);
+  sword.champion = 3;
+  sword.kind = HeroDamageMelee;
+  sword.weapon = 17;
+  sword.option = 4;
+  stats.CountAttackTry(0, sword);
+  stats.CountAttackHit(0, sword);
+  stats.CreditMonsterDamage(0, sword, 21);
+  stats.CountMonsterKill(0, 5, 1, sword);
+  HeroStatsBlow bolt = HeroStatsBlow_Nobody(HeroBlowByChampion);
+  bolt.champion = 9;
+  bolt.kind = HeroDamageMagic;
+  bolt.spell = 0x00060102;
+  bolt.weapon = HERO_STATS_NO_WEAPON;
+  stats.CountAttackTry(2, bolt);
+  stats.CreditMonsterDamage(2, bolt, 40);
+  stats.CountCast(9, 2, 0x00060102, 12);
+  stats.CountFailedCast(9, 2, 0x00010203, 3);
+  stats.CreditManaSpent(9, 2, HERO_SPELL_SHIELD_ACTION, 5);
+  HeroStatsBlow bite = HeroStatsBlow_Nobody(HeroBlowByMonster);
+  bite.monsterType = 7;
+  stats.CreditHarm(3, 0, HeroHarmMonster, bite, 33);
+  HeroStatsBlow friendly = HeroStatsBlow_Nobody(HeroBlowByChampion);
+  friendly.champion = 9;
+  stats.CreditHarm(3, 2, HeroHarmFriendlyFire, friendly, 8);
+  stats.CreditHealing(3, 0, HeroHealPotion, 9, 30);
+  stats.CreditHealing(9, 2, HeroHealRegeneration, HERO_STATS_NOBODY, 4);
+  stats.CreditManaGained(9, 2, HeroManaPotion, 15);
+  HeroStatsDeath death;
+  death.who = 3;
+  death.level = 2;
+  death.cause = HeroHarmMonster;
+  death.by = bite;
+  stats.CountDeath(death);
+  stats.CountResurrection(3, 2);
+  stats.CountPartyWipe();
+  stats.CountReload();
+  stats.CountReload();
+  return stats;
+}
+
+static HeroStatsOrigins FilledOrigins(void)
+{
+  HeroStatsOrigins origins;
+  HeroStatsBlow arrow = HeroStatsBlow_Nobody(HeroBlowByChampion);
+  arrow.champion = 3;
+  arrow.kind = HeroDamageRanged;
+  arrow.weapon = 40;
+  arrow.thrown = true;
+  arrow.option = HERO_STATS_THROW_OPTION;
+  origins.ExpectMissile(arrow);
+  origins.TakeExpectedMissile(12);
+  HeroStatsBlow cloud = HeroStatsBlow_Nobody(HeroBlowByChampion);
+  cloud.champion = 9;
+  cloud.kind = HeroDamageMagic;
+  cloud.spell = 0x00020304;
+  origins.SetCloudOrigin(5, cloud);
+  origins.SetBrewer(8, 9);
+  return origins;
+}
+
+static std::string FileWithStatistics(const HeroStats &stats, const HeroStatsOrigins &origins)
+{
+  std::ostringstream out;
+  AutoMapFile(SAVE_SIGNATURE).Write(out, ExploredDungeon(), AutoMapKnowledge(), AutoMapItemMemory(),
+                                    AutoMapCellMemory(), AutoMapPlayerNotes(), AutoMapMonsterDamage(),
+                                    stats, origins);
+  return out.str();
+}
+
+static AutoMapFileResult ReadStatistics(const std::string &bytes, HeroStats *stats, HeroStatsOrigins *origins)
+{
+  AutoMapExplored explored = EmptyDungeon();
+  AutoMapKnowledge knowledge;
+  AutoMapItemMemory items;
+  AutoMapCellMemory cells;
+  AutoMapPlayerNotes notes;
+  AutoMapMonsterDamage damage;
+  bool hadItemMemory = false;
+  bool hadCellMemory = false;
+  std::istringstream in(bytes);
+  return AutoMapFile(SAVE_SIGNATURE).Read(in, &explored, &knowledge, &items, &hadItemMemory, &cells,
+                                          &hadCellMemory, &notes, &damage, stats, origins);
+}
+
+static bool SameBlow(const HeroStatsBlow &a, const HeroStatsBlow &b)
+{
+  return a.by == b.by && a.champion == b.champion && a.kind == b.kind && a.weapon == b.weapon
+      && a.thrown == b.thrown && a.option == b.option && a.spell == b.spell && a.monsterType == b.monsterType;
+}
+
+static void StatisticsRoundTrip(void)
+{
+  HeroStats written = FilledStats();
+  HeroStatsOrigins writtenOrigins = FilledOrigins();
+  HeroStats read;
+  HeroStatsOrigins readOrigins;
+  CHECK(ReadStatistics(FileWithStatistics(written, writtenOrigins), &read, &readOrigins) == AutoMapFileRead);
+  // The serialized forms agree, which covers every map; the queries are asked as well
+  std::vector<uint8_t> a, b;
+  written.Serialize(&a);
+  read.Serialize(&b);
+  CHECK(a == b);
+  CHECK(read.Champions().size() == 2 && read.Champions()[0].name == "TIGGY" && read.Champions()[1].id == 9);
+  CHECK(read.VisitedLevels() == written.VisitedLevels());
+  for (int level = HERO_STATS_WHOLE_RUN; level < 3; level++)
+  {
+    for (int who = 0; who < 3; who++)
+    {
+      HeroStatsChampion id = who == 0 ? 3 : who == 1 ? 9 : HERO_STATS_PARTY;
+      CHECK(read.DamageDealt(id, level, HeroDamageMelee) == written.DamageDealt(id, level, HeroDamageMelee));
+      CHECK(read.DamageDealt(id, level, HeroDamageMagic) == written.DamageDealt(id, level, HeroDamageMagic));
+      CHECK(read.Kills(id, level) == written.Kills(id, level));
+      CHECK(read.Attacks(id, level).size() == written.Attacks(id, level).size());
+      CHECK(read.Harm(id, level) == written.Harm(id, level));
+      CHECK(read.FriendlyFireCaused(id, level) == written.FriendlyFireCaused(id, level));
+      CHECK(read.HarmRows(id, level).size() == written.HarmRows(id, level).size());
+      CHECK(read.Healed(id, level) == written.Healed(id, level));
+      CHECK(read.HealingGiven(id, level) == written.HealingGiven(id, level));
+      CHECK(read.ManaGained(id, level) == written.ManaGained(id, level));
+      CHECK(read.ManaSpent(id, level) == written.ManaSpent(id, level));
+      CHECK(read.ManaWasted(id, level) == written.ManaWasted(id, level));
+      CHECK(read.Spells(id, level).size() == written.Spells(id, level).size());
+      CHECK(read.Resurrections(id, level) == written.Resurrections(id, level));
+    }
+    CHECK(read.MonsterKills(level).size() == written.MonsterKills(level).size());
+  }
+  CHECK(read.DamageDealt(3, HERO_STATS_WHOLE_RUN, HeroDamageMelee) == 21);
+  CHECK(read.Harm(3, HERO_STATS_WHOLE_RUN) == 41);
+  CHECK(read.Healed(3, HERO_STATS_WHOLE_RUN) == 30);
+  CHECK(read.Deaths(3).size() == 1 && read.Deaths(3)[0].level == 2 && read.Deaths(3)[0].by.monsterType == 7);
+  CHECK(read.Resurrections(3, 2) == 1);
+  CHECK(read.PartyWipes() == 1 && read.Reloads() == 2);
+  HeroStatsBlow blow;
+  CHECK(readOrigins.MissileOrigin(12, &blow) && SameBlow(blow, FilledOrigins().Missiles().begin()->second));
+  CHECK(blow.thrown && blow.weapon == 40 && blow.option == HERO_STATS_THROW_OPTION);
+  CHECK(readOrigins.CloudOrigin(5, &blow) && blow.spell == 0x00020304 && blow.champion == 9);
+  CHECK(readOrigins.Brewer(8) == 9);
+  CHECK(readOrigins.Brewer(1) == HERO_STATS_NOBODY);
+}
+
+// A version 12 file is a version 13 file without the block: it reads, and the stores come out empty
+static void VersionTwelveHasNoStatistics(void)
+{
+  std::string bytes = WithoutStatistics(FileWithStatistics(HeroStats(), HeroStatsOrigins()));
+  bytes[VERSION_OFFSET] = 12;
+  HeroStats stats = FilledStats();
+  HeroStatsOrigins origins = FilledOrigins();
+  CHECK(ReadStatistics(bytes, &stats, &origins) == AutoMapFileRead);
+  CHECK(stats.Champions().empty() && stats.VisitedLevels().empty() && stats.Reloads() == 0);
+  CHECK(stats.Harm(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN) == 0);
+  CHECK(origins.Missiles().empty() && origins.Clouds().empty() && origins.Brewers().empty());
+}
+
+static void CheckStatisticsFileLeavesTheStores(const std::string &bytes)
+{
+  HeroStats stats = FilledStats();
+  HeroStatsOrigins origins = FilledOrigins();
+  std::vector<uint8_t> before, after;
+  stats.Serialize(&before);
+  CHECK(ReadStatistics(bytes, &stats, &origins) == AutoMapFileIsTruncated);
+  stats.Serialize(&after);
+  CHECK(before == after);
+  CHECK(origins.Missiles().size() == 1 && origins.Clouds().size() == 1 && origins.Brewers().size() == 1);
+}
+
+static void ADamagedStatisticsBlockLeavesTheStoresUnchanged(void)
+{
+  std::string cut = FileWithStatistics(FilledStats(), FilledOrigins());
+  cut.erase(cut.size() - 1);
+  CheckStatisticsFileLeavesTheStores(cut);
+  // A champion count that cannot fit in the block
+  std::string huge = WithoutStatistics(FileWithStatistics(HeroStats(), HeroStatsOrigins()));
+  AppendNumber(&huge, 4 + 4 + 12, 4);
+  AppendNumber(&huge, 4, 4);
+  AppendNumber(&huge, 0xFFFFFFFFu, 4);
+  AppendNumber(&huge, 0, 4);
+  AppendNumber(&huge, 0, 4);
+  AppendNumber(&huge, 0, 4);
+  CheckStatisticsFileLeavesTheStores(huge);
+  // A block length longer than the file
+  std::string longer = WithoutStatistics(FileWithStatistics(HeroStats(), HeroStatsOrigins()));
+  AppendNumber(&longer, 0xFFFFFFFFu, 4);
+  AppendNumber(&longer, 4, 4);
+  CheckStatisticsFileLeavesTheStores(longer);
+  // A harm source out of range
+  HeroStats one;
+  HeroStatsBlow bite = HeroStatsBlow_Nobody(HeroBlowByMonster);
+  one.CreditHarm(3, 0, HeroHarmMonster, bite, 33);
+  std::string bad = FileWithStatistics(one, HeroStatsOrigins());
+  std::vector<uint8_t> raw;
+  one.Serialize(&raw);
+  HeroStatsOrigins none;
+  std::vector<uint8_t> rawOrigins;
+  none.Serialize(&rawOrigins);
+  // The harm source (4 bytes) sits 4 + 2 + 4 after the start of the harm record, which ends the
+  // statistics but for the empty healing, mana, spell, death and resurrection tables and the wipes and reloads
+  size_t source = bad.size() - rawOrigins.size() - (7 * 4) - (2 + 4 + 4 + 2 + 4 + 4) + 2 + 4;
+  bad[source] = 99;
+  CheckStatisticsFileLeavesTheStores(bad);
+}
+
 void TestAutoMapFile(void)
 {
+  StatisticsRoundTrip();
+  VersionTwelveHasNoStatistics();
+  ADamagedStatisticsBlockLeavesTheStoresUnchanged();
   RimsRoundTrip();
   OlderFilesTakeTheRimFromTheFloorBesideIt();
   RoundTripReturnsTheSameCells();

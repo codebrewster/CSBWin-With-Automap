@@ -1,6 +1,7 @@
 #ifndef HEROSTATS_H
 #define HEROSTATS_H
 
+#include <stddef.h>
 #include <stdint.h>
 #include <map>
 #include <string>
@@ -118,6 +119,12 @@ public:
   void MergeHardship(const HeroStats &other);
   // Replaces everything but the hardship, which is merged
   void TakeFromFile(const HeroStats &fromFile);
+
+  // For the .map file: appends every record to *out. Deserialize replaces everything (hardship
+  // included) and returns false, leaving the store as it was, on any short, surplus or
+  // out-of-range byte.
+  void Serialize(std::vector<uint8_t> *out) const;
+  bool Deserialize(const uint8_t *data, size_t size);
 
 private:
   struct AttackCounts { int tries, hits, damage, kills; };

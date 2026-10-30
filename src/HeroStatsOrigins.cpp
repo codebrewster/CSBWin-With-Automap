@@ -1,5 +1,6 @@
 // HeroStatsOrigins.cpp : who launched a missile, made a cloud, brewed a potion.
 #include "HeroStatsOrigins.h"
+#include "HeroStatsBytes.h"
 
 void HeroStatsOrigins::Forget(void)
 {
@@ -85,4 +86,53 @@ void HeroStatsOrigins::Restore(const std::map<int, HeroStatsBlow> &missiles,
   m_missiles = missiles;
   m_clouds = clouds;
   m_brewers = brewers;
+}
+
+// Three counted tables: index (4 bytes) then the blow for missiles and clouds, the champion
+// (2 bytes) for brewers
+void HeroStatsOrigins::Serialize(std::vector<uint8_t> *out) const
+{
+  const std::map<int, HeroStatsBlow> *tables[2] = {&m_missiles, &m_clouds};
+  for (int t = 0; t < 2; t++)
+  {
+    HeroBytes_Put(out, (uint32_t)tables[t]->size(), 4);
+    for (std::map<int, HeroStatsBlow>::const_iterator it = tables[t]->begin(); it != tables[t]->end(); ++it)
+    {
+      HeroBytes_PutInt(out, it->first);
+      HeroBytes_PutBlow(out, it->second);
+    }
+  }
+  HeroBytes_Put(out, (uint32_t)m_brewers.size(), 4);
+  for (std::map<int, HeroStatsChampion>::const_iterator it = m_brewers.begin(); it != m_brewers.end(); ++it)
+  {
+    HeroBytes_PutInt(out, it->first);
+    HeroBytes_Put(out, it->second, 2);
+  }
+}
+
+bool HeroStatsOrigins::Deserialize(const uint8_t *data, size_t size)
+{
+  HeroBytesReader in(data, size);
+  std::map<int, HeroStatsBlow> tables[2];
+  for (int t = 0; t < 2; t++)
+  {
+    uint32_t count = in.GetCount(4 + HERO_BYTES_BLOW_SIZE);
+    for (uint32_t i = 0; i < count && in.ok; i++)
+    {
+      int index = in.GetInt();
+      HeroStatsBlow blow;
+      if (!in.GetBlow(&blow)) return false;
+      tables[t][index] = blow;
+    }
+  }
+  std::map<int, HeroStatsChampion> brewers;
+  uint32_t count = in.GetCount(4 + 2);
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    int index = in.GetInt();
+    brewers[index] = (HeroStatsChampion)in.Get(2);
+  }
+  if (!in.ok || in.left != 0) return false;
+  Restore(tables[0], tables[1], brewers);
+  return true;
 }
