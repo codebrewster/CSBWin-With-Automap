@@ -1202,6 +1202,19 @@ void Process_SDL_WINDOWEVENT(const SDL_Event &event)
 ImGuiIO io;
 static int drawn = 0;
 void post_render();
+extern bool saveRequestedFromMenu; // Mouse.cpp
+extern bool GameIsComplete;
+
+// my_Delay (Attack.cpp) sets it while it blocks inside the end sequence after a win: resetting
+// or loading a game there would pull the game out from under that sequence
+bool endSequencePlaying = false;
+
+// Once the game is won or lost nothing can be saved: a save is only written by the game's own
+// mouse handling, which no longer runs
+static bool GameIsOver(void)
+{
+  return endSequencePlaying || GameIsComplete || (videoMode == VM_CAST) || (videoMode == VM_THEEND);
+}
 
 // The share of an event that the menu bar and the map window take, for loops that keep the
 // game itself waiting (the end sequence after a win): the game gets nothing of it
@@ -1735,6 +1748,7 @@ extern i32 numState;
 i32 launcher_power;
 
 static void reset_game() {
+    saveRequestedFromMenu = false; // a save asked for in the last game is not for this one
     numState = 0; // reset the "stackState" from system.cpp
 		  // because we are creating a new one here.
     verticalIntEnabled = false;
@@ -2378,17 +2392,17 @@ void post_render() {
 	{
 	    imgui_active = true;
 	    was_active = true;
-	    if (ImGui::MenuItem("Reset", NULL,false,d.partyLevel != 255 && d.NumGraphic > 0)) {
+	    if (ImGui::MenuItem("Reset", NULL,false,d.partyLevel != 255 && d.NumGraphic > 0 && !endSequencePlaying)) {
 		skipLogo = true;
 		reset_game();
 		// _CALL0 (_4_,st_ReadEntireGame);
 	    }
-	    if (ImGui::MenuItem(_("Select dungeon.dat...")))
+	    if (ImGui::MenuItem(_("Select dungeon.dat..."),NULL,false,!endSequencePlaying))
 		open_dungeon = true;
-	    if (ImGui::MenuItem(_("Load saved game"),NULL,false,d.NumGraphic>0))
+	    if (ImGui::MenuItem(_("Load saved game"),NULL,false,d.NumGraphic>0 && !endSequencePlaying))
 		open = true;
 	    if (ImGui::MenuItem(_("Save game"),NULL,false,d.partyLevel != 255 && d.NumGraphic>0
-				&& d.NumCharacter > 0 && d.PotentialCharacterOrdinal == 0))
+				&& d.NumCharacter > 0 && d.PotentialCharacterOrdinal == 0 && !GameIsOver()))
 		save = true;
 	    // Limited playback in front the dungeon door
 	    if (ImGui::MenuItem(_("Playback.."), NULL,false,d.partyLevel == 255 && d.NumGraphic > 0))

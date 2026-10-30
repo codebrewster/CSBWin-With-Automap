@@ -2229,8 +2229,12 @@ extern void Process_SDL_WINDOWEVENT(const SDL_Event &event); // CSBlinux
 extern void cbAppDestroy(void); // also
 extern void post_render();
 extern void ProcessMenuEvent(const SDL_Event &event); // also
+extern bool endSequencePlaying; // also
 void my_Delay(int ms) {
     SDL_Event ev;
+    // The menu stays usable here, but without Reset, Load or Select dungeon: this loop blocks
+    // inside the end sequence, which must not lose its game under it
+    endSequencePlaying = true;
     for (int t=0; t<ms; t+=100) {
 	SDL_Delay(100);
 	while (SDL_PollEvent(&ev)) {
@@ -2248,6 +2252,7 @@ void my_Delay(int ms) {
 	post_render();
 	AutoMapWindow_PaintIfDirty();
     }
+    endSequencePlaying = false;
 }
 
 RESTARTABLE _FusionSequence(void)
