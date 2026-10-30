@@ -108,7 +108,7 @@ public:
   // then has to fill the item memory itself; likewise *hadCellMemory for a file older than
   // version 8; likewise *notes is left as it is for a file older than version 9, and *damage
   // for a file older than version 10. For a file older than version 13 *stats and *origins come
-  // out empty (Forget); the caller merges the hardship it has in memory (HeroStats::TakeFromFile).
+  // out empty (Forget); the caller decides whether to keep the hardship it has in memory (HeroStats::TakeFromFile).
   AutoMapFileResult Read(std::istream &in, AutoMapExplored *explored,
                          AutoMapKnowledge *knowledge, AutoMapItemMemory *items,
                          bool *hadItemMemory, AutoMapCellMemory *cells,

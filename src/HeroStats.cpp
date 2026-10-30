@@ -632,7 +632,12 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size)
     read.m_champions.push_back(info);
   }
   count = in.GetCount(4);
-  for (uint32_t i = 0; i < count && in.ok; i++) read.m_levels.push_back(in.GetInt());
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    int level = in.GetInt();
+    if (level < 0) return false;
+    read.MarkLevelVisited(level);   // keeps the list sorted and free of repeats
+  }
 
   count = in.GetCount(2 + 4 + 4 + 1 + 4 + 16);
   for (uint32_t i = 0; i < count && in.ok; i++)

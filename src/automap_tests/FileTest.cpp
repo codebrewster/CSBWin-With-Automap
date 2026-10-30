@@ -42,12 +42,15 @@ static std::string EmptyStatistics(void)
 static std::string WithoutStatistics(std::string bytes)
 {
   bytes.erase(bytes.size() - EmptyStatistics().size());
+  bytes[VERSION_OFFSET] = 12;   // a real version 12 file, as the code wrote it before
   return bytes;
 }
 
 static std::string Complete(const std::string &withoutStatistics)
 {
-  return withoutStatistics + EmptyStatistics();
+  std::string bytes = withoutStatistics + EmptyStatistics();
+  bytes[VERSION_OFFSET] = 13;
+  return bytes;
 }
 
 static AutoMapExplored EmptyDungeon(void)
@@ -827,9 +830,7 @@ static void LookOutsideTheDungeonIsRejected(void)
 }
 
 // Every store must be as it was before the failed read
-// A file that is meant to end early or in a huge count must not get its statistics added
-static void CheckLooksFileLeavesEveryStore(const std::string &bytes, AutoMapFileResult expected,
-                                           bool addStatistics = true)
+static void CheckLooksFileLeavesEveryStore(const std::string &bytes, AutoMapFileResult expected)
 {
   AutoMapExplored explored = EmptyDungeon();
   AutoMapKnowledge knowledge;
@@ -844,7 +845,7 @@ static void CheckLooksFileLeavesEveryStore(const std::string &bytes, AutoMapFile
   cells.Restore(kept, keptLook);
   bool hadItemMemory = false;
   bool hadCellMemory = false;
-  CHECK(ReadInto(addStatistics ? Complete(bytes) : bytes, &explored, &knowledge, &items, &hadItemMemory, &cells, &hadCellMemory)
+  CHECK(ReadInto(Complete(bytes), &explored, &knowledge, &items, &hadItemMemory, &cells, &hadCellMemory)
         == expected);
   CHECK(NothingIsExplored(explored));
   CHECK(knowledge.Facts().size() == 1);
@@ -864,7 +865,7 @@ static void HugeLookCountIsTruncatedNotAllocated(void)
   AppendNumber(&bytes, 0, 4);
   AppendNumber(&bytes, 0, 4);
   AppendNumber(&bytes, 0, NO_DAMAGE_BYTES);
-  CheckLooksFileLeavesEveryStore(bytes, AutoMapFileIsTruncated, false);
+  CheckLooksFileLeavesEveryStore(bytes, AutoMapFileIsTruncated);
 }
 
 static void BadLookKindOrDoorIsRejected(void)
@@ -948,10 +949,10 @@ static void VersionEightHasNoNotes(void)
   CHECK(explored.IsExplored(AutoMapCell{0, 0, 0}));
 }
 
-// Every store must be as it was before the failed read
-// A file that is meant to end early or in a huge count must not get its statistics added
+// Every store must be as it was before the failed read. A huge count must meet the end of the
+// file, so those files are read as the version 12 files they are.
 static void CheckNotesFileLeavesEveryStore(const std::string &bytes, AutoMapFileResult expected,
-                                           bool addStatistics = true)
+                                           bool asVersionTwelve = false)
 {
   AutoMapExplored explored = EmptyDungeon();
   AutoMapKnowledge knowledge;
@@ -965,7 +966,7 @@ static void CheckNotesFileLeavesEveryStore(const std::string &bytes, AutoMapFile
   notes.SetPit(keptPit, true);
   bool hadItemMemory = false;
   bool hadCellMemory = false;
-  CHECK(ReadInto(addStatistics ? Complete(bytes) : bytes, &explored, &knowledge, &items, &hadItemMemory, &cells, &hadCellMemory,
+  CHECK(ReadInto(asVersionTwelve ? bytes : Complete(bytes), &explored, &knowledge, &items, &hadItemMemory, &cells, &hadCellMemory,
                  &notes) == expected);
   CHECK(NothingIsExplored(explored));
   CHECK(knowledge.Facts().size() == 1);
@@ -984,12 +985,12 @@ static void HugeNoteCountIsTruncatedNotAllocated(void)
   AppendNumber(&hugeMarks, 0xFFFFFFFFu, 4);
   AppendNumber(&hugeMarks, 0, 4);
   AppendNumber(&hugeMarks, 0, 4);
-  CheckNotesFileLeavesEveryStore(hugeMarks, AutoMapFileIsTruncated, false);
+  CheckNotesFileLeavesEveryStore(hugeMarks, AutoMapFileIsTruncated, true);
   std::string hugeLinks = none;
   hugeLinks.erase(hugeLinks.size() - 4 - NO_DAMAGE_BYTES);
   AppendNumber(&hugeLinks, 0xFFFFFFFFu, 4);
   AppendNumber(&hugeLinks, 0, 4);
-  CheckNotesFileLeavesEveryStore(hugeLinks, AutoMapFileIsTruncated, false);
+  CheckNotesFileLeavesEveryStore(hugeLinks, AutoMapFileIsTruncated, true);
 }
 
 static void BadNoteFieldsAreRejected(void)
@@ -1103,9 +1104,7 @@ static void OlderFilesKeepTheDamageAsItIs(void)
 }
 
 // Every store must be as it was before the failed read
-// A file that is meant to end early or in a huge count must not get its statistics added
-static void CheckDamageFileLeavesEveryStore(const std::string &bytes, AutoMapFileResult expected,
-                                            bool addStatistics = true)
+static void CheckDamageFileLeavesEveryStore(const std::string &bytes, AutoMapFileResult expected)
 {
   AutoMapExplored explored = EmptyDungeon();
   AutoMapKnowledge knowledge;
@@ -1118,7 +1117,7 @@ static void CheckDamageFileLeavesEveryStore(const std::string &bytes, AutoMapFil
   damage.Credit(0x40002, 1, 6);
   bool hadItemMemory = false;
   bool hadCellMemory = false;
-  CHECK(ReadInto(addStatistics ? Complete(bytes) : bytes, &explored, &knowledge, &items, &hadItemMemory, &cells, &hadCellMemory,
+  CHECK(ReadInto(Complete(bytes), &explored, &knowledge, &items, &hadItemMemory, &cells, &hadCellMemory,
                  &notes, &damage) == expected);
   CHECK(NothingIsExplored(explored));
   CHECK(knowledge.Facts().size() == 1);
@@ -1132,12 +1131,12 @@ static void ADamagedDamageBlockLeavesTheStoresUnchanged(void)
   std::string huge = FileWithDamage(AutoMapMonsterDamage());
   huge.erase(huge.size() - NO_DAMAGE_BYTES);
   AppendNumber(&huge, 0xFFFFFFFFu, 4);
-  CheckDamageFileLeavesEveryStore(huge, AutoMapFileIsTruncated, false);
+  CheckDamageFileLeavesEveryStore(huge, AutoMapFileIsTruncated);
   AutoMapMonsterDamage one;
   one.Credit(0x40003, 2, 9);
   std::string cut = FileWithDamage(one);
   cut.erase(cut.size() - 3);
-  CheckDamageFileLeavesEveryStore(cut, AutoMapFileIsTruncated, false);
+  CheckDamageFileLeavesEveryStore(cut, AutoMapFileIsTruncated);
 }
 
 static void ANoRecordGroupIsRejected(void)
@@ -1303,10 +1302,20 @@ static void StatisticsRoundTrip(void)
 static void VersionTwelveHasNoStatistics(void)
 {
   std::string bytes = WithoutStatistics(FileWithStatistics(HeroStats(), HeroStatsOrigins()));
-  bytes[VERSION_OFFSET] = 12;
   HeroStats stats = FilledStats();
   HeroStatsOrigins origins = FilledOrigins();
-  CHECK(ReadStatistics(bytes, &stats, &origins) == AutoMapFileRead);
+  AutoMapExplored explored = EmptyDungeon();
+  AutoMapKnowledge knowledge;
+  AutoMapItemMemory items;
+  AutoMapCellMemory cells;
+  AutoMapPlayerNotes notes;
+  AutoMapMonsterDamage damage;
+  bool hadItemMemory = false;
+  bool hadCellMemory = false;
+  std::istringstream in(bytes);
+  CHECK(AutoMapFile(SAVE_SIGNATURE).Read(in, &explored, &knowledge, &items, &hadItemMemory, &cells,
+                                         &hadCellMemory, &notes, &damage, &stats, &origins) == AutoMapFileRead);
+  CHECK(explored.IsExplored(AutoMapCell{0, 4, 2}));
   CHECK(stats.Champions().empty() && stats.VisitedLevels().empty() && stats.Reloads() == 0);
   CHECK(stats.Harm(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN) == 0);
   CHECK(origins.Missiles().empty() && origins.Clouds().empty() && origins.Brewers().empty());
@@ -1331,6 +1340,7 @@ static void ADamagedStatisticsBlockLeavesTheStoresUnchanged(void)
   CheckStatisticsFileLeavesTheStores(cut);
   // A champion count that cannot fit in the block
   std::string huge = WithoutStatistics(FileWithStatistics(HeroStats(), HeroStatsOrigins()));
+  huge[VERSION_OFFSET] = 13;
   AppendNumber(&huge, 4 + 4 + 12, 4);
   AppendNumber(&huge, 4, 4);
   AppendNumber(&huge, 0xFFFFFFFFu, 4);
@@ -1340,6 +1350,7 @@ static void ADamagedStatisticsBlockLeavesTheStoresUnchanged(void)
   CheckStatisticsFileLeavesTheStores(huge);
   // A block length longer than the file
   std::string longer = WithoutStatistics(FileWithStatistics(HeroStats(), HeroStatsOrigins()));
+  longer[VERSION_OFFSET] = 13;
   AppendNumber(&longer, 0xFFFFFFFFu, 4);
   AppendNumber(&longer, 4, 4);
   CheckStatisticsFileLeavesTheStores(longer);

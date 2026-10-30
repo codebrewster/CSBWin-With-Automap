@@ -2013,8 +2013,8 @@ static void ReadMapFile(const SavedGameFile &save)
     &originsFromFile);
   if (result == AutoMapFileRead)
   {
-    // The hardship in memory outlives a reload of the same game
-    heroStats.TakeFromFile(statsFromFile);
+    // Task 7 decides whether the hardship in memory outlives the reload
+    heroStats = statsFromFile;
     heroStatsOrigins = originsFromFile;
     // An older map file showed every live item on an explored cell: keep showing those
     if (!hadItemMemory) RememberItemsOfExploredCells();
