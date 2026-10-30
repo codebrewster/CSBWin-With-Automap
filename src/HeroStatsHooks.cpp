@@ -529,10 +529,10 @@ void HeroStats_EndRuneCast(bool incantationKept)
   runeCastSlot = -1;
 }
 
-uint32_t HeroStats_IncantationKey(int slot)
+void HeroStats_OnSpellAborted(int slot)
 {
-  if (!IsHero(slot)) return HERO_STATS_NO_SPELL;
-  return HeroStats_RuneSpellKey(d.hero[slot].incantation);
+  if (runeCastSlot < 0 || !IsHero(slot)) return;
+  HeroStats_OnSpellFailed(slot, HeroStats_RuneSpellKey(d.hero[slot].incantation), false);
 }
 
 void HeroStats_OnSpellCast(int slot, uint32_t spell)

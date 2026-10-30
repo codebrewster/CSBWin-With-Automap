@@ -125,8 +125,9 @@ void HeroStats_OnSlotRemoved(int slot);
 // Outside the pair (a script casting) the outcomes count with no mana.
 void HeroStats_BeginRuneCast(int slot);
 void HeroStats_EndRuneCast(bool incantationKept);
-// The rune key of the slot's incantation, HERO_STATS_NO_SPELL for a slot that is no hero
-uint32_t HeroStats_IncantationKey(int slot);
+// A spell filter aborted the cast (CastSpell actions 1-7): a failure of the slot's incantation.
+// Outside Begin/EndRuneCast (a script casting) no runes were paid for, so nothing counts.
+void HeroStats_OnSpellAborted(int slot);
 void HeroStats_OnSpellCast(int slot, uint32_t spell);      // all rune mana to the spell row
 // A failure: all rune mana is wasted; noSuchSpell marks the key HERO_SPELL_NO_SUCH_SPELL
 void HeroStats_OnSpellFailed(int slot, uint32_t spell, bool noSuchSpell);
@@ -140,7 +141,8 @@ void HeroStats_OnShieldActionMana(int slot, int mana);
 void HeroStats_OnHealAction(int slot, int mana, int hpGained);
 void HeroStats_OnManaRegenerated(int slot, int amount);
 void HeroStats_OnHpRegenerated(int slot, int amount);
-// HP and mana actually added (mana only up to the maximum); forgets the potion's brewer
+// HP and mana actually added: HP is capped at the maximum by the engine, mana may go above it
+// (the engine allows that for potions). Forgets the potion's brewer.
 void HeroStats_OnPotionDrunk(int slot, int potionIndex, int hpGained, int manaGained);
 void HeroStats_OnResurrected(HeroStatsChampion who);
 

@@ -1148,7 +1148,7 @@ i16 CastSpell(i16 chIdx, SPELL_PARAMETERS& spellParameters)
   };
   if (msg != NULL)
   {
-    HeroStats_OnSpellFailed(chIdx, HeroStats_IncantationKey(chIdx), false);
+    HeroStats_OnSpellAborted(chIdx);
     msg = TranslateLanguage(msg);
     if (msg[0] != 0)
     {

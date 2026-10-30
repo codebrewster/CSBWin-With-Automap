@@ -4504,11 +4504,10 @@ RESTARTABLE _FeedCharacter()
     if (pcA2->HP() > pcA2->MaxHP()) pcA2->HP(pcA2->MaxHP());
     if (dbType_18 == dbPOTION)
     {
-      // Potions may raise mana above the maximum, which drains away again: only up to the
-      // maximum is gained
+      // What was actually added: HP the engine capped at the maximum, mana it allows above it
       HeroStats_OnPotionDrunk(chIdx, db.GetDBIndex(dbA3, dbPOTION),
                               Larger(0, pcA2->HP() - heroStatsHp),
-                              Larger(0, Smaller(pcA2->Mana(), Larger(pcA2->MaxMana(), heroStatsMana)) - heroStatsMana));
+                              Larger(0, pcA2->Mana() - heroStatsMana));
     };
     if (fp.chew)
     //if (D4W != 0)
