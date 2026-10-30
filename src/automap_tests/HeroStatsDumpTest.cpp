@@ -143,10 +143,35 @@ static void ThrownRowsAndPercentNamesAreSafe(void)
   CHECK(HeroStatsDump_Text(stats) == expected);
 }
 
+static void FriendlyFireDeathNamesItsKiller(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  stats.MeetChampion(9, "SYRA");
+  HeroStatsBlow friendly = ChampionBlow(7, 13, 2);
+  stats.CreditHarm(9, 1, HeroHarmFriendlyFire, friendly, 6);
+  HeroStatsDeath death = { 9, 1, HeroHarmFriendlyFire, friendly };
+  stats.CountDeath(death);
+  std::string expected =
+    "HALK\n"
+    "HALK friendly fire caused 6\n"
+    "SYRA\n"
+    "SYRA harm 6\n"
+    "SYRA harm source 3 by HALK monster -1 amount 6\n"
+    "SYRA death level 1 cause 3 monster -1 by HALK\n"
+    "PARTY\n"
+    "PARTY harm 6\n"
+    "PARTY harm source 3 by HALK monster -1 amount 6\n"
+    "PARTY friendly fire caused 6\n"
+    "PARTY death level 1 cause 3 monster -1 by HALK\n";
+  CHECK(HeroStatsDump_Text(stats) == expected);
+}
+
 void TestHeroStatsDump(void)
 {
   NothingDumpsAsNames();
   EveryNumberGetsALine();
   SpellsFriendlyFireAndManaGetLines();
   ThrownRowsAndPercentNamesAreSafe();
+  FriendlyFireDeathNamesItsKiller();
 }

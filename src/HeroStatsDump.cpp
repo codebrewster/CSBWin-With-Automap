@@ -92,7 +92,10 @@ static void DumpOne(const HeroStats &stats, HeroStatsChampion who, std::string *
   std::vector<HeroStatsDeath> deaths = stats.Deaths(who);
   for (size_t i = 0; i < deaths.size(); i++)
   {
-    Line(out, name, "death level %d cause %d monster %d", deaths[i].level, (int)deaths[i].cause,
+    // The champion who caused it (friendly fire) is named; other deaths have nobody
+    std::string killer;
+    if (deaths[i].by.champion != HERO_STATS_NOBODY) killer = " by " + InFormat(NameOf(stats, deaths[i].by.champion));
+    Line(out, name, "death level %d cause %d monster %d" + killer, deaths[i].level, (int)deaths[i].cause,
          deaths[i].by.monsterType);
   }
   if (who != HERO_STATS_PARTY) return;
