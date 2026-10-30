@@ -42,9 +42,15 @@ void HeroStats_OnGameSaved(void);
 // panel shows. One try; a hit when the damage is above 0. The weapon is the item in the weapon
 // hand (possession 1), the option the attack type.
 void HeroStats_OnMeleeAttack(int slot, int attackType, int monsterGroup, int damageShown);
-// The weapon of the slot's attacks: the name index of the item in the weapon hand (possession 1),
-// HERO_STATS_FISTS when it is empty
+// The weapon of the slot's attacks: the basic object type of the item in the weapon hand
+// (possession 1), HERO_STATS_FISTS when it is empty
 int HeroStats_WeaponInHand(int slot);
+// The weapon key of an item: its basic object type (GetBasicObjectType), the same whatever state
+// the item is in (a lit or burnt-out torch, a compass facing anywhere, a charged or empty wand)
+class RN;
+int HeroStats_WeaponOf(RN item);
+// The display name of a weapon key, from the game's item names (d.ObjectNames)
+std::string HeroStats_WeaponNameOf(int weapon);
 // The next missile launched is the champion's (one try for the weapon and option when it is
 // launched) or a monster's
 void HeroStats_ExpectHeroMissile(int slot, HeroDamageKind kind, int weapon, bool thrown, int option,

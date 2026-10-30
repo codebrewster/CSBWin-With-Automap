@@ -3,6 +3,7 @@
 #include "HeroStatsBytes.h"
 
 #include <algorithm>
+#include <stdio.h>
 
 HeroStatsBlow HeroStatsBlow_Nobody(HeroBlowBy by)
 {
@@ -24,6 +25,16 @@ uint32_t HeroStats_RuneSpellKey(const void *incantation)
   uint32_t key = 0;
   for (int i = 1; i < 4 && runes[i] != 0; i++) key |= (uint32_t)runes[i] << (8 * (i - 1));
   return key;
+}
+
+std::string HeroStats_WeaponName(int weapon, const char *const *itemNames, int nameCount)
+{
+  if (weapon == HERO_STATS_FISTS) return "FISTS";
+  if (weapon == HERO_STATS_NO_WEAPON) return "";
+  if (weapon >= 0 && weapon < nameCount && itemNames[weapon] != NULL) return itemNames[weapon];
+  char number[16];
+  snprintf(number, sizeof number, "#%d", weapon);
+  return number;
 }
 
 bool HeroStats::Matches(HeroStatsChampion want, HeroStatsChampion have)

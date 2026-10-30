@@ -32,7 +32,7 @@ struct HeroStatsBlow
   HeroBlowBy by;
   HeroStatsChampion champion;  // HeroBlowByChampion, else HERO_STATS_NOBODY
   HeroDamageKind kind;
-  int weapon;                  // item name index, HERO_STATS_FISTS or HERO_STATS_NO_WEAPON
+  int weapon;                  // basic object type, HERO_STATS_FISTS or HERO_STATS_NO_WEAPON
   bool thrown;                 // the weapon itself was thrown by hand
   int option;                  // attack option index (d.AttackNames), or the two constants
   uint32_t spell;              // rune key, or HERO_STATS_NO_SPELL
@@ -57,6 +57,10 @@ const uint32_t HERO_SPELL_NO_SUCH_SPELL = 0x80000000;  // ORed onto runes that f
 // are entered): incantation[1] | incantation[2] << 8 | incantation[3] << 16, the power rune
 // left out and nothing after the first 0 taken as a rune
 uint32_t HeroStats_RuneSpellKey(const void *incantation);
+// The display name of a weapon key: the basic object type's name from the game's item names
+// (d.ObjectNames, nameCount entries), "FISTS" for an empty hand, "" for spells entered as runes,
+// "#N" for a type the table does not name
+std::string HeroStats_WeaponName(int weapon, const char *const *itemNames, int nameCount);
 
 struct HeroStatsChampionInfo { HeroStatsChampion id; std::string name; };
 struct HeroStatsAttackRow { int weapon; bool thrown; int option; int tries, hits, damage, kills; };

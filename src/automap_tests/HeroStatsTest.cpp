@@ -338,9 +338,23 @@ static void RuneSpellKeyLeavesOutThePowerRune(void)
   CHECK(HeroStats_RuneSpellKey(shortOne) == 0x68u);
 }
 
+static void WeaponNamesComeFromTheItemNames(void)
+{
+  const char *names[3] = {"DAGGER", NULL, "TORCH"};
+  CHECK(HeroStats_WeaponName(0, names, 3) == "DAGGER");
+  CHECK(HeroStats_WeaponName(2, names, 3) == "TORCH");
+  CHECK(HeroStats_WeaponName(HERO_STATS_FISTS, names, 3) == "FISTS");
+  CHECK(HeroStats_WeaponName(HERO_STATS_NO_WEAPON, names, 3) == "");
+  // A type with no name, or none the table has: its number
+  CHECK(HeroStats_WeaponName(1, names, 3) == "#1");
+  CHECK(HeroStats_WeaponName(3, names, 3) == "#3");
+  CHECK(HeroStats_WeaponName(-7, names, 3) == "#-7");
+}
+
 void TestHeroStats(void)
 {
   RuneSpellKeyLeavesOutThePowerRune();
+  WeaponNamesComeFromTheItemNames();
   ChampionsKeepOrderAndRename();
   BlowsAreCountedPerChampionAndLevel();
   BlowsOfMonstersCreditNothing();

@@ -752,7 +752,7 @@ i16 ThrowByCharacter(i32 chIdx,i16 hand,i16 LeftOrRight, int disableTime,
   D5W = sw(Larger(5, 11 - D5W));
   // The item itself flies: thrown by hand from the cursor (only that path sets pcA3), or by the
   // THROW attack of the weapon hand
-  HeroStats_ExpectHeroMissile(chIdx, HeroDamageRanged, (int)objD4.NameIndex(), true,
+  HeroStats_ExpectHeroMissile(chIdx, HeroDamageRanged, HeroStats_WeaponOf(objD4), true,
                               pcA3 != NULL ? HERO_STATS_THROW_OPTION : (int)atk_THROW, HERO_STATS_NO_SPELL);
   LaunchMissile(
                 objD4,

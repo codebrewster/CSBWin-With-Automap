@@ -219,7 +219,19 @@ int HeroStats_WeaponInHand(int slot)
 {
   if (!IsHero(slot)) return HERO_STATS_FISTS;
   RN inHand = d.hero[slot].Possession(1);
-  return inHand == RNnul ? HERO_STATS_FISTS : (int)inHand.NameIndex();
+  return inHand == RNnul ? HERO_STATS_FISTS : HeroStats_WeaponOf(inHand);
+}
+
+// The basic type, not the name index: that one changes with a torch's flame, a compass's
+// facing or a charge left, and would split one item into several rows
+int HeroStats_WeaponOf(RN item)
+{
+  return (int)GetBasicObjectType(item);
+}
+
+std::string HeroStats_WeaponNameOf(int weapon)
+{
+  return HeroStats_WeaponName(weapon, d.ObjectNames, (int)(sizeof d.ObjectNames / sizeof d.ObjectNames[0]));
 }
 
 void HeroStats_OnMeleeAttack(int slot, int attackType, int monsterGroup, int damageShown)
