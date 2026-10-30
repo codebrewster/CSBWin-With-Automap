@@ -18,6 +18,7 @@
 #endif
 #include "AutoMapHooks.h"
 #include "AutoMapWindow.h"
+#include "HeroStatsWindow.h"
 
 #include "Dispatch.h"
 #include "Objects.h"
@@ -1134,6 +1135,7 @@ static void Process_SDL_KEYUP(void)
 
 void Process_SDL_WINDOWEVENT(const SDL_Event &event)
 {
+  if (HeroStatsWindow_HandleEvent(event)) return;
   if (AutoMapWindow_HandleWindowEvent(event)) return;
   switch(event.window.event)
   {
@@ -1216,19 +1218,21 @@ static bool GameIsOver(void)
   return endSequencePlaying || GameIsComplete || (videoMode == VM_CAST) || (videoMode == VM_THEEND);
 }
 
-// The share of an event that the menu bar and the map window take, for loops that keep the
-// game itself waiting (the end sequence after a win): the game gets nothing of it
+// The share of an event that the menu bar, the map window and the statistics window take, for
+// loops that keep the game itself waiting (the end sequence after a win): the game gets nothing
+// of it
 void ProcessMenuEvent(const SDL_Event &event)
 {
+  if (HeroStatsWindow_HandleEvent(event)) return;
   if (AutoMapWindow_HandlePointerEvent(event)) return;
   if ((event.type == SDL_KEYDOWN || event.type == SDL_TEXTINPUT) && AutoMapWindow_HandleKeyEvent(event)) return;
   ImGui_ImplSDL2_ProcessEvent(&event);
 }
 
-// The game hides the system pointer because it draws its own. The map window has no drawn
-// pointer, so the system pointer stays while it is over the map.
+// The game hides the system pointer because it draws its own. The map and statistics windows
+// have no drawn pointer, so the system pointer stays while it is over one of them.
 static void hide_system_pointer() {
-    if (AutoMapWindow_PointerIsOverMap()) return;
+    if (AutoMapWindow_PointerIsOverMap() || HeroStatsWindow_PointerIsOver()) return;
     SDL_ShowCursor(SDL_DISABLE);
 }
 
@@ -1557,6 +1561,7 @@ int main(int argc, char* argv[])
   SDL_ShowCursor(SDL_ENABLE);
   cursorIsShowing = true;
   AutoMapWindow_RestoreVisibility();
+  HeroStatsWindow_RestoreVisibility();
   if(fullscreenRequested)
   {
     fullscreenActive = true;
@@ -1632,6 +1637,11 @@ int main(int argc, char* argv[])
       }
     }
 
+    // Everything for the statistics window goes to its own ImGui context, nothing to the game
+    if (HeroStatsWindow_HandleEvent(evert)) {
+	HeroStatsWindow_Paint();
+	continue;
+    }
     if (AutoMapWindow_HandlePointerEvent(evert)) {
 	AutoMapWindow_PaintIfDirty();
 	continue;
@@ -1722,6 +1732,7 @@ int main(int argc, char* argv[])
 	} */
     }
     AutoMapWindow_PaintIfDirty();
+    HeroStatsWindow_Paint();
 
   } /* Eof Lord Message Loop */
 
@@ -1947,6 +1958,7 @@ static void read_conf() {
     st_Y = 200.0 / (WindowHeight - 20);
     keyxlate.read_conf();
     AutoMap_ReadSettings();
+    HeroStatsWindow_ReadSettings();
     csb_pop_config_state();
 }
 
@@ -1973,6 +1985,7 @@ static void save_conf() {
     csb_set_config_string("settings","translation",translation);
     keyxlate.write_conf();
     AutoMap_WriteSettings();
+    HeroStatsWindow_WriteSettings();
     csb_pop_config_state();
 }
 
@@ -2548,6 +2561,13 @@ void post_render() {
 			if (rows[i].separatorAfter) ImGui::Separator();
 		    }
 		    ImGui::EndMenu();
+		}
+		ImGui::EndMenu();
+	    }
+	    if (ImGui::BeginMenu(_("Statistics"))) {
+		if (ImGui::MenuItem(_("Window"), NULL, HeroStatsWindow_IsShown())) {
+		    if (HeroStatsWindow_IsShown()) HeroStatsWindow_Hide();
+		    else HeroStatsWindow_Show();
 		}
 		ImGui::EndMenu();
 	    }

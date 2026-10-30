@@ -9,6 +9,7 @@
 #include "CSB.h"
 #include "Data.h"
 #include "AutoMapWindow.h"
+#include "HeroStatsWindow.h"
 #include "AutoMapHooks.h"
 #include "ShotMissiles.h"
 
@@ -2272,6 +2273,7 @@ void my_Delay(int ms) {
 	}
 	post_render();
 	AutoMapWindow_PaintIfDirty();
+	HeroStatsWindow_Paint();
     }
     endSequencePlaying = false;
 }

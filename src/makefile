@@ -92,7 +92,7 @@ OBJS += $(SHOT_MISSILES_TESTED)
 HERO_STATS_TESTED = HeroStats.o HeroStatsOrigins.o HeroStatsPending.o HeroStatsRunes.o HeroStatsDump.o HeroStatsGame.o HeroStatsView.o
 HERO_STATS_TESTS = automap_tests/HeroStatsTest.o automap_tests/HeroStatsOriginsTest.o automap_tests/HeroStatsPendingTest.o automap_tests/HeroStatsDumpTest.o automap_tests/HeroStatsGameTest.o automap_tests/HeroStatsViewTest.o
 OBJS += $(HERO_STATS_TESTED)
-OBJS += HeroStatsHooks.o
+OBJS += HeroStatsHooks.o HeroStatsWindow.o
 
 ifdef MACOS
 	OBJS += MacAppSupport.o
