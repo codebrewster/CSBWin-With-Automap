@@ -236,6 +236,93 @@ static void SpellBlowsCreditTheSpellRow(void)
   }
 }
 
+static HeroStatsDeath DeathOf(HeroStatsChampion who, int level, HeroHarmSource cause)
+{
+  HeroStatsDeath death;
+  death.who = who;
+  death.level = level;
+  death.cause = cause;
+  death.by = HeroStatsBlow_Nobody(HeroBlowByMonster);
+  death.by.monsterType = 4;
+  return death;
+}
+
+static void DeathsKeepOrderCauseAndLevel(void)
+{
+  HeroStats stats;
+  stats.CountDeath(DeathOf(7, 3, HeroHarmMonster));
+  stats.CountDeath(DeathOf(9, 4, HeroHarmPit));
+  stats.CountDeath(DeathOf(7, 5, HeroHarmPoison));
+  std::vector<HeroStatsDeath> deaths = stats.Deaths(7);
+  CHECK(deaths.size() == 2);
+  if (deaths.size() == 2)
+  {
+    CHECK(deaths[0].level == 3 && deaths[0].cause == HeroHarmMonster && deaths[0].by.monsterType == 4);
+    CHECK(deaths[1].level == 5 && deaths[1].cause == HeroHarmPoison);
+  }
+  CHECK(stats.Deaths(HERO_STATS_PARTY).size() == 3);
+  CHECK(stats.Deaths(1).empty());
+  stats.CountResurrection(7, 3);
+  stats.CountResurrection(7, 3);
+  stats.CountResurrection(7, 4);
+  CHECK(stats.Resurrections(7, 3) == 2);
+  CHECK(stats.Resurrections(7, HERO_STATS_WHOLE_RUN) == 3);
+  CHECK(stats.Resurrections(HERO_STATS_PARTY, 4) == 1);
+  CHECK(stats.Resurrections(9, 3) == 0);
+}
+
+static void MergeHardshipTakesTheLargerOfEach(void)
+{
+  HeroStats memory, file;
+  memory.CountDeath(DeathOf(7, 3, HeroHarmMonster));
+  memory.CountDeath(DeathOf(9, 4, HeroHarmPit));
+  file.CountDeath(DeathOf(7, 3, HeroHarmMonster));
+  memory.CountPartyWipe();
+  memory.CountReload();
+  memory.CountReload();
+  memory.CountReload();
+  for (int i = 0; i < 5; i++) file.CountReload();
+  memory.MergeHardship(file);
+  CHECK(memory.Deaths(HERO_STATS_PARTY).size() == 2);
+  CHECK(memory.PartyWipes() == 1);
+  CHECK(memory.Reloads() == 5);
+  // The other way round the file's longer list wins
+  file.CountDeath(DeathOf(1, 1, HeroHarmOther));
+  file.CountDeath(DeathOf(2, 1, HeroHarmOther));
+  memory.MergeHardship(file);
+  CHECK(memory.Deaths(HERO_STATS_PARTY).size() == 3);
+}
+
+static void TakeFromFileReplacesTheRestAndKeepsHardship(void)
+{
+  HeroStats memory, file;
+  HeroStatsBlow blow = ChampionBlow(7, 1, 2);
+  memory.MeetChampion(7, "Memory");
+  memory.MarkLevelVisited(9);
+  memory.CreditMonsterDamage(3, blow, 100);
+  memory.CountResurrection(7, 3);
+  memory.CountDeath(DeathOf(7, 3, HeroHarmMonster));
+  memory.CountDeath(DeathOf(9, 4, HeroHarmPit));
+  file.MeetChampion(8, "File");
+  file.MarkLevelVisited(2);
+  file.CreditMonsterDamage(3, blow, 40);
+  file.CountDeath(DeathOf(7, 3, HeroHarmMonster));
+  memory.TakeFromFile(file);
+  CHECK(memory.DamageDealt(7, 3, HeroDamageMelee) == 40);
+  CHECK(memory.Deaths(HERO_STATS_PARTY).size() == 2);
+  CHECK(memory.Resurrections(7, 3) == 0);
+  CHECK(memory.Champions().size() == 1 && memory.Champions()[0].name == "File");
+  CHECK(memory.VisitedLevels().size() == 1 && memory.VisitedLevels()[0] == 2);
+
+  // A different game: Forget first, then only the file's hardship is left
+  memory.Forget();
+  CHECK(memory.Deaths(HERO_STATS_PARTY).empty() && memory.PartyWipes() == 0 && memory.Reloads() == 0);
+  file.CountPartyWipe();
+  memory.TakeFromFile(file);
+  CHECK(memory.Deaths(HERO_STATS_PARTY).size() == 1);
+  CHECK(memory.PartyWipes() == 1);
+}
+
 void TestHeroStats(void)
 {
   ChampionsKeepOrderAndRename();
@@ -249,4 +336,7 @@ void TestHeroStats(void)
   HealingRemembersTheBrewer();
   ManaIsKeptPerSpell();
   SpellBlowsCreditTheSpellRow();
+  DeathsKeepOrderCauseAndLevel();
+  MergeHardshipTakesTheLargerOfEach();
+  TakeFromFileReplacesTheRestAndKeepsHardship();
 }

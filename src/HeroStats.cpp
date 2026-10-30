@@ -39,6 +39,10 @@ void HeroStats::Forget(void)
   m_healing.clear();
   m_manaGained.clear();
   m_spells.clear();
+  m_deaths.clear();
+  m_resurrections.clear();
+  m_partyWipes = 0;
+  m_reloads = 0;
 }
 
 void HeroStats::MeetChampion(HeroStatsChampion id, const std::string &name)
@@ -430,4 +434,71 @@ std::vector<HeroStatsSpellRow> HeroStats::Spells(HeroStatsChampion who, int leve
   }
   std::stable_sort(rows.begin(), rows.end(), MostManaFirst);
   return rows;
+}
+
+void HeroStats::CountDeath(const HeroStatsDeath &death)
+{
+  m_deaths.push_back(death);
+}
+
+void HeroStats::CountResurrection(HeroStatsChampion who, int level)
+{
+  m_resurrections[std::make_pair(who, level)]++;
+}
+
+void HeroStats::CountPartyWipe(void)
+{
+  m_partyWipes++;
+}
+
+void HeroStats::CountReload(void)
+{
+  m_reloads++;
+}
+
+std::vector<HeroStatsDeath> HeroStats::Deaths(HeroStatsChampion who) const
+{
+  std::vector<HeroStatsDeath> deaths;
+  for (size_t i = 0; i < m_deaths.size(); i++)
+  {
+    if (Matches(who, m_deaths[i].who)) deaths.push_back(m_deaths[i]);
+  }
+  return deaths;
+}
+
+int HeroStats::Resurrections(HeroStatsChampion who, int level) const
+{
+  int sum = 0;
+  for (std::map<std::pair<HeroStatsChampion, int>, int>::const_iterator at = m_resurrections.begin();
+       at != m_resurrections.end(); ++at)
+  {
+    if (Matches(who, at->first.first) && LevelMatches(level, at->first.second)) sum += at->second;
+  }
+  return sum;
+}
+
+int HeroStats::PartyWipes(void) const
+{
+  return m_partyWipes;
+}
+
+int HeroStats::Reloads(void) const
+{
+  return m_reloads;
+}
+
+void HeroStats::MergeHardship(const HeroStats &other)
+{
+  // Both lists describe the same run, so the longer one has seen more of it
+  if (other.m_deaths.size() > m_deaths.size()) m_deaths = other.m_deaths;
+  m_partyWipes = std::max(m_partyWipes, other.m_partyWipes);
+  m_reloads = std::max(m_reloads, other.m_reloads);
+}
+
+void HeroStats::TakeFromFile(const HeroStats &fromFile)
+{
+  // Copy first: fromFile may be this object, and the memory's hardship must outlive the replacement
+  HeroStats inMemory(*this);
+  *this = fromFile;
+  MergeHardship(inMemory);
 }

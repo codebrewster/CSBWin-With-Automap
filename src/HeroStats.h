@@ -58,6 +58,9 @@ struct HeroStatsHealRow { HeroHealKind kind; HeroStatsChampion brewer; int amoun
 // Cleared runes count their mana as wasted; the shield and heal actions count theirs as mana
 struct HeroStatsSpellRow { uint32_t spell; int casts, mana, failed, wasted, damage, kills; };
 
+// A champion's death: where, from what, and the blow that did it (monster type, causing champion)
+struct HeroStatsDeath { HeroStatsChampion who; int level; HeroHarmSource cause; HeroStatsBlow by; };
+
 // What the champions did, kept per champion and dungeon level. Sums over champions or levels are
 // made when asked; nothing is cached.
 class HeroStats
@@ -101,6 +104,21 @@ public:
   int ManaWasted(HeroStatsChampion who, int level) const;                  // failed casts + runes cleared
   std::vector<HeroStatsSpellRow> Spells(HeroStatsChampion who, int level) const;  // most mana first
 
+  // Hardship. Deaths are kept for the whole run, each with its level.
+  void CountDeath(const HeroStatsDeath &death);
+  void CountResurrection(HeroStatsChampion who, int level);
+  void CountPartyWipe(void);
+  void CountReload(void);
+  std::vector<HeroStatsDeath> Deaths(HeroStatsChampion who) const;   // in the order they happened
+  int Resurrections(HeroStatsChampion who, int level) const;
+  int PartyWipes(void) const;
+  int Reloads(void) const;
+  // The hardship of other (the same game read from a file, or the one in memory):
+  // deaths become whichever list is longer, wipes and reloads the larger count.
+  void MergeHardship(const HeroStats &other);
+  // Replaces everything but the hardship, which is merged
+  void TakeFromFile(const HeroStats &fromFile);
+
 private:
   struct AttackCounts { int tries, hits, damage, kills; };
   // (champion, level, weapon, thrown, option)
@@ -135,6 +153,10 @@ private:
   std::map<HealKey, int> m_healing;
   std::map<GainKey, int> m_manaGained;
   std::map<SpellKey, SpellCounts> m_spells;
+  std::vector<HeroStatsDeath> m_deaths;
+  std::map<std::pair<HeroStatsChampion, int>, int> m_resurrections;
+  int m_partyWipes = 0;
+  int m_reloads = 0;
 };
 
 #endif
