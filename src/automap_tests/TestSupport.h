@@ -30,5 +30,6 @@ void TestAutoMapMonsterDamage(void);
 void TestAutoMapVision(void);
 void TestAutoMapVisibilityCases(void);
 void TestShotMissiles(void);
+void TestHeroStats(void);
 
 #endif

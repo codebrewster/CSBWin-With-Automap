@@ -88,6 +88,11 @@ SHOT_MISSILES_TESTED = ShotMissiles.o
 SHOT_MISSILES_TESTS = automap_tests/ShotMissilesTest.o
 OBJS += $(SHOT_MISSILES_TESTED)
 
+# The hero statistics store. Engine-free as well; "make test" runs its tests with the others.
+HERO_STATS_TESTED = HeroStats.o
+HERO_STATS_TESTS = automap_tests/HeroStatsTest.o
+OBJS += $(HERO_STATS_TESTED)
+
 ifdef MACOS
 	OBJS += MacAppSupport.o
 endif
@@ -102,6 +107,7 @@ OBJDIRS = $(OBJDIR) \
 OBJS := $(OBJS:%=$(OBJDIR)/%)
 AUTOMAP_TEST_OBJS := $(AUTOMAP_TESTED:%=$(OBJDIR)/%) $(AUTOMAP_TESTS:%=$(OBJDIR)/%)
 SHOT_MISSILES_TEST_OBJS := $(SHOT_MISSILES_TESTED:%=$(OBJDIR)/%) $(SHOT_MISSILES_TESTS:%=$(OBJDIR)/%)
+HERO_STATS_TEST_OBJS := $(HERO_STATS_TESTED:%=$(OBJDIR)/%) $(HERO_STATS_TESTS:%=$(OBJDIR)/%)
 
 SDL_SOUND = SDL_sound.o SDL_sound_mp3.o SDL_sound_raw.o SDL_sound_wav.o
 SDL_SOUND := $(SDL_SOUND:%=$(OBJDIR)/sdl_sound/%)
@@ -124,6 +130,7 @@ $(OBJDIRS):
 -include $(OBJS:%.o=%.P)
 -include $(AUTOMAP_TEST_OBJS:%.o=%.P)
 -include $(SHOT_MISSILES_TEST_OBJS:%.o=%.P)
+-include $(HERO_STATS_TEST_OBJS:%.o=%.P)
 
 ifdef WIN
 OBJS += $(OBJDIR)/csb.res
@@ -147,9 +154,9 @@ csb: $(OBJS)
 test: maketree $(OBJDIR)/automap_test
 	$(OBJDIR)/automap_test
 
-$(OBJDIR)/automap_test: $(AUTOMAP_TEST_OBJS) $(SHOT_MISSILES_TEST_OBJS)
+$(OBJDIR)/automap_test: $(AUTOMAP_TEST_OBJS) $(SHOT_MISSILES_TEST_OBJS) $(HERO_STATS_TEST_OBJS)
 	@echo Linking $@
-	$(CXX) $(AUTOMAP_TEST_OBJS) $(SHOT_MISSILES_TEST_OBJS) $(ldflags) -o $@
+	$(CXX) $(AUTOMAP_TEST_OBJS) $(SHOT_MISSILES_TEST_OBJS) $(HERO_STATS_TEST_OBJS) $(ldflags) -o $@
 
 # The visibility tests draw the 3D view with the engine, so they need the game data and the
 # prepared save in Dungeons/Dungeonmaster, which are not in git
