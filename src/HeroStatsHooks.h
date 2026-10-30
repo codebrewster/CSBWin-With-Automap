@@ -78,4 +78,33 @@ void HeroStats_EndMonsterBlow(void);
 // HeroBlowByOther.
 void HeroStats_OnMonsterDied(int monsterType, int variant, int why);
 
+// Harm: DamageCharacter reports the damage it adds to a hero's pending damage, after armour and
+// resistances. Begin/End around the call that hurts the heroes names the source; one pair around
+// DamageAllCharacters covers every hero. Pairs nest, and the outermost names the source: the
+// stamina that hunger drains spills over as starvation, not exhaustion.
+void HeroStats_BeginHarm(HeroHarmSource source);
+// A missile hits a hero: a champion's is friendly fire (a hero hitting themself too), a
+// monster's is a monster missile of its type, one with no known origin a trap's
+void HeroStats_BeginHarmByMissile(int missileIndex);
+// A fireball or lightning explodes on the party: between HeroStats_BeginCloud and
+// HeroStats_EndCloud it is the exploding missile's, like HeroStats_BeginHarmByMissile; any other
+// explosion (scripts, the end of the game) is HeroHarmOther
+void HeroStats_BeginHarmByExplosion(void);
+// A poison cloud's tick: HeroHarmPoisonCloud with the cloud's origin, the caster when a champion's
+void HeroStats_BeginHarmByCloud(int cloudIndex);
+void HeroStats_BeginHarmByMonster(int monsterType);
+void HeroStats_EndHarm(void);
+// End of DamageCharacter: the final damage, credited to the source and kept as pending damage
+// until DisplayCharacterDamage applies it. Without a Begin the source is HeroHarmOther.
+void HeroStats_OnHeroHarmed(int slot, int finalDamage);
+// DisplayCharacterDamage is about to kill the slot: the death's cause is the source that added
+// most to the slot's pending damage (ties to the later one), HeroHarmOther when none did
+void HeroStats_OnHeroDying(int slot);
+// A death that does not come from pending damage (a harmful potion or food)
+void HeroStats_OnHeroKilledBy(int slot, HeroHarmSource cause);
+// After the loop of DisplayCharacterDamage: the pending damage has been applied
+void HeroStats_OnHarmApplied(void);
+// The game is lost: every champion is dead
+void HeroStats_OnPartyWiped(void);
+
 #endif

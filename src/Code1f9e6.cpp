@@ -3,6 +3,7 @@
 #include "UI.h"
 
 #include <stdio.h>
+#include "HeroStatsHooks.h"
 
 //#include "Objects.h"
 #include "Dispatch.h"
@@ -123,6 +124,7 @@ RESTARTABLE _ShowCredits(const i32 P1) //(void)
   {
     if (d.Word11694 == 0)
     {
+      HeroStats_OnPartyWiped();
       QueueSound(6, d.partyX, d.partyY, 0);//Dying sound
       VBLDelay(_1_,240); // About 4 seconds
     };

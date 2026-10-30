@@ -5,6 +5,7 @@
 ui32 time(void *);
 #else
 #include <time.h>
+#include "HeroStatsHooks.h"
 #endif
 
 #include "UI.h"
@@ -7149,6 +7150,7 @@ void DisplayCharacterDamage(void)
     D5W = sw(D5W - D6W);
     if (D5W <= 0)
     {
+      HeroStats_OnHeroDying(D7W);
       KillCharacter(D7W);
       continue;
     };
@@ -7247,6 +7249,7 @@ void DisplayCharacterDamage(void)
    //continue here
 
   };
+  HeroStats_OnHarmApplied();
 }
 
 //   TAG017274
@@ -7258,7 +7261,9 @@ void PoisonCharacter(i32 chIdx,i32 P2)
   if (chIdx == -1) return;
   if (chIdx+1 == d.PotentialCharacterOrdinal) return;
   pch_14 = &d.hero[chIdx];
+  HeroStats_BeginHarm(HeroHarmPoison);
   DamageCharacter(chIdx, Larger(1, P2/64), 0, 0);
+  HeroStats_EndHarm();
   pch_14->charFlags |= CHARFLAG_statsChanged;
   if (    (chIdx+1 == d.SelectedCharacterOrdinal)
        && (d.DisplayResurrectChestOrScroll == 0)   )
@@ -8346,7 +8351,9 @@ MOVEBUTN *MoveParty(const i32 button)
                        newX,
                        newY,
                        direction & 3);
+          HeroStats_BeginHarm(HeroHarmWall);
           k = sw(DamageCharacter(LOCAL_8, 1, 24, 2));//TAG017068
+          HeroStats_EndHarm();
           LOCAL_10 = GetCharacterToDamage(
                 newX,
                 newY,
@@ -8354,7 +8361,9 @@ MOVEBUTN *MoveParty(const i32 button)
           LOCAL_30 = LOCAL_10;
           if (LOCAL_8 != LOCAL_30)
           {
+            HeroStats_BeginHarm(HeroHarmWall);
             k |= DamageCharacter(LOCAL_10,1,24,2);
+            HeroStats_EndHarm();
           };
           if (k != 0)
           {

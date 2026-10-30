@@ -4606,7 +4606,9 @@ i16 MonsterDamagesCharacter(DB4 *pDB4,i32 chIdx, bool supressPoison)
   {
     D7W = sw(D7W - (STRandom(D7W/2 + 1) - 1));
   };
+  HeroStats_BeginHarmByMonster(DB4A3->monsterType());
   D7W = sw(DamageCharacter(chIdx, D7W, D4W, mtDesc.uByte22[2]));
+  HeroStats_EndHarm();
   if (D7W != 0)
   {
     QueueSound(chIdx + 9, d.partyX, d.partyY, 2);

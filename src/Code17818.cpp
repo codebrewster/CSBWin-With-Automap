@@ -3,6 +3,7 @@
 #include "UI.h"
 
 #include <stdio.h>
+#include "HeroStatsHooks.h"
 
 //#include "Objects.h"
 #include "Dispatch.h"
@@ -338,7 +339,10 @@ void TenSecondUpdate(void)
       if (D6W == 0) break;
     } while (pcA3->Stamina() < pcA3->MaxStamina() + D4W);
 
+    // Only hunger and thirst drain stamina here: what spills over is starvation
+    HeroStats_BeginHarm(HeroHarmStarvation);
     AdjustStamina(chIdx, D4W);
+    HeroStats_EndHarm();
     if (pcA3->food < -1024)
     {
       pcA3->food = -1024;
@@ -378,7 +382,9 @@ void TenSecondUpdate(void)
       if (d.Word11750 == 0)
       {
         d.CanRestartFromSavegame = 0;
+        HeroStats_BeginHarm(HeroHarmOther);
         DamageAllCharacters(0x1000, 0, 0);
+        HeroStats_EndHarm();
       };
     };
     D0L = d.Time;

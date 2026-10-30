@@ -10,6 +10,7 @@
 #include "HeroStatsDump.h"
 #include "HeroStatsGame.h"
 #include "HeroStatsHooks.h"
+#include "HeroStatsPending.h"
 #include "AutoMapWindow.h"
 
 #include "UI.h"
@@ -38,6 +39,13 @@ static bool explosionActive = false;
 static bool explosionCloudPending = false;
 static int explosionMissile = -1;
 static HeroStatsBlow explosionBlow = HeroStatsBlow_Nobody(HeroBlowByOther);
+// Between HeroStats_BeginHarm* and HeroStats_EndHarm: the source of the harm, set by the
+// outermost Begin
+static int harmDepth = 0;
+static HeroHarmSource harmSource = HeroHarmOther;
+static HeroStatsBlow harmBlow = HeroStatsBlow_Nobody(HeroBlowByOther);
+// The harm added to each hero's pending damage since DisplayCharacterDamage last applied it
+static HeroStatsPending pending;
 
 HeroStats &HeroStats_Store(void)
 {
@@ -81,6 +89,8 @@ static void ForgetEngineState(void)
   explosionActive = false;
   explosionCloudPending = false;
   explosionMissile = -1;
+  harmDepth = 0;
+  pending.ClearAll();
 }
 
 static void GameStartsOrContinues(void)
@@ -341,4 +351,113 @@ void HeroStats_OnMonsterDied(int monsterType, int variant, int why)
   bool takesLastBlow = why == DMW_Damage || why == DMW_Movement1;
   HeroStatsBlow blow = takesLastBlow && lastBlowSet ? lastBlow : HeroStatsBlow_Nobody(HeroBlowByOther);
   store.CountMonsterKill(PartyLevel(), monsterType, variant, blow);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Harm and deaths
+
+static void BeginHarmWith(HeroHarmSource source, const HeroStatsBlow &blow)
+{
+  if (harmDepth++ != 0) return;
+  harmSource = source;
+  harmBlow = blow;
+}
+
+// The source of a missile's or an explosion's harm, from its blow
+static void BeginHarmByMissileBlow(const HeroStatsBlow &blow)
+{
+  HeroHarmSource source = HeroHarmOther;
+  if (blow.by == HeroBlowByChampion) source = HeroHarmFriendlyFire;
+  else if (blow.by == HeroBlowByMonster) source = HeroHarmMonsterMissile;
+  else if (blow.by == HeroBlowByTrap) source = HeroHarmTrap;
+  BeginHarmWith(source, blow);
+}
+
+void HeroStats_BeginHarm(HeroHarmSource source)
+{
+  BeginHarmWith(source, HeroStatsBlow_Nobody(HeroBlowByOther));
+}
+
+void HeroStats_BeginHarmByMissile(int missileIndex)
+{
+  BeginHarmByMissileBlow(MissileBlow(missileIndex));
+}
+
+void HeroStats_BeginHarmByExplosion(void)
+{
+  if (explosionActive)
+    BeginHarmByMissileBlow(explosionBlow);
+  else
+    HeroStats_BeginHarm(HeroHarmOther);
+}
+
+void HeroStats_BeginHarmByCloud(int cloudIndex)
+{
+  HeroStatsBlow blow;
+  if (!origins.CloudOrigin(cloudIndex, &blow)) blow = HeroStatsBlow_Nobody(HeroBlowByCloud);
+  BeginHarmWith(HeroHarmPoisonCloud, blow);
+}
+
+void HeroStats_BeginHarmByMonster(int monsterType)
+{
+  HeroStatsBlow blow = HeroStatsBlow_Nobody(HeroBlowByMonster);
+  blow.monsterType = monsterType;
+  BeginHarmWith(HeroHarmMonster, blow);
+}
+
+void HeroStats_EndHarm(void)
+{
+  if (harmDepth > 0) harmDepth--;
+}
+
+void HeroStats_OnHeroHarmed(int slot, int finalDamage)
+{
+  if (!IsHero(slot) || finalDamage <= 0) return;
+  HeroHarmSource source = harmDepth > 0 ? harmSource : HeroHarmOther;
+  HeroStatsBlow blow = harmDepth > 0 ? harmBlow : HeroStatsBlow_Nobody(HeroBlowByOther);
+  MeetHero(slot);
+  store.CreditHarm(d.hero[slot].fingerPrint, PartyLevel(), source, blow, finalDamage);
+  pending.Add(slot, source, blow, finalDamage);
+}
+
+static void CountDeath(int slot, HeroHarmSource cause, const HeroStatsBlow &blow)
+{
+  MeetHero(slot);
+  HeroStatsDeath death;
+  death.who = d.hero[slot].fingerPrint;
+  death.level = PartyLevel();
+  death.cause = cause;
+  death.by = blow;
+  store.CountDeath(death);
+}
+
+void HeroStats_OnHeroDying(int slot)
+{
+  if (!IsHero(slot)) return;
+  HeroHarmSource cause;
+  HeroStatsBlow blow;
+  if (!pending.Cause(slot, &cause, &blow))
+  {
+    // Damage a script wrote into the pending damage itself
+    cause = HeroHarmOther;
+    blow = HeroStatsBlow_Nobody(HeroBlowByOther);
+  }
+  CountDeath(slot, cause, blow);
+  pending.Clear(slot);
+}
+
+void HeroStats_OnHeroKilledBy(int slot, HeroHarmSource cause)
+{
+  if (!IsHero(slot)) return;
+  CountDeath(slot, cause, HeroStatsBlow_Nobody(HeroBlowByOther));
+}
+
+void HeroStats_OnHarmApplied(void)
+{
+  pending.ClearAll();
+}
+
+void HeroStats_OnPartyWiped(void)
+{
+  store.CountPartyWipe();
 }

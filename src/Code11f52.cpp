@@ -1526,7 +1526,9 @@ void CreateCloud(RN P1,
               "Lightning or fireball - damage parameters w8=%d, w10=%d\n",
               objX, objY);
     };
+    HeroStats_BeginHarmByExplosion();
     DamageAllCharacters(damage, 63, 1);
+    HeroStats_EndHarm();
     return;
   };
   objMonster = FindFirstMonster(objX, objY);
@@ -2100,7 +2102,9 @@ i16 ProcessMissileEncounter(
   };  // switch (cellType)
   if (D4W != 0)
   {
+    HeroStats_BeginHarmByMissile(db.GetDBIndex(pDBmissile, dbMISSILE));
     D0W = sw(DamageCharacter(objectPos, D5W, 12, d.Word12964));
+    HeroStats_EndHarm();
     if ( (D0W != 0) && (d.Word12962 != 0) )
     {
       D0W = STRandomBool();
@@ -3135,7 +3139,9 @@ i16 MoveObject(const RN        object,
               }
               else
               {
+                HeroStats_BeginHarm(HeroHarmPit);
                 D0W = DamageAllCharacters(20, 48, 2);
+                HeroStats_EndHarm();
                 if (D0W != 0)
                 {
                   QueueSound(6, d.partyX, d.partyY, 0);
@@ -4557,7 +4563,9 @@ void AdjustStamina(i32 chIdx, i32 decrement)
   {
     absStamina = -newStamina;
     pcA3->Stamina(0);
+    HeroStats_BeginHarm(HeroHarmExhaustion);
     DamageCharacter(chIdx, absStamina/2, 0, 0);
+    HeroStats_EndHarm();
   }
   else
   {

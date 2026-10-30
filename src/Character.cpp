@@ -3,6 +3,7 @@
 #include "UI.h"
 
 #include <stdio.h>
+#include "HeroStatsHooks.h"
 
 //#include "Objects.h"
 #include "Dispatch.h"
@@ -2882,6 +2883,7 @@ i32 DamageCharacter(i32 chIdx,i32 damage,i16 mask,i16 P4)
     };
   };
 
+  HeroStats_OnHeroHarmed(chIdx, D7W);
   d.PendingDamage[chIdx] = sw(d.PendingDamage[chIdx] + D7W);
   return D7W;
 }
@@ -4457,6 +4459,7 @@ RESTARTABLE _FeedCharacter()
       pcA2->Mana(LIMIT(0, pcA2->Mana()+fp.manaAdjust, 900));
       if (pcA2->HP() + fp.hitpointAdjust <= 0)
       {
+        HeroStats_OnHeroKilledBy(chIdx, HeroHarmPotion);
         KillCharacter(chIdx);
       }
       else

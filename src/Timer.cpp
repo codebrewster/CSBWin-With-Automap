@@ -581,7 +581,9 @@ void ProcessTT_25(TIMER *pTimer)
   case 0xff87: //Poison Cloud
       if (w_16 != 0)
       {
+        HeroStats_BeginHarmByCloud(db.GetDBIndex(DB15A2, dbCLOUD));
         DamageAllCharacters(D5W, 0, 0);
+        HeroStats_EndHarm();
       }
       else
       {
@@ -1315,7 +1317,9 @@ void ProcessTT_1(TIMER *pTimer)
       {
         *cfA2 &= 0xf8; // Clear bits 0-2
         w_10 |= 8;
+        HeroStats_BeginHarm(HeroHarmDoor);
         D0W = DamageAllCharacters(5, 4, 2);
+        HeroStats_EndHarm();
         if (D0W != 0)
         {
           QueueSound(soundDOOROPENING, x, y, 1);
