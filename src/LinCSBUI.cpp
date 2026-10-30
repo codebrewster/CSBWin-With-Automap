@@ -34,6 +34,8 @@
 #endif
 
 extern int eventNum;
+// Set by --victory-test; the main loop then wins the game at once.
+bool victoryTestPending = false;
 extern void ReadConfigFile(void);
 char pwd[FILENAME_MAX];
 
@@ -781,6 +783,9 @@ bool UI_ProcessOption(char **argv, int &argc)
 			state=enum_play;
 		    }else if(!strcmp("--visibility-test",key) ) {
 			state=enum_visibility_test;
+		    }else if(!strcmp("--victory-test",key) ) {
+			victoryTestPending = true;
+			state=enum_ignore;
 		    }else if(!strcmp("--visibility-section",key) ) {
 			state=enum_visibility_section;
 		    }else if(!strcmp("--timer",key) ) {
@@ -864,6 +869,7 @@ bool UI_ProcessOption(char **argv, int &argc)
 				"\tUsage: --visibility-test cases.txt\n"
 				"\tLoads the save the case file names, without a window, checks\n"
 				"\twhat the map sees from every case and exits: 0 when all passed.\n"
+			"  --victory-test   win the game at once (to check the victory screen)\n"
 			"  --version\n"
 				"\tPrints the version of the program and exits.\n"
 				"\tFirst numbers is the version of the CSB engine. The last number\n"

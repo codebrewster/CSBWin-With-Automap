@@ -54,6 +54,7 @@ extern bool DMRulesDesignOption;
 extern bool invisibleMonsters;
 extern bool drawAsSize4Monsters;
 extern bool GameIsComplete;
+extern bool victoryTestPending;
 extern bool RepeatGame;
 extern bool fullscreenRequested;
 extern bool virtualFullscreen;
@@ -66,6 +67,17 @@ extern i32 trace;
 extern ui8 reincarnateAttributePenalty, reincarnateStatPenalty, randomPoints;
 extern i32 numGlobalVariables;
 extern ui32 *globalVariables;
+
+// --victory-test: win the game once, the way the end-of-game actuator does (Timer.cpp).
+static bool TakeVictoryTest(void)
+{
+  // At once, with or without champions: the screen after a win is what is being checked
+  if (!victoryTestPending) return false;
+  victoryTestPending = false;
+  d.CanRestartFromSavegame = 0;
+  d.Word11694 = 1;
+  return true;
+}
 
 #ifdef GraphicsDebug
 FILE *GrphDbg = NULL;
@@ -640,7 +652,7 @@ tag0006a4:
   DiscardAllInput();
 tag0006d0:
   DEBUGMAIN("tag0006d0")
-  if (ProcessTimers())
+  if (ProcessTimers() || TakeVictoryTest())
   {
     // Gamme has been won.
     VBLDelay(_1_,300);  //about 5 seconds
