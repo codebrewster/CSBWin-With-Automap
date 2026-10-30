@@ -26,6 +26,8 @@
 #include "AutoMapVisibilityCases.h"
 #include "AutoMapWindow.h"
 #include "confile.h"
+#include "HeroStats.h"
+#include "HeroStatsOrigins.h"
 
 struct SavedGameFile
 {
@@ -40,6 +42,7 @@ struct SavedGameFile
 #include "Data.h"
 
 #include "AutoMapHooks.h"
+#include "HeroStatsHooks.h"
 
 char *GETFILENAME(i32 f);
 void AddToSkill(i32 chIdx, i32 skillNumber, i32 experience);
@@ -1945,24 +1948,25 @@ void AutoMap_AfterSaveIsRotated(void)
   pathOfSaveBeforeRotation.clear();
 }
 
-// Stand-ins until HeroStatsHooks (Task 7) owns the stores and replaces these two
-static HeroStats heroStats;
-static HeroStatsOrigins heroStatsOrigins;
-
 static bool WriteMapFile(const SavedGameFile &save)
 {
   if (save.path.empty()) return false;
+  HeroStats_BeforeGameSaved();
   std::ofstream out(MapFileOf(save.path).c_str(), std::ios::binary | std::ios::trunc);
   AutoMapFile(save.signature).Write(out, recorder.Explored(), recorder.Knowledge(), recorder.Items(),
-                                        recorder.Cells(), recorder.Notes(), recorder.Damage(), heroStats,
-                                        heroStatsOrigins);
+                                        recorder.Cells(), recorder.Notes(), recorder.Damage(), HeroStats_Store(),
+                                        HeroStats_Origins());
   out.close();
   return !out.fail();
 }
 
 void AutoMap_OnGameSaved(void)
 {
-  if (WriteMapFile(FindSavedGame(d.SaveGameFilename))) return;
+  if (WriteMapFile(FindSavedGame(d.SaveGameFilename)))
+  {
+    HeroStats_OnGameSaved();
+    return;
+  }
   UI_MessageBox("The map of explored cells could not be saved.\n"
                 "The saved game itself is complete.",
                 "Map", MESSAGE_OK);
@@ -1997,12 +2001,13 @@ static void RememberLooksOfExploredCells(void)
   }
 }
 
-static void ReadMapFile(const SavedGameFile &save)
+// False when no map file was read, so that the hero statistics know it
+static bool ReadMapFile(const SavedGameFile &save)
 {
-  if (save.path.empty()) return;
+  if (save.path.empty()) return false;
   std::string mapPath = MapFileOf(save.path);
   std::ifstream in(mapPath.c_str(), std::ios::binary);
-  if (!in.is_open()) return;
+  if (!in.is_open()) return false;
   bool hadItemMemory = false;
   bool hadCellMemory = false;
   HeroStats statsFromFile;
@@ -2013,15 +2018,14 @@ static void ReadMapFile(const SavedGameFile &save)
     &originsFromFile);
   if (result == AutoMapFileRead)
   {
-    // Task 7 decides whether the hardship in memory outlives the reload
-    heroStats = statsFromFile;
-    heroStatsOrigins = originsFromFile;
+    HeroStats_OnMapFileRead(statsFromFile, originsFromFile);
     // An older map file showed every live item on an explored cell: keep showing those
     if (!hadItemMemory) RememberItemsOfExploredCells();
     if (!hadCellMemory) RememberLooksOfExploredCells();
-    return;
+    return true;
   }
   printf("Automap: ignoring %s: %s\n", mapPath.c_str(), AutoMapFile_Describe(result));
+  return false;
 }
 
 // With map_timing set, list every lock actuator sitting on a door cell once per
@@ -2062,10 +2066,11 @@ void AutoMap_OnDungeonLoaded(void)
   recorder.ForgetDungeon(AutoMapLevelReader_DungeonLevelSizes());
   ReportDoorLocksOfDungeon();
   ShowNoLevel();
+  HeroStats_OnDungeonLoaded();
   std::string pathOfRestoredBackup = pathOfBackupBeforeRestore;
   pathOfBackupBeforeRestore.clear();
   if (d.gameState != GAMESTATE_ResumeSavedGame) return;
   SavedGameFile save = FindSavedGame(d.SaveGameFilename);
   MoveMapFile(pathOfRestoredBackup, save.path);
-  ReadMapFile(save);
+  if (!ReadMapFile(save)) HeroStats_OnNoMapFile();
 }

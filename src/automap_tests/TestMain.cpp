@@ -23,6 +23,8 @@ int main(void)
   TestHeroStats();
   TestHeroStatsOrigins();
   TestHeroStatsPending();
+  TestHeroStatsDump();
+  TestHeroStatsGame();
   if (failedCheckCount != 0)
   {
     std::printf("%d checks failed\n", failedCheckCount);

@@ -33,5 +33,7 @@ void TestShotMissiles(void);
 void TestHeroStats(void);
 void TestHeroStatsOrigins(void);
 void TestHeroStatsPending(void);
+void TestHeroStatsDump(void);
+void TestHeroStatsGame(void);
 
 #endif
