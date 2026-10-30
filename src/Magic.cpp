@@ -491,6 +491,8 @@ i16 CharacterThrowsSpell(i32 chIdx, RN object, i32 range, i32 neededMana)
     return 0;
   }
   pcA3->IncrMana(-neededMana);
+  // A spell cast from runes comes here with no mana: only staffs and wands pay here
+  HeroStats_OnItemSpellMana(chIdx, neededMana);
   pcA3->charFlags |= CHARFLAG_statsChanged;
   D1L = Smaller(8, pcA3->MaxMana()/8);
   decayRate = sw(10 - D1W);
@@ -823,6 +825,7 @@ void BackspaceMagicSelection(void)
   if (D0W == 0) return;
   D0W = (UI8)(pcA3->byte33);
   D7W = (I16)((D0W + 3) & 3);
+  HeroStats_OnRuneRemoved(d.MagicCaster);
   pcA3->byte33 = D7B;
   pcA3->incantation[D7W] = 0;
   STHideCursor(HC39);
@@ -955,7 +958,10 @@ i16 CastMagic(const i32)
 
 
 
+  HeroStats_BeginRuneCast(d.MagicCaster);
   D7W = CastSpell(d.MagicCaster, spellParameters);
+  // 3: no flask for a potion, and the incantation stays for the next try
+  HeroStats_EndRuneCast(D7W == 3);
   if (D7W != 3)
   {
     pcA3->incantation[0] = 0;
@@ -1142,6 +1148,7 @@ i16 CastSpell(i16 chIdx, SPELL_PARAMETERS& spellParameters)
   };
   if (msg != NULL)
   {
+    HeroStats_OnSpellFailed(chIdx, HeroStats_IncantationKey(chIdx), false);
     msg = TranslateLanguage(msg);
     if (msg[0] != 0)
     {
@@ -1193,6 +1200,7 @@ i16 CastSpell(i16 chIdx, SPELL_PARAMETERS& spellParameters)
       disableTime = spellParameters.disableTime;
       DisableCharacterAction(chIdx, disableTime);
     };
+    HeroStats_OnSpellFailed(chIdx, HeroStats_RuneSpellKey(incantation), true);
     SpellErrorMsg(pcA3, 1, 0);
     return 0;
   };
@@ -1234,6 +1242,7 @@ i16 CastSpell(i16 chIdx, SPELL_PARAMETERS& spellParameters)
                      spellByte5,        //Which skill
                      w_4 >> (D4W-D6W), //Experience gained
                      ASW_CastSpell1);
+        HeroStats_OnSpellFailed(chIdx, HeroStats_RuneSpellKey(incantation), false);
         SpellErrorMsg(pcA3, 0, (i16)spellByte5); // needs more practice with this...
         return 0;
       };
@@ -1249,6 +1258,7 @@ i16 CastSpell(i16 chIdx, SPELL_PARAMETERS& spellParameters)
       pDB8_10 = GetFlaskInHand(pcA3, &obj_2);//TAG01c9b2
       if (pDB8_10 == NULL)
       {
+        HeroStats_OnSpellNeedsFlask(chIdx, HeroStats_RuneSpellKey(incantation));
         SpellErrorMsg(pcA3, 10, 0);
         return (3);
       };
@@ -1258,6 +1268,7 @@ i16 CastSpell(i16 chIdx, SPELL_PARAMETERS& spellParameters)
       D3W = sw(40*spellPower + STRandom(16));
       D3W &= 255;
       pDB8_10->strength(D3W);
+      HeroStats_OnPotionBrewed(chIdx, db.GetDBIndex(pDB8_10, dbPOTION));
       DEBUGLOAD(pcA3, GetObjectWeight(obj_2), +1, obj_2);
       pcA3->load = sw(pcA3->load + GetObjectWeight(obj_2) - D4W);
       ASSERT(pcA3->load < MAXLOAD,"maxload");
@@ -1401,6 +1412,7 @@ tag01cdaa:
       default: NotImplemented(0x1ce98);
       }; //switch
   }; // switch
+  HeroStats_OnSpellCast(chIdx, HeroStats_RuneSpellKey(incantation));
   AdjustSkills(chIdx,          //chIdx
                spellByte5,     //Which skill
                w_4,            //Experience gained

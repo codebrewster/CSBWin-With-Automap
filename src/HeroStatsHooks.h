@@ -107,4 +107,41 @@ void HeroStats_OnHarmApplied(void);
 // The game is lost: every champion is dead
 void HeroStats_OnPartyWiped(void);
 
+// Mana and spells. Each rune's mana is taken as it is clicked (TAG01b990) and kept per slot until
+// the incantation resolves or the engine throws it away; mana thrown away is "Runes cleared".
+// The incantation belongs to its champion: changing the caster or closing the panel keeps it.
+//
+// A rune's mana was taken. Entered as a power rune, it starts a new incantation: the runes before
+// it (four entered, then a power rune) are thrown away.
+void HeroStats_OnRuneEntered(int slot, int mana);
+void HeroStats_OnRuneRemoved(int slot);                    // its mana: "Runes cleared"
+// KillCharacter, RemoveCharacter: the engine empties the incantation
+void HeroStats_OnIncantationDiscarded(int slot);
+// CharacterDelete: the champions after the slot move down one, their runes with them
+void HeroStats_OnSlotRemoved(int slot);
+// Around CastSpell in CastMagic: the spell is the slot's incantation, so the outcome hooks take
+// its runes' mana. incantationKept: CastMagic leaves the incantation (no flask for a potion);
+// otherwise it empties it, and mana no outcome took (a caster dead or gone) is "Runes cleared".
+// Outside the pair (a script casting) the outcomes count with no mana.
+void HeroStats_BeginRuneCast(int slot);
+void HeroStats_EndRuneCast(bool incantationKept);
+// The rune key of the slot's incantation, HERO_STATS_NO_SPELL for a slot that is no hero
+uint32_t HeroStats_IncantationKey(int slot);
+void HeroStats_OnSpellCast(int slot, uint32_t spell);      // all rune mana to the spell row
+// A failure: all rune mana is wasted; noSuchSpell marks the key HERO_SPELL_NO_SUCH_SPELL
+void HeroStats_OnSpellFailed(int slot, uint32_t spell, bool noSuchSpell);
+// A potion spell with no empty flask in hand: a failure, but CastMagic keeps the incantation, so
+// its runes' mana stays for the next try
+void HeroStats_OnSpellNeedsFlask(int slot, uint32_t spell);
+void HeroStats_OnPotionBrewed(int slot, int potionIndex);
+void HeroStats_OnPotionFreed(int potionIndex);             // DeleteDBEntry freed the record
+void HeroStats_OnItemSpellMana(int slot, int mana);       // CharacterThrowsSpell: staffs, wands
+void HeroStats_OnShieldActionMana(int slot, int mana);
+void HeroStats_OnHealAction(int slot, int mana, int hpGained);
+void HeroStats_OnManaRegenerated(int slot, int amount);
+void HeroStats_OnHpRegenerated(int slot, int amount);
+// HP and mana actually added (mana only up to the maximum); forgets the potion's brewer
+void HeroStats_OnPotionDrunk(int slot, int potionIndex, int hpGained, int manaGained);
+void HeroStats_OnResurrected(HeroStatsChampion who);
+
 #endif

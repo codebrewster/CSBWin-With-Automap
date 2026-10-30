@@ -242,6 +242,7 @@ void TenSecondUpdate(void)
         };
 
         AdjustStamina(chIdx, staminaAdjust);
+        HeroStats_OnManaRegenerated(chIdx, Smaller(manaAdjust, pcA3->MaxMana()-pcA3->Mana()));
         pcA3->Mana(pcA3->Mana() + Smaller(manaAdjust, pcA3->MaxMana()-pcA3->Mana()));
       };
     }
@@ -373,6 +374,7 @@ void TenSecondUpdate(void)
           };
           D0W = sw(Smaller(LOCAL_4, pcA3->MaxHP()-pcA3->HP()));
           pcA3->HP(pcA3->HP() + D0W);
+          HeroStats_OnHpRegenerated(chIdx, D0W);
         };
       };
     };

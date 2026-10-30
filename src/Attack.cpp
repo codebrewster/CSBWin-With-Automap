@@ -1198,12 +1198,14 @@ i16 MagicShield(CHARDESC *pChar, i32 spellShield, i32 strength, i32 mustHaveMana
     if (pChar->Mana() < 4)
     {
       strength /= 2;
+      HeroStats_OnShieldActionMana((int)(pChar - d.hero), pChar->Mana());
       pChar->Mana(0);
       D6W = 0;
     }
     else
     {
       pChar->IncrMana(-4);
+      HeroStats_OnShieldActionMana((int)(pChar - d.hero), 4);
     };
   };
   timer.timerWord6() = sw(strength / 32);
@@ -1664,6 +1666,7 @@ RESTARTABLE _Attack(const i32 initialChIdx, const ATTACKTYPE initialAttackType)
   static RN  obj_4;
   static i32 wpnByte1_4;
   static i32 neededHP_4;
+  static i32 heroStatsHpBefore, heroStatsManaBefore;   // the heal action reports what it did
   //static i32 neededMana;
   static ATTACKPARAMETERS *pParam;
   static FILTER filter;
@@ -2005,6 +2008,8 @@ RESTARTABLE _Attack(const i32 initialChIdx, const ATTACKTYPE initialAttackType)
                 = sw(Smaller(10, DetermineMastery(pParam->charIdx, 13)));
         pParam->experienceGained = 2;
         CallAttackFilter(&filter, pParam, 1);
+        heroStatsHpBefore = pChar->HP();
+        heroStatsManaBefore = pChar->Mana();
         do
         {
           //D6W = sw(Smaller(neededHP_4, D4W));
@@ -2016,6 +2021,8 @@ RESTARTABLE _Attack(const i32 initialChIdx, const ATTACKTYPE initialAttackType)
             neededHP_4 -= D6W;
         } while (neededHP_4 != 0);
         if (pChar->Mana() < 0)  pChar->Mana(0);
+        HeroStats_OnHealAction((int)(pChar - d.hero), heroStatsManaBefore - pChar->Mana(),
+                               pChar->HP() - heroStatsHpBefore);
         pChar->charFlags |= CHARFLAG_statsChanged; //0x100;
       };
     }

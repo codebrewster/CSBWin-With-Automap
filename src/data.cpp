@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include <stdio.h>
+#include "HeroStatsHooks.h"
 
 #include "UI.h"
 
@@ -1011,6 +1012,8 @@ void DeleteDBEntry(DBCOMMON *pDB)
     if ((dataTypeMap[i] & 0x80) != 0) return; //Cloned!!!
   };
   pDB->link(RNnul);
+  // A freed flask's record is reused for any later potion: its brewer must not carry over
+  if (dbType == dbPOTION) HeroStats_OnPotionFreed(dbIndex);
   if (j != -1)
   {
     dataTypeMap[j] = 0xff;

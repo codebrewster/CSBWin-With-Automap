@@ -2841,6 +2841,8 @@ void ProcessTT_ViAltar(TIMER *pTimer)
             if (character.HP() > 0) break; // character not dead!
             character.HP(character.MaxHP()/2);
             character.SaveToWings();
+            // Brought back to life in the wings; one in the party lives again in BringCharacterToLife
+            HeroStats_OnResurrected((HeroStatsChampion)(bonesRecord[0] & 0xffff));
             DB10A2 = GetRecordAddressDB10(objD4);
             RemoveObjectFromRoom(objD4, bonesX, bonesY, NULL);
             DeleteDBEntry(DB10A2);

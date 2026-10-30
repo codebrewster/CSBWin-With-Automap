@@ -11,6 +11,7 @@
 #include "HeroStatsGame.h"
 #include "HeroStatsHooks.h"
 #include "HeroStatsPending.h"
+#include "HeroStatsRunes.h"
 #include "AutoMapWindow.h"
 
 #include "UI.h"
@@ -46,6 +47,10 @@ static HeroHarmSource harmSource = HeroHarmOther;
 static HeroStatsBlow harmBlow = HeroStatsBlow_Nobody(HeroBlowByOther);
 // The harm added to each hero's pending damage since DisplayCharacterDamage last applied it
 static HeroStatsPending pending;
+// The mana of the runes of each slot's incantation
+static HeroStatsRunes runes;
+// Between HeroStats_BeginRuneCast and HeroStats_EndRuneCast: the slot whose incantation resolves
+static int runeCastSlot = -1;
 
 HeroStats &HeroStats_Store(void)
 {
@@ -91,6 +96,8 @@ static void ForgetEngineState(void)
   explosionMissile = -1;
   harmDepth = 0;
   pending.ClearAll();
+  runes.ClearAll();
+  runeCastSlot = -1;
 }
 
 static void GameStartsOrContinues(void)
@@ -460,4 +467,151 @@ void HeroStats_OnHarmApplied(void)
 void HeroStats_OnPartyWiped(void)
 {
   store.CountPartyWipe();
+}
+
+// ---------------------------------------------------------------------------------------------
+// Mana, spells, healing, resurrection
+
+static HeroStatsChampion MetChampion(int slot)
+{
+  MeetHero(slot);
+  return d.hero[slot].fingerPrint;
+}
+
+static void CreditRunesCleared(int slot, int mana)
+{
+  if (!IsHero(slot) || mana <= 0) return;
+  store.CreditManaSpent(MetChampion(slot), PartyLevel(), HERO_SPELL_RUNES_CLEARED, mana);
+}
+
+// The mana of the incantation that resolves; none for a spell a script casts
+static int TakeRuneCastMana(void)
+{
+  if (runeCastSlot < 0) return 0;
+  return runes.TakeAll(runeCastSlot);
+}
+
+void HeroStats_OnRuneEntered(int slot, int mana)
+{
+  if (!IsHero(slot)) return;
+  // byte33 is the position of the rune being entered; 0 is the power rune of a new incantation
+  if (d.hero[slot].byte33 == 0) CreditRunesCleared(slot, runes.TakeAll(slot));
+  runes.AddRune(slot, mana);
+}
+
+void HeroStats_OnRuneRemoved(int slot)
+{
+  if (!IsHero(slot)) return;
+  int mana = 0;
+  runes.RemoveLastRune(slot, &mana);
+  CreditRunesCleared(slot, mana);
+}
+
+void HeroStats_OnIncantationDiscarded(int slot)
+{
+  if (!IsHero(slot)) return;
+  CreditRunesCleared(slot, runes.TakeAll(slot));
+}
+
+void HeroStats_OnSlotRemoved(int slot)
+{
+  runes.RemoveSlot(slot);
+}
+
+void HeroStats_BeginRuneCast(int slot)
+{
+  runeCastSlot = IsHero(slot) ? slot : -1;
+}
+
+void HeroStats_EndRuneCast(bool incantationKept)
+{
+  if (runeCastSlot >= 0 && !incantationKept) CreditRunesCleared(runeCastSlot, runes.TakeAll(runeCastSlot));
+  runeCastSlot = -1;
+}
+
+uint32_t HeroStats_IncantationKey(int slot)
+{
+  if (!IsHero(slot)) return HERO_STATS_NO_SPELL;
+  return HeroStats_RuneSpellKey(d.hero[slot].incantation);
+}
+
+void HeroStats_OnSpellCast(int slot, uint32_t spell)
+{
+  if (!IsHero(slot)) return;
+  store.CountCast(MetChampion(slot), PartyLevel(), spell, TakeRuneCastMana());
+}
+
+void HeroStats_OnSpellFailed(int slot, uint32_t spell, bool noSuchSpell)
+{
+  if (!IsHero(slot)) return;
+  uint32_t key = noSuchSpell ? (spell | HERO_SPELL_NO_SUCH_SPELL) : spell;
+  store.CountFailedCast(MetChampion(slot), PartyLevel(), key, TakeRuneCastMana());
+}
+
+void HeroStats_OnSpellNeedsFlask(int slot, uint32_t spell)
+{
+  if (!IsHero(slot)) return;
+  store.CountFailedCast(MetChampion(slot), PartyLevel(), spell, 0);
+}
+
+void HeroStats_OnPotionBrewed(int slot, int potionIndex)
+{
+  if (!IsHero(slot) || potionIndex < 0) return;
+  origins.SetBrewer(potionIndex, MetChampion(slot));
+}
+
+void HeroStats_OnPotionFreed(int potionIndex)
+{
+  origins.ForgetPotion(potionIndex);
+}
+
+void HeroStats_OnItemSpellMana(int slot, int mana)
+{
+  if (!IsHero(slot) || mana <= 0) return;
+  store.CreditManaSpent(MetChampion(slot), PartyLevel(), HERO_SPELL_ITEM_SPELLS, mana);
+}
+
+void HeroStats_OnShieldActionMana(int slot, int mana)
+{
+  if (!IsHero(slot) || mana <= 0) return;
+  store.CreditManaSpent(MetChampion(slot), PartyLevel(), HERO_SPELL_SHIELD_ACTION, mana);
+}
+
+void HeroStats_OnHealAction(int slot, int mana, int hpGained)
+{
+  if (!IsHero(slot)) return;
+  HeroStatsChampion who = MetChampion(slot);
+  int level = PartyLevel();
+  store.CreditManaSpent(who, level, HERO_SPELL_HEAL_ACTION, mana);
+  store.CreditHealing(who, level, HeroHealAction, HERO_STATS_NOBODY, hpGained);
+}
+
+void HeroStats_OnManaRegenerated(int slot, int amount)
+{
+  if (!IsHero(slot) || amount <= 0) return;
+  store.CreditManaGained(MetChampion(slot), PartyLevel(), HeroManaRegeneration, amount);
+}
+
+void HeroStats_OnHpRegenerated(int slot, int amount)
+{
+  if (!IsHero(slot) || amount <= 0) return;
+  store.CreditHealing(MetChampion(slot), PartyLevel(), HeroHealRegeneration, HERO_STATS_NOBODY, amount);
+}
+
+void HeroStats_OnPotionDrunk(int slot, int potionIndex, int hpGained, int manaGained)
+{
+  if (IsHero(slot))
+  {
+    HeroStatsChampion who = MetChampion(slot);
+    int level = PartyLevel();
+    store.CreditHealing(who, level, HeroHealPotion, origins.Brewer(potionIndex), hpGained);
+    store.CreditManaGained(who, level, HeroManaPotion, manaGained);
+  }
+  // The flask is empty now: a potion brewed into it later is someone's new potion
+  origins.ForgetPotion(potionIndex);
+}
+
+void HeroStats_OnResurrected(HeroStatsChampion who)
+{
+  store.CountResurrection(who, PartyLevel());
 }

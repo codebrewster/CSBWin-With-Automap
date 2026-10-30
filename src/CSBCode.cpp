@@ -5,8 +5,8 @@
 ui32 time(void *);
 #else
 #include <time.h>
-#include "HeroStatsHooks.h"
 #endif
+#include "HeroStatsHooks.h"
 
 #include "UI.h"
 
@@ -9081,6 +9081,7 @@ void TAG01b990(i16 button)
   };
   if (D6W > pcA3->Mana()) return;
   pcA3->IncrMana(-D6W);
+  HeroStats_OnRuneEntered(d.MagicCaster, D6W);
   pcA3->charFlags |= CHARFLAG_statsChanged;
   D0W = sw(6 * D7W + 96 + button);
   //A0 = pcA3->byte34 + D7W;

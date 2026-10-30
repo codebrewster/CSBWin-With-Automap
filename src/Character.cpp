@@ -808,6 +808,7 @@ void BringCharacterToLife(ui16 chIdx)
   D0W = sw(D7W - D7W/64 - 1);
   pcA3->MaxHP(Larger(25, D0W));
   pcA3->HP(pcA3->MaxHP() / 2);
+  HeroStats_OnResurrected(pcA3->fingerPrint);
   DrawSpellControls(d.MagicCaster);
   pcA3->facing = (ui8)d.partyFacing;
   pcA3->charFlags |= CHARFLAG_weaponAttack | CHARFLAG_portraitChanged | CHARFLAG_positionChanged;//0x9400;
@@ -2632,6 +2633,7 @@ void KillCharacter(i32 chIdx)
                NULL);
     expool.AddChampionBonesRecord(objD4, pcA3->fingerPrint);
   };
+  HeroStats_OnIncantationDiscarded(chIdx);
   pcA3->byte33 = 0;
   pcA3->incantation[0] = 0;
   pcA3->facing = (ui8)d.partyFacing;
@@ -4091,6 +4093,7 @@ RESTARTABLE _FeedCharacter()
   static i32 i;
   static DBCOMMON *itemToDeleteFromDatabase;
   static FEEDPARAMETERS fp;
+  static i32 heroStatsHp, heroStatsMana;   // before drinking: the potion's gain is the difference
   static LOCATIONREL playerLocr;
   RESTARTMAP
     RESTART(1)
@@ -4411,6 +4414,8 @@ RESTARTABLE _FeedCharacter()
 /////////////////////////////////////////////////////////////////
   if (fp.performFeeding)
   {
+    heroStatsHp = pcA2->HP();
+    heroStatsMana = pcA2->Mana();
     STHideCursor(HC6);
     AdjustCurrentAttribute(pcA2, 1, fp.strengthAdjust);
     AdjustCurrentAttribute(pcA2, 2, fp.dexterityAdjust);
@@ -4497,6 +4502,14 @@ RESTARTABLE _FeedCharacter()
       pcA2->Stamina(pcA2->MaxStamina());
     };
     if (pcA2->HP() > pcA2->MaxHP()) pcA2->HP(pcA2->MaxHP());
+    if (dbType_18 == dbPOTION)
+    {
+      // Potions may raise mana above the maximum, which drains away again: only up to the
+      // maximum is gained
+      HeroStats_OnPotionDrunk(chIdx, db.GetDBIndex(dbA3, dbPOTION),
+                              Larger(0, pcA2->HP() - heroStatsHp),
+                              Larger(0, Smaller(pcA2->Mana(), Larger(pcA2->MaxMana(), heroStatsMana)) - heroStatsMana));
+    };
     if (fp.chew)
     //if (D4W != 0)
     {
@@ -5342,6 +5355,7 @@ void RemoveCharacter(int chIdx)
     };
     ShowHideInventory(4); //Hide the inventory screen
   };
+  HeroStats_OnIncantationDiscarded(chIdx);
   pChar->byte33 = 0;
   pChar->incantation[0] = 0;
   pChar->facing = (ui8)d.partyFacing;
@@ -5415,6 +5429,7 @@ ui32 CharacterDelete(int chIdx)
   };
   RemoveCharacter(chIdx);
   d.hero[chIdx].SaveToWings();
+  HeroStats_OnSlotRemoved(chIdx);
   for (i=chIdx; i<d.NumCharacter-1; i++)
   {
     memcpy(&d.hero[i], &d.hero[i+1], sizeof(CHARDESC));

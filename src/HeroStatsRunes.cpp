@@ -32,3 +32,12 @@ void HeroStatsRunes::ClearAll(void)
   for (int i = 0; i < 4; i++)
     m_runes[i].clear();
 }
+
+void HeroStatsRunes::RemoveSlot(int slot)
+{
+  if (slot < 0 || slot > 3)
+    return;
+  for (int i = slot; i < 3; i++)
+    m_runes[i] = m_runes[i + 1];
+  m_runes[3].clear();
+}

@@ -89,6 +89,32 @@ static void RunesKeepTheirMana(void)
   CHECK(runes.TakeAll(0) == 0);
 }
 
+// A champion leaves the party: the champions after it move down one slot, and their runes with them
+static void RunesMoveWithTheirSlot(void)
+{
+  HeroStatsRunes runes;
+  runes.AddRune(0, 1);
+  runes.AddRune(1, 2);
+  runes.AddRune(2, 3);
+  runes.AddRune(2, 4);
+  runes.AddRune(3, 5);
+  runes.RemoveSlot(1);
+  CHECK(runes.TakeAll(0) == 1);
+  int mana = -1;
+  runes.RemoveLastRune(1, &mana);
+  CHECK(mana == 4);
+  CHECK(runes.TakeAll(1) == 3);
+  CHECK(runes.TakeAll(2) == 5);
+  CHECK(runes.TakeAll(3) == 0);
+  runes.AddRune(3, 6);
+  runes.RemoveSlot(3);
+  CHECK(runes.TakeAll(3) == 0);
+  runes.AddRune(0, 7);
+  runes.RemoveSlot(4);
+  runes.RemoveSlot(-1);
+  CHECK(runes.TakeAll(0) == 7);
+}
+
 void TestHeroStatsPending(void)
 {
   TieGoesToTheLater();
@@ -96,4 +122,5 @@ void TestHeroStatsPending(void)
   SameCauserAddsUp();
   ClearAndBadSlots();
   RunesKeepTheirMana();
+  RunesMoveWithTheirSlot();
 }

@@ -16,6 +16,9 @@ public:
   void RemoveLastRune(int slot, int *mana);   // backspace: the rune's mana, 0 if none
   int TakeAll(int slot);                      // mana of all runes entered; the slot is empty after
   void ClearAll(void);
+  // The champion in the slot left the party: its runes are dropped (TakeAll first to keep their
+  // mana) and the slots after it move down one, as the engine moves the champions
+  void RemoveSlot(int slot);
 
 private:
   std::vector<int> m_runes[4];
