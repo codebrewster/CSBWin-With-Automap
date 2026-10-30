@@ -89,6 +89,11 @@ static bool pointerIsOverWindow = false;
 static int pointerStateOfTheGame = SDL_ENABLE;
 static Uint32 lastFrame = 0;
 static bool hasPainted = false;
+// The numbers of the pages are kept this long: every query scans the whole store, and the
+// numbers move only as the game plays
+static const Uint32 CACHE_LIFETIME = 500;
+static bool pageDataCached = false;
+static bool byLevelCached = false;
 // The level the pages show: HERO_STATS_WHOLE_RUN or a level index
 static int shownLevel = HERO_STATS_WHOLE_RUN;
 // The hero page a click on a name asked for (drawn by a later task); HERO_STATS_PARTY for the party
@@ -284,6 +289,8 @@ void HeroStatsWindow_Show(void)
   if (windowWithKeyboard != NULL) SDL_RaiseWindow(windowWithKeyboard);
   isShown = true;
   hasPainted = false;
+  pageDataCached = false;
+  byLevelCached = false;
 }
 
 static void GiveThePointerBackToTheGame(void)
@@ -427,14 +434,43 @@ static StatsCell CellOf(const HeroStats &stats, HeroStatsChampion who, int level
   return c;
 }
 
-static StatsPageData BuildPageData(const HeroStats &stats, int level)
+// Who the columns are, as text, to see that they changed
+static std::string ColumnsKey(const std::vector<HeroStatsColumn> &columns)
+{
+  std::string key;
+  for (size_t i = 0; i < columns.size(); i++)
+    key += std::to_string(columns[i].id) + (columns[i].hasLeft ? "L," : ",");
+  return key;
+}
+
+static StatsPageData BuildPageData(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns, int level)
 {
   StatsPageData data;
-  data.columns = HeroStatsView_Columns(stats, HeroStats_PartyNow());
+  data.columns = columns;
   for (size_t i = 0; i < data.columns.size(); i++) data.cells.push_back(CellOf(stats, data.columns[i].id, level));
   data.cells.push_back(CellOf(stats, HERO_STATS_PARTY, level));
   data.wipes = stats.PartyWipes();
   data.reloads = stats.Reloads();
+  return data;
+}
+
+// The page data for level, rebuilt when the level or the columns change and at most twice a second
+static const StatsPageData &CachedPageData(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns, int level)
+{
+  static StatsPageData data;
+  static int cachedLevel;
+  static std::string cachedColumns;
+  static Uint32 cachedAt;
+  std::string key = ColumnsKey(columns);
+  Uint32 now = SDL_GetTicks();
+  if (!pageDataCached || level != cachedLevel || key != cachedColumns || now - cachedAt >= CACHE_LIFETIME)
+  {
+    data = BuildPageData(stats, columns, level);
+    cachedLevel = level;
+    cachedColumns = key;
+    cachedAt = now;
+    pageDataCached = true;
+  }
   return data;
 }
 
@@ -862,15 +898,30 @@ static void DrawByLevel(const HeroStats &stats, const std::vector<HeroStatsColum
 {
   DrawMetricButtons(columns);
   size_t n = columns.size();
-  // One query per level, column and metric, once per frame
-  std::vector<ByLevelRow> rows;
-  for (size_t r = 0; r <= picker.levels.size(); r++)
+  // One query per level, column and metric, but only when the metric, the columns or the levels
+  // changed, and at most twice a second
+  static std::vector<ByLevelRow> rows;
+  static int cachedMetric;
+  static std::string cachedKey;
+  static Uint32 cachedAt;
+  std::string key = ColumnsKey(columns) + "|";
+  for (size_t r = 0; r < picker.levels.size(); r++) key += std::to_string(picker.levels[r]) + ",";
+  Uint32 now = SDL_GetTicks();
+  if (!byLevelCached || cachedMetric != shownMetric || key != cachedKey || now - cachedAt >= CACHE_LIFETIME)
   {
-    ByLevelRow row;
-    row.level = r < picker.levels.size() ? picker.levels[r] : HERO_STATS_WHOLE_RUN;
-    for (size_t i = 0; i < n; i++) row.values.push_back(MetricOf(stats, columns[i].id, row.level, shownMetric));
-    row.values.push_back(MetricOf(stats, HERO_STATS_PARTY, row.level, shownMetric));
-    rows.push_back(row);
+    rows.clear();
+    for (size_t r = 0; r <= picker.levels.size(); r++)
+    {
+      ByLevelRow row;
+      row.level = r < picker.levels.size() ? picker.levels[r] : HERO_STATS_WHOLE_RUN;
+      for (size_t i = 0; i < n; i++) row.values.push_back(MetricOf(stats, columns[i].id, row.level, shownMetric));
+      row.values.push_back(MetricOf(stats, HERO_STATS_PARTY, row.level, shownMetric));
+      rows.push_back(row);
+    }
+    cachedMetric = shownMetric;
+    cachedKey = key;
+    cachedAt = now;
+    byLevelCached = true;
   }
   ImGui::SetCursorPos(ImVec2(GUTTER, ImGui::GetCursorPosY() + 4));
   int columnCount = (int)n + 3;
@@ -957,7 +1008,7 @@ static std::vector<MonsterLine> BuildMonsterLines(const HeroStats &stats, const 
     std::map<std::pair<int, int>, size_t>::iterator found = lineOf.find(key);
     if (found == lineOf.end())
     {
-      char raw[80] = "";
+      char raw[256] = "";
       GetMonsterName(kill.monsterType, kill.variant, raw);
       lines.push_back(EmptyMonsterLine(raw[0] != 0 ? std::string(raw) : "Monster #" + std::to_string(kill.monsterType),
                                        columns.size()));
@@ -1068,7 +1119,14 @@ static void DrawMonsters(const HeroStats &stats, const std::vector<HeroStatsColu
   }
   ImGui::EndTable();
   ImGui::SetCursorPosX(GUTTER);
-  ImGui::TextColored(DimmedColour(), "Other = clouds, traps and monsters");
+  for (size_t i = 0; i < n; i++) LegendEntry(HERO_RGB[i % 4], columns[i].name.c_str(), i == 0);
+  for (size_t e = 0; e < shownExtra.size(); e++)
+  {
+    ImU32 rgb[3] = {DOOR_RGB, PIT_RGB, OTHER_RGB};
+    LegendEntry(rgb[shownExtra[e]], extraLabel[shownExtra[e]], n == 0 && e == 0);
+  }
+  ImGui::SameLine(0, 14);
+  ImGui::TextColored(DimmedColour(), "(Other = clouds, traps and monsters)");
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1100,7 +1158,7 @@ static void DrawWindowContents(void)
     }
     else if (shownPage == StatsPageTable || shownPage == StatsPageBars)
     {
-      StatsPageData data = BuildPageData(stats, shownLevel);
+      const StatsPageData &data = CachedPageData(stats, HeroStatsView_Columns(stats, HeroStats_PartyNow()), shownLevel);
       ImGui::SetCursorPos(ImVec2(GUTTER, ImGui::GetCursorPosY() + 4));
       if (shownPage == StatsPageTable) DrawTable(data);
       else DrawBars(data);
