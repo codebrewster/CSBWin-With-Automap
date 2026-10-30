@@ -1148,7 +1148,7 @@ i16 CastSpell(i16 chIdx, SPELL_PARAMETERS& spellParameters)
   };
   if (msg != NULL)
   {
-    HeroStats_OnSpellAborted(chIdx);
+    HeroStats_OnSpellAborted(chIdx, spellParameters.action);
     msg = TranslateLanguage(msg);
     if (msg[0] != 0)
     {

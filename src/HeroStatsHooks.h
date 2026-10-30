@@ -125,9 +125,11 @@ void HeroStats_OnSlotRemoved(int slot);
 // Outside the pair (a script casting) the outcomes count with no mana.
 void HeroStats_BeginRuneCast(int slot);
 void HeroStats_EndRuneCast(bool incantationKept);
-// A spell filter aborted the cast (CastSpell actions 1-7): a failure of the slot's incantation.
-// Outside Begin/EndRuneCast (a script casting) no runes were paid for, so nothing counts.
-void HeroStats_OnSpellAborted(int slot);
+// A spell filter aborted the cast (CastSpell actions 1-7). Action 1 (abort, no message) is how
+// custom dungeons perform the spell in a script themselves: a cast of the slot's incantation.
+// Actions 2-7 are failures of it. Outside Begin/EndRuneCast (a script casting) no runes were
+// paid for, so nothing counts.
+void HeroStats_OnSpellAborted(int slot, int action);
 void HeroStats_OnSpellCast(int slot, uint32_t spell);      // all rune mana to the spell row
 // A failure: all rune mana is wasted; noSuchSpell marks the key HERO_SPELL_NO_SUCH_SPELL
 void HeroStats_OnSpellFailed(int slot, uint32_t spell, bool noSuchSpell);

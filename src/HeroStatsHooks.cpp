@@ -529,10 +529,13 @@ void HeroStats_EndRuneCast(bool incantationKept)
   runeCastSlot = -1;
 }
 
-void HeroStats_OnSpellAborted(int slot)
+void HeroStats_OnSpellAborted(int slot, int action)
 {
   if (runeCastSlot < 0 || !IsHero(slot)) return;
-  HeroStats_OnSpellFailed(slot, HeroStats_RuneSpellKey(d.hero[slot].incantation), false);
+  uint32_t spell = HeroStats_RuneSpellKey(d.hero[slot].incantation);
+  // The silent abort: the dungeon's script performs the spell instead of the engine
+  if (action == 1) HeroStats_OnSpellCast(slot, spell);
+  else HeroStats_OnSpellFailed(slot, spell, false);
 }
 
 void HeroStats_OnSpellCast(int slot, uint32_t spell)
