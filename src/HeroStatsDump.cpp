@@ -15,6 +15,18 @@ static std::string NameOf(const HeroStats &stats, HeroStatsChampion who)
   return number;
 }
 
+// A name goes into a format string: a % in it must not become a directive
+static std::string InFormat(const std::string &name)
+{
+  std::string out;
+  for (size_t i = 0; i < name.size(); i++)
+  {
+    if (name[i] == '%') out += '%';
+    out += name[i];
+  }
+  return out;
+}
+
 // The format may use up to seven %d; the arguments it does not use are ignored
 static void Line(std::string *out, const std::string &name, const std::string &format, int a = 0,
                  int b = 0, int c = 0, int d = 0, int e = 0, int f = 0, int g = 0)
@@ -61,7 +73,7 @@ static void DumpOne(const HeroStats &stats, HeroStatsChampion who, std::string *
   for (size_t i = 0; i < harm.size(); i++)
   {
     const HeroStatsHarmRow &h = harm[i];
-    Line(out, name, "harm source %d by " + NameOf(stats, h.causer) + " monster %d amount %d",
+    Line(out, name, "harm source %d by " + InFormat(NameOf(stats, h.causer)) + " monster %d amount %d",
          (int)h.source, h.monsterType, h.amount);
   }
   Number(out, name, "friendly fire caused %d", stats.FriendlyFireCaused(who, run));
@@ -69,7 +81,7 @@ static void DumpOne(const HeroStats &stats, HeroStatsChampion who, std::string *
   std::vector<HeroStatsHealRow> heals = stats.HealRows(who, run);
   for (size_t i = 0; i < heals.size(); i++)
   {
-    Line(out, name, "heal kind %d brewer " + NameOf(stats, heals[i].brewer) + " amount %d",
+    Line(out, name, "heal kind %d brewer " + InFormat(NameOf(stats, heals[i].brewer)) + " amount %d",
          (int)heals[i].kind, heals[i].amount);
   }
   Number(out, name, "healing given %d", stats.HealingGiven(who, run));
@@ -88,8 +100,20 @@ static void DumpOne(const HeroStats &stats, HeroStatsChampion who, std::string *
   for (size_t i = 0; i < monsters.size(); i++)
   {
     const HeroStatsMonsterRow &m = monsters[i];
-    Line(out, name, "monster type %d variant %d by %d champion " + NameOf(stats, m.champion) + " count %d",
+    Line(out, name, "monster type %d variant %d by %d champion " + InFormat(NameOf(stats, m.champion)) + " count %d",
          m.monsterType, m.variant, (int)m.by, m.count);
+  }
+  std::vector<int> visited = stats.VisitedLevels();
+  if (!visited.empty())
+  {
+    std::string levels = "visited levels";
+    for (size_t i = 0; i < visited.size(); i++)
+    {
+      char number[16];
+      snprintf(number, sizeof number, " %d", visited[i]);
+      levels += number;
+    }
+    *out += name + " " + levels + "\n";
   }
   Number(out, name, "wipes %d", stats.PartyWipes());
   Number(out, name, "reloads %d", stats.Reloads());

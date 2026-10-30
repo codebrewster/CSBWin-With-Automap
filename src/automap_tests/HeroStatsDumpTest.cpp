@@ -45,6 +45,8 @@ static void EveryNumberGetsALine(void)
   stats.CreditManaGained(9, 2, HeroManaPotion, 30);
   stats.CountPartyWipe();
   stats.CountReload();
+  stats.MarkLevelVisited(4);
+  stats.MarkLevelVisited(0);
 
   std::string expected =
     "HALK\n"
@@ -76,6 +78,7 @@ static void EveryNumberGetsALine(void)
     "PARTY resurrections 1\n"
     "PARTY death level 4 cause 0 monster 10\n"
     "PARTY monster type 10 variant 1 by 0 champion SYRA count 1\n"
+    "PARTY visited levels 0 4\n"
     "PARTY wipes 1\n"
     "PARTY reloads 1\n";
   CHECK(HeroStatsDump_Text(stats) == expected);
@@ -112,9 +115,38 @@ static void SpellsFriendlyFireAndManaGetLines(void)
   CHECK(HeroStatsDump_Text(stats) == expected);
 }
 
+static void ThrownRowsAndPercentNamesAreSafe(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "A%s%d");
+  HeroStatsBlow dagger = ChampionBlow(7, 20, HERO_STATS_THROW_OPTION);
+  dagger.thrown = true;
+  stats.CountAttackTry(1, dagger);
+  stats.CountAttackTry(2, dagger);
+  stats.CountAttackHit(2, dagger);
+  stats.CreditMonsterDamage(2, dagger, 9);
+  HeroStatsBlow friendly = ChampionBlow(7, 20, 0);
+  stats.CreditHarm(7, 2, HeroHarmFriendlyFire, friendly, 3);
+  std::string expected =
+    "A%s%d\n"
+    "A%s%d melee 9\n"
+    "A%s%d attack 20/-1 thrown tries 2 hits 1 damage 9 kills 0\n"
+    "A%s%d harm 3\n"
+    "A%s%d harm source 3 by A%s%d monster -1 amount 3\n"
+    "A%s%d friendly fire caused 3\n"
+    "PARTY\n"
+    "PARTY melee 9\n"
+    "PARTY attack 20/-1 thrown tries 2 hits 1 damage 9 kills 0\n"
+    "PARTY harm 3\n"
+    "PARTY harm source 3 by A%s%d monster -1 amount 3\n"
+    "PARTY friendly fire caused 3\n";
+  CHECK(HeroStatsDump_Text(stats) == expected);
+}
+
 void TestHeroStatsDump(void)
 {
   NothingDumpsAsNames();
   EveryNumberGetsALine();
   SpellsFriendlyFireAndManaGetLines();
+  ThrownRowsAndPercentNamesAreSafe();
 }
