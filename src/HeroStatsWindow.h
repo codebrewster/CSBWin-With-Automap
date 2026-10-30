@@ -19,6 +19,9 @@ bool HeroStatsWindow_IsShown(void);
 // when that fails.
 void HeroStatsWindow_Show(void);
 void HeroStatsWindow_Hide(void);
+// Called when the champions' screen after a win appears: shows the window on the Whole run of
+// the page the player last chose, with no hero page open. Harmless when called again.
+void HeroStatsWindow_ShowAfterWin(void);
 
 // True when the event was for this window: it then went to the window's own ImGui context and
 // must go no further, neither to the map nor to the game

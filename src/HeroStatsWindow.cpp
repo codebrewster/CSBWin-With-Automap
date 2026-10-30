@@ -300,6 +300,16 @@ void HeroStatsWindow_Show(void)
   heroPageCached = false;
 }
 
+void HeroStatsWindow_ShowAfterWin(void)
+{
+  shownLevel = HERO_STATS_WHOLE_RUN;
+  heroPageOpen = false;
+  pageDataCached = false;
+  byLevelCached = false;
+  heroPageCached = false;
+  HeroStatsWindow_Show();
+}
+
 static void GiveThePointerBackToTheGame(void)
 {
   if (!pointerIsOverWindow) return;
