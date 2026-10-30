@@ -862,6 +862,7 @@ void AutoMap_OnEngineTick(void)
   // Mid-way to another level the party already stands on the new level's coordinates
   // while partyLevel still names the old one: wait for the main loop to finish the move
   if (d.newPartyLevel != -1 || !PartyLevelIsLoaded()) return;
+  HeroStats_OnPartyOnLevel();
   if (visibilityTestIsPending) RunVisibilityTest();
   recorder.MarkPartyCell();
   if (ViewOfThePartyIsHidden()) recorder.SeeOnlyThePartyCell();

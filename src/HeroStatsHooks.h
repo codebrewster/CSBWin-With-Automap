@@ -29,6 +29,10 @@ void HeroStats_OnNoMapFile(void);
 void HeroStats_BeforeGameSaved(void);
 // With map_debug set, the dump is printed on every save
 void HeroStats_OnGameSaved(void);
+// AutoMap_OnEngineTick, once the party stands on a loaded level (not the prison screen, not
+// mid-way to another level): the level is visited, whether or not anything is counted there.
+// Only a change of level since the last mark (or a new or loaded game) touches the store.
+void HeroStats_OnPartyOnLevel(void);
 
 // The engine hooks below only observe: no randomness, no engine state, no change of flow.
 // Each converts a slot to its champion (CHARDESC::fingerPrint), meets the champion by name and

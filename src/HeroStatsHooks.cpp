@@ -51,6 +51,9 @@ static HeroStatsPending pending;
 static HeroStatsRunes runes;
 // Between HeroStats_BeginRuneCast and HeroStats_EndRuneCast: the slot whose incantation resolves
 static int runeCastSlot = -1;
+// The level last marked visited in the store, so that a tick on the same level costs nothing;
+// -1 after the store was replaced
+static int levelMarked = -1;
 
 HeroStats &HeroStats_Store(void)
 {
@@ -98,10 +101,13 @@ static void ForgetEngineState(void)
   pending.ClearAll();
   runes.ClearAll();
   runeCastSlot = -1;
+  levelMarked = -1;
 }
 
 static void GameStartsOrContinues(void)
 {
+  // The store was replaced: the next tick marks the level the party stands on
+  levelMarked = -1;
   gameInPlay = true;
   dungeonInPlay = CurrentDungeon();
   gameBeforeLoad.Forget();
@@ -171,10 +177,22 @@ static bool IsHero(int slot)
   return slot >= 0 && slot < d.NumCharacter && slot < 4;
 }
 
+static void MarkPartyLevelVisited(void)
+{
+  if (levelMarked == d.partyLevel) return;
+  store.MarkLevelVisited(d.partyLevel);
+  levelMarked = d.partyLevel;
+}
+
+void HeroStats_OnPartyOnLevel(void)
+{
+  MarkPartyLevelVisited();
+}
+
 // The level everything is counted at; being there visits it
 static int PartyLevel(void)
 {
-  store.MarkLevelVisited(d.partyLevel);
+  MarkPartyLevelVisited();
   return d.partyLevel;
 }
 
