@@ -300,6 +300,13 @@ void HeroStatsWindow_Show(void)
   heroPageCached = false;
 }
 
+void HeroStatsWindow_Forget(void)
+{
+  pageDataCached = false;
+  byLevelCached = false;
+  heroPageCached = false;
+}
+
 void HeroStatsWindow_ShowAfterWin(void)
 {
   shownLevel = HERO_STATS_WHOLE_RUN;
@@ -370,6 +377,10 @@ static Uint32 WindowIdOfEvent(const SDL_Event &event)
 bool HeroStatsWindow_HandleEvent(const SDL_Event &event)
 {
   if (statsWindow == NULL || statsContext == NULL) return false;
+  // No keyboard input here: the keys go on steering the game, as when the Map window has focus
+  if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP || event.type == SDL_TEXTINPUT ||
+      event.type == SDL_TEXTEDITING)
+    return false;
   if (WindowIdOfEvent(event) != statsWindowId) return false;
   if (event.type == SDL_WINDOWEVENT)
   {
@@ -579,7 +590,7 @@ static void DrawTopBar(const HeroStatsPicker &picker, bool showPicker, const std
   }
   else
   {
-    const char *back = "\xe2\x97\x80 Overview";
+    const char *back = "< Overview";
     if (PageButton(back, false)) heroPageOpen = false;
     pagesEnd += ButtonWidth(back);
     for (size_t i = 0; i <= columns.size(); i++)
@@ -1126,7 +1137,7 @@ static void DrawMonsters(const HeroStats &stats, const std::vector<HeroStatsColu
     RightText(extraLabel[shownExtra[e]], DimmedColour());
   }
   ImGui::TableSetColumnIndex(columnCount - 2);
-  RightText("Total", DimmedColour());
+  RightText("All causes", DimmedColour());
   ImGui::TableSetColumnIndex(columnCount - 1);
   ImGui::TextColored(DimmedColour(), "Killed by");
   for (size_t l = 0; l <= lines.size(); l++)
@@ -1648,6 +1659,14 @@ void HeroStatsWindow_Paint(void)
   lastFrame = now;
   hasPainted = true;
   StatsContextScope scope;
+  // Without capture a release outside the window is never delivered: let go of what SDL sees up
+  {
+    ImGuiIO &mouseIo = ImGui::GetIO();
+    Uint32 down = SDL_GetGlobalMouseState(NULL, NULL);
+    const Uint32 masks[3] = {SDL_BUTTON_LMASK, SDL_BUTTON_RMASK, SDL_BUTTON_MMASK};
+    for (int b = 0; b < 3; b++)
+      if (mouseIo.MouseDown[b] && !(down & masks[b])) mouseIo.AddMouseButtonEvent(b, false);
+  }
   ImGui_ImplSDLRenderer2_NewFrame();
   ImGui_ImplSDL2_NewFrame();
   ImGui::NewFrame();

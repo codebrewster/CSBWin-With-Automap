@@ -12,6 +12,7 @@
 #include "HeroStatsHooks.h"
 #include "HeroStatsPending.h"
 #include "HeroStatsRunes.h"
+#include "HeroStatsWindow.h"
 #include "AutoMapWindow.h"
 
 #include "UI.h"
@@ -121,6 +122,7 @@ void HeroStats_OnDungeonLoaded(void)
   ForgetEngineState();
   if (d.gameState != GAMESTATE_ResumeSavedGame)
   {
+    HeroStatsWindow_Forget();
     GameStartsOrContinues();
     return;
   }
@@ -140,6 +142,7 @@ void HeroStats_OnMapFileRead(const HeroStats &fromFile, const HeroStatsOrigins &
     store.TakeFromFile(fromFile);
   }
   origins = originsFromFile;
+  HeroStatsWindow_Forget();
   MeetParty();
   GameStartsOrContinues();
 }
@@ -154,6 +157,7 @@ void HeroStats_OnNoMapFile(void)
   {
     store.Forget();
   }
+  HeroStatsWindow_Forget();
   MeetParty();
   GameStartsOrContinues();
 }

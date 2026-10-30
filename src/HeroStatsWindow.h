@@ -22,6 +22,8 @@ void HeroStatsWindow_Hide(void);
 // Called when the champions' screen after a win appears: shows the window on the Whole run of
 // the page the player last chose, with no hero page open. Harmless when called again.
 void HeroStatsWindow_ShowAfterWin(void);
+// Drops the cached pages (a game was loaded or begun); a no-op when the window was never made
+void HeroStatsWindow_Forget(void);
 
 // True when the event was for this window: it then went to the window's own ImGui context and
 // must go no further, neither to the map nor to the game
