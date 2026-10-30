@@ -21,6 +21,7 @@ int main(void)
   TestAutoMapVisibilityCases();
   TestShotMissiles();
   TestHeroStats();
+  TestHeroStatsOrigins();
   if (failedCheckCount != 0)
   {
     std::printf("%d checks failed\n", failedCheckCount);
