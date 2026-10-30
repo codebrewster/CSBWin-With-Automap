@@ -25,6 +25,7 @@ int main(void)
   TestHeroStatsPending();
   TestHeroStatsDump();
   TestHeroStatsGame();
+  TestHeroStatsView();
   if (failedCheckCount != 0)
   {
     std::printf("%d checks failed\n", failedCheckCount);

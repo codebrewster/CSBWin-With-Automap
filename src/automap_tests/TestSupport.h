@@ -35,5 +35,6 @@ void TestHeroStatsOrigins(void);
 void TestHeroStatsPending(void);
 void TestHeroStatsDump(void);
 void TestHeroStatsGame(void);
+void TestHeroStatsView(void);
 
 #endif
