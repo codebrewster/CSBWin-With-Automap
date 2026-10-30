@@ -112,10 +112,15 @@ HeroStatsSummaries HeroStatsView_Summaries(const HeroStats &stats, HeroStatsCham
   int given = stats.HealingGiven(who, level);
   if (given != 0) s.healing += " · " + HeroStatsView_Number(given) + " given";
 
-  // Hardship is kept for the whole run; wipes and reloads belong to the Party column
-  int deaths = (int)stats.Deaths(who).size();
-  int wipes = who == HERO_STATS_PARTY ? stats.PartyWipes() : 0;
-  int reloads = who == HERO_STATS_PARTY ? stats.Reloads() : 0;
+  // With a level picked only the deaths on that level count; wipes and reloads are not kept per
+  // level and belong to the Party column of the whole run
+  int deaths = 0;
+  std::vector<HeroStatsDeath> died = stats.Deaths(who);
+  for (size_t i = 0; i < died.size(); i++)
+    if (level == HERO_STATS_WHOLE_RUN || died[i].level == level) deaths++;
+  bool wholeParty = who == HERO_STATS_PARTY && level == HERO_STATS_WHOLE_RUN;
+  int wipes = wholeParty ? stats.PartyWipes() : 0;
+  int reloads = wholeParty ? stats.Reloads() : 0;
   std::string parts;
   if (deaths != 0) parts = Plural(deaths, "death", "deaths");
   if (wipes != 0) parts += (parts.empty() ? "" : " · ") + Plural(wipes, "wipe", "wipes");

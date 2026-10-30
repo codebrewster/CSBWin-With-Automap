@@ -94,14 +94,18 @@ static bool hasPainted = false;
 static const Uint32 CACHE_LIFETIME = 500;
 static bool pageDataCached = false;
 static bool byLevelCached = false;
+static bool heroPageCached = false;
 // The level the pages show: HERO_STATS_WHOLE_RUN or a level index
 static int shownLevel = HERO_STATS_WHOLE_RUN;
-// The hero page a click on a name asked for (drawn by a later task); HERO_STATS_PARTY for the party
+// The hero page a click on a name asked for; HERO_STATS_PARTY for the party
 static bool heroPageOpen = false;
 // What the By level page adds up; kept while the program runs, not in csb.cfg
 enum ByLevelMetric { MetricDealt, MetricKills, MetricTaken, MetricHealed, MetricSpent, BY_LEVEL_METRIC_COUNT };
 static const char *const METRIC_LABELS[BY_LEVEL_METRIC_COUNT] = {"Damage dealt", "Kills", "Damage taken", "Healed", "Mana spent"};
 static int shownMetric = MetricDealt;
+// The open sections of the hero pages: 1 Attacks, 2 Spells, 4 Damage taken, 8 Healing, 16 Hardship
+static const int DEFAULT_OPEN_SECTIONS = 1 | 16;
+static int openSections = DEFAULT_OPEN_SECTIONS;
 static HeroStatsChampion heroPageWho = HERO_STATS_PARTY;
 
 static ImVec4 Colour(ImU32 rgb, float alpha = 1.0f)
@@ -135,6 +139,7 @@ void HeroStatsWindow_ReadSettings(void)
   placement.height = std::max(SMALLEST_HEIGHT, csb_get_config_int(SETTINGS_SECTION, "stats_height", DEFAULT_HEIGHT));
   shownPage = csb_get_config_int(SETTINGS_SECTION, "stats_page", StatsPageTable);
   if (shownPage < 0 || shownPage >= STATS_PAGE_COUNT) shownPage = StatsPageTable;
+  openSections = csb_get_config_int(SETTINGS_SECTION, "stats_open", DEFAULT_OPEN_SECTIONS) & 31;
 }
 
 static void RememberPlacement(void)
@@ -153,6 +158,7 @@ void HeroStatsWindow_WriteSettings(void)
   csb_set_config_int(SETTINGS_SECTION, "stats_width", placement.width);
   csb_set_config_int(SETTINGS_SECTION, "stats_height", placement.height);
   csb_set_config_int(SETTINGS_SECTION, "stats_page", shownPage);
+  csb_set_config_int(SETTINGS_SECTION, "stats_open", openSections);
 }
 
 void HeroStatsWindow_RestoreVisibility(void)
@@ -291,6 +297,7 @@ void HeroStatsWindow_Show(void)
   hasPainted = false;
   pageDataCached = false;
   byLevelCached = false;
+  heroPageCached = false;
 }
 
 static void GiveThePointerBackToTheGame(void)
@@ -479,6 +486,11 @@ static const StatsPageData &CachedPageData(const HeroStats &stats, const std::ve
 
 static const float GUTTER = 8;
 
+static ImVec4 DimmedColour(void)
+{
+  return ImGui::GetStyle().Colors[ImGuiCol_TextDisabled];
+}
+
 static float ButtonWidth(const char *label)
 {
   return ImGui::CalcTextSize(label).x + ImGui::GetStyle().FramePadding.x * 2;
@@ -538,22 +550,45 @@ static void DrawPicker(const HeroStatsPicker &picker)
   ImGui::EndDisabled();
 }
 
-// The front-page choice on the left, the level picker on the right
-static void DrawTopBar(const HeroStatsPicker &picker, bool showPicker)
+// The front-page choice on the left (on a hero page: back to the overview, the champions and
+// the party), the level picker on the right
+static void DrawTopBar(const HeroStatsPicker &picker, bool showPicker, const std::vector<HeroStatsColumn> &columns)
 {
   const float BAR_PADDING = 6;
+  float spacing = ImGui::GetStyle().ItemSpacing.x;
+  float pagesEnd = GUTTER;
   ImGui::SetCursorPos(ImVec2(GUTTER, ImGui::GetCursorPosY() + BAR_PADDING));
-  for (int page = 0; page < STATS_PAGE_COUNT; page++)
+  if (!heroPageOpen)
   {
-    if (page > 0) ImGui::SameLine();
-    if (PageButton(PAGE_LABELS[page], page == shownPage)) shownPage = page;
+    for (int page = 0; page < STATS_PAGE_COUNT; page++)
+    {
+      if (page > 0) ImGui::SameLine();
+      if (PageButton(PAGE_LABELS[page], page == shownPage)) shownPage = page;
+      pagesEnd += ButtonWidth(PAGE_LABELS[page]) + (page > 0 ? spacing : 0);
+    }
+  }
+  else
+  {
+    const char *back = "\xe2\x97\x80 Overview";
+    if (PageButton(back, false)) heroPageOpen = false;
+    pagesEnd += ButtonWidth(back);
+    for (size_t i = 0; i <= columns.size(); i++)
+    {
+      bool isParty = i == columns.size();
+      HeroStatsChampion id = isParty ? HERO_STATS_PARTY : columns[i].id;
+      const char *label = isParty ? "Party" : columns[i].name.c_str();
+      bool left = !isParty && columns[i].hasLeft;
+      ImGui::SameLine();
+      ImGui::PushID((int)i);
+      if (left) ImGui::PushStyleColor(ImGuiCol_Text, DimmedColour());
+      if (PageButton(label, heroPageWho == id)) heroPageWho = id;
+      if (left) ImGui::PopStyleColor();
+      ImGui::PopID();
+      pagesEnd += spacing + ButtonWidth(label);
+    }
   }
   if (showPicker)
   {
-    float spacing = ImGui::GetStyle().ItemSpacing.x;
-    float pagesEnd = GUTTER;
-    for (int page = 0; page < STATS_PAGE_COUNT; page++)
-      pagesEnd += ButtonWidth(PAGE_LABELS[page]) + (page > 0 ? spacing : 0);
     float left = ImGui::GetWindowWidth() - GUTTER - PickerWidth(picker);
     if (left > pagesEnd + 2 * spacing)
     {
@@ -573,11 +608,6 @@ static void DrawTopBar(const HeroStatsPicker &picker, bool showPicker)
 
 // ---------------------------------------------------------------------------------------------
 // Table
-
-static ImVec4 DimmedColour(void)
-{
-  return ImGui::GetStyle().Colors[ImGuiCol_TextDisabled];
-}
 
 static void RightText(const std::string &text, const ImVec4 &colour)
 {
@@ -1130,6 +1160,429 @@ static void DrawMonsters(const HeroStats &stats, const std::vector<HeroStatsColu
 }
 
 // ---------------------------------------------------------------------------------------------
+// Hero and Party pages
+
+struct HeroOption { std::string name; int tries, hits, damage, kills; };
+struct HeroWeapon
+{
+  std::string name;
+  int tries, hits, damage, kills;
+  int id;  // for the fold state
+  std::vector<HeroOption> options;
+};
+struct HeroLine { std::string text; int amount; bool isBad; };
+
+struct HeroPageData
+{
+  std::vector<HeroWeapon> weapons;
+  std::vector<HeroStatsSpellRow> spells;
+  std::vector<std::string> spellNames;
+  std::vector<HeroLine> taken;
+  int healedTotal;
+  std::vector<HeroLine> healing;
+  int given, resurrected;
+  std::vector<std::string> deathLines;
+  int wipes, reloads;
+  HeroStatsSummaries summaries;
+};
+
+static const HeroStatsColumn *ColumnOf(const std::vector<HeroStatsColumn> &columns, HeroStatsChampion id)
+{
+  for (size_t i = 0; i < columns.size(); i++)
+    if (columns[i].id == id) return &columns[i];
+  return NULL;
+}
+
+static std::string MonsterNameOf(int monsterType, int variant)
+{
+  char raw[256] = "";
+  GetMonsterName(monsterType, variant, raw);
+  return raw[0] != 0 ? std::string(raw) : "Monster #" + std::to_string(monsterType);
+}
+
+static void AddLine(std::vector<HeroLine> *lines, const std::string &text, int amount, bool isBad)
+{
+  for (size_t i = 0; i < lines->size(); i++)
+    if ((*lines)[i].text == text)
+    {
+      (*lines)[i].amount += amount;
+      return;
+    }
+  HeroLine line = {text, amount, isBad};
+  lines->push_back(line);
+}
+
+static bool LineBefore(const HeroLine &a, const HeroLine &b)
+{
+  return a.amount > b.amount;
+}
+
+static bool WeaponBefore(const HeroWeapon &a, const HeroWeapon &b)
+{
+  if (a.damage != b.damage) return a.damage > b.damage;
+  return a.name < b.name;
+}
+
+static bool OptionBefore(const HeroOption &a, const HeroOption &b)
+{
+  if (a.damage != b.damage) return a.damage > b.damage;
+  return a.name < b.name;
+}
+
+static HeroPageData BuildHeroPage(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
+                                  HeroStatsChampion who, int level)
+{
+  HeroPageData page;
+  bool isParty = who == HERO_STATS_PARTY;
+
+  // Attacks, grouped by weapon (and by whether it was thrown). Rune spells are in Spells.
+  std::vector<HeroStatsAttackRow> attacks = stats.Attacks(who, level);
+  std::map<std::pair<int, bool>, size_t> weaponAt;
+  for (size_t i = 0; i < attacks.size(); i++)
+  {
+    const HeroStatsAttackRow &a = attacks[i];
+    if (a.weapon == HERO_STATS_NO_WEAPON) continue;
+    std::pair<int, bool> key(a.weapon, a.thrown);
+    std::map<std::pair<int, bool>, size_t>::iterator found = weaponAt.find(key);
+    if (found == weaponAt.end())
+    {
+      HeroWeapon w;
+      w.name = a.weapon == HERO_STATS_FISTS ? "Fists" : HeroStats_WeaponNameOf(a.weapon);
+      if (a.thrown) w.name += ", thrown";
+      w.tries = w.hits = w.damage = w.kills = 0;
+      w.id = (a.weapon + 2) * 2 + (a.thrown ? 1 : 0);
+      page.weapons.push_back(w);
+      found = weaponAt.insert(std::make_pair(key, page.weapons.size() - 1)).first;
+    }
+    HeroWeapon &w = page.weapons[found->second];
+    w.tries += a.tries;
+    w.hits += a.hits;
+    w.damage += a.damage;
+    w.kills += a.kills;
+    std::string optionName = HeroStats_AttackOptionNameOf(a.option);
+    if (optionName.empty()) optionName = "(no option)";
+    size_t o = 0;
+    while (o < w.options.size() && w.options[o].name != optionName) o++;
+    if (o == w.options.size())
+    {
+      HeroOption none = {optionName, 0, 0, 0, 0};
+      w.options.push_back(none);
+    }
+    HeroOption &option = w.options[o];
+    option.tries += a.tries;
+    option.hits += a.hits;
+    option.damage += a.damage;
+    option.kills += a.kills;
+  }
+  std::sort(page.weapons.begin(), page.weapons.end(), WeaponBefore);
+  for (size_t i = 0; i < page.weapons.size(); i++)
+    std::sort(page.weapons[i].options.begin(), page.weapons[i].options.end(), OptionBefore);
+
+  // Spells
+  page.spells = stats.Spells(who, level);
+  for (size_t i = 0; i < page.spells.size(); i++) page.spellNames.push_back(HeroStatsView_SpellName(page.spells[i].spell));
+
+  // Damage taken: one line per source; monsters in one line; friendly fire and clouds by causer
+  std::vector<HeroStatsHarmRow> harm = stats.HarmRows(who, level);
+  for (size_t i = 0; i < harm.size(); i++)
+  {
+    const HeroStatsHarmRow &row = harm[i];
+    if (row.amount <= 0) continue;
+    bool byChampion = row.source == HeroHarmFriendlyFire || row.source == HeroHarmPoisonCloud;
+    std::string text;
+    if (row.source == HeroHarmMonster || row.source == HeroHarmMonsterMissile) text = "Monster attacks";
+    else if (byChampion && !isParty && row.causer == who)
+      text = row.source == HeroHarmFriendlyFire ? "Friendly fire (own)" : "Poison clouds (own)";
+    else
+    {
+      const HeroStatsColumn *causer = isParty ? NULL : ColumnOf(columns, row.causer);
+      text = HeroStatsView_HarmName(row, causer, "");
+    }
+    AddLine(&page.taken, text, row.amount, byChampion);
+  }
+  std::sort(page.taken.begin(), page.taken.end(), LineBefore);
+
+  // Healing
+  page.healedTotal = stats.Healed(who, level);
+  std::vector<HeroStatsHealRow> heals = stats.HealRows(who, level);
+  for (size_t i = 0; i < heals.size(); i++)
+  {
+    const HeroStatsHealRow &row = heals[i];
+    if (row.amount <= 0) continue;
+    std::string text = "Regeneration";
+    if (row.kind == HeroHealAction) text = "Heal action";
+    else if (row.kind == HeroHealPotion)
+    {
+      text = "Potions";
+      if (!isParty)
+      {
+        const HeroStatsColumn *brewer = ColumnOf(columns, row.brewer);
+        if (row.brewer == who) text += " (own)";
+        else if (brewer != NULL) text += " (from " + brewer->name + ")";
+        else text += " (found)";
+      }
+    }
+    AddLine(&page.healing, text, row.amount, false);
+  }
+  std::sort(page.healing.begin(), page.healing.end(), LineBefore);
+  page.given = stats.HealingGiven(who, level);
+  page.resurrected = stats.Resurrections(who, level);
+
+  // Hardship: only the deaths on the picked level; wipes and reloads are the whole run's
+  std::vector<HeroStatsDeath> deaths = stats.Deaths(who);
+  for (size_t i = 0; i < deaths.size(); i++)
+  {
+    const HeroStatsDeath &death = deaths[i];
+    if (level != HERO_STATS_WHOLE_RUN && death.level != level) continue;
+    std::string causerName;
+    if (death.cause == HeroHarmMonster || death.cause == HeroHarmMonsterMissile)
+    {
+      // The store keeps no variant of the monster that killed: the first name of its type
+      if (death.by.monsterType >= 0) causerName = MonsterNameOf(death.by.monsterType, 0);
+    }
+    else
+    {
+      const HeroStatsColumn *causer = ColumnOf(columns, death.by.champion);
+      if (causer != NULL) causerName = causer->name;
+    }
+    std::string text = HeroStatsView_DeathName(death, causerName);
+    if (isParty)
+    {
+      const HeroStatsColumn *victim = ColumnOf(columns, death.who);
+      text = (victim != NULL ? victim->name : std::string("?")) + ": " + text;
+    }
+    page.deathLines.push_back(text);
+  }
+  bool wholeRun = level == HERO_STATS_WHOLE_RUN;
+  page.wipes = isParty && wholeRun ? stats.PartyWipes() : 0;
+  page.reloads = isParty && wholeRun ? stats.Reloads() : 0;
+  page.summaries = HeroStatsView_Summaries(stats, who, level);
+  return page;
+}
+
+static const HeroPageData &CachedHeroPage(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
+                                          HeroStatsChampion who, int level)
+{
+  static HeroPageData data;
+  static HeroStatsChampion cachedWho;
+  static int cachedLevel;
+  static std::string cachedColumns;
+  static Uint32 cachedAt;
+  std::string key = ColumnsKey(columns);
+  Uint32 now = SDL_GetTicks();
+  if (!heroPageCached || who != cachedWho || level != cachedLevel || key != cachedColumns ||
+      now - cachedAt >= CACHE_LIFETIME)
+  {
+    data = BuildHeroPage(stats, columns, who, level);
+    heroPageCached = true;
+    cachedWho = who;
+    cachedLevel = level;
+    cachedColumns = key;
+    cachedAt = now;
+  }
+  return data;
+}
+
+// A section header that folds; the summary sits right-aligned on the header line
+static bool SectionHeader(int bit, const char *title, const std::string &summary, ImU32 summaryRgb)
+{
+  ImGui::SetNextItemOpen((openSections & bit) != 0, ImGuiCond_Always);
+  ImGui::PushStyleColor(ImGuiCol_Text, Colour(SECTION_RGB));
+  bool open = ImGui::CollapsingHeader(title);
+  ImGui::PopStyleColor();
+  if (open) openSections |= bit;
+  else openSections &= ~bit;
+  ImVec2 min = ImGui::GetItemRectMin();
+  ImVec2 max = ImGui::GetItemRectMax();
+  float width = ImGui::CalcTextSize(summary.c_str()).x;
+  float titleEnd = min.x + ImGui::CalcTextSize(title).x + ImGui::GetTreeNodeToLabelSpacing() + 20;
+  float x = max.x - width - 10;
+  if (x > titleEnd)
+    ImGui::GetWindowDrawList()->AddText(ImVec2(x, min.y + ImGui::GetStyle().FramePadding.y), PackedColour(summaryRgb),
+                                        summary.c_str());
+  return open;
+}
+
+static void SectionGap(void)
+{
+  ImGui::Dummy(ImVec2(0, 2));
+}
+
+static void NumberCell(int column, int value, const ImVec4 &colour)
+{
+  ImGui::TableSetColumnIndex(column);
+  RightText(HeroStatsView_Number(value), colour);
+}
+
+static void AttackCells(int tries, int hits, int damage, int kills, const ImVec4 &colour)
+{
+  NumberCell(1, tries, colour);
+  NumberCell(2, hits, colour);
+  ImGui::TableSetColumnIndex(3);
+  RightText(HeroStatsView_Percent(hits, tries), colour);
+  NumberCell(4, damage, colour);
+  NumberCell(5, kills, colour);
+}
+
+static void DrawAttacks(const HeroPageData &page)
+{
+  if (page.weapons.empty())
+  {
+    ImGui::TextColored(DimmedColour(), "No attacks yet.");
+    return;
+  }
+  if (!ImGui::BeginTable("##attacks", 6, ImGuiTableFlags_SizingFixedFit)) return;
+  ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 230);
+  for (int i = 1; i < 6; i++) ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 78);
+  ImGui::TableNextRow();
+  ImGui::TableSetColumnIndex(0);
+  ImGui::TextColored(DimmedColour(), "Weapon / option");
+  const char *heads[5] = {"Tries", "Hits", "Rate", "Damage", "Kills"};
+  for (int i = 0; i < 5; i++)
+  {
+    ImGui::TableSetColumnIndex(i + 1);
+    RightText(heads[i], DimmedColour());
+  }
+  for (size_t w = 0; w < page.weapons.size(); w++)
+  {
+    const HeroWeapon &weapon = page.weapons[w];
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+    // Open or folded is ImGui's own, per weapon and per hero, for as long as the program runs
+    ImGui::PushID((int)heroPageWho);
+    ImGui::PushID(weapon.id);
+    ImGui::PushStyleColor(ImGuiCol_Text, Colour(TITLE_TEXT_RGB));
+    bool open = ImGui::TreeNodeEx(weapon.name.c_str(), ImGuiTreeNodeFlags_None);
+    ImGui::PopStyleColor();
+    AttackCells(weapon.tries, weapon.hits, weapon.damage, weapon.kills, Colour(TEXT_RGB));
+    if (open)
+    {
+      for (size_t o = 0; o < weapon.options.size(); o++)
+      {
+        const HeroOption &option = weapon.options[o];
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::TextColored(Colour(0xaaaaaa), "%s", option.name.c_str());
+        AttackCells(option.tries, option.hits, option.damage, option.kills, Colour(0xaaaaaa));
+      }
+      ImGui::TreePop();
+    }
+    ImGui::PopID();
+    ImGui::PopID();
+  }
+  ImGui::EndTable();
+}
+
+static void DrawSpells(const HeroPageData &page)
+{
+  if (page.spells.empty())
+  {
+    ImGui::TextColored(DimmedColour(), "No spells cast.");
+    return;
+  }
+  if (!ImGui::BeginTable("##spells", 7, ImGuiTableFlags_SizingFixedFit)) return;
+  ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 230);
+  for (int i = 1; i < 7; i++) ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 70);
+  ImGui::TableNextRow();
+  ImGui::TableSetColumnIndex(0);
+  ImGui::TextColored(DimmedColour(), "Spell");
+  const char *heads[6] = {"Casts", "Mana", "Failed", "Wasted", "Damage", "Kills"};
+  for (int i = 0; i < 6; i++)
+  {
+    ImGui::TableSetColumnIndex(i + 1);
+    RightText(heads[i], DimmedColour());
+  }
+  for (size_t i = 0; i < page.spells.size(); i++)
+  {
+    const HeroStatsSpellRow &row = page.spells[i];
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+    ImGui::TextUnformatted(page.spellNames[i].c_str());
+    // Every value is a number, 0 included (a Light spell does 0 damage)
+    NumberCell(1, row.casts, Colour(TEXT_RGB));
+    NumberCell(2, row.mana, Colour(TEXT_RGB));
+    NumberCell(3, row.failed, Colour(TEXT_RGB));
+    NumberCell(4, row.wasted, row.wasted > 0 ? Colour(BAD_RGB) : Colour(TEXT_RGB));
+    NumberCell(5, row.damage, Colour(TEXT_RGB));
+    NumberCell(6, row.kills, Colour(TEXT_RGB));
+  }
+  ImGui::EndTable();
+}
+
+// A label on the left and a value right-aligned in a column of fixed width
+static void ValueLine(const std::string &label, const std::string &value, const ImVec4 &labelColour,
+                      const ImVec4 &valueColour, float indent)
+{
+  const float VALUE_RIGHT = 230 + 78;
+  float x = ImGui::GetCursorPosX();
+  ImGui::Indent(indent);
+  ImGui::TextColored(labelColour, "%s", label.c_str());
+  ImGui::Unindent(indent);
+  if (!value.empty())
+  {
+    ImGui::SameLine();
+    ImGui::SetCursorPosX(x + VALUE_RIGHT - ImGui::CalcTextSize(value.c_str()).x);
+    ImGui::TextColored(valueColour, "%s", value.c_str());
+  }
+}
+
+static void DrawHeroPage(const HeroPageData &page, HeroStatsChampion who)
+{
+  ImGui::BeginChild("##hero", ImGui::GetContentRegionAvail(), false);
+  ImGui::Indent(GUTTER);
+  ImGui::Dummy(ImVec2(0, 2));
+  ImVec4 text = Colour(TEXT_RGB), bad = Colour(BAD_RGB);
+
+  if (SectionHeader(1, "Attacks", page.summaries.attacks, TAKEN_RGB))
+  {
+    DrawAttacks(page);
+    SectionGap();
+  }
+  if (SectionHeader(2, "Spells", page.summaries.spells, TAKEN_RGB))
+  {
+    DrawSpells(page);
+    SectionGap();
+  }
+  if (SectionHeader(4, "Damage taken", page.summaries.harm, TAKEN_RGB))
+  {
+    if (page.taken.empty()) ImGui::TextColored(DimmedColour(), "No damage taken.");
+    for (size_t i = 0; i < page.taken.size(); i++)
+      ValueLine(page.taken[i].text, HeroStatsView_Number(page.taken[i].amount),
+                page.taken[i].isBad ? bad : text, page.taken[i].isBad ? bad : text, 0);
+    SectionGap();
+  }
+  if (SectionHeader(8, "Healing", page.summaries.healing, HEALED_RGB))
+  {
+    ValueLine("Healed", HeroStatsView_Number(page.healedTotal), text, Colour(HEALED_RGB), 0);
+    for (size_t i = 0; i < page.healing.size(); i++)
+      ValueLine(page.healing[i].text, HeroStatsView_Number(page.healing[i].amount), DimmedColour(), text, 12);
+    if (page.given != 0)
+      ValueLine("Healing given (potions brewed)", HeroStatsView_Number(page.given), text, Colour(GIVEN_RGB), 0);
+    if (page.resurrected != 0)
+      ValueLine("Resurrected", std::to_string(page.resurrected) + "\xc3\x97", text, text, 0);
+    SectionGap();
+  }
+  bool hurt = !page.deathLines.empty() || page.wipes != 0 || page.reloads != 0;
+  if (SectionHeader(16, "Hardship", page.summaries.hardship, hurt ? BAD_RGB : TAKEN_RGB))
+  {
+    if (!hurt) ImGui::TextColored(DimmedColour(), "Never died.");
+    if (!page.deathLines.empty())
+    {
+      ValueLine(who == HERO_STATS_PARTY ? "Champion deaths" : "Died",
+                std::to_string(page.deathLines.size()) + "\xc3\x97", text, bad, 0);
+      for (size_t i = 0; i < page.deathLines.size(); i++)
+        ValueLine(page.deathLines[i], "", DimmedColour(), text, 12);
+    }
+    if (page.wipes != 0) ValueLine("Party wiped out", std::to_string(page.wipes) + "\xc3\x97", text, bad, 0);
+    if (page.reloads != 0) ValueLine("Reloads", std::to_string(page.reloads) + "\xc3\x97", text, text, 0);
+    SectionGap();
+  }
+  ImGui::TextColored(DimmedColour(), "Click a section or a weapon to fold it. Which sections are open is remembered.");
+  ImGui::Unindent(GUTTER);
+  ImGui::EndChild();
+}
+
+// ---------------------------------------------------------------------------------------------
 
 static void DrawWindowContents(void)
 {
@@ -1150,23 +1603,29 @@ static void DrawWindowContents(void)
       picker = HeroStatsView_Picker(stats, shownLevel);
     }
     DrawTitle();
-    DrawTopBar(picker, shownPage != StatsPageByLevel);
+    std::vector<HeroStatsColumn> columns = HeroStatsView_Columns(stats, HeroStats_PartyNow());
+    // A champion of a game before is not in this game's list
+    if (heroPageOpen && heroPageWho != HERO_STATS_PARTY && ColumnOf(columns, heroPageWho) == NULL)
+      heroPageWho = HERO_STATS_PARTY;
+    DrawTopBar(picker, heroPageOpen || shownPage != StatsPageByLevel, columns);
     if (stats.Champions().empty())
     {
       ImGui::SetCursorPos(ImVec2(GUTTER, ImGui::GetCursorPosY() + 8));
       ImGui::TextColored(DimmedColour(), "No statistics yet.");
     }
+    else if (heroPageOpen)
+      DrawHeroPage(CachedHeroPage(stats, columns, heroPageWho, shownLevel), heroPageWho);
     else if (shownPage == StatsPageTable || shownPage == StatsPageBars)
     {
-      const StatsPageData &data = CachedPageData(stats, HeroStatsView_Columns(stats, HeroStats_PartyNow()), shownLevel);
+      const StatsPageData &data = CachedPageData(stats, columns, shownLevel);
       ImGui::SetCursorPos(ImVec2(GUTTER, ImGui::GetCursorPosY() + 4));
       if (shownPage == StatsPageTable) DrawTable(data);
       else DrawBars(data);
     }
     else if (shownPage == StatsPageByLevel)
-      DrawByLevel(stats, HeroStatsView_Columns(stats, HeroStats_PartyNow()), picker);
+      DrawByLevel(stats, columns, picker);
     else if (shownPage == StatsPageMonsters)
-      DrawMonsters(stats, HeroStatsView_Columns(stats, HeroStats_PartyNow()));
+      DrawMonsters(stats, columns);
   }
   ImGui::End();
 }

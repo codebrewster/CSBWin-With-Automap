@@ -57,6 +57,8 @@ class RN;
 int HeroStats_WeaponOf(RN item);
 // The display name of a weapon key, from the game's item names (d.ObjectNames)
 std::string HeroStats_WeaponNameOf(int weapon);
+// The name of an attack option (d.AttackNames), "Throw" for HERO_STATS_THROW_OPTION, "" when unknown
+std::string HeroStats_AttackOptionNameOf(int option);
 // The next missile launched is the champion's (one try for the weapon and option when it is
 // launched) or a monster's
 void HeroStats_ExpectHeroMissile(int slot, HeroDamageKind kind, int weapon, bool thrown, int option,

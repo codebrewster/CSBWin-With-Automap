@@ -252,6 +252,18 @@ std::string HeroStats_WeaponNameOf(int weapon)
   return HeroStats_WeaponName(weapon, d.ObjectNames, (int)(sizeof d.ObjectNames / sizeof d.ObjectNames[0]));
 }
 
+std::string HeroStats_AttackOptionNameOf(int option)
+{
+  if (option == HERO_STATS_THROW_OPTION) return "Throw";
+  if (option < 0) return "";
+  const char *at = (const char *)d.AttackNames;
+  const char *end = at + sizeof d.AttackNames;
+  for (; option > 0 && at < end; option--)
+    while (at < end && *(at++) != 0) {}
+  if (at >= end) return "";
+  return std::string(at, strnlen(at, end - at));
+}
+
 void HeroStats_OnMeleeAttack(int slot, int attackType, int monsterGroup, int damageShown)
 {
   if (!IsHero(slot) || monsterGroup == 0) return;

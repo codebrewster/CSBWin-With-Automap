@@ -115,6 +115,9 @@ static void HardshipCountsAndEmptyStore(void)
   HeroStatsDeath death = {7, 4, HeroHarmMonster, HeroStatsBlow_Nobody(HeroBlowByMonster)};
   stats.CountDeath(death);
   CHECK(HeroStatsView_Summaries(stats, 7, HERO_STATS_WHOLE_RUN).hardship == "1 death");
+  // With a level picked: that level's deaths only, and no wipes or reloads
+  CHECK(HeroStatsView_Summaries(stats, 7, 4).hardship == "1 death");
+  CHECK(HeroStatsView_Summaries(stats, 7, 3).hardship == "never died");
   for (int i = 0; i < 5; i++) stats.CountDeath(death);
   stats.CountPartyWipe();
   for (int i = 0; i < 9; i++) stats.CountReload();
@@ -123,6 +126,8 @@ static void HardshipCountsAndEmptyStore(void)
   stats.CountPartyWipe();
   CHECK(HeroStatsView_Summaries(stats, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN).hardship ==
         "6 deaths · 2 wipes · 9 reloads");
+  CHECK(HeroStatsView_Summaries(stats, HERO_STATS_PARTY, 4).hardship == "6 deaths");
+  CHECK(HeroStatsView_Summaries(stats, HERO_STATS_PARTY, 3).hardship == "never died");
 }
 
 static void SpellNames(void)
