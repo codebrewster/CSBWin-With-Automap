@@ -129,6 +129,113 @@ static void ForgetEmptiesEverything(void)
   CHECK(stats.DamageDealt(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroDamageMelee) == 0);
 }
 
+static HeroStatsBlow MonsterBlow(int type)
+{
+  HeroStatsBlow blow = HeroStatsBlow_Nobody(HeroBlowByMonster);
+  blow.monsterType = type;
+  return blow;
+}
+
+static void FriendlyFireIsHarmToTheVictimAndCausedByTheCauser(void)
+{
+  HeroStats stats;
+  stats.CreditHarm(9, 3, HeroHarmFriendlyFire, ChampionBlow(7, AXE, 2), 30);
+  CHECK(stats.Harm(9, 3) == 30);
+  CHECK(stats.Harm(7, 3) == 0);
+  CHECK(stats.FriendlyFireCaused(7, 3) == 30);
+  CHECK(stats.FriendlyFireCaused(9, 3) == 0);
+  CHECK(stats.FriendlyFireCaused(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN) == 30);
+  std::vector<HeroStatsHarmRow> rows = stats.HarmRows(9, 3);
+  CHECK(rows.size() == 1);
+  if (rows.size() == 1)
+  {
+    CHECK(rows[0].source == HeroHarmFriendlyFire && rows[0].causer == 7 && rows[0].amount == 30);
+  }
+
+  stats.CreditHarm(7, 3, HeroHarmFriendlyFire, ChampionBlow(7, AXE, 2), 5);
+  CHECK(stats.Harm(7, 3) == 5);
+  CHECK(stats.FriendlyFireCaused(7, 3) == 35);
+}
+
+static void MonsterHarmNamesTheMonsterType(void)
+{
+  HeroStats stats;
+  stats.CreditHarm(9, 3, HeroHarmMonster, MonsterBlow(10), 12);
+  stats.CreditHarm(9, 3, HeroHarmMonster, MonsterBlow(10), 8);
+  stats.CreditHarm(9, 3, HeroHarmPit, HeroStatsBlow_Nobody(HeroBlowByPit), 50);
+  stats.CreditHarm(9, 3, HeroHarmWall, HeroStatsBlow_Nobody(HeroBlowByOther), 0);
+  std::vector<HeroStatsHarmRow> rows = stats.HarmRows(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN);
+  CHECK(rows.size() == 2);
+  if (rows.size() == 2)
+  {
+    CHECK(rows[0].source == HeroHarmPit && rows[0].amount == 50);
+    CHECK(rows[1].source == HeroHarmMonster && rows[1].causer == HERO_STATS_NOBODY);
+    CHECK(rows[1].monsterType == 10 && rows[1].amount == 20);
+  }
+  CHECK(stats.Harm(HERO_STATS_PARTY, 4) == 0);
+}
+
+static void HealingRemembersTheBrewer(void)
+{
+  HeroStats stats;
+  stats.CreditHealing(9, 3, HeroHealPotion, 7, 25);
+  stats.CreditHealing(9, 3, HeroHealRegeneration, HERO_STATS_NOBODY, 4);
+  CHECK(stats.Healed(9, 3) == 29);
+  CHECK(stats.HealingGiven(7, 3) == 25);
+  CHECK(stats.HealingGiven(9, 3) == 0);
+  CHECK(stats.HealingGiven(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN) == 25);
+  std::vector<HeroStatsHealRow> rows = stats.HealRows(9, 3);
+  CHECK(rows.size() == 2);
+  if (rows.size() == 2)
+  {
+    CHECK(rows[0].kind == HeroHealPotion && rows[0].brewer == 7 && rows[0].amount == 25);
+    CHECK(rows[1].kind == HeroHealRegeneration && rows[1].brewer == HERO_STATS_NOBODY);
+  }
+}
+
+static void ManaIsKeptPerSpell(void)
+{
+  HeroStats stats;
+  const uint32_t K = 0x00060a03;
+  stats.CountCast(7, 3, K, 13);
+  stats.CountCast(7, 3, K, 47);
+  stats.CountFailedCast(7, 3, K, 6);
+  stats.CountFailedCast(7, 3, K | HERO_SPELL_NO_SUCH_SPELL, 8);
+  stats.CreditManaSpent(7, 3, HERO_SPELL_RUNES_CLEARED, 4);
+  stats.CreditManaGained(7, 3, HeroManaPotion, 20);
+  stats.CreditManaGained(7, 3, HeroManaRegeneration, 3);
+  CHECK(stats.ManaGained(7, 3) == 23);
+  CHECK(stats.ManaSpent(7, 3) == 78);
+  CHECK(stats.ManaWasted(7, 3) == 18);
+  CHECK(stats.ManaSpent(9, 3) == 0);
+  std::vector<HeroStatsSpellRow> rows = stats.Spells(7, 3);
+  CHECK(rows.size() == 3);
+  if (rows.size() == 3)
+  {
+    CHECK(rows[0].spell == K);
+    CHECK(rows[0].casts == 2 && rows[0].mana == 60 && rows[0].failed == 1 && rows[0].wasted == 6);
+  }
+}
+
+static void SpellBlowsCreditTheSpellRow(void)
+{
+  HeroStats stats;
+  const uint32_t K = 0x00060a03;
+  HeroStatsBlow blow = ChampionBlow(7, HERO_STATS_NO_WEAPON, HERO_STATS_NO_OPTION);
+  blow.kind = HeroDamageMagic;
+  blow.spell = K;
+  stats.CountAttackTry(3, blow);
+  stats.CreditMonsterDamage(3, blow, 100);
+  stats.CountMonsterKill(3, 10, 1, blow);
+  CHECK(stats.DamageDealt(7, 3, HeroDamageMagic) == 100);
+  std::vector<HeroStatsSpellRow> rows = stats.Spells(7, 3);
+  CHECK(rows.size() == 1);
+  if (rows.size() == 1)
+  {
+    CHECK(rows[0].spell == K && rows[0].damage == 100 && rows[0].kills == 1);
+  }
+}
+
 void TestHeroStats(void)
 {
   ChampionsKeepOrderAndRename();
@@ -137,4 +244,9 @@ void TestHeroStats(void)
   KillsAreCountedPerChampionAndCause();
   VisitedLevelsAreSortedAndUnique();
   ForgetEmptiesEverything();
+  FriendlyFireIsHarmToTheVictimAndCausedByTheCauser();
+  MonsterHarmNamesTheMonsterType();
+  HealingRemembersTheBrewer();
+  ManaIsKeptPerSpell();
+  SpellBlowsCreditTheSpellRow();
 }
