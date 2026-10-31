@@ -1413,4 +1413,12 @@ struct AutoMapWallCounts { int textsRead, portraitsSeen, portraitsViewed; };
 // any more, so a mirror that was clicked counts as seen and viewed whatever it shows now.
 void AutoMapScene_CountWallSide(const AutoMapWallSide &side, bool read, bool lookedInto, AutoMapWallCounts *counts);
 
+// A view centre for a level that is not on screen yet (Page Down, a search hit elsewhere): the
+// level still shown keeps its own view until the requested level's draw list arrives
+struct AutoMapPendingCentre { int level; float x, y; };
+AutoMapPendingCentre AutoMapScene_NoPendingCentre(void);
+void AutoMapScene_RequestCentre(AutoMapPendingCentre *pending, int level, float x, float y);
+// True, with the centre, when shownLevel is the level it waits for; then it is gone
+bool AutoMapScene_TakeCentre(AutoMapPendingCentre *pending, int shownLevel, float *x, float *y);
+
 #endif

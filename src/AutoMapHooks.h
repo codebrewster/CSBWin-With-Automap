@@ -108,6 +108,9 @@ void AutoMap_OnScrollRead(int scroll);
 void AutoMap_OnEngineTick(void);
 // A dungeon is ready to play: a new game or a saved one
 void AutoMap_OnDungeonLoaded(void);
+// File > Reset (and the loads that go through it): the run is over, so the map forgets it at
+// once instead of showing it through the title, the prison door and the next dungeon's loading
+void AutoMap_OnGameReset(void);
 // Around the engine's renaming of the previous save to its .BAK name
 void AutoMap_BeforeSaveIsRotated(void);
 void AutoMap_AfterSaveIsRotated(void);

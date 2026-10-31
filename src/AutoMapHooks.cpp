@@ -2129,6 +2129,16 @@ static void ReportDoorLocksOfDungeon(void)
   }
 }
 
+void AutoMap_OnGameReset(void)
+{
+  // The old dungeon's levels stay, empty, until the next one is loaded: nothing explored, but
+  // every level a hook may still name exists
+  cachedLevel = -1;
+  recorder.ForgetDungeon(AutoMapLevelReader_DungeonLevelSizes());
+  AutoMapLevelReader_ForgetDungeon();
+  ShowNoLevel();
+}
+
 void AutoMap_OnDungeonLoaded(void)
 {
   // A new dungeon can reuse a level number with other wall pictures

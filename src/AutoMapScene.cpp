@@ -2536,3 +2536,25 @@ void AutoMapScene_CountWallSide(const AutoMapWallSide &side, bool read, bool loo
   if (lookedInto) counts->portraitsViewed++;
   if (lookedInto || (read && side.portrait != AUTOMAP_NO_PICTURE)) counts->portraitsSeen++;
 }
+
+AutoMapPendingCentre AutoMapScene_NoPendingCentre(void)
+{
+  AutoMapPendingCentre none = {AUTOMAP_NO_LEVEL, 0, 0};
+  return none;
+}
+
+void AutoMapScene_RequestCentre(AutoMapPendingCentre *pending, int level, float x, float y)
+{
+  pending->level = level;
+  pending->x = x;
+  pending->y = y;
+}
+
+bool AutoMapScene_TakeCentre(AutoMapPendingCentre *pending, int shownLevel, float *x, float *y)
+{
+  if (pending->level == AUTOMAP_NO_LEVEL || pending->level != shownLevel) return false;
+  *x = pending->x;
+  *y = pending->y;
+  *pending = AutoMapScene_NoPendingCentre();
+  return true;
+}

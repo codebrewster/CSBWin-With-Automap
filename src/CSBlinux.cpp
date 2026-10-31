@@ -1768,6 +1768,7 @@ static void reset_game() {
     open_char_info = false; // Prevents a freeze when reseting a game with this open
     SDL_ShowCursor(SDL_ENABLE);
     cursorIsShowing = true;
+    AutoMap_OnGameReset();  // before Cleanup frees the old dungeon
     Cleanup(false);
     resetWhatToDo=resetgamesetup=resetstartcsb=resetprisondoor=resettag1=resettag2=true;
     csbMessage.type=UIM_INITIALIZE;

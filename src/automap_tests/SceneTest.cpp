@@ -5122,6 +5122,32 @@ static void PlainWallCountsNothing(void)
   CHECK(counts.textsRead == 1 && counts.portraitsSeen == 0);
 }
 
+// Stepping to another level centres the view there only once that level is on screen: the
+// level still shown keeps its own view until then
+static void PendingCentreWaitsForItsLevel(void)
+{
+  AutoMapPendingCentre pending = AutoMapScene_NoPendingCentre();
+  AutoMapScene_RequestCentre(&pending, 1, 17.0f, 10.0f);
+  float x = -1, y = -1;
+  CHECK(!AutoMapScene_TakeCentre(&pending, 0, &x, &y));
+  CHECK(x == -1 && y == -1);
+  CHECK(AutoMapScene_TakeCentre(&pending, 1, &x, &y));
+  CHECK(x == 17.0f && y == 10.0f);
+  // Taken once
+  CHECK(!AutoMapScene_TakeCentre(&pending, 1, &x, &y));
+}
+
+static void NewerRequestReplacesThePendingCentre(void)
+{
+  AutoMapPendingCentre pending = AutoMapScene_NoPendingCentre();
+  AutoMapScene_RequestCentre(&pending, 1, 17.0f, 10.0f);
+  AutoMapScene_RequestCentre(&pending, 2, 3.0f, 4.0f);
+  float x = -1, y = -1;
+  CHECK(!AutoMapScene_TakeCentre(&pending, 1, &x, &y));
+  CHECK(AutoMapScene_TakeCentre(&pending, 2, &x, &y));
+  CHECK(x == 3.0f && y == 4.0f);
+}
+
 void TestAutoMapScene(void)
 {
   AsManyMonstersAsFitShareACell();
@@ -5186,6 +5212,8 @@ void TestAutoMapScene(void)
   RecruitedChampionStaysSeenAndViewed();
   MirrorOnlySeenIsNotViewed();
   PlainWallCountsNothing();
+  PendingCentreWaitsForItsLevel();
+  NewerRequestReplacesThePendingCentre();
   GlobalOffsetsReachTheDrawList();
   GlobalPositionAddsTheLevelOffset();
   WithoutFogMissilesAndCloudsAreShown();

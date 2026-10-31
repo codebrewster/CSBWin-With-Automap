@@ -162,6 +162,8 @@ static const int DIGIT_SCALE = 2;
 // drag recentres it. Fractions keep re-pans continuous and zooming centred on the same spot.
 static bool viewFollowsParty = true;
 static float viewCenterX = 0;
+// The centre for a level asked for but not on screen yet (Page Down, a search hit elsewhere)
+static AutoMapPendingCentre pendingCentre = AutoMapScene_NoPendingCentre();
 static float viewCenterY = 0;
 static bool middleDragging = false;
 static bool dragLeftTheStart = false;
@@ -503,6 +505,14 @@ void AutoMapWindow_ShowDrawList(const AutoMapDrawList &drawList)
   }
   sprites.UseColourSchemes(drawList.paletteScheme9, drawList.paletteScheme10);
   shownDrawList = drawList;
+  // The level asked for is here: only now does the view move to the spot asked for on it
+  float x = 0, y = 0;
+  if (AutoMapScene_TakeCentre(&pendingCentre, drawList.level, &x, &y))
+  {
+    viewFollowsParty = false;
+    viewCenterX = x;
+    viewCenterY = y;
+  }
   drawListSerial++;
   isDirty = true;
   drawListWasPainted = false;
@@ -644,7 +654,14 @@ static void SearchCenterOnSelected(void)
   const AutoMapSearchHit &hit = searchHits[(size_t)searchSelected];
   // A hit on another level switches the map there first; the per-tick rebuild
   // brings the level within a moment and the frozen centre lands on the cell.
-  if (hit.level != AUTOMAP_NO_LEVEL && hit.level != shownDrawList.level) AutoMap_ShowLevel(hit.level);
+  if (hit.level != AUTOMAP_NO_LEVEL && hit.level != shownDrawList.level)
+  {
+    // The level on screen keeps its view until the hit's level arrives
+    AutoMapScene_RequestCentre(&pendingCentre, hit.level, (float)hit.x, (float)hit.y);
+    AutoMap_ShowLevel(hit.level);
+    return;
+  }
+  pendingCentre = AutoMapScene_NoPendingCentre();
   viewFollowsParty = false;
   viewCenterX = (float)hit.x;
   viewCenterY = (float)hit.y;
@@ -943,10 +960,20 @@ static void StepLevelCenteredOn(int delta, int cellX, int cellY)
   // The target's draw list counts its cells from the rock the reader adds around it, so its
   // offset is the snapshot's, not the level's own (AutoMapScene_GlobalPosition)
   AutoMapLevelSnapshot targetSnapshot = AutoMapLevelReader_ReadLevel(target);
+  float centerX = (float)(globalX - targetSnapshot.offsetX);
+  float centerY = (float)(globalY - targetSnapshot.offsetY);
+  if (target != current)
+  {
+    // The centre is in the target's cells: the level still on screen keeps its own view until
+    // the target's draw list arrives (AutoMapWindow_ShowDrawList)
+    AutoMapScene_RequestCentre(&pendingCentre, target, centerX, centerY);
+    AutoMap_ShowLevel(target);
+    return;
+  }
+  pendingCentre = AutoMapScene_NoPendingCentre();
   viewFollowsParty = false;
-  viewCenterX = (float)(globalX - targetSnapshot.offsetX);
-  viewCenterY = (float)(globalY - targetSnapshot.offsetY);
-  if (target != current) AutoMap_ShowLevel(target);
+  viewCenterX = centerX;
+  viewCenterY = centerY;
   isDirty = true;
   if (MapTimingOn())
   {
