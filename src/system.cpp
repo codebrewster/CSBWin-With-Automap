@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include <stdio.h>
+#include <vector>
 #include "UI.h"
 
 
@@ -705,6 +706,24 @@ struct STATEENTRY
 #define MaxState 20
 STATEENTRY stateStack[MaxState];
 i32 numState = 0;
+
+static std::vector<i32 *> &RestartStates(void)
+{
+  static std::vector<i32 *> states;
+  return states;
+}
+
+bool RememberRestartState(i32 *state)
+{
+  RestartStates().push_back(state);
+  return true;
+}
+
+void ForgetAllRestartStates(void)
+{
+  std::vector<i32 *> &states = RestartStates();
+  for (size_t i = 0; i < states.size(); i++) *states[i] = 0;
+}
 
 /*
 void DispatchCSB(GAMESTATE)

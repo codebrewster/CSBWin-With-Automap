@@ -1762,6 +1762,7 @@ static void reset_game() {
     saveRequestedFromMenu = false; // a save asked for in the last game is not for this one
     numState = 0; // reset the "stackState" from system.cpp
 		  // because we are creating a new one here.
+    ForgetAllRestartStates(); // and the point each dropped call waited at
     verticalIntEnabled = false;
     lastTime = 0; // reset _MouseHandleEvents
     open_char_info = false; // Prevents a freeze when reseting a game with this open

@@ -341,8 +341,15 @@ return##n: ;};
 
 #define WAITFORMESSAGE(n) {mystate=n; return DoesNotExist; return##n: ;};
 
+// Each restartable function keeps the point it waits at in its own mystate. Resetting the game
+// drops the waiting calls (numState = 0), so it must send every one of them back to its start:
+// the final FUSE never returns, and a stale mystate resumes it in the next game.
+bool RememberRestartState(i32 *state);
+void ForgetAllRestartStates(void);
+
 #define RESTARTMAP \
   static i32 mystate=_0_; \
+  static bool mystateKnown = RememberRestartState(&mystate); (void)mystateKnown; \
 switch (mystate) { case _0_: goto return_0_;
 
 #define RESTART(n) case _##n##_: goto return_##n##_;
