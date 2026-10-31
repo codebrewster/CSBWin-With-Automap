@@ -1,6 +1,7 @@
 #include "TestSupport.h"
 #include <string>
 #include "../HeroStatsView.h"
+#include "../HeroStatsCatalogue.h"
 
 static HeroStatsBlow ChampionBlow(HeroStatsChampion who, int weapon, uint32_t spell)
 {
@@ -77,7 +78,8 @@ static void PickerShowsButtonsUpToSixteenLevels(void)
   CHECK(HeroStatsView_Picker(HeroStats(), HERO_STATS_WHOLE_RUN).previous == -2);
 }
 
-static void SummariesReadLikeTheMockup(void)
+// What the old section summaries said, now the records of the catalogue
+static void RecordsReadLikeTheMockup(void)
 {
   HeroStats stats;
   stats.MeetChampion(7, "HALK");
@@ -88,55 +90,51 @@ static void SummariesReadLikeTheMockup(void)
   for (int i = 0; i < 407; i++) stats.CountAttackHit(3, axe);
   stats.CreditMonsterDamage(3, axe, 8931);
   for (int i = 0; i < 77; i++) stats.CountMonsterKill(3, 10, 0, axe);
-  CHECK(HeroStatsView_Summaries(stats, 7, HERO_STATS_WHOLE_RUN).attacks ==
-        "636 tries · 64% hits · 8,931 damage · 77 kills");
+  HeroStatsRecord halk = HeroStatsCatalogue_Record(stats, 7, HERO_STATS_WHOLE_RUN);
+  CHECK(halk.value[HeroNumAttacks] == 636 && halk.value[HeroNumHitRate] == 64 && halk.value[HeroNumKills] == 77);
 
   uint32_t fireball = Runes(FUL, IR, 0);
   HeroStatsBlow ball = ChampionBlow(7, HERO_STATS_NO_WEAPON, fireball);
   for (int i = 0; i < 149; i++) stats.CountCast(7, 3, fireball, 27);
   stats.CountFailedCast(7, 3, fireball, 292);
   stats.CreditMonsterDamage(3, ball, 3130);
-  for (int i = 0; i < 29; i++) stats.CountMonsterKill(3, 10, 0, ball);
-  std::string spells = HeroStatsView_Summaries(stats, 7, HERO_STATS_WHOLE_RUN).spells;
-  CHECK(spells.find("150 casts · ") == 0);  // 149 that worked and the one that failed
-  CHECK(spells.find(" mana · 3,130 damage · 29 kills · 292 wasted") != std::string::npos);
+  halk = HeroStatsCatalogue_Record(stats, 7, HERO_STATS_WHOLE_RUN);
+  CHECK(halk.value[HeroNumCasts] == 150);  // 149 that worked and the one that failed
+  CHECK(halk.value[HeroNumManaWasted] == 292);
+  // Spells cast as runes are no attacks: the hit rate stays the axe's
+  CHECK(halk.value[HeroNumAttacks] == 636 && halk.value[HeroNumHitRate] == 64);
 
   stats.CreditHarm(7, 3, HeroHarmMonster, HeroStatsBlow_Nobody(HeroBlowByMonster), 5136);
   stats.CreditHarm(7, 3, HeroHarmFriendlyFire, ChampionBlow(9, HERO_STATS_NO_WEAPON, fireball), 204);
-  CHECK(HeroStatsView_Summaries(stats, 7, 3).harm == "5,340");  // 204 caused by 9, not by 7
-  CHECK(HeroStatsView_Summaries(stats, 9, 3).harm == "0 · friendly fire 204");
-  CHECK(HeroStatsView_Summaries(stats, 9, 3).healing == "0 healed");
+  CHECK(HeroStatsCatalogue_Record(stats, 7, 3).value[HeroNumTaken] == 5340);  // 204 caused by 9, not by 7
+  CHECK(HeroStatsCatalogue_Record(stats, 7, 3).value[HeroNumFriendlyFire] == 0);
+  CHECK(HeroStatsCatalogue_Record(stats, 9, 3).value[HeroNumFriendlyFire] == 204);
   stats.CreditHealing(7, 3, HeroHealPotion, 9, 2945);
-  CHECK(HeroStatsView_Summaries(stats, 7, 3).healing == "2,945 healed");
-  CHECK(HeroStatsView_Summaries(stats, 9, 3).healing == "0 healed · 2,945 given");
+  CHECK(HeroStatsCatalogue_Record(stats, 7, 3).value[HeroNumHealed] == 2945);
+  CHECK(HeroStatsCatalogue_Record(stats, 9, 3).value[HeroNumHealingGiven] == 2945);
   stats.CreditHealing(7, 3, HeroHealPotion, 7, 980);
-  CHECK(HeroStatsView_Summaries(stats, 7, 3).healing == "3,925 healed · 980 given");
+  HeroStatsRecord healed = HeroStatsCatalogue_Record(stats, 7, 3);
+  CHECK(healed.value[HeroNumHealed] == 3925 && healed.value[HeroNumHealingGiven] == 980 && healed.value[HeroNumHealPotions] == 3925);
 }
 
-static void HardshipCountsAndEmptyStore(void)
+static void HardshipCountsPerLevel(void)
 {
   HeroStats stats;
   stats.MeetChampion(7, "HALK");
-  HeroStatsSummaries empty = HeroStatsView_Summaries(stats, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN);
-  CHECK(empty.attacks == "0 tries · - hits · 0 damage · 0 kills");
-  CHECK(empty.spells == "none");
-  CHECK(empty.hardship == "never died");
   HeroStatsDeath death = {7, 4, HeroHarmMonster, HeroStatsBlow_Nobody(HeroBlowByMonster)};
   stats.CountDeath(death);
-  CHECK(HeroStatsView_Summaries(stats, 7, HERO_STATS_WHOLE_RUN).hardship == "1 death");
+  CHECK(HeroStatsCatalogue_Record(stats, 7, HERO_STATS_WHOLE_RUN).value[HeroNumDeaths] == 1);
   // With a level picked: that level's deaths only, and no wipes or reloads
-  CHECK(HeroStatsView_Summaries(stats, 7, 4).hardship == "1 death");
-  CHECK(HeroStatsView_Summaries(stats, 7, 3).hardship == "never died");
+  CHECK(HeroStatsCatalogue_Record(stats, 7, 4).value[HeroNumDeaths] == 1);
+  CHECK(HeroStatsCatalogue_Record(stats, 7, 3).value[HeroNumDeaths] == 0);
   for (int i = 0; i < 5; i++) stats.CountDeath(death);
   stats.CountPartyWipe();
-  for (int i = 0; i < 9; i++) stats.CountReload();
-  CHECK(HeroStatsView_Summaries(stats, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN).hardship ==
-        "6 deaths · 1 wipe · 9 reloads");
   stats.CountPartyWipe();
-  CHECK(HeroStatsView_Summaries(stats, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN).hardship ==
-        "6 deaths · 2 wipes · 9 reloads");
-  CHECK(HeroStatsView_Summaries(stats, HERO_STATS_PARTY, 4).hardship == "6 deaths");
-  CHECK(HeroStatsView_Summaries(stats, HERO_STATS_PARTY, 3).hardship == "never died");
+  for (int i = 0; i < 9; i++) stats.CountReload();
+  HeroStatsRecord run = HeroStatsCatalogue_Record(stats, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN);
+  CHECK(run.value[HeroNumDeaths] == 6 && run.value[HeroNumWipes] == 2 && run.value[HeroNumReloads] == 9);
+  HeroStatsRecord four = HeroStatsCatalogue_Record(stats, HERO_STATS_PARTY, 4);
+  CHECK(four.value[HeroNumDeaths] == 6 && four.value[HeroNumWipes] == 0 && four.value[HeroNumReloads] == 0);
 }
 
 static void SpellNames(void)
@@ -227,8 +225,8 @@ void TestHeroStatsView(void)
   NumbersAndPercents();
   ColumnsPutThePartyFirst();
   PickerShowsButtonsUpToSixteenLevels();
-  SummariesReadLikeTheMockup();
-  HardshipCountsAndEmptyStore();
+  RecordsReadLikeTheMockup();
+  HardshipCountsPerLevel();
   SpellNames();
   DeathNames();
   HarmNames();

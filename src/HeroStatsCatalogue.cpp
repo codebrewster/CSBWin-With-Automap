@@ -180,8 +180,8 @@ HeroStatsRecord HeroStatsCatalogue_Record(const HeroStats &stats, HeroStatsChamp
   v[HeroNumResurrected] = stats.Resurrections(who, level);
 
   v[HeroNumEaten] = stats.Eaten(who, level);
-  v[HeroNumDrunk] = stats.Drunk(who, level);
   HeroStatsNourishment food = stats.Nourishment(who, level);
+  v[HeroNumDrunk] = stats.Drunk(who, level) + food.fountainDrinks;  // the fountain is a way of drinking
   v[HeroNumFoodGained] = food.foodGained;
   v[HeroNumFoodWasted] = food.foodWasted;
   v[HeroNumWaterGained] = food.waterGained;

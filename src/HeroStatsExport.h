@@ -21,6 +21,8 @@ struct HeroStatsExportInfo
 // A JSON string, quotes included. Bytes that are not UTF-8 are taken as Latin-1, and "<" is
 // escaped so that the text cannot end the script it sits in.
 std::string HeroStatsExport_JsonString(const std::string &text);
+// One record as the JSON has it: a value per number, null where it does not apply to who on level
+std::string HeroStatsExport_RecordJson(const HeroStatsRecord &record, HeroStatsChampion who, int level);
 // The JSON object the page script reads (see HeroStatsExport.cpp for its fields)
 std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
                                  const HeroStatsNames &names, const HeroStatsExportInfo &info);

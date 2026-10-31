@@ -20,63 +20,6 @@ struct HeroStatsNames
   std::string (*option)(int option);                     // "" when unknown
 };
 
-// One column of the Table and the Bars
-struct HeroStatsCell
-{
-  int melee, ranged, magic, total, kills, taken, friendlyFire, healed, given, generated, spent, wasted, deaths;
-  int drunk, eaten, fountainDrinks, foodGained, foodWasted, waterGained, waterWasted;
-  int doorsBashed, doorsSmashed, doorsShot, doorsBySpell;   // the total includes doors of unknown method
-  int doorsOpenedByZo;                                      // no bash, not in the total
-};
-
-struct HeroStatsOverview
-{
-  std::vector<HeroStatsColumn> columns;  // champions; the party's cell is cells.back()
-  std::vector<HeroStatsCell> cells;      // columns.size() + 1
-  int wipes, reloads;                    // the whole run's, whatever the level
-  HeroStatsMovement movement;            // the party's, on the level
-  int itemsPickedUp, itemsUsedInWalls;   // the party's, on the level
-  int chestsOpened;                      // the party's, on the level
-  int doorsOpenedByButton, doorsClosedByButton;  // the party's, on the level
-  int scrollsRead, wallTextsRead;        // the party's, on the level
-  int championsSeen, championsViewed;    // the party's, on the level
-  // What each column ate and drank, one line per item name (most first), the cells' order; the
-  // drunk lines end with "Fountain". Empty when the overview was made without names.
-  struct CountLine { std::string name; std::vector<int> byCell; };
-  std::vector<CountLine> eatenLines, drunkLines;
-};
-HeroStatsOverview HeroStatsPages_Overview(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns, int level,
-                                          const HeroStatsNames *names = 0);
-
-// The Table's groups, in the order they are drawn, with the party's numbers summed up in one line
-// for each group's folding header (like the champion pages' sections)
-enum HeroStatsTableGroup { HeroGroupDealt, HeroGroupTaken, HeroGroupHealing, HeroGroupHardship, HeroGroupMana,
-                           HeroGroupMovement, HeroGroupItems, HeroGroupFood, HeroGroupDungeon, HeroGroupReading,
-                           HeroGroupChampions, HERO_TABLE_GROUP_COUNT };
-extern const char *const HERO_STATS_TABLE_GROUP_TITLES[HERO_TABLE_GROUP_COUNT];
-// wholeRun: the wipes and reloads belong to the whole run only
-std::vector<std::string> HeroStatsPages_TableSummaries(const HeroStatsOverview &data, bool wholeRun);
-
-// What the By level page adds up. From HeroMetricMovement on, a button shows a table of the
-// party's numbers per level instead of a number per champion (HeroStatsPages_Metric gives 0).
-enum HeroStatsMetric { HeroMetricDealt, HeroMetricKills, HeroMetricTaken, HeroMetricHealed, HeroMetricSpent,
-                       HeroMetricMovement, HeroMetricItems, HeroMetricFood, HeroMetricDungeon, HeroMetricReading,
-                       HeroMetricChampions, HERO_METRIC_COUNT };
-const int HERO_STATS_FIRST_PARTY_TABLE = HeroMetricMovement;
-const int HERO_STATS_PARTY_TABLE_COUNT = HERO_METRIC_COUNT - HeroMetricMovement;
-// The party table of a metric from HERO_STATS_FIRST_PARTY_TABLE on: its column labels, and the
-// party's numbers on a level (or the whole run) in that order
-std::vector<std::string> HeroStatsPages_PartyTableLabels(int metric);
-std::vector<int> HeroStatsPages_PartyTableRow(const HeroStats &stats, int level, int metric);
-extern const char *const HERO_STATS_METRIC_LABELS[HERO_METRIC_COUNT];
-int HeroStatsPages_Metric(const HeroStats &stats, HeroStatsChampion who, int level, int metric);
-
-// The columns of the movement table, after the level
-enum HeroStatsMovementColumn { HeroMoveSteps, HeroMoveTilesWalked, HeroMoveTilesExplored, HeroMoveTurns, HeroMoveBumps, HeroMoveTeleports, HeroMovePitFalls,
-                               HeroMovePitClimbs, HeroMoveTicks, HeroMoveSleepTicks, HERO_MOVE_COLUMN_COUNT };
-extern const char *const HERO_STATS_MOVEMENT_LABELS[HERO_MOVE_COLUMN_COUNT];
-int HeroStatsPages_MovementValue(const HeroStatsMovement &movement, int column);
-
 // One row of the Monsters page: the monsters of one name, killed by each champion column, by
 // doors, pits and anything else (clouds, traps, monsters, the game)
 struct HeroStatsMonsterLine
@@ -130,7 +73,6 @@ struct HeroStatsHeroPage
   int eatenTotal, drunkTotal;
   std::vector<HeroStatsAmountLine> eaten, drunk;
   HeroStatsNourishment nourishment;
-  HeroStatsSummaries summaries;
 };
 HeroStatsHeroPage HeroStatsPages_Hero(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
                                       HeroStatsChampion who, int level, const HeroStatsNames &names);
@@ -142,6 +84,8 @@ HeroStatsHeroPage HeroStatsPages_Hero(const HeroStats &stats, const std::vector<
 struct HeroStatsNumbersRow { HeroStatsNumber number; int depth; std::vector<int> byColumn; int party; bool partyOnly; };
 enum HeroStatsDetail { HeroDetailWeapons, HeroDetailSpells, HeroDetailHarm, HeroDetailHealing, HeroDetailDeaths,
                        HeroDetailConsumed, HeroDetailItems, HeroDetailMonsters, HERO_DETAIL_COUNT };
+// The detail tables of a topic for who, in drawing order (Items only for the party)
+std::vector<HeroStatsDetail> HeroStatsPages_Details(int topic, HeroStatsChampion who);
 struct HeroStatsTopicPage
 {
   std::vector<HeroStatsNumber> tiles;         // the tiles that apply, at most 4

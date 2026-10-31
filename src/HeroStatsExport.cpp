@@ -4,19 +4,24 @@
 #include <cstdio>
 
 // The JSON the page script reads:
-// { "dungeon", "date", "separator" (between thousands), "heroes": [{"name", "left"}], "levels": [level, ...], "wipes", "reloads",
+// { "dungeon", "date", "separator" (between thousands), "heroes": [{"name", "left"}], "levels": [level, ...],
+//   "numbers": the catalogue, one per HeroStatsNumber: [{"label", "help", "party", "run", "bad", "ratio", "pct", "ticks"}],
+//   "topics": one per HeroStatsTopic: [{"label", "rows": [[number, depth], ...], "tiles": [number, ...],
+//             "grid": [number, ...] (Champions side by side), "details": [HeroStatsDetail, ...] (the party's),
+//             "heroDetails": [...] (a champion's)}],
+//   "heroTiles": [number, ...] (a champion's Overview),
 //   "views": { "-1" for the whole run and one per visited level: {
-//     "cells": per hero then the party [melee, ranged, magic, total, kills, taken, friendly fire
-//              caused, healed, healing given, mana generated, spent, wasted, deaths],
-//     "move": [steps, turns, wall bumps, teleports, pit falls, pit climbs, ticks, ticks asleep],
-//     "monsters": [[name, [kills per hero], door, pit, other, total], ...] most killed first,
+//     "records": per hero then the party, a value per number, null where it does not apply,
+//     "summaries": per hero then the party, one line per topic,
 //     "pages": per hero then the party {
-//       "sum": [attacks, spells, damage taken, healing, hardship] (the section summaries),
-//       "weapons": [[name, tries, hits, damage, kills, uses, [[option, tries, hits, damage, kills, uses], ...]], ...]
+//       "weapons": [[name, tries, hits, damage, kills, uses, [[option, tries, hits, damage, kills, uses], ...], [by hero]], ...]
 //                  (tries: blows and missiles; uses: actions that cannot hit),
-//       "spells": [[name, casts, successful, failed, mana, wasted, damage, kills], ...],
-//       "taken": [[text, amount, isBad], ...], "healed", "healing": [[text, amount], ...],
-//       "given", "resurrected", "deaths": [text, ...], "wipes", "reloads" } } } }
+//       "spells": [[name, casts, failed, mana, wasted, damage, kills, [by hero]], ...],
+//       "taken": [[text, amount, isBad, [by hero]], ...], "healing": [[text, amount, [by hero]], ...],
+//       "deaths": [text, ...], "eaten": [[text, amount, [by hero]], ...], "drunk": [...], "eatenTotal", "drunkTotal" },
+//     "monsters": [[name, [kills per hero], door, pit, other, total], ...] most killed first,
+//     "items": [[name, picked up, used in walls], ...] } } }
+// [by hero] is empty except on the party's page.
 
 // ---------------------------------------------------------------------------------------------
 // JSON
@@ -82,19 +87,25 @@ static std::string Numbers(const int *values, size_t count)
   return out + "]";
 }
 
-static std::string CellJson(const HeroStatsCell &c)
+static std::string Ints(const std::vector<int> &values)
 {
-  int values[25] = {c.melee, c.ranged, c.magic, c.total, c.kills, c.taken, c.friendlyFire,
-                    c.healed, c.given, c.generated, c.spent, c.wasted, c.deaths, c.drunk, c.eaten, c.doorsBashed,
-                    c.fountainDrinks, c.foodGained, c.foodWasted, c.waterGained, c.waterWasted,
-                    c.doorsSmashed, c.doorsShot, c.doorsBySpell, c.doorsOpenedByZo};
-  return Numbers(values, 25);
+  return Numbers(values.data(), values.size());
+}
+
+std::string HeroStatsExport_RecordJson(const HeroStatsRecord &record, HeroStatsChampion who, int level)
+{
+  std::string out = "[";
+  for (int n = 0; n < HERO_NUMBER_COUNT; n++)
+  {
+    if (n > 0) out += ",";
+    out += HeroStatsCatalogue_Applies((HeroStatsNumber)n, who, level) ? Number(record.value[n]) : "null";
+  }
+  return out + "]";
 }
 
 static std::string MonsterJson(const HeroStatsMonsterLine &line)
 {
-  std::string out = "[" + HeroStatsExport_JsonString(line.name) + ",";
-  out += Numbers(line.byColumn.data(), line.byColumn.size());
+  std::string out = "[" + HeroStatsExport_JsonString(line.name) + "," + Ints(line.byColumn);
   int rest[4] = {line.door, line.pit, line.other, line.total};
   for (int i = 0; i < 4; i++) out += "," + Number(rest[i]);
   return out + "]";
@@ -107,18 +118,14 @@ static std::string AmountLinesJson(const std::vector<HeroStatsAmountLine> &lines
   {
     out += (i > 0 ? ",[" : "[") + HeroStatsExport_JsonString(lines[i].text) + "," + Number(lines[i].amount);
     if (withBad) out += "," + Bool(lines[i].isBad);
-    out += "]";
+    out += "," + Ints(lines[i].byColumn) + "]";
   }
   return out + "]";
 }
 
 static std::string PageJson(const HeroStatsHeroPage &page)
 {
-  const HeroStatsSummaries &s = page.summaries;
-  std::string out = "{\"sum\":[" + HeroStatsExport_JsonString(s.attacks) + "," + HeroStatsExport_JsonString(s.spells) +
-                    "," + HeroStatsExport_JsonString(s.harm) + "," + HeroStatsExport_JsonString(s.healing) + "," +
-                    HeroStatsExport_JsonString(s.hardship) + "," + HeroStatsExport_JsonString(s.food) + "]";
-  out += ",\"weapons\":[";
+  std::string out = "{\"weapons\":[";
   for (size_t w = 0; w < page.weapons.size(); w++)
   {
     const HeroStatsWeaponLine &weapon = page.weapons[w];
@@ -134,85 +141,64 @@ static std::string PageJson(const HeroStatsHeroPage &page)
       for (int i = 0; i < 5; i++) out += "," + Number(optionCounts[i]);
       out += "]";
     }
-    out += "]]";
+    out += "]," + Ints(weapon.byColumn) + "]";
   }
   out += "],\"spells\":[";
   for (size_t i = 0; i < page.spells.size(); i++)
   {
     const HeroStatsSpellLine &spell = page.spells[i];
-    int counts[7] = {spell.casts, spell.successful, spell.failed, spell.mana, spell.wasted, spell.damage, spell.kills};
+    int counts[6] = {spell.casts, spell.failed, spell.mana, spell.wasted, spell.damage, spell.kills};
     out += (i > 0 ? ",[" : "[") + HeroStatsExport_JsonString(spell.name);
-    for (int k = 0; k < 7; k++) out += "," + Number(counts[k]);
-    out += "]";
+    for (int k = 0; k < 6; k++) out += "," + Number(counts[k]);
+    out += "," + Ints(spell.byColumn) + "]";
   }
   out += "],\"taken\":" + AmountLinesJson(page.taken, true);
-  out += ",\"healed\":" + Number(page.healedTotal);
   out += ",\"healing\":" + AmountLinesJson(page.healing, false);
-  out += ",\"given\":" + Number(page.given) + ",\"resurrected\":" + Number(page.resurrected);
   out += ",\"deaths\":[";
   for (size_t i = 0; i < page.deathLines.size(); i++)
     out += (i > 0 ? "," : "") + HeroStatsExport_JsonString(page.deathLines[i]);
-  out += "],\"wipes\":" + Number(page.wipes) + ",\"reloads\":" + Number(page.reloads);
-  const HeroStatsNourishment &food = page.nourishment;
-  int foodNumbers[6] = {page.eatenTotal, page.drunkTotal, food.foodGained, food.foodWasted, food.waterGained, food.waterWasted};
-  out += ",\"food\":" + Numbers(foodNumbers, 6) + ",\"eaten\":" + AmountLinesJson(page.eaten, false) +
-         ",\"drunk\":" + AmountLinesJson(page.drunk, false) + "}";
+  out += "],\"eaten\":" + AmountLinesJson(page.eaten, false) + ",\"drunk\":" + AmountLinesJson(page.drunk, false);
+  out += ",\"eatenTotal\":" + Number(page.eatenTotal) + ",\"drunkTotal\":" + Number(page.drunkTotal) + "}";
   return out;
 }
 
 static std::string ViewJson(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
                             const HeroStatsNames &names, int level)
 {
-  HeroStatsOverview overview = HeroStatsPages_Overview(stats, columns, level, &names);
-  std::string out = "{\"cells\":[";
-  for (size_t i = 0; i < overview.cells.size(); i++) out += (i > 0 ? "," : "") + CellJson(overview.cells[i]);
-  int move[HERO_MOVE_COLUMN_COUNT];
-  for (int c = 0; c < HERO_MOVE_COLUMN_COUNT; c++) move[c] = HeroStatsPages_MovementValue(overview.movement, c);
-  out += "],\"move\":" + Numbers(move, HERO_MOVE_COLUMN_COUNT);
-  std::vector<HeroStatsMonsterLine> monsters = HeroStatsPages_Monsters(stats, columns, level, names);
-  out += ",\"monsters\":[";
-  for (size_t i = 0; i < monsters.size(); i++) out += (i > 0 ? "," : "") + MonsterJson(monsters[i]);
-  std::vector<HeroStatsItemLine> items = HeroStatsPages_Items(stats, level, names);
-  out += "],\"items\":[";
-  for (size_t i = 0; i < items.size(); i++)
-    out += std::string(i > 0 ? "," : "") + "[" + HeroStatsExport_JsonString(items[i].name) + "," +
-           Number(items[i].pickedUp) + "," + Number(items[i].usedInWall) + "," + Number(items[i].drunk) + "," +
-           Number(items[i].eaten) + "]";
-  out += "],\"chests\":" + Number(overview.chestsOpened);
-  out += ",\"buttons\":[" + Number(overview.doorsOpenedByButton) + "," + Number(overview.doorsClosedByButton) + "]";
-  out += ",\"reading\":[" + Number(overview.scrollsRead) + "," + Number(overview.wallTextsRead) + "]";
-  out += ",\"champions\":[" + Number(overview.championsSeen) + "," + Number(overview.championsViewed) + "]";
-  std::vector<std::string> groupSums = HeroStatsPages_TableSummaries(overview, level == HERO_STATS_WHOLE_RUN);
-  out += ",\"groupSums\":[";
-  for (size_t i = 0; i < groupSums.size(); i++) out += (i > 0 ? "," : "") + HeroStatsExport_JsonString(groupSums[i]);
-  out += "]";
-  const std::vector<HeroStatsOverview::CountLine> *lineSets[2] = {&overview.eatenLines, &overview.drunkLines};
-  const char *lineKeys[2] = {"eatenLines", "drunkLines"};
-  for (int set = 0; set < 2; set++)
-  {
-    out += std::string(",\"") + lineKeys[set] + "\":[";
-    for (size_t i = 0; i < lineSets[set]->size(); i++)
-    {
-      const HeroStatsOverview::CountLine &line = (*lineSets[set])[i];
-      out += (i > 0 ? ",[" : "[") + HeroStatsExport_JsonString(line.name) + "," +
-             Numbers(line.byCell.data(), line.byCell.size()) + "]";
-    }
-    out += "]";
-  }
-  out += ",\"tables\":[";
-  for (int t = 0; t < HERO_STATS_PARTY_TABLE_COUNT; t++)
-  {
-    std::vector<int> row = HeroStatsPages_PartyTableRow(stats, level, HERO_STATS_FIRST_PARTY_TABLE + t);
-    out += (t > 0 ? "," : "") + Numbers(row.data(), row.size());
-  }
-  out += "]";
-  out += ",\"pages\":[";
+  std::string records = "[", summaries = "[", pages = "[";
   for (size_t i = 0; i <= columns.size(); i++)
   {
     HeroStatsChampion who = i < columns.size() ? columns[i].id : HERO_STATS_PARTY;
-    out += (i > 0 ? "," : "") + PageJson(HeroStatsPages_Hero(stats, columns, who, level, names));
+    HeroStatsRecord record = HeroStatsCatalogue_Record(stats, who, level);
+    std::string comma = i > 0 ? "," : "";
+    records += comma + HeroStatsExport_RecordJson(record, who, level);
+    summaries += comma + "[";
+    for (int t = 0; t < HERO_TOPIC_COUNT; t++)
+      summaries += (t > 0 ? "," : "") + HeroStatsExport_JsonString(HeroStatsCatalogue_Summary(t, record, who, level));
+    summaries += "]";
+    pages += comma + PageJson(HeroStatsPages_Hero(stats, columns, who, level, names));
+  }
+  std::string out = "{\"records\":" + records + "],\"summaries\":" + summaries + "],\"pages\":" + pages + "]";
+  std::vector<HeroStatsMonsterLine> monsters = HeroStatsPages_Monsters(stats, columns, level, names);
+  out += ",\"monsters\":[";
+  for (size_t i = 0; i < monsters.size(); i++) out += (i > 0 ? "," : "") + MonsterJson(monsters[i]);
+  out += "],\"items\":[";
+  std::vector<HeroStatsItemLine> items = HeroStatsPages_Items(stats, level, names);
+  bool first = true;
+  for (size_t i = 0; i < items.size(); i++)
+  {
+    if (items[i].pickedUp + items[i].usedInWall == 0) continue;  // only eaten or drunk: in Eaten and drunk
+    out += std::string(first ? "" : ",") + "[" + HeroStatsExport_JsonString(items[i].name) + "," +
+           Number(items[i].pickedUp) + "," + Number(items[i].usedInWall) + "]";
+    first = false;
   }
   return out + "]}";
+}
+
+static std::string Details(const std::vector<HeroStatsDetail> &details)
+{
+  std::vector<int> ids(details.begin(), details.end());
+  return Ints(ids);
 }
 
 std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
@@ -226,17 +212,32 @@ std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroS
     out += std::string(i > 0 ? "," : "") + "{\"name\":" + HeroStatsExport_JsonString(columns[i].name) +
            ",\"left\":" + Bool(columns[i].hasLeft) + "}";
   std::vector<int> levels = stats.VisitedLevels();
-  out += "],\"levels\":" + Numbers(levels.data(), levels.size());
-  out += ",\"wipes\":" + Number(stats.PartyWipes()) + ",\"reloads\":" + Number(stats.Reloads());
-  out += ",\"tableNames\":[";
-  for (int t = 0; t < HERO_STATS_PARTY_TABLE_COUNT; t++)
+  out += "],\"levels\":" + Ints(levels);
+  out += ",\"numbers\":[";
+  for (int n = 0; n < HERO_NUMBER_COUNT; n++)
   {
-    std::vector<std::string> labels = HeroStatsPages_PartyTableLabels(HERO_STATS_FIRST_PARTY_TABLE + t);
-    out += std::string(t > 0 ? "," : "") + "[" + HeroStatsExport_JsonString(HERO_STATS_METRIC_LABELS[HERO_STATS_FIRST_PARTY_TABLE + t]);
-    for (size_t c = 0; c < labels.size(); c++) out += "," + HeroStatsExport_JsonString(labels[c]);
-    out += "]";
+    const HeroStatsNumberInfo &number = HeroStatsCatalogue_Info((HeroStatsNumber)n);
+    out += std::string(n > 0 ? "," : "") + "{\"label\":" + HeroStatsExport_JsonString(number.label) +
+           ",\"help\":" + HeroStatsExport_JsonString(number.help) + ",\"party\":" + Bool(number.partyOnly) +
+           ",\"run\":" + Bool(number.wholeRunOnly) + ",\"bad\":" + Bool(number.isBad) + ",\"ratio\":" +
+           Bool(number.isRatio) + ",\"pct\":" + Bool(n == HeroNumHitRate) + ",\"ticks\":" + Bool(number.isTicks) + "}";
   }
-  out += "]";
+  out += "],\"topics\":[";
+  for (int t = 0; t < HERO_TOPIC_COUNT; t++)
+  {
+    const HeroStatsTopicInfo &topic = HeroStatsCatalogue_Topic(t);
+    out += std::string(t > 0 ? "," : "") + "{\"label\":" + HeroStatsExport_JsonString(topic.label) + ",\"rows\":[";
+    for (size_t r = 0; r < topic.rows.size(); r++)
+      out += std::string(r > 0 ? ",[" : "[") + Number(topic.rows[r].number) + "," + Number(topic.rows[r].depth) + "]";
+    std::vector<int> tiles(topic.tiles.begin(), topic.tiles.end());
+    std::vector<HeroStatsNumber> gridNumbers = HeroStatsCatalogue_GridNumbers(t);
+    std::vector<int> grid(gridNumbers.begin(), gridNumbers.end());
+    out += "],\"tiles\":" + Ints(tiles) + ",\"grid\":" + Ints(grid);
+    out += ",\"details\":" + Details(HeroStatsPages_Details(t, HERO_STATS_PARTY));
+    out += ",\"heroDetails\":" + Details(HeroStatsPages_Details(t, HERO_STATS_NOBODY)) + "}";
+  }
+  int heroTiles[4] = {HeroNumDamage, HeroNumKills, HeroNumTaken, HeroNumDeaths};
+  out += "],\"heroTiles\":" + Numbers(heroTiles, 4);
   out += ",\"views\":{\"-1\":" + ViewJson(stats, columns, names, HERO_STATS_WHOLE_RUN);
   for (size_t i = 0; i < levels.size(); i++)
     out += ",\"" + Number(levels[i]) + "\":" + ViewJson(stats, columns, names, levels[i]);
@@ -246,71 +247,70 @@ std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroS
 // ---------------------------------------------------------------------------------------------
 // The page
 
-// The look of the Statistics window (the colours of HeroStatsWindow.cpp)
+// The look of the Statistics window (the colours of HeroStatsDraw.cpp)
 static const char *const PAGE_HEAD = R"HTML(<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Statistics</title>
 <style>
-  :root { color-scheme: dark }
-  body { background:#111216; color:#ccc; font:14px system-ui,sans-serif; margin:24px }
-  h1 { font-size:18px; color:#e8c66a; margin:0 0 4px }
+  :root { color-scheme: dark; --bg:#1e1f24; --panel:#272930; --hover:#2e3139; --line:#31343d; --row:#292b32;
+    --text:#d8d8d8; --part:#b4b6bf; --dim:#8a8d98; --faint:#5a5d68; --on:#4272b8; --bad:#e5735f; --track:#2f323a;
+    --c0:#5fbf5f; --c1:#d8c447; --c2:#d9604f; --c3:#5b8fd9 }
+  body { background:#121317; color:#ccc; font:14px system-ui,sans-serif; margin:24px }
+  h1 { font-size:18px; color:#fff; margin:0 0 4px; font-weight:600 }
   .about { color:#999; margin-bottom:12px }
-  .im { max-width:1000px; background:#1e1f24; color:#d8d8d8; font:12px/1.45 "DejaVu Sans Mono","Bitstream Vera Sans Mono",Menlo,Consolas,monospace; border:1px solid #3a3d46; border-radius:4px; overflow:hidden }
-  .im .title { background:#294a7a; color:#fff; padding:3px 8px; font-weight:bold; display:flex }
-  .im .title span:last-child { margin-left:auto; color:#9fb4d8; font-weight:normal }
-  .bar { display:flex; gap:4px; align-items:center; padding:6px 8px; border-bottom:1px solid #33363e; flex-wrap:wrap }
-  .btn { background:#2c3e5c; padding:1px 6px; border-radius:3px; cursor:pointer; user-select:none; color:#d8d8d8; border:0; font:inherit }
-  .btn:hover { background:#36507a }
-  .btn.on { background:#4272b8; color:#fff }
-  .btn:disabled { opacity:.35; cursor:default }
-  .btn.left { color:#888 }
-  .sp { flex:1 }
-  select { background:#2a2c33; color:#d8d8d8; border:1px solid #4a4d57; font:inherit; border-radius:3px }
-  #view { max-height:640px; overflow:auto }
-  .im table { border-collapse:collapse }
-  .im td, .im th { padding:2px 8px; text-align:right; white-space:nowrap }
-  .im th { color:#9fb4d8; font-weight:normal; border-bottom:1px solid #3a3d46; position:sticky; top:0; background:#1e1f24 }
-  .im th.sort { cursor:pointer; user-select:none }
-  .im th.sort:hover { color:#fff }
-  .im th .arrow { color:#e8c66a }
-  .im td:first-child, .im th:first-child { text-align:left }
-  .im .hero { cursor:pointer; color:#e8c66a }
-  .im .hero.left { color:#888 }
-  .im .hero:hover { color:#fff }
-  .im tr.grp td { padding:6px 0 0; border-bottom:1px solid #2c2f37 }
-  .im tr.grp .sech .st { width:auto }
-  .im tr.sub td:first-child { padding-left:20px }
-  .im tr.sub2 td:first-child { padding-left:36px; color:#888 }
-  .im tr.lv { cursor:pointer }
-  .im tr.lv:hover td { background:#2a3550 }
-  .im tr.all td { background:#2a2c33; color:#fff }
-  .im tr.opt td { color:#aaa }
-  .im tr.opt td:first-child { padding-left:28px }
-  .im tr.wrow { cursor:pointer }
-  .im tr.wrow:hover td { background:#262a33 }
-  .dim { color:#888 } .bad { color:#e07a6a } .melee { color:#c9764a } .ranged { color:#5a9bd8 } .magic { color:#a77ad8 }
-  .kills { color:#c9a24a } .healed { color:#4ab0a0 } .given { color:#e0c060 } .gen { color:#4a9a6a } .white { color:#fff }
-  .body { padding:6px 8px }
-  .h { color:#e8c66a; margin:10px 0 3px }
-  .legend { color:#888; margin:2px 0 4px } .legend i { display:inline-block; width:10px; height:10px; margin:0 4px 0 12px; vertical-align:-1px }
-  .legend i:first-child { margin-left:0 }
-  .brow { display:flex; align-items:center; margin:3px 0 }
-  .brow .n { width:100px; flex:none; overflow:hidden; text-overflow:ellipsis }
-  .brow .v { margin-left:8px; color:#d8d8d8 }
-  .seg { display:inline-block; height:10px }
-  .share { display:flex; width:220px; height:10px; background:#2a2c33 }
-  .sec { border-bottom:1px solid #2c2f37 }
-  .sech { display:flex; align-items:baseline; gap:8px; padding:5px 2px; cursor:pointer; user-select:none }
-  .sech:hover { background:#262a33 }
-  .sech .st { color:#e8c66a; width:130px }
-  .sech .ss { color:#aaa; margin-left:auto; padding-right:6px }
-  .arr { color:#9fb4d8; display:inline-block; width:12px }
-  .secb { padding:0 0 8px 14px }
-  .vl { display:flex; max-width:420px } .vl span:last-child { margin-left:auto; padding-left:16px }
-  .vl.in span:first-child { padding-left:14px; color:#888 }
-  .hint { color:#777; padding:6px 0 }
-  .empty { color:#888; padding:8px }
+  .im { max-width:1000px; background:var(--bg); color:var(--text); font:12.5px/1.45 "DejaVu Sans Mono","Bitstream Vera Sans Mono",Menlo,Consolas,monospace;
+    border:1px solid var(--line); border-radius:6px; overflow:hidden }
+  .title { background:#294a7a; color:#fff; padding:4px 10px; display:flex; gap:12px }
+  .title span:last-child { margin-left:auto; color:#b9c9e4 }
+  .bar1 { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 10px 0 }
+  .whos, .seg { display:flex; gap:4px; flex-wrap:wrap; align-items:center }
+  .seg { gap:1px }
+  button { font:inherit; cursor:pointer }
+  .who { background:transparent; color:var(--text); border:1px solid #3a3d46; border-radius:4px; padding:3px 9px; display:flex; gap:6px; align-items:center }
+  .who:hover { background:var(--hover) } .who.on { background:var(--panel); border-color:#6b7080; color:#fff } .who.left { color:var(--dim) }
+  .dot { width:8px; height:8px; border-radius:50%; display:inline-block; flex:none } .left .dot, th.left .dot { opacity:.45 }
+  .ch { background:var(--panel); color:var(--dim); border:0; border-radius:3px; padding:3px 8px }
+  .ch:hover { background:var(--hover) } .ch.on { background:var(--on); color:#fff } .ch:disabled { opacity:.35; cursor:default }
+  .lab { color:var(--faint); margin:0 6px 0 8px }
+  select { background:var(--panel); color:var(--text); border:1px solid #4a4d57; font:inherit; border-radius:3px }
+  .tabs { display:flex; gap:2px; padding:6px 10px 0; border-bottom:1px solid var(--line); flex-wrap:wrap }
+  .tab { background:none; border:0; color:var(--dim); padding:5px 10px 6px; border-bottom:2px solid transparent; margin-bottom:-1px }
+  .tab:hover { color:#fff } .tab.on { color:#fff; border-bottom-color:var(--on) }
+  #view { max-height:680px; overflow:auto; padding:10px 12px 14px }
+  .tiles { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:12px }
+  .tile { background:var(--panel); border-radius:4px; padding:7px 10px }
+  .tile .v { font-size:20px; color:#fff } .tile.bad .v { color:var(--bad) } .tile .l { color:var(--dim) }
+  .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:12px }
+  .card { background:var(--panel); border-radius:4px; padding:7px 10px 9px; border-top:3px solid; cursor:pointer; display:grid; gap:3px }
+  .card:hover { background:var(--hover) } .card .nm { color:#fff; display:flex; justify-content:space-between } .card .nm span { color:var(--dim) }
+  .cr { display:grid; grid-template-columns:58px 1fr 54px; align-items:center; gap:6px } .cr .l { color:var(--dim) } .cr .n { text-align:right }
+  .mini { height:6px; background:var(--track); border-radius:2px; overflow:hidden } .mini i { display:block; height:100% }
+  .topics { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px }
+  .topic { background:var(--panel); border-radius:4px; padding:7px 10px; cursor:pointer; overflow:hidden; white-space:nowrap; text-overflow:ellipsis }
+  .topic:hover { background:var(--hover) } .topic .t { color:#fff } .topic .s { color:var(--dim) }
+  .sec { margin-bottom:10px } .sech { display:flex; align-items:baseline; gap:8px; padding:3px 0 5px; border-bottom:1px solid var(--line); cursor:pointer; user-select:none }
+  .sech .t { text-transform:uppercase; color:var(--text) } .sech:hover .t { color:#fff }
+  .sech .a { color:var(--dim); width:10px } .sech .s { color:var(--dim); margin-left:auto }
+  .closed .secb { display:none }
+  table { border-collapse:collapse; width:100% }
+  td, th { padding:3px 8px; text-align:right; white-space:nowrap; border-bottom:1px solid var(--row) }
+  th { color:var(--dim); font-weight:normal; border-bottom-color:var(--line) }
+  th.sort { cursor:pointer; user-select:none } th.sort:hover { color:#fff } th .arrow { color:var(--dim) }
+  td:first-child, th:first-child { text-align:left }
+  tr.d1 td { color:var(--part) } tr.d1 td:first-child { padding-left:22px; color:var(--dim) }
+  tr.all td { background:var(--panel); color:#fff }
+  tr.lv { cursor:pointer } tr.lv:hover td { background:var(--hover) }
+  tr.wrow { cursor:pointer } tr.wrow:hover td { background:var(--hover) }
+  tr.opt td { color:var(--part) } tr.opt td:first-child { padding-left:26px; color:var(--dim) }
+  .z { color:var(--faint) } .gone { color:var(--dim) }
+  .pill { color:var(--bad); background:rgba(229,115,95,.16); border-radius:3px; padding:0 4px }
+  td.bar { width:170px } td.who { width:140px }
+  .share { display:flex; height:9px; background:var(--track); border-radius:2px; overflow:hidden; min-width:100px } .share i { display:block; height:100% }
+  .choices { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:8px }
+  .note { color:var(--dim); padding:4px 0 }
+  .wide { overflow-x:auto }
+  @media (max-width:640px) { .tiles, .cards { grid-template-columns:1fr 1fr } .topics { grid-template-columns:1fr } }
 </style></head>
 <body>
 )HTML";
@@ -318,356 +318,327 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
 static const char *const PAGE_SCRIPT = R"HTML(
 <script>
 const D = JSON.parse(document.getElementById('stats').textContent);
-const H = D.heroes, N = H.length;
-const HERO_RGB = ['#c9764a', '#5aa86a', '#5a9bd8', '#a77ad8'];
-const PAGES = ['Table', 'Bars', 'By level', 'Monsters', 'Items'];
-// By level's buttons and the cell each adds up; Movement shows the party's movement table instead
-const METRICS = [['Damage dealt', 3], ['Kills', 4], ['Damage taken', 5], ['Healed', 7], ['Mana spent', 10]]
-  .concat(D.tableNames.map((t, i) => [t[0], -1 - i]));
-const MOVES = ['Steps', 'Tiles walked', 'Tiles explored', 'Turns', 'Wall bumps', 'Teleports', 'Pit falls', 'Pit climbs', 'Time (ticks)', 'Asleep (ticks)'];
-const st = {page: 0, level: -1, hero: -1, metric: 0, open: {0: true, 4: true}, folded: {}, sort: {}, tableOpen: {}};
+const H = D.heroes, N = H.length, NUM = D.numbers, TOP = D.topics;
+const COLOUR = i => `var(--c${i % 4})`;
+const DETAIL = {WEAPONS: 0, SPELLS: 1, HARM: 2, HEALING: 3, DEATHS: 4, CONSUMED: 5, ITEMS: 6, MONSTERS: 7};
+const NUMBERS_SECTION = 'numbers', KEY_SECTION = 'key';
+const st = {who: N, topic: 0, level: -1, per: false, side: false, grid: {}, closed: {}, sort: {}, open: {}};
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'})[c]);
 const fmt = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, D.separator);
-const pct = (part, whole) => whole === 0 ? '-' : Math.round(part * 100 / whole) + '%';
 const lvName = l => l === -1 ? 'Whole run' : 'Lv ' + l;
-const heroName = i => i === N ? 'Party' : H[i].name;
-const view = () => D.views[String(st.level)];
-const btn = (label, on, act, extra) =>
-  `<button class="btn${on ? ' on' : ''}${extra || ''}" onclick="${act}">${esc(label)}</button>`;
-const heroLink = (i, tag) =>
-  `<${tag} class="hero${i < N && H[i].left ? ' left' : ''}" onclick="openHero(${i})">${esc(heroName(i))}</${tag}>`;
+const whoName = i => i === N ? 'Party' : H[i].name;
+const isParty = () => st.who === N;
+const view = l => D.views[String(l)];
+const rec = (i, l) => view(l).records[i];
+const page = () => view(st.level).pages[st.who];
+const applies = (n, i, l) => !(NUM[n].party && i < N) && !(NUM[n].run && l !== -1);
+const text = (n, v) => NUM[n].ratio && v < 0 ? '-' : NUM[n].pct ? v + '%' : fmt(v);
+const sum = a => a.reduce((x, y) => x + Math.max(0, y || 0), 0);
+const dotOf = i => `<span class="dot" style="background:${COLOUR(i)}"></span>`;
 
 function set(changes) { Object.assign(st, changes); draw(); }
-function openHero(i) { set({hero: i}); }
-function pickLevel(l) { set({level: l}); }
 
-// The level picker: a button per level up to 16, else arrows and a list
-function picker() {
-  const L = D.levels;
-  let out = btn('Whole run', st.level === -1, 'pickLevel(-1)');
-  if (L.length <= 16) return out + L.map(l => btn(String(l), st.level === l, `pickLevel(${l})`)).join('');
-  const at = L.indexOf(st.level);
-  const prev = st.level === -1 ? L[L.length - 1] : at > 0 ? L[at - 1] : null;
-  const next = st.level === -1 ? L[0] : at < L.length - 1 ? L[at + 1] : null;
-  out += `<button class="btn" ${prev === null ? 'disabled' : `onclick="pickLevel(${prev})"`}>&#9664;</button>`;
-  out += `<select onchange="pickLevel(+this.value)"><option value="-1">All ${L.length} levels</option>` +
-    L.map(l => `<option value="${l}"${l === st.level ? ' selected' : ''}>Lv ${l}</option>`).join('') + '</select>';
-  return out + `<button class="btn" ${next === null ? 'disabled' : `onclick="pickLevel(${next})"`}>&#9654;</button>`;
+// A number in a cell: a dim dot for zero, bad news on a red pill, nothing where it does not apply
+function cell(v, bad, ratio, label, cls) {
+  const c = cls ? ` class="${cls}"` : '';
+  if (v === null || v === undefined) return `<td${c}></td>`;
+  if (v === 0) return `<td class="z">·</td>`;
+  if (ratio && v < 0) return `<td class="z">-</td>`;
+  return bad && v > 0 ? `<td${c}><span class="pill">${label}</span></td>` : `<td${c}>${label}</td>`;
 }
-
-function topBar() {
-  let left;
-  if (st.hero < 0) left = PAGES.map((p, i) => btn(p, st.page === i, `set({page:${i}})`)).join('');
-  else {
-    left = btn('◀ Overview', false, 'set({hero:-1})');
-    for (let i = 0; i <= N; i++) left += btn(heroName(i), st.hero === i, `openHero(${i})`, i < N && H[i].left ? ' left' : '');
-  }
-  const showPicker = st.hero >= 0 || st.page !== 2;
-  return left + '<span class="sp"></span>' + (showPicker ? picker() : '');
+const numCell = (n, v, cls) => cell(v, NUM[n].bad, NUM[n].ratio, v === null ? '' : text(n, v), cls);
+const plain = (v, bad, cls) => cell(v, bad, false, fmt(v), cls);
+function shareBar(values) {
+  const t = sum(values);
+  return '<div class="share">' + (t ? values.map((v, i) => v > 0 ? `<i style="width:${100 * v / t}%;background:${COLOUR(i)}"></i>` : '').join('') : '') + '</div>';
 }
+const partBar = (part, whole, i) =>
+  `<div class="share"><i style="width:${whole > 0 ? Math.min(100, 100 * part / whole) : 0}%;background:${COLOUR(i)}"></i></div>`;
 
-// A table whose columns sort when their header is clicked. cols: [{label, html?, num, desc}],
-// rows: [{cells: [{v, html}], cls, act, sub: [rows that stay under it]}], foot: one row kept last
-function sortTable(id, cols, rows, foot, defaultCol, defaultDesc) {
-  const s = st.sort[id] || {col: defaultCol, desc: defaultDesc};
-  const key = r => r.cells[s.col].v;
-  if (s.col !== null) rows = rows.slice().sort((a, b) => {
-    const x = key(a), y = key(b);
+function section(id, title, summary, body) {
+  return `<div class="sec${st.closed[id] ? ' closed' : ''}"><div class="sech" onclick="fold('${id}')"><span class="a">${st.closed[id] ? '&#9656;' : '&#9662;'}</span>` +
+    `<span class="t">${esc(title)}</span><span class="s">${summary}</span></div><div class="secb">${body}</div></div>`;
+}
+function fold(id) { st.closed[id] = !st.closed[id]; draw(); }
+
+// A table whose columns sort when their header is clicked; the foot row stays last.
+// cols: [{label, num}], rows: [{cells: [{v, html}], cls, act, sub: [rows kept under it]}]
+function sortTable(id, cols, rows, foot, defaultCol) {
+  const s = st.sort[id] || {col: defaultCol, desc: defaultCol !== null && defaultCol > 0};
+  if (s.col !== null && s.col !== undefined) rows = rows.slice().sort((a, b) => {
+    const x = a.cells[s.col].v, y = b.cells[s.col].v;
     const c = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y));
     return s.desc ? -c : c;
   });
-  const head = cols.map((c, i) => {
-    const arrow = s.col === i ? `<span class="arrow">${s.desc ? ' ▼' : ' ▲'}</span>` : '';
-    return `<th class="sort" onclick="sortBy('${id}',${i},${c.num ? 'true' : 'false'})">${c.html || esc(c.label)}${arrow}</th>`;
-  }).join('');
-  const line = r => `<tr class="${r.cls || ''}"${r.act ? ` onclick="${r.act}"` : ''}>` +
-    r.cells.map(c => `<td>${c.html !== undefined ? c.html : esc(c.v)}</td>`).join('') + '</tr>';
+  const head = cols.map((c, i) => `<th class="sort${c.cls ? ' ' + c.cls : ''}" onclick="sortBy('${id}',${i},${c.num ? 1 : 0})">` +
+    (c.html || esc(c.label)) + (s.col === i ? ` <span class="arrow">${s.desc ? '&#9660;' : '&#9650;'}</span>` : '') + '</th>').join('');
+  const line = r => `<tr${r.cls ? ` class="${r.cls}"` : ''}${r.act ? ` onclick="${r.act}"` : ''}>` + r.cells.map(c => c.html).join('') + '</tr>';
   let body = '';
-  for (const r of rows) {
-    body += line(r);
-    if (r.sub) {
-      let sub = r.sub;
-      if (s.col !== null) sub = sub.slice().sort((a, b) => {
-        const x = key(a), y = key(b);
-        const c = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y));
-        return s.desc ? -c : c;
-      });
-      body += sub.map(line).join('');
-    }
-  }
-  return `<table><thead><tr>${head}</tr></thead><tbody>${body}${foot ? line(foot) : ''}</tbody></table>`;
+  for (const r of rows) { body += line(r); for (const sub of r.sub || []) body += line(sub); }
+  if (foot) body += line(foot);
+  return `<div class="wide"><table><tr>${head}</tr>${body}</table></div>`;
 }
 function sortBy(id, col, num) {
   const s = st.sort[id];
-  st.sort[id] = s && s.col === col ? {col, desc: !s.desc} : {col, desc: num};
+  st.sort[id] = s && s.col === col ? {col, desc: !s.desc} : {col, desc: !!num};
   draw();
 }
-const num = (v, cls) => ({v, html: cls ? `<span class="${cls}">${fmt(v)}</span>` : fmt(v)});
-const dot = (v, dim) => ({v, html: v === 0 ? '<span class="dim">·</span>' : dim ? `<span class="dim">${fmt(v)}</span>` : fmt(v)});
+const nameCol = label => ({label});
+const numCol = label => ({label, num: true});
+const heroCol = i => ({label: H[i].name, html: dotOf(i) + ' ' + esc(H[i].name), num: true, cls: H[i].left ? 'left' : ''});
+const td = (v, html) => ({v, html});
+const nameTd = name => td(name, `<td>${esc(name)}</td>`);
 
-function shareBar(parts, total) {
-  if (total <= 0) return '<div class="share"></div>';
-  return '<div class="share">' + parts.filter(p => p[0] > 0)
-    .map(p => `<span class="seg" style="width:${(p[0] * 100 / total).toFixed(2)}%;background:${p[1]}"></span>`).join('') + '</div>';
+// ---------------------------------------------------------------------------------------------
+
+function picker() {
+  const L = D.levels, one = !st.per;
+  let out = `<div class="seg"><button class="ch${one && st.level === -1 ? ' on' : ''}" onclick="set({per:false,level:-1})">Whole run</button>` +
+    `<button class="ch${st.per ? ' on' : ''}" onclick="set({per:true})">Per level</button><span class="lab">Lv</span>`;
+  if (L.length <= 16)
+    return out + L.map(l => `<button class="ch${one && st.level === l ? ' on' : ''}" onclick="set({per:false,level:${l}})">${l}</button>`).join('') + '</div>';
+  const at = L.indexOf(st.level);
+  const prev = !one || st.level === -1 ? L[L.length - 1] : at > 0 ? L[at - 1] : null;
+  const next = !one || st.level === -1 ? L[0] : at < L.length - 1 ? L[at + 1] : null;
+  out += `<button class="ch" ${prev === null ? 'disabled' : `onclick="set({per:false,level:${prev}})"`}>&#9664;</button>`;
+  out += `<select onchange="set({per:false,level:+this.value})"><option value="-1">-</option>` +
+    L.map(l => `<option value="${l}"${one && l === st.level ? ' selected' : ''}>Lv ${l}</option>`).join('') + '</select>';
+  return out + `<button class="ch" ${next === null ? 'disabled' : `onclick="set({per:false,level:${next}})"`}>&#9654;</button></div>`;
 }
 
-// ---- Table
-function toggleGroup(g) { st.tableOpen[g] = st.tableOpen[g] === false; draw(); }
-function drawTable() {
-  const v = view(), cells = v.cells, party = cells[N];
-  let out = '<table><tr><th></th>';
-  for (let i = 0; i <= N; i++) out += heroLink(i, 'th');
-  out += '</tr>';
-  // A group's header folds the group and sums it up, like the sections of the champion pages
-  const group = (g, t, body) => {
-    const open = st.tableOpen[g] !== false;
-    return `<tr class="grp"><td colspan="${N + 2}"><div class="sech" onclick="toggleGroup(${g})">` +
-      `<span class="arr">${open ? '▼' : '▶'}</span><span class="st">${t}</span><span class="ss">${esc(v.groupSums[g])}</span></div></td></tr>` +
-      (open ? body() : '');
-  };
-  const row = (label, k, cls, bad, sub) => {
-    let r = `<tr${sub ? ' class="sub"' : ''}><td>${label}</td>`;
-    for (let i = 0; i <= N; i++) {
-      const n = cells[i][k], left = i < N && H[i].left;
-      const c = left ? 'dim' : bad && n > 0 ? 'bad' : cls;
-      r += `<td${c ? ` class="${c}"` : ''}>${fmt(n)}</td>`;
+function frame() {
+  let whos = `<button class="who${isParty() ? ' on' : ''}" onclick="set({who:${N}})">Party</button>`;
+  for (let i = 0; i < N; i++)
+    whos += `<button class="who${st.who === i ? ' on' : ''}${H[i].left ? ' left' : ''}" onclick="set({who:${i}})">${dotOf(i)}${esc(H[i].name)}</button>`;
+  document.getElementById('top').innerHTML = `<div class="whos">${whos}</div>${picker()}`;
+  document.getElementById('tabs').innerHTML = TOP.map((t, i) =>
+    `<button class="tab${st.topic === i ? ' on' : ''}" onclick="set({topic:${i}})">${esc(t.label)}</button>`).join('');
+  document.getElementById('where').textContent =
+    [whoName(st.who), TOP[st.topic].label, st.per ? 'Per level' : lvName(st.level)].join(' · ');
+}
+
+function tiles(numbers) {
+  const r = rec(st.who, st.level);
+  const shown = numbers.filter(n => applies(n, st.who, st.level)).slice(0, 4);
+  return '<div class="tiles">' + shown.map(n => `<div class="tile${NUM[n].bad && r[n] > 0 ? ' bad' : ''}"><div class="v">${text(n, r[n])}</div>` +
+    `<div class="l">${esc(NUM[n].label)}</div></div>`).join('') + '</div>';
+}
+
+function numbersTable(t) {
+  const party = rec(N, st.level), one = !isParty();
+  const rows = TOP[t].rows.filter(([n]) => applies(n, st.who, st.level));
+  let head = '<tr><th></th>';
+  if (one) head += `<th class="${H[st.who].left ? 'left' : ''}">${dotOf(st.who)} ${esc(H[st.who].name)}</th><th>Party</th><th>Share of party</th>`;
+  else head += H.map((h, i) => `<th class="${h.left ? 'left' : ''}">${dotOf(i)} ${esc(h.name)}</th>`).join('') + '<th>Party</th><th>Share</th>';
+  let body = '';
+  for (const [n, depth] of rows) {
+    const info = NUM[n], summable = !info.ratio && !info.party;
+    body += `<tr class="d${depth}"><td${info.help ? ` title="${esc(info.help)}"` : ''}>${esc(info.label)}</td>`;
+    if (one) {
+      const mine = rec(st.who, st.level)[n];
+      body += numCell(n, mine) + numCell(n, party[n]) + `<td class="bar">${summable && party[n] > 0 ? partBar(mine, party[n], st.who) : ''}</td>`;
+    } else {
+      for (let i = 0; i < N; i++) body += numCell(n, info.party ? null : rec(i, st.level)[n], H[i].left ? 'gone' : '');
+      body += numCell(n, party[n]) + `<td class="bar">${summable ? shareBar(H.map((h, i) => rec(i, st.level)[n])) : ''}</td>`;
     }
-    return r + '</tr>';
-  };
-  const partyOnly = (label, n, bad) =>
-    `<tr class="sub"><td>${label}</td>${'<td></td>'.repeat(N)}<td${bad && n > 0 ? ' class="bad"' : ''}>${fmt(n)}</td></tr>`;
-  const part = (lines) => lines.map(p => `<tr class="sub2"><td>${esc(p[0])}</td>` +
-    p[1].map((n, i) => `<td${i < N && H[i].left ? ' class="dim"' : ''}>${n === 0 ? '<span class="dim">·</span>' : fmt(n)}</td>`).join('') + '</tr>').join('');
-  const partRow = (label, k) => row(label, k, '', false, true).replace('<tr class="sub">', '<tr class="sub2">');
-  out += group(0, 'Damage dealt', () => {
-    let g = row('Melee', 0, 'melee', false, true) + row('Ranged', 1, 'ranged', false, true) +
-      row('Magic', 2, 'magic', false, true) + row('Total', 3, '', false, false);
-    g += '<tr class="sub"><td>share of party damage</td>';
-    for (let i = 0; i <= N; i++) g += `<td class="dim">${pct(cells[i][3], party[3])}</td>`;
-    return g + '</tr>' + row('Kills', 4, 'kills', false, false);
+    body += '</tr>';
+  }
+  return `<div class="wide"><table>${head}</tr>${body}</table></div>`;
+}
+
+const attackCells = (l, cls) => {
+  const [tries, hits, damage, kills, uses] = l;
+  if (tries === 0 && uses > 0) return [td(uses, plain(uses)), td(-1, '<td class="z">-</td>'), td(-1, '<td class="z">-</td>'),
+    td(-1, '<td class="z">-</td>'), td(-1, '<td class="z">-</td>'), td(-1, '<td class="z">-</td>')];
+  const rate = tries ? hits / tries : -1, avg = hits ? damage / hits : -1;
+  return [td(tries + uses, plain(tries + uses)), td(hits, plain(hits)), td(rate, rate < 0 ? '<td class="z">-</td>' : `<td>${Math.round(rate * 100)}%</td>`),
+    td(avg, avg < 0 ? '<td class="z">-</td>' : `<td>${fmt(Math.round(avg))}</td>`), td(damage, plain(damage)), td(kills, plain(kills))];
+};
+const whoTd = by => td(sum(by), `<td class="who">${isParty() ? shareBar(by) : ''}</td>`);
+
+function weapons(p) {
+  const all = [0, 0, 0, 0, 0];
+  for (const w of p.weapons) for (let k = 0; k < 5; k++) all[k] += w[k + 1];
+  const summary = p.weapons.length ? `${fmt(all[2])} damage · ${fmt(all[3])} kills` : 'none';
+  if (!p.weapons.length) return section(DETAIL.WEAPONS, 'Weapons', summary, '<div class="note">No attacks.</div>');
+  const cols = [nameCol('Weapon'), numCol('Tries'), numCol('Hits'), numCol('Rate'), numCol('Avg'), numCol('Damage'), numCol('Kills')];
+  if (isParty()) cols.push(numCol('Who'));
+  const rows = p.weapons.map(w => {
+    const key = st.who + ':' + w[0], open = !!st.open[key];
+    const cells = [td(w[0], `<td>${open ? '&#9662;' : '&#9656;'} ${esc(w[0])}</td>`)].concat(attackCells(w.slice(1, 6)));
+    if (isParty()) cells.push(whoTd(w[7]));
+    const sub = open ? w[6].map(o => ({cls: 'opt', cells: [nameTd(o[0])].concat(attackCells(o.slice(1, 6)), isParty() ? [td(0, '<td></td>')] : [])})) : [];
+    return {cls: 'wrow', act: `toggleWeapon(${JSON.stringify(key).replace(/"/g, '&quot;')})`, cells, sub};
   });
-  out += group(1, 'Damage taken', () => row('Total', 5, '', false, false) + row('Friendly fire caused', 6, '', true, false));
-  out += group(2, 'Healing', () => row('Healed', 7, 'healed', false, true) +
-    row('Healing given (potions brewed)', 8, 'given', false, true));
-  out += group(3, 'Hardship', () => row('Deaths', 12, '', true, true) +
-    (st.level === -1 ? partyOnly('Party wiped out', D.wipes, true) + partyOnly('Reloads', D.reloads, false) : ''));
-  out += group(4, 'Mana', () => row('Generated', 9, 'gen', false, true) + row('Spent', 10, '', false, true) +
-    row('Wasted on failures', 11, '', true, true));
-  out += group(5, 'Movement', () => MOVES.map((label, i) => partyOnly(label, v.move[i])).join(''));
-  const items = v.items.reduce((sum, t) => [sum[0] + t[1], sum[1] + t[2]], [0, 0]);
-  out += group(6, 'Items', () => partyOnly('Picked up', items[0]) + partyOnly('Used in walls (keys, coins ...)', items[1]));
-  out += group(7, 'Food and water', () => row('Eaten', 14, '', false, true) + part(v.eatenLines) +
-    row('Drunk', 13, '', false, true) + part(v.drunkLines) + row('Food gained', 17, '', false, true) +
-    row('Food wasted (over full)', 18, '', true, true) + row('Water gained', 19, '', false, true) +
-    row('Water wasted (over full)', 20, '', true, true));
-  out += group(8, 'Dungeon', () => row('Doors bashed open', 15, '', false, true) + partRow('smashed (melee)', 21) +
-    partRow('shot open (thrown, fired)', 22) + partRow('by spell (fireball ...)', 23) +
-    row('Doors opened with Zo', 24, '', false, true) +
-    partyOnly('Doors opened with their button', v.buttons[0]) + partyOnly('Doors closed with their button', v.buttons[1]) +
-    partyOnly('Chests opened', v.chests));
-  out += group(9, 'Reading', () => partyOnly('Scrolls read', v.reading[0]) + partyOnly('Wall texts read', v.reading[1]));
-  out += group(10, 'Champions', () => partyOnly('Champions seen (portraits face to face)', v.champions[0]) +
-    partyOnly('Champions viewed (mirror clicked)', v.champions[1]));
-  return out + '</table>';
+  const foot = {cls: 'all', cells: [nameTd('All weapons')].concat(attackCells(all), isParty() ? [td(0, '<td></td>')] : [])};
+  return section(DETAIL.WEAPONS, 'Weapons', summary, sortTable('weapons', cols, rows, foot, 5));
+}
+function toggleWeapon(key) { st.open[key] = !st.open[key]; draw(); }
+
+function spells(p) {
+  const all = [0, 0, 0, 0, 0, 0];
+  for (const s of p.spells) for (let k = 0; k < 6; k++) all[k] += s[k + 1];
+  const summary = p.spells.length ? `${fmt(all[0])} casts · ${fmt(all[2])} mana` : 'none';
+  if (!p.spells.length) return section(DETAIL.SPELLS, 'Spells', summary, '<div class="note">No spells cast.</div>');
+  const cols = ['Casts', 'Failed', 'Mana', 'Wasted', 'Damage', 'Kills'].map(numCol);
+  cols.unshift(nameCol('Spell'));
+  if (isParty()) cols.push(numCol('Who'));
+  const cellsOf = v => v.map((x, k) => td(x, plain(x, k === 1 || k === 3)));
+  const rows = p.spells.map(s => ({cells: [nameTd(s[0])].concat(cellsOf(s.slice(1, 7)), isParty() ? [whoTd(s[7])] : [])}));
+  const foot = {cls: 'all', cells: [nameTd('All spells')].concat(cellsOf(all), isParty() ? [td(0, '<td></td>')] : [])};
+  return section(DETAIL.SPELLS, 'Spells', summary, sortTable('spells', cols, rows, foot, 3));
 }
 
-// ---- Bars
-function drawBars() {
-  const cells = view().cells;
-  const bar = (i, parts, scale, text) => {
-    const name = i === null ? '<span class="n"></span>' : heroLink(i, 'span').replace('class="hero', 'class="n hero');
-    return `<div class="brow">${name}` + parts.filter(p => p[0] > 0)
-      .map(p => `<span class="seg" style="width:${Math.max(2, Math.round(p[0] * scale))}px;background:${p[1]}"></span>`).join('') +
-      `<span class="v">${text}</span></div>`;
-  };
-  const legend = items => '<div class="legend">' + items.map(x => `<i style="background:${x[0]}"></i>${x[1]}`).join('') + '</div>';
-  const largest = f => Math.max(1, ...cells.slice(0, N).map(f));
-  let out = '<div class="h">Damage dealt</div>' + legend([['#c9764a', 'melee'], ['#5a9bd8', 'ranged'], ['#a77ad8', 'magic']]);
-  let scale = 300 / largest(c => c[3]);
-  for (let i = 0; i < N; i++) out += bar(i, [[cells[i][0], '#c9764a'], [cells[i][1], '#5a9bd8'], [cells[i][2], '#a77ad8']], scale, fmt(cells[i][3]));
-  out += '<div class="h">Kills</div>';
-  scale = 220 / largest(c => c[4]);
-  for (let i = 0; i < N; i++) out += bar(i, [[cells[i][4], '#c9a24a']], scale, fmt(cells[i][4]));
-  out += '<div class="h">Damage taken</div>' + legend([['#888', 'taken'], ['#e07a6a', 'friendly fire caused']]);
-  scale = 300 / largest(c => c[5] + c[6]);
-  for (let i = 0; i < N; i++) out += bar(i, [[cells[i][5], '#888'], [cells[i][6], '#e07a6a']], scale, fmt(cells[i][5]));
-  out += '<div class="h">Healing</div>' + legend([['#4ab0a0', 'healed'], ['#e0c060', 'healing given']]);
-  scale = 300 / largest(c => Math.max(c[7], c[8]));
-  for (let i = 0; i < N; i++) {
-    out += bar(i, [[cells[i][7], '#4ab0a0']], scale, fmt(cells[i][7]));
-    if (cells[i][8] > 0) out += bar(null, [[cells[i][8], '#e0c060']], scale, fmt(cells[i][8]) + ' given');
+function amounts(id, title, column, what, lines, withBad) {
+  const total = lines.reduce((a, l) => a + l[1], 0);
+  if (!lines.length) return section(id, title, 'none', '<div class="note">None.</div>');
+  const cols = [nameCol('Source'), numCol(column)];
+  if (isParty()) cols.push(numCol('Who'));
+  const rows = lines.map(l => ({cells: [nameTd(l[0]), td(l[1], plain(l[1], withBad && l[2]))].concat(isParty() ? [whoTd(l[withBad ? 3 : 2])] : [])}));
+  const foot = {cls: 'all', cells: [nameTd('All sources'), td(total, plain(total))].concat(isParty() ? [td(0, '<td></td>')] : [])};
+  return section(id, title, `${fmt(total)} ${what}`, sortTable('amounts' + id, cols, rows, foot, 1));
+}
+
+function deaths(p) {
+  const n = p.deaths.length;
+  return section(DETAIL.DEATHS, 'Deaths', n ? `${n} ${n === 1 ? 'death' : 'deaths'}` : 'never died',
+    n ? p.deaths.map(d => `<div>${esc(d)}</div>`).join('') : '<div class="note">Nobody died.</div>');
+}
+
+function consumed(p) {
+  const lines = [];
+  for (const [list, k] of [[p.eaten, 1], [p.drunk, 2]]) for (const l of list) {
+    let line = lines.find(x => x[0] === l[0]);
+    if (!line) lines.push(line = [l[0], 0, 0, H.map(() => 0)]);
+    line[k] += l[1];
+    l[2].forEach((v, i) => line[3][i] += v);
   }
-  out += '<div class="h">Mana</div>' + legend([['#4a9a6a', 'generated'], ['#5a9bd8', 'spent'], ['#e07a6a', 'wasted']]);
-  scale = 220 / largest(c => Math.max(c[9], c[10]));
-  for (let i = 0; i < N; i++) {
-    if (cells[i][9] + cells[i][10] <= 0) continue;
-    out += bar(i, [[cells[i][9], '#4a9a6a']], scale, fmt(cells[i][9]));
-    out += bar(null, [[Math.max(0, cells[i][10] - cells[i][11]), '#5a9bd8'], [cells[i][11], '#e07a6a']], scale,
-      `${fmt(cells[i][10])} (${fmt(cells[i][11])} wasted)`);
+  const summary = `${fmt(p.eatenTotal)} eaten · ${fmt(p.drunkTotal)} drunk`;
+  if (!lines.length) return section(DETAIL.CONSUMED, 'Eaten and drunk', 'nothing', '<div class="note">Nothing eaten or drunk.</div>');
+  const cols = [nameCol('Item'), numCol('Eaten'), numCol('Drunk')];
+  if (isParty()) cols.push(numCol('Who'));
+  const rows = lines.map(l => ({cells: [nameTd(l[0]), td(l[1], plain(l[1])), td(l[2], plain(l[2]))].concat(isParty() ? [whoTd(l[3])] : [])}));
+  const foot = {cls: 'all', cells: [nameTd('Everything'), td(0, plain(p.eatenTotal)), td(0, plain(p.drunkTotal))].concat(isParty() ? [td(0, '<td></td>')] : [])};
+  return section(DETAIL.CONSUMED, 'Eaten and drunk', summary, sortTable('consumed', cols, rows, foot, 1));
+}
+
+function items() {
+  const lines = view(st.level).items;
+  const all = lines.reduce((a, l) => [a[0] + l[1], a[1] + l[2]], [0, 0]);
+  if (!lines.length) return section(DETAIL.ITEMS, 'Items', 'none', '<div class="note">No items picked up or used in walls.</div>');
+  const rows = lines.map(l => ({cells: [nameTd(l[0]), td(l[1], plain(l[1])), td(l[2], plain(l[2]))]}));
+  const foot = {cls: 'all', cells: [nameTd('All items'), td(0, plain(all[0])), td(0, plain(all[1]))]};
+  return section(DETAIL.ITEMS, 'Items', `${fmt(all[0])} picked up · ${fmt(all[1])} used in walls`,
+    sortTable('items', [nameCol('Item'), numCol('Picked up'), numCol('Used in walls')], rows, foot, 1));
+}
+
+function monsters() {
+  let lines = view(st.level).monsters;
+  if (!isParty()) lines = lines.filter(m => m[1][st.who] > 0).map(m => [m[0], [m[1][st.who]], 0, 0, 0, m[1][st.who]]);
+  if (!lines.length) return section(DETAIL.MONSTERS, 'Monsters killed', 'none', '<div class="note">No monsters killed.</div>');
+  const all = lines.reduce((a, m) => { m[1].forEach((v, i) => a[1][i] += v); for (let k = 2; k < 6; k++) a[k] += m[k]; return a; },
+    ['All monsters', lines[0][1].map(() => 0), 0, 0, 0, 0]);
+  const summary = `${fmt(all[5])} kills · ${lines.length} kinds`;
+  let cols, cellsOf;
+  if (isParty()) {
+    const extra = [[2, 'Door'], [3, 'Pit'], [4, 'Other']].filter(([k]) => all[k] > 0);
+    cols = [nameCol('Monster')].concat(H.map((h, i) => heroCol(i)), extra.map(([, l]) => numCol(l)), [numCol('All'), numCol('Who')]);
+    cellsOf = (m, foot) => [nameTd(m[0])].concat(m[1].map((v, i) => td(v, plain(v, false, H[i].left ? 'gone' : ''))),
+      extra.map(([k]) => td(m[k], plain(m[k]))), [td(m[5], plain(m[5])), foot ? td(0, '<td></td>') : whoTd(m[1])]);
+  } else {
+    cols = [nameCol('Monster'), numCol('Kills')];
+    cellsOf = m => [nameTd(m[0]), td(m[5], plain(m[5]))];
   }
-  return '<div class="body">' + out + '</div>';
+  return section(DETAIL.MONSTERS, 'Monsters killed', summary,
+    sortTable('monsters', cols, lines.map(m => ({cells: cellsOf(m)})), {cls: 'all', cells: cellsOf(all, true)}, cols.length - (isParty() ? 2 : 1)));
 }
 
-// ---- By level
-function drawByLevel() {
-  const k = METRICS[st.metric][1];
-  const buttons = METRICS.map((m, i) => btn(m[0], st.metric === i, `set({metric:${i}})`)).join('');
-  if (k < 0) return '<div class="bar">' + buttons + '</div>' + drawPartyTable(-1 - k);
-  let out = '<div class="bar">' + buttons +
-    '<span class="legend" style="margin-left:20px">' + H.map((h, i) => `<i style="background:${HERO_RGB[i % 4]}"></i>${esc(h.name)}`).join('') + '</span></div>';
-  const cols = [{label: 'Level', num: false}].concat(H.map((h, i) => ({label: h.name, num: true})),
-    [{label: 'Party', num: true}, {label: 'Share', num: true}]);
-  const line = (l, cls, act) => {
-    const c = D.views[String(l)].cells;
-    const cells = [{v: l, html: esc(lvName(l))}];
-    for (let i = 0; i <= N; i++) cells.push(dot(c[i][k], i < N && H[i].left));
-    const total = c[N][k];
-    cells.push({v: total, html: shareBar(H.map((h, i) => [c[i][k], HERO_RGB[i % 4]]), total)});
-    return {cells, cls, act};
-  };
-  const rows = D.levels.map(l => line(l, 'lv', `set({level:${l},page:0})`));
-  return out + sortTable('bylevel' + st.metric, cols, rows, line(-1, 'all'), 0, false);
+function cards() {
+  const ROWS = [[0, 'Damage'], [4, 'Kills'], [-1, 'Taken'], [-2, 'Healed'], [-3, 'Mana'], [-4, 'Deaths']];
+  const index = label => NUM.findIndex(n => n.label === label);
+  const ids = ROWS.map(([, l], k) => [index(['Damage dealt', 'Kills', 'Damage taken', 'Healed', 'Mana spent', 'Deaths'][k]), l]);
+  const party = rec(N, st.level)[ids[0][0]];
+  const largest = ids.map(([n]) => Math.max(1, ...H.map((h, i) => rec(i, st.level)[n])));
+  return '<div class="cards">' + H.map((h, i) => {
+    const r = rec(i, st.level);
+    return `<div class="card${h.left ? ' left' : ''}" style="border-top-color:${COLOUR(i)}" onclick="set({who:${i}})">` +
+      `<div class="nm">${esc(h.name)}<span>${party ? Math.round(100 * r[ids[0][0]] / party) : 0}% of damage</span></div>` +
+      ids.map(([n, l], k) => {
+        const v = r[n], bad = NUM[n].bad && v > 0;
+        return `<div class="cr"><span class="l">${l}</span><div class="mini"><i style="width:${100 * v / largest[k]}%;background:${bad ? 'var(--bad)' : COLOUR(i)}"></i></div>` +
+          `<span class="n${v === 0 ? ' z' : ''}">${v === 0 ? '·' : bad ? `<span class="pill">${fmt(v)}</span>` : fmt(v)}</span></div>`;
+      }).join('') + '</div>';
+  }).join('') + '</div>';
 }
 
-// ---- Monsters
-function drawMonsters() {
-  const lines = view().monsters;
-  if (lines.length === 0) return '<div class="empty">No monsters killed yet.</div>';
-  const all = ['All monsters', new Array(N).fill(0), 0, 0, 0, 0];
-  for (const m of lines) {
-    for (let i = 0; i < N; i++) all[1][i] += m[1][i];
-    for (let e = 2; e < 6; e++) all[e] += m[e];
+function topicTiles() {
+  const sums = view(st.level).summaries[st.who];
+  return '<div class="topics">' + TOP.map((t, i) => i === 0 ? '' :
+    `<div class="topic" onclick="set({topic:${i}})" title="${esc(sums[i])}"><div class="t">${esc(t.label)}</div><div class="s">${esc(sums[i])}</div></div>`).join('') + '</div>';
+}
+
+function topicPage() {
+  const t = st.topic, p = page();
+  if (t === 0) {
+    const body = tiles(isParty() ? TOP[0].tiles : D.heroTiles) + (isParty() ? cards() : topicTiles());
+    return body + section(KEY_SECTION, 'Key numbers', isParty() ? 'one row from each topic' : 'compared with the party', numbersTable(0));
   }
-  const extras = [['Door', 2, '#b0a070'], ['Pit', 3, '#7a7a7a'], ['Other', 4, '#555']].filter(e => all[e[1]] > 0);
-  const cols = [{label: 'Monster', num: false}].concat(H.map(h => ({label: h.name, num: true})),
-    extras.map(e => ({label: e[0], num: true})), [{label: 'All causes', num: true}, {label: 'Killed by', num: true}]);
-  const row = (m, cls) => {
-    const cells = [{v: m[0]}];
-    const parts = [];
-    for (let i = 0; i < N; i++) { cells.push(dot(m[1][i], H[i].left)); parts.push([m[1][i], HERO_RGB[i % 4]]); }
-    for (const e of extras) cells.push(dot(m[e[1]]));
-    for (const e of [['Door', 2, '#b0a070'], ['Pit', 3, '#7a7a7a'], ['Other', 4, '#555']]) parts.push([m[e[1]], e[2]]);
-    cells.push(num(m[5], 'kills'));
-    cells.push({v: m[5], html: shareBar(parts, m[5])});
-    return {cells, cls};
-  };
-  const legend = '<div class="legend body">' + H.map((h, i) => `<i style="background:${HERO_RGB[i % 4]}"></i>${esc(h.name)}`)
-    .concat(extras.map(e => `<i style="background:${e[2]}"></i>${e[0]}`)).join('') + ' &nbsp; (Other = clouds, traps and monsters)</div>';
-  return sortTable('monsters', cols, lines.map(m => row(m)), row(all, 'all'), N + extras.length + 1, true) + legend;
+  let html = tiles(TOP[t].tiles) +
+    section(NUMBERS_SECTION, 'Numbers', isParty() ? 'each champion and the party' : esc(H[st.who].name) + ' and the party', numbersTable(t));
+  for (const d of isParty() ? TOP[t].details : TOP[t].heroDetails) {
+    if (d === DETAIL.WEAPONS) html += weapons(p);
+    else if (d === DETAIL.SPELLS) html += spells(p);
+    else if (d === DETAIL.HARM) html += amounts(DETAIL.HARM, 'Damage taken by source', 'Damage', 'taken', p.taken, true);
+    else if (d === DETAIL.HEALING) html += amounts(DETAIL.HEALING, 'Healing by source', 'Healed', 'healed', p.healing, false);
+    else if (d === DETAIL.DEATHS) html += deaths(p);
+    else if (d === DETAIL.CONSUMED) html += consumed(p);
+    else if (d === DETAIL.ITEMS) html += items();
+    else if (d === DETAIL.MONSTERS) html += monsters();
+  }
+  return html;
 }
 
-// ---- Items
-function drawItems() {
-  const lines = view().items;
-  if (lines.length === 0) return '<div class="empty">No items picked up, used, drunk or eaten yet.</div>';
-  const all = lines.reduce((sum, t) => ['All items'].concat([1, 2, 3, 4].map(k => sum[k] + t[k])), ['All items', 0, 0, 0, 0]);
-  const cols = [{label: 'Item', num: false}].concat(['Picked up', 'Used in walls', 'Drunk', 'Eaten'].map(label => ({label, num: true})));
-  const row = (t, cls) => ({cells: [{v: t[0]}, dot(t[1]), dot(t[2]), dot(t[3]), dot(t[4])], cls});
-  return sortTable('items', cols, lines.map(t => row(t)), row(all, 'all'), 1, true) +
-    '<div class="legend body">(Picked up = the first time the party held it; used in walls = keys in locks, coins and gems in slots)</div>';
-}
-
-// ---- By level's Movement
-function drawPartyTable(t) {
-  const cols = [{label: 'Level', num: false}].concat(D.tableNames[t].slice(1).map(label => ({label, num: true})));
-  const line = (l, cls, act) => {
-    const m = D.views[String(l)].tables[t];
-    return {cells: [{v: l, html: esc(lvName(l))}].concat(m.map(n => dot(n))), cls, act};
-  };
-  return sortTable('party' + t, cols, D.levels.map(l => line(l, 'lv', `set({level:${l},page:0})`)), line(-1, 'all'), 0, false);
-}
-
-// ---- Hero and Party pages
-function section(bit, title, summary, body, bad) {
-  const open = !!st.open[bit];
-  return `<div class="sec"><div class="sech" onclick="st.open[${bit}]=!st.open[${bit}];draw()">` +
-    `<span class="arr">${open ? '▼' : '▶'}</span><span class="st">${title}</span>` +
-    `<span class="ss${bad ? ' bad' : ''}">${esc(summary)}</span></div>` + (open ? `<div class="secb">${body}</div>` : '') + '</div>';
-}
-// A label and its value; cls colours the value, and the label too when labelToo
-const vline = (label, value, cls, inner, labelToo) =>
-  `<div class="vl${inner ? ' in' : ''}"><span${cls && labelToo ? ` class="${cls}"` : ''}>${esc(label)}</span>` +
-  `<span${cls ? ` class="${cls}"` : ''}>${esc(value)}</span></div>`;
-
-// Weapons are folded until opened, per hero and weapon name
-function toggleWeapon(i) {
-  const key = st.hero + ':' + view().pages[st.hero].weapons[i][0];
-  st.folded[key] = !st.folded[key];
-  draw();
-}
-
-function drawHero() {
-  const p = view().pages[st.hero];
-  let attacks;
-  if (p.weapons.length === 0) attacks = '<div class="dim">No attacks yet.</div>';
-  else {
-    const cols = ['Weapon / option', 'Tries', 'Hits', 'Rate', 'Avg', 'Damage', 'Kills'].map((label, i) => ({label, num: i > 0}));
-    // Tries adds the actions that cannot hit (War Cry ...); a line of those only has "-" for the
-    // rest. Rate is hits per blow or missile, Avg the damage per hit.
-    const none = {v: -1, html: '<span class="dim">-</span>'};
-    const cells = (name, w) => {
-      const first = [{v: name, html: name}, num(w[1] + w[5])];
-      if (w[1] === 0 && w[5] > 0) return first.concat([none, none, none, none, none]);
-      const avg = w[2] ? Math.round(w[3] / w[2]) : -1;
-      return first.concat([num(w[2]), {v: w[1] ? w[2] / w[1] : -1, html: pct(w[2], w[1])},
-        {v: avg, html: avg < 0 ? '-' : fmt(avg)}, num(w[3]), num(w[4])]);
+// Per level: the Party's totals or its champions side by side, a champion's totals
+function perLevel() {
+  const t = st.topic, grid = TOP[t].grid, levels = D.levels.concat([-1]);
+  let html = '';
+  const side = isParty() && grid.length > 0 && st.side;
+  if (isParty() && grid.length) {
+    html += `<div class="choices"><span class="lab">Show</span><div class="seg"><button class="ch${!st.side ? ' on' : ''}" onclick="set({side:false})">Party totals</button>` +
+      `<button class="ch${st.side ? ' on' : ''}" onclick="set({side:true})">Champions side by side</button></div></div>`;
+  }
+  let cols, rowOf;
+  const levelTd = l => td(l, `<td>${lvName(l)}</td>`);
+  if (side) {
+    const n = grid.includes(st.grid[t]) ? st.grid[t] : grid[0];
+    html += '<div class="choices"><span class="lab">Number</span><div class="seg">' + grid.map(g =>
+      `<button class="ch${g === n ? ' on' : ''}" onclick="st.grid[${t}]=${g};draw()">${esc(NUM[g].label)}</button>`).join('') + '</div></div>';
+    cols = [nameCol('Level')].concat(H.map((h, i) => heroCol(i)), [numCol('Party'), numCol('Share')]);
+    rowOf = l => {
+      const by = H.map((h, i) => rec(i, l)[n]);
+      return [levelTd(l)].concat(by.map((v, i) => td(v, numCell(n, v, H[i].left ? 'gone' : ''))),
+        [td(rec(N, l)[n], numCell(n, rec(N, l)[n])), td(rec(N, l)[n], `<td class="bar">${shareBar(by)}</td>`)]);
     };
-    const rows = p.weapons.map((w, i) => {
-      const open = !!st.folded[st.hero + ':' + w[0]];
-      const cs = cells(`<span class="arr">${open ? '▼' : '▶'}</span><span class="white">${esc(w[0])}</span>`, w);
-      cs[0].v = w[0];
-      return {cells: cs, cls: 'wrow', act: `toggleWeapon(${i})`,
-        sub: open ? w[6].map(o => ({cells: cells(esc(o[0]), o).map((c, k) => k === 0 ? {v: o[0], html: c.html} : c), cls: 'opt'})) : []};
-    });
-    attacks = sortTable('attacks', cols, rows, null, 5, true);
+  } else {
+    const numbers = TOP[t].rows.filter(([n, depth]) => depth === 0 && applies(n, st.who, 0)).map(([n]) => n);
+    const share = isParty() ? numbers.find(n => !NUM[n].party && !NUM[n].ratio) : undefined;
+    cols = [nameCol('Level')].concat(numbers.map(n => numCol(NUM[n].label)));
+    if (share !== undefined) cols.push(numCol('Who: ' + NUM[share].label));
+    rowOf = l => [levelTd(l)].concat(numbers.map(n => td(rec(st.who, l)[n], numCell(n, rec(st.who, l)[n]))),
+      share === undefined ? [] : [td(rec(N, l)[share], `<td class="who">${shareBar(H.map((h, i) => rec(i, l)[share]))}</td>`)]);
   }
-  let spells;
-  if (p.spells.length === 0) spells = '<div class="dim">No spells cast.</div>';
-  else {
-    const cols = ['Spell', 'Casts', 'Successful', 'Failed', 'Mana', 'Wasted', 'Damage', 'Kills']
-      .map((label, i) => ({label, num: i > 0}));
-    const rows = p.spells.map(s => ({cells: [{v: s[0]}, num(s[1]), num(s[2]), num(s[3]), num(s[4]),
-      num(s[5], s[5] > 0 ? 'bad' : ''), num(s[6]), num(s[7])]}));
-    spells = sortTable('spells', cols, rows, null, 4, true);
-  }
-  const taken = p.taken.length === 0 ? '<div class="dim">No damage taken.</div>'
-    : p.taken.map(t => vline(t[0], fmt(t[1]), t[2] ? 'bad' : '', false, true)).join('');
-  let healing = vline('Healed', fmt(p.healed), 'healed') + p.healing.map(h => vline(h[0], fmt(h[1]), '', true)).join('');
-  if (p.given) healing += vline('Healing given (potions brewed)', fmt(p.given), 'given');
-  if (p.resurrected) healing += vline('Resurrected', p.resurrected + '×', '');
-  const hurt = p.deaths.length > 0 || p.wipes > 0 || p.reloads > 0;
-  let hardship = hurt ? '' : '<div class="dim">Never died.</div>';
-  if (p.deaths.length) {
-    hardship += vline(st.hero === N ? 'Champion deaths' : 'Died', p.deaths.length + '×', 'bad');
-    hardship += p.deaths.map(d => vline(d, '', '', true)).join('');
-  }
-  if (p.wipes) hardship += vline('Party wiped out', p.wipes + '×', 'bad');
-  if (p.reloads) hardship += vline('Reloads', p.reloads + '×', '');
-  const f = p.food;
-  let food = '<div class="dim">Nothing eaten or drunk.</div>';
-  if (f[0] || f[1]) {
-    food = vline('Eaten', fmt(f[0]), '') + p.eaten.map(t => vline(t[0], fmt(t[1]), '', true)).join('') +
-      vline('Drunk', fmt(f[1]), '') + p.drunk.map(t => vline(t[0], fmt(t[1]), '', true)).join('') +
-      vline('Food gained', fmt(f[2]), '') + vline('Food wasted (over full)', fmt(f[3]), f[3] ? 'bad' : '') +
-      vline('Water gained', fmt(f[4]), '') + vline('Water wasted (over full)', fmt(f[5]), f[5] ? 'bad' : '');
-  }
-  return '<div class="body">' + section(0, 'Attacks', p.sum[0], attacks) + section(1, 'Spells', p.sum[1], spells) +
-    section(2, 'Damage taken', p.sum[2], taken) + section(3, 'Healing', p.sum[3], healing) +
-    section(5, 'Food and water', p.sum[5], food) + section(4, 'Hardship', p.sum[4], hardship, hurt) +
-    '<div class="hint">Click a section or a weapon to fold it, a column header to sort.</div></div>';
+  const rows = D.levels.map(l => ({cls: 'lv', act: `set({per:false,level:${l}})`, cells: rowOf(l)}));
+  const foot = {cls: 'all lv', act: 'set({per:false,level:-1})', cells: rowOf(-1)};
+  return html + sortTable('per' + t + (side ? 'g' : 't'), cols, rows, foot, 0);
 }
 
 function draw() {
   if (st.level !== -1 && !D.views[String(st.level)]) st.level = -1;
-  document.getElementById('top').innerHTML = topBar();
-  let where = st.hero >= 0 ? heroName(st.hero) + ' · ' : PAGES[st.page] + ' · ';
-  where += st.hero < 0 && st.page === 2 ? 'all levels' : lvName(st.level);
-  document.getElementById('where').textContent = where;
+  frame();
   let html;
-  if (N === 0 && D.levels.length === 0) html = '<div class="empty">No statistics yet.</div>';
-  else if (st.hero >= 0) html = drawHero();
-  else html = [drawTable, drawBars, drawByLevel, drawMonsters, drawItems][st.page]();
+  if (N === 0 && D.levels.length === 0) html = '<div class="note">No statistics yet.</div>';
+  else html = st.per ? perLevel() : topicPage();
   document.getElementById('view').innerHTML = html;
 }
 draw();
@@ -681,7 +652,7 @@ std::string HeroStatsExport_Html(const HeroStats &stats, const std::vector<HeroS
   std::string html = PAGE_HEAD;
   html += "<h1>Statistics</h1>\n<div class=\"about\" id=\"about\"></div>\n";
   html += "<div class=\"im\">\n  <div class=\"title\"><span>Statistics</span><span id=\"where\"></span></div>\n";
-  html += "  <div class=\"bar\" id=\"top\"></div>\n  <div id=\"view\"></div>\n</div>\n";
+  html += "  <div class=\"bar1\" id=\"top\"></div>\n  <div class=\"tabs\" id=\"tabs\"></div>\n  <div id=\"view\"></div>\n</div>\n";
   html += "<script type=\"application/json\" id=\"stats\">" + HeroStatsExport_Json(stats, columns, names, info) +
           "</script>\n";
   // The line under the title, from the JSON so that names are escaped once
