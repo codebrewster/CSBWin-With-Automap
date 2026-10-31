@@ -1,6 +1,8 @@
 #ifndef AUTOMAPHOOKS_H
 #define AUTOMAPHOOKS_H
 
+#include <map>
+
 // The places where the engine and the platform layer call into the automap. This header
 // declares functions only, so that it can be included after CSB.h, which leaves
 // #pragma pack(1) switched on.
@@ -60,6 +62,13 @@ void AutoMap_AfterDoorDrawn(int door, int x1, int x2, int y1, int y2);
 void AutoMap_AfterMonsterDrawn(int group, int x1, int x2, int y1, int y2);
 // The party took the item from the floor
 void AutoMap_OnItemPickedUp(int item);
+// For the statistics: per level, the explored cells inside the level that the map remembers as
+// anything but solid wall (a closed false wall counts as wall)
+std::map<int, int> AutoMap_ExploredTilesPerLevel(void);
+// Per level, what the party has read and seen on the walls: wall texts read, champion portraits
+// seen (drawn on the wall straight ahead) and champions viewed (the mirror clicked)
+struct AutoMapWallCounts { int textsRead, portraitsSeen, portraitsViewed; };
+std::map<int, AutoMapWallCounts> AutoMap_WallCountsPerLevel(void);
 // The party put the item onto (x, y) of the loaded level: dropped it, or a champion died
 void AutoMap_OnItemDropped(int item, int x, int y);
 // The party put the item into the alcove of the wall (x, y) straight ahead of it

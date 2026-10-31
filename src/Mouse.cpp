@@ -434,6 +434,7 @@ i16 TouchWall(i32 mapX,i32 mapY,i32 touchedPosition)
             cfp.p4 = actuatorPos;
             CursorFilter(&cfp);
             if (cfp.type == CURSORFILTER_Cancel) continue;
+            HeroStats_OnItemPickedUp(objectInHand.ConvertToInteger());
             ObjectToCursor(objectInHand, 1);
             RemoveObjectFromRoom(objectInHand, mapX, mapY, NULL);
           }
@@ -511,6 +512,7 @@ i16 TouchWall(i32 mapX,i32 mapY,i32 touchedPosition)
             cfp.p3 = mapY;
             cfp.p4 = actuatorPos;
             CursorFilter(&cfp);  // We know obj_20 is not NULL.
+            HeroStats_OnItemPickedUp(obj_20.ConvertToInteger());
             ObjectToCursor(obj_20, 1);
           };
           //D4W = 0;
@@ -523,6 +525,7 @@ i16 TouchWall(i32 mapX,i32 mapY,i32 touchedPosition)
                 (DB3A2->State() & PORTRAIT_InActive) == 0;
           if (!activePortrait) continue;
           AddCharacter(actuatorValue);
+          HeroStats_MarkPartyItemsHeld();  // what the champion carries was not found
           AutoMap_OnPortraitViewed(mapX, mapY, actuatorPos);
           characterAdded = true;
           continue;
@@ -567,6 +570,7 @@ i16 TouchWall(i32 mapX,i32 mapY,i32 touchedPosition)
             CursorFilter(&cfp);
             if (cfp.type != CURSORFILTER_Cancel)
             {
+              HeroStats_OnItemUsedInWall(objectInHand.ConvertToInteger());
               RemoveObjectFromHand();
               //I reversed these two lines so that the object
               //will still exist when we delete it from the
@@ -593,6 +597,7 @@ i16 TouchWall(i32 mapX,i32 mapY,i32 touchedPosition)
               objectInHand = ConstructPredefinedMissile(actuatorValue);
               if (objectInHand != RNnul)
               {
+                HeroStats_OnItemPickedUp(objectInHand.ConvertToInteger());
                 ObjectToCursor(objectInHand, 1);
               };
             };
@@ -849,6 +854,7 @@ void TAG01a148(i16 P1)
     if (cfp.type == CURSORFILTER_Cancel) return;
     MoveObject(objD4, D6W, D5W, -1, 0, NULL, NULL);
     AutoMap_OnItemPickedUp(objD4.ConvertToInteger());
+    HeroStats_OnItemPickedUp(objD4.ConvertToInteger());  // the floor or an alcove
     d.Word16580 = 1;
     ObjectToCursor(objD4, 1);
   };
@@ -1117,6 +1123,7 @@ void HandleClickInViewport(i32 clickX, i32 clickY)
                             80);
           d.clockTick = 1;
           QueueSound(1, d.partyX, d.partyY, 1);
+          HeroStats_OnDoorButtonClicked(touchedX, touchedY);
           CreateTimer(TT_DOOR,
                       touchedX,
                       touchedY,
@@ -1165,7 +1172,9 @@ void HandleClickInViewport(i32 clickX, i32 clickY)
 	    if (d.FacingWaterFountain) {
 		CHARDESC *pc;
 		pc = &d.hero[d.HandChar]; // selected character
+		int waterBefore = pc->water;
 		pc->water = sw(LIMIT(-1023,pc->water+1600,2048));
+		HeroStats_OnFountainDrink(d.HandChar, 1600, pc->water - waterBefore);
 		QueueSound(8, d.partyX, d.partyY, 0); // gulp sound for the fountain
 		return;
 	    }

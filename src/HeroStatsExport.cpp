@@ -84,9 +84,11 @@ static std::string Numbers(const int *values, size_t count)
 
 static std::string CellJson(const HeroStatsCell &c)
 {
-  int values[13] = {c.melee, c.ranged, c.magic, c.total, c.kills, c.taken, c.friendlyFire,
-                    c.healed, c.given, c.generated, c.spent, c.wasted, c.deaths};
-  return Numbers(values, 13);
+  int values[25] = {c.melee, c.ranged, c.magic, c.total, c.kills, c.taken, c.friendlyFire,
+                    c.healed, c.given, c.generated, c.spent, c.wasted, c.deaths, c.drunk, c.eaten, c.doorsBashed,
+                    c.fountainDrinks, c.foodGained, c.foodWasted, c.waterGained, c.waterWasted,
+                    c.doorsSmashed, c.doorsShot, c.doorsBySpell, c.doorsOpenedByZo};
+  return Numbers(values, 25);
 }
 
 static std::string MonsterJson(const HeroStatsMonsterLine &line)
@@ -115,7 +117,7 @@ static std::string PageJson(const HeroStatsHeroPage &page)
   const HeroStatsSummaries &s = page.summaries;
   std::string out = "{\"sum\":[" + HeroStatsExport_JsonString(s.attacks) + "," + HeroStatsExport_JsonString(s.spells) +
                     "," + HeroStatsExport_JsonString(s.harm) + "," + HeroStatsExport_JsonString(s.healing) + "," +
-                    HeroStatsExport_JsonString(s.hardship) + "]";
+                    HeroStatsExport_JsonString(s.hardship) + "," + HeroStatsExport_JsonString(s.food) + "]";
   out += ",\"weapons\":[";
   for (size_t w = 0; w < page.weapons.size(); w++)
   {
@@ -150,14 +152,18 @@ static std::string PageJson(const HeroStatsHeroPage &page)
   out += ",\"deaths\":[";
   for (size_t i = 0; i < page.deathLines.size(); i++)
     out += (i > 0 ? "," : "") + HeroStatsExport_JsonString(page.deathLines[i]);
-  out += "],\"wipes\":" + Number(page.wipes) + ",\"reloads\":" + Number(page.reloads) + "}";
+  out += "],\"wipes\":" + Number(page.wipes) + ",\"reloads\":" + Number(page.reloads);
+  const HeroStatsNourishment &food = page.nourishment;
+  int foodNumbers[6] = {page.eatenTotal, page.drunkTotal, food.foodGained, food.foodWasted, food.waterGained, food.waterWasted};
+  out += ",\"food\":" + Numbers(foodNumbers, 6) + ",\"eaten\":" + AmountLinesJson(page.eaten, false) +
+         ",\"drunk\":" + AmountLinesJson(page.drunk, false) + "}";
   return out;
 }
 
 static std::string ViewJson(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
                             const HeroStatsNames &names, int level)
 {
-  HeroStatsOverview overview = HeroStatsPages_Overview(stats, columns, level);
+  HeroStatsOverview overview = HeroStatsPages_Overview(stats, columns, level, &names);
   std::string out = "{\"cells\":[";
   for (size_t i = 0; i < overview.cells.size(); i++) out += (i > 0 ? "," : "") + CellJson(overview.cells[i]);
   int move[HERO_MOVE_COLUMN_COUNT];
@@ -166,7 +172,41 @@ static std::string ViewJson(const HeroStats &stats, const std::vector<HeroStatsC
   std::vector<HeroStatsMonsterLine> monsters = HeroStatsPages_Monsters(stats, columns, level, names);
   out += ",\"monsters\":[";
   for (size_t i = 0; i < monsters.size(); i++) out += (i > 0 ? "," : "") + MonsterJson(monsters[i]);
-  out += "],\"pages\":[";
+  std::vector<HeroStatsItemLine> items = HeroStatsPages_Items(stats, level, names);
+  out += "],\"items\":[";
+  for (size_t i = 0; i < items.size(); i++)
+    out += std::string(i > 0 ? "," : "") + "[" + HeroStatsExport_JsonString(items[i].name) + "," +
+           Number(items[i].pickedUp) + "," + Number(items[i].usedInWall) + "," + Number(items[i].drunk) + "," +
+           Number(items[i].eaten) + "]";
+  out += "],\"chests\":" + Number(overview.chestsOpened);
+  out += ",\"buttons\":[" + Number(overview.doorsOpenedByButton) + "," + Number(overview.doorsClosedByButton) + "]";
+  out += ",\"reading\":[" + Number(overview.scrollsRead) + "," + Number(overview.wallTextsRead) + "]";
+  out += ",\"champions\":[" + Number(overview.championsSeen) + "," + Number(overview.championsViewed) + "]";
+  std::vector<std::string> groupSums = HeroStatsPages_TableSummaries(overview, level == HERO_STATS_WHOLE_RUN);
+  out += ",\"groupSums\":[";
+  for (size_t i = 0; i < groupSums.size(); i++) out += (i > 0 ? "," : "") + HeroStatsExport_JsonString(groupSums[i]);
+  out += "]";
+  const std::vector<HeroStatsOverview::CountLine> *lineSets[2] = {&overview.eatenLines, &overview.drunkLines};
+  const char *lineKeys[2] = {"eatenLines", "drunkLines"};
+  for (int set = 0; set < 2; set++)
+  {
+    out += std::string(",\"") + lineKeys[set] + "\":[";
+    for (size_t i = 0; i < lineSets[set]->size(); i++)
+    {
+      const HeroStatsOverview::CountLine &line = (*lineSets[set])[i];
+      out += (i > 0 ? ",[" : "[") + HeroStatsExport_JsonString(line.name) + "," +
+             Numbers(line.byCell.data(), line.byCell.size()) + "]";
+    }
+    out += "]";
+  }
+  out += ",\"tables\":[";
+  for (int t = 0; t < HERO_STATS_PARTY_TABLE_COUNT; t++)
+  {
+    std::vector<int> row = HeroStatsPages_PartyTableRow(stats, level, HERO_STATS_FIRST_PARTY_TABLE + t);
+    out += (t > 0 ? "," : "") + Numbers(row.data(), row.size());
+  }
+  out += "]";
+  out += ",\"pages\":[";
   for (size_t i = 0; i <= columns.size(); i++)
   {
     HeroStatsChampion who = i < columns.size() ? columns[i].id : HERO_STATS_PARTY;
@@ -188,6 +228,15 @@ std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroS
   std::vector<int> levels = stats.VisitedLevels();
   out += "],\"levels\":" + Numbers(levels.data(), levels.size());
   out += ",\"wipes\":" + Number(stats.PartyWipes()) + ",\"reloads\":" + Number(stats.Reloads());
+  out += ",\"tableNames\":[";
+  for (int t = 0; t < HERO_STATS_PARTY_TABLE_COUNT; t++)
+  {
+    std::vector<std::string> labels = HeroStatsPages_PartyTableLabels(HERO_STATS_FIRST_PARTY_TABLE + t);
+    out += std::string(t > 0 ? "," : "") + "[" + HeroStatsExport_JsonString(HERO_STATS_METRIC_LABELS[HERO_STATS_FIRST_PARTY_TABLE + t]);
+    for (size_t c = 0; c < labels.size(); c++) out += "," + HeroStatsExport_JsonString(labels[c]);
+    out += "]";
+  }
+  out += "]";
   out += ",\"views\":{\"-1\":" + ViewJson(stats, columns, names, HERO_STATS_WHOLE_RUN);
   for (size_t i = 0; i < levels.size(); i++)
     out += ",\"" + Number(levels[i]) + "\":" + ViewJson(stats, columns, names, levels[i]);
@@ -229,8 +278,10 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   .im .hero { cursor:pointer; color:#e8c66a }
   .im .hero.left { color:#888 }
   .im .hero:hover { color:#fff }
-  .im tr.grp td { color:#e8c66a; padding-top:8px }
+  .im tr.grp td { padding:6px 0 0; border-bottom:1px solid #2c2f37 }
+  .im tr.grp .sech .st { width:auto }
   .im tr.sub td:first-child { padding-left:20px }
+  .im tr.sub2 td:first-child { padding-left:36px; color:#888 }
   .im tr.lv { cursor:pointer }
   .im tr.lv:hover td { background:#2a3550 }
   .im tr.all td { background:#2a2c33; color:#fff }
@@ -269,11 +320,12 @@ static const char *const PAGE_SCRIPT = R"HTML(
 const D = JSON.parse(document.getElementById('stats').textContent);
 const H = D.heroes, N = H.length;
 const HERO_RGB = ['#c9764a', '#5aa86a', '#5a9bd8', '#a77ad8'];
-const PAGES = ['Table', 'Bars', 'By level', 'Monsters'];
+const PAGES = ['Table', 'Bars', 'By level', 'Monsters', 'Items'];
 // By level's buttons and the cell each adds up; Movement shows the party's movement table instead
-const METRICS = [['Damage dealt', 3], ['Kills', 4], ['Damage taken', 5], ['Healed', 7], ['Mana spent', 10], ['Movement', -1]];
-const MOVES = ['Steps', 'Turns', 'Wall bumps', 'Teleports', 'Pit falls', 'Pit climbs', 'Time (ticks)', 'Asleep (ticks)'];
-const st = {page: 0, level: -1, hero: -1, metric: 0, open: {0: true, 4: true}, folded: {}, sort: {}};
+const METRICS = [['Damage dealt', 3], ['Kills', 4], ['Damage taken', 5], ['Healed', 7], ['Mana spent', 10]]
+  .concat(D.tableNames.map((t, i) => [t[0], -1 - i]));
+const MOVES = ['Steps', 'Tiles walked', 'Tiles explored', 'Turns', 'Wall bumps', 'Teleports', 'Pit falls', 'Pit climbs', 'Time (ticks)', 'Asleep (ticks)'];
+const st = {page: 0, level: -1, hero: -1, metric: 0, open: {0: true, 4: true}, folded: {}, sort: {}, tableOpen: {}};
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'})[c]);
 const fmt = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, D.separator);
@@ -361,12 +413,19 @@ function shareBar(parts, total) {
 }
 
 // ---- Table
+function toggleGroup(g) { st.tableOpen[g] = st.tableOpen[g] === false; draw(); }
 function drawTable() {
   const v = view(), cells = v.cells, party = cells[N];
   let out = '<table><tr><th></th>';
   for (let i = 0; i <= N; i++) out += heroLink(i, 'th');
   out += '</tr>';
-  const group = t => `<tr class="grp"><td colspan="${N + 2}">${t}</td></tr>`;
+  // A group's header folds the group and sums it up, like the sections of the champion pages
+  const group = (g, t, body) => {
+    const open = st.tableOpen[g] !== false;
+    return `<tr class="grp"><td colspan="${N + 2}"><div class="sech" onclick="toggleGroup(${g})">` +
+      `<span class="arr">${open ? '▼' : '▶'}</span><span class="st">${t}</span><span class="ss">${esc(v.groupSums[g])}</span></div></td></tr>` +
+      (open ? body() : '');
+  };
   const row = (label, k, cls, bad, sub) => {
     let r = `<tr${sub ? ' class="sub"' : ''}><td>${label}</td>`;
     for (let i = 0; i <= N; i++) {
@@ -378,18 +437,38 @@ function drawTable() {
   };
   const partyOnly = (label, n, bad) =>
     `<tr class="sub"><td>${label}</td>${'<td></td>'.repeat(N)}<td${bad && n > 0 ? ' class="bad"' : ''}>${fmt(n)}</td></tr>`;
-  out += group('Damage dealt') + row('Melee', 0, 'melee', false, true) + row('Ranged', 1, 'ranged', false, true) +
-    row('Magic', 2, 'magic', false, true) + row('Total', 3, '', false, false);
-  out += '<tr class="sub"><td>share of party damage</td>';
-  for (let i = 0; i <= N; i++) out += `<td class="dim">${pct(cells[i][3], party[3])}</td>`;
-  out += '</tr>' + row('Kills', 4, 'kills', false, false);
-  out += group('Damage taken') + row('Total', 5, '', false, false) + row('Friendly fire caused', 6, '', true, false);
-  out += group('Healing') + row('Healed', 7, 'healed', false, true) + row('Healing given (potions brewed)', 8, 'given', false, true);
-  out += group('Hardship') + row('Deaths', 12, '', true, true);
-  if (st.level === -1) out += partyOnly('Party wiped out', D.wipes, true) + partyOnly('Reloads', D.reloads, false);
-  out += group('Mana') + row('Generated', 9, 'gen', false, true) + row('Spent', 10, '', false, true) +
-    row('Wasted on failures', 11, '', true, true);
-  out += group('Movement') + MOVES.map((label, i) => partyOnly(label, v.move[i])).join('');
+  const part = (lines) => lines.map(p => `<tr class="sub2"><td>${esc(p[0])}</td>` +
+    p[1].map((n, i) => `<td${i < N && H[i].left ? ' class="dim"' : ''}>${n === 0 ? '<span class="dim">·</span>' : fmt(n)}</td>`).join('') + '</tr>').join('');
+  const partRow = (label, k) => row(label, k, '', false, true).replace('<tr class="sub">', '<tr class="sub2">');
+  out += group(0, 'Damage dealt', () => {
+    let g = row('Melee', 0, 'melee', false, true) + row('Ranged', 1, 'ranged', false, true) +
+      row('Magic', 2, 'magic', false, true) + row('Total', 3, '', false, false);
+    g += '<tr class="sub"><td>share of party damage</td>';
+    for (let i = 0; i <= N; i++) g += `<td class="dim">${pct(cells[i][3], party[3])}</td>`;
+    return g + '</tr>' + row('Kills', 4, 'kills', false, false);
+  });
+  out += group(1, 'Damage taken', () => row('Total', 5, '', false, false) + row('Friendly fire caused', 6, '', true, false));
+  out += group(2, 'Healing', () => row('Healed', 7, 'healed', false, true) +
+    row('Healing given (potions brewed)', 8, 'given', false, true));
+  out += group(3, 'Hardship', () => row('Deaths', 12, '', true, true) +
+    (st.level === -1 ? partyOnly('Party wiped out', D.wipes, true) + partyOnly('Reloads', D.reloads, false) : ''));
+  out += group(4, 'Mana', () => row('Generated', 9, 'gen', false, true) + row('Spent', 10, '', false, true) +
+    row('Wasted on failures', 11, '', true, true));
+  out += group(5, 'Movement', () => MOVES.map((label, i) => partyOnly(label, v.move[i])).join(''));
+  const items = v.items.reduce((sum, t) => [sum[0] + t[1], sum[1] + t[2]], [0, 0]);
+  out += group(6, 'Items', () => partyOnly('Picked up', items[0]) + partyOnly('Used in walls (keys, coins ...)', items[1]));
+  out += group(7, 'Food and water', () => row('Eaten', 14, '', false, true) + part(v.eatenLines) +
+    row('Drunk', 13, '', false, true) + part(v.drunkLines) + row('Food gained', 17, '', false, true) +
+    row('Food wasted (over full)', 18, '', true, true) + row('Water gained', 19, '', false, true) +
+    row('Water wasted (over full)', 20, '', true, true));
+  out += group(8, 'Dungeon', () => row('Doors bashed open', 15, '', false, true) + partRow('smashed (melee)', 21) +
+    partRow('shot open (thrown, fired)', 22) + partRow('by spell (fireball ...)', 23) +
+    row('Doors opened with Zo', 24, '', false, true) +
+    partyOnly('Doors opened with their button', v.buttons[0]) + partyOnly('Doors closed with their button', v.buttons[1]) +
+    partyOnly('Chests opened', v.chests));
+  out += group(9, 'Reading', () => partyOnly('Scrolls read', v.reading[0]) + partyOnly('Wall texts read', v.reading[1]));
+  out += group(10, 'Champions', () => partyOnly('Champions seen (portraits face to face)', v.champions[0]) +
+    partyOnly('Champions viewed (mirror clicked)', v.champions[1]));
   return out + '</table>';
 }
 
@@ -434,7 +513,7 @@ function drawBars() {
 function drawByLevel() {
   const k = METRICS[st.metric][1];
   const buttons = METRICS.map((m, i) => btn(m[0], st.metric === i, `set({metric:${i}})`)).join('');
-  if (k < 0) return '<div class="bar">' + buttons + '</div>' + drawMovement();
+  if (k < 0) return '<div class="bar">' + buttons + '</div>' + drawPartyTable(-1 - k);
   let out = '<div class="bar">' + buttons +
     '<span class="legend" style="margin-left:20px">' + H.map((h, i) => `<i style="background:${HERO_RGB[i % 4]}"></i>${esc(h.name)}`).join('') + '</span></div>';
   const cols = [{label: 'Level', num: false}].concat(H.map((h, i) => ({label: h.name, num: true})),
@@ -478,14 +557,25 @@ function drawMonsters() {
   return sortTable('monsters', cols, lines.map(m => row(m)), row(all, 'all'), N + extras.length + 1, true) + legend;
 }
 
+// ---- Items
+function drawItems() {
+  const lines = view().items;
+  if (lines.length === 0) return '<div class="empty">No items picked up, used, drunk or eaten yet.</div>';
+  const all = lines.reduce((sum, t) => ['All items'].concat([1, 2, 3, 4].map(k => sum[k] + t[k])), ['All items', 0, 0, 0, 0]);
+  const cols = [{label: 'Item', num: false}].concat(['Picked up', 'Used in walls', 'Drunk', 'Eaten'].map(label => ({label, num: true})));
+  const row = (t, cls) => ({cells: [{v: t[0]}, dot(t[1]), dot(t[2]), dot(t[3]), dot(t[4])], cls});
+  return sortTable('items', cols, lines.map(t => row(t)), row(all, 'all'), 1, true) +
+    '<div class="legend body">(Picked up = the first time the party held it; used in walls = keys in locks, coins and gems in slots)</div>';
+}
+
 // ---- By level's Movement
-function drawMovement() {
-  const cols = [{label: 'Level', num: false}].concat(MOVES.map(label => ({label, num: true})));
+function drawPartyTable(t) {
+  const cols = [{label: 'Level', num: false}].concat(D.tableNames[t].slice(1).map(label => ({label, num: true})));
   const line = (l, cls, act) => {
-    const m = D.views[String(l)].move;
+    const m = D.views[String(l)].tables[t];
     return {cells: [{v: l, html: esc(lvName(l))}].concat(m.map(n => dot(n))), cls, act};
   };
-  return sortTable('movement', cols, D.levels.map(l => line(l, 'lv', `set({level:${l},page:0})`)), line(-1, 'all'), 0, false);
+  return sortTable('party' + t, cols, D.levels.map(l => line(l, 'lv', `set({level:${l},page:0})`)), line(-1, 'all'), 0, false);
 }
 
 // ---- Hero and Party pages
@@ -554,9 +644,17 @@ function drawHero() {
   }
   if (p.wipes) hardship += vline('Party wiped out', p.wipes + '×', 'bad');
   if (p.reloads) hardship += vline('Reloads', p.reloads + '×', '');
+  const f = p.food;
+  let food = '<div class="dim">Nothing eaten or drunk.</div>';
+  if (f[0] || f[1]) {
+    food = vline('Eaten', fmt(f[0]), '') + p.eaten.map(t => vline(t[0], fmt(t[1]), '', true)).join('') +
+      vline('Drunk', fmt(f[1]), '') + p.drunk.map(t => vline(t[0], fmt(t[1]), '', true)).join('') +
+      vline('Food gained', fmt(f[2]), '') + vline('Food wasted (over full)', fmt(f[3]), f[3] ? 'bad' : '') +
+      vline('Water gained', fmt(f[4]), '') + vline('Water wasted (over full)', fmt(f[5]), f[5] ? 'bad' : '');
+  }
   return '<div class="body">' + section(0, 'Attacks', p.sum[0], attacks) + section(1, 'Spells', p.sum[1], spells) +
     section(2, 'Damage taken', p.sum[2], taken) + section(3, 'Healing', p.sum[3], healing) +
-    section(4, 'Hardship', p.sum[4], hardship, hurt) +
+    section(5, 'Food and water', p.sum[5], food) + section(4, 'Hardship', p.sum[4], hardship, hurt) +
     '<div class="hint">Click a section or a weapon to fold it, a column header to sort.</div></div>';
 }
 
@@ -567,9 +665,9 @@ function draw() {
   where += st.hero < 0 && st.page === 2 ? 'all levels' : lvName(st.level);
   document.getElementById('where').textContent = where;
   let html;
-  if (N === 0) html = '<div class="empty">No statistics yet.</div>';
+  if (N === 0 && D.levels.length === 0) html = '<div class="empty">No statistics yet.</div>';
   else if (st.hero >= 0) html = drawHero();
-  else html = [drawTable, drawBars, drawByLevel, drawMonsters][st.page]();
+  else html = [drawTable, drawBars, drawByLevel, drawMonsters, drawItems][st.page]();
   document.getElementById('view').innerHTML = html;
 }
 draw();

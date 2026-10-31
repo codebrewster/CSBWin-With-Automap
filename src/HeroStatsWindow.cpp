@@ -66,9 +66,10 @@ enum StatsPage
   StatsPageBars,
   StatsPageByLevel,
   StatsPageMonsters,
+  StatsPageItems,
   STATS_PAGE_COUNT
 };
-static const char *const PAGE_LABELS[STATS_PAGE_COUNT] = {"Table", "Bars", "By level", "Monsters"};
+static const char *const PAGE_LABELS[STATS_PAGE_COUNT] = {"Table", "Bars", "By level", "Monsters", "Items"};
 
 struct WindowPlacement
 {
@@ -105,6 +106,9 @@ static int shownMetric = HeroMetricDealt;
 // The open sections of the hero pages: 1 Attacks, 2 Spells, 4 Damage taken, 8 Healing, 16 Hardship
 static const int DEFAULT_OPEN_SECTIONS = 1 | 16;
 static int openSections = DEFAULT_OPEN_SECTIONS;
+// The Table's groups that are folded, one bit each in the order they are drawn; none at first, so
+// a group added later starts open
+static int closedTableGroups = 0;
 // stats_separator as csb.cfg has it ("comma", "dot", "space", "apostrophe", "none"), written back
 // as it was read
 static std::string separatorSetting = "comma";
@@ -141,7 +145,8 @@ void HeroStatsWindow_ReadSettings(void)
   placement.height = std::max(SMALLEST_HEIGHT, csb_get_config_int(SETTINGS_SECTION, "stats_height", DEFAULT_HEIGHT));
   shownPage = csb_get_config_int(SETTINGS_SECTION, "stats_page", StatsPageTable);
   if (shownPage < 0 || shownPage >= STATS_PAGE_COUNT) shownPage = StatsPageTable;
-  openSections = csb_get_config_int(SETTINGS_SECTION, "stats_open", DEFAULT_OPEN_SECTIONS) & 31;
+  openSections = csb_get_config_int(SETTINGS_SECTION, "stats_open", DEFAULT_OPEN_SECTIONS) & 63;
+  closedTableGroups = csb_get_config_int(SETTINGS_SECTION, "stats_table_closed", 0);
   char defaultSeparator[] = "comma";
   separatorSetting = csb_get_config_string(SETTINGS_SECTION, "stats_separator", defaultSeparator);
   HeroStatsView_SetThousandsSeparator(HeroStatsView_SeparatorOfSetting(separatorSetting));
@@ -164,6 +169,7 @@ void HeroStatsWindow_WriteSettings(void)
   csb_set_config_int(SETTINGS_SECTION, "stats_height", placement.height);
   csb_set_config_int(SETTINGS_SECTION, "stats_page", shownPage);
   csb_set_config_int(SETTINGS_SECTION, "stats_open", openSections);
+  csb_set_config_int(SETTINGS_SECTION, "stats_table_closed", closedTableGroups);
   std::vector<char> separator(separatorSetting.begin(), separatorSetting.end());
   separator.push_back(0);
   csb_set_config_string(SETTINGS_SECTION, "stats_separator", separator.data());
@@ -477,7 +483,8 @@ static const HeroStatsOverview &CachedOverview(const HeroStats &stats, const std
   Uint32 now = SDL_GetTicks();
   if (!pageDataCached || level != cachedLevel || key != cachedColumns || now - cachedAt >= CACHE_LIFETIME)
   {
-    data = HeroStatsPages_Overview(stats, columns, level);
+    static const HeroStatsNames names = HeroStats_NamesOfTheGame();
+    data = HeroStatsPages_Overview(stats, columns, level, &names);
     cachedLevel = level;
     cachedColumns = key;
     cachedAt = now;
@@ -693,19 +700,22 @@ static void ClickableName(const std::string &name, bool dimmed, HeroStatsChampio
 
 typedef int HeroStatsCell::*CellField;
 
-static void RowLabel(const char *label, bool indent)
+// depth 0: a total, 1: a row of the group, 2: a part of the row above
+static void RowLabel(const char *label, int depth)
 {
   ImGui::TableNextRow();
   ImGui::TableSetColumnIndex(0);
-  if (indent) ImGui::Indent(10);
-  ImGui::TextUnformatted(label);
-  if (indent) ImGui::Unindent(10);
+  float indent = depth == 0 ? 0.0f : depth == 1 ? 10.0f : 26.0f;
+  if (indent > 0) ImGui::Indent(indent);
+  if (depth == 2) ImGui::TextColored(DimmedColour(), "%s", label);
+  else ImGui::TextUnformatted(label);
+  if (indent > 0) ImGui::Unindent(indent);
 }
 
 static void NumberRow(const char *label, const HeroStatsOverview &data, CellField field, ImU32 colour,
-                      bool isBad, bool indent)
+                      bool isBad, int depth)
 {
-  RowLabel(label, indent);
+  RowLabel(label, depth);
   for (size_t i = 0; i < data.cells.size(); i++)
   {
     ImGui::TableSetColumnIndex((int)i + 1);
@@ -719,77 +729,201 @@ static void NumberRow(const char *label, const HeroStatsOverview &data, CellFiel
   }
 }
 
-static void GroupRow(const char *title)
+// A part of the row above (an item eaten, a way of drinking): a number per cell, dots for none
+static void CountRow(const HeroStatsOverview::CountLine &line, const HeroStatsOverview &data)
 {
-  ImGui::TableNextRow();
-  ImGui::TableSetColumnIndex(0);
-  ImGui::Dummy(ImVec2(0, 2));
-  ImGui::TextColored(Colour(SECTION_RGB), "%s", title);
+  RowLabel(line.name.c_str(), 2);
+  for (size_t i = 0; i < data.cells.size() && i < line.byCell.size(); i++)
+  {
+    ImGui::TableSetColumnIndex((int)i + 1);
+    bool greyed = i < data.columns.size() && data.columns[i].hasLeft;
+    if (line.byCell[i] == 0) RightText("\xc2\xb7", Colour(OTHER_RGB));
+    else RightText(HeroStatsView_Number(line.byCell[i]), greyed ? DimmedColour() : Colour(TEXT_RGB));
+  }
+}
+
+// A header that folds, as the champion pages' sections have it: the title on the left, the
+// summary right-aligned on the header line. True when open.
+static bool FoldingHeader(bool isOpen, const char *title, const std::string &summary, ImU32 summaryRgb)
+{
+  ImGui::SetNextItemOpen(isOpen, ImGuiCond_Always);
+  ImGui::PushStyleColor(ImGuiCol_Text, Colour(SECTION_RGB));
+  bool open = ImGui::CollapsingHeader(title);
+  ImGui::PopStyleColor();
+  ImVec2 min = ImGui::GetItemRectMin();
+  ImVec2 max = ImGui::GetItemRectMax();
+  float width = ImGui::CalcTextSize(summary.c_str()).x;
+  float titleEnd = min.x + ImGui::CalcTextSize(title).x + ImGui::GetTreeNodeToLabelSpacing() + 20;
+  float x = max.x - width - 10;
+  if (x > titleEnd)
+    ImGui::GetWindowDrawList()->AddText(ImVec2(x, min.y + ImGui::GetStyle().FramePadding.y), PackedColour(summaryRgb),
+                                        summary.c_str());
+  return open;
+}
+
+// A group of the Table: its folding header, then (when open) a table of its rows under the same
+// column widths as the champion names above. True when open; the caller ends the table with
+// EndGroup.
+static const float TABLE_LABEL_WIDTH = 230;
+static const float TABLE_NUMBER_WIDTH = 92;
+static bool BeginGroup(int group, const std::string &summary, int columnCount)
+{
+  int bit = 1 << group;
+  bool open = FoldingHeader((closedTableGroups & bit) == 0, HERO_STATS_TABLE_GROUP_TITLES[group], summary, TAKEN_RGB);
+  if (open) closedTableGroups &= ~bit;
+  else closedTableGroups |= bit;
+  if (!open) return false;
+  ImGui::PushID(group);
+  if (!ImGui::BeginTable("##group", columnCount, ImGuiTableFlags_SizingFixedFit))
+  {
+    ImGui::PopID();
+    return false;
+  }
+  ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, TABLE_LABEL_WIDTH);
+  for (int i = 1; i < columnCount; i++) ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, TABLE_NUMBER_WIDTH);
+  return true;
+}
+
+static void EndGroup(void)
+{
+  ImGui::EndTable();
+  ImGui::PopID();
+  ImGui::Dummy(ImVec2(0, 4));
 }
 
 // A row with a number in the Party column only
-static void PartyOnlyRow(const char *label, int columnCount, int value, bool isBad)
+static void PartyOnlyRow(const char *label, int columnCount, int value, bool isBad, int depth = 1)
 {
-  RowLabel(label, true);
+  RowLabel(label, depth);
   ImGui::TableSetColumnIndex(columnCount - 1);
   RightText(HeroStatsView_Number(value), isBad && value > 0 ? Colour(BAD_RGB) : Colour(TEXT_RGB));
 }
 
+// The Table: the champion names on top, then each group under a folding header with the party's
+// numbers summed up, like the sections of the champion pages. The names stay while the groups
+// scroll; both scroll sideways together when the window is narrow.
 static void DrawTable(const HeroStatsOverview &data)
 {
   int columnCount = (int)data.cells.size() + 1;
-  ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY;
-  if (!ImGui::BeginTable("##table", columnCount, flags, ImGui::GetContentRegionAvail())) return;
-  ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 230);
-  for (int i = 1; i < columnCount; i++) ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 92);
-  ImGui::TableSetupScrollFreeze(1, 1);
-  ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
-  for (size_t i = 0; i < data.cells.size(); i++)
+  float contentWidth = TABLE_LABEL_WIDTH + TABLE_NUMBER_WIDTH * (columnCount - 1) + 40;
+  if (!ImGui::BeginChild("##tablepage", ImGui::GetContentRegionAvail(), 0, ImGuiWindowFlags_HorizontalScrollbar))
   {
-    ImGui::TableSetColumnIndex((int)i + 1);
-    if (i < data.columns.size()) ClickableName(data.columns[i].name, data.columns[i].hasLeft, data.columns[i].id);
-    else ClickableName("Party", false, HERO_STATS_PARTY);
+    ImGui::EndChild();
+    return;
+  }
+  float width = std::max(contentWidth, ImGui::GetContentRegionAvail().x);
+  if (ImGui::BeginTable("##names", columnCount, ImGuiTableFlags_SizingFixedFit))
+  {
+    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, TABLE_LABEL_WIDTH);
+    for (int i = 1; i < columnCount; i++) ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, TABLE_NUMBER_WIDTH);
+    ImGui::TableNextRow();
+    for (size_t i = 0; i < data.cells.size(); i++)
+    {
+      ImGui::TableSetColumnIndex((int)i + 1);
+      if (i < data.columns.size()) ClickableName(data.columns[i].name, data.columns[i].hasLeft, data.columns[i].id);
+      else ClickableName("Party", false, HERO_STATS_PARTY);
+    }
+    ImGui::EndTable();
   }
   const HeroStatsCell &party = data.cells.back();
-
-  GroupRow("Damage dealt");
-  NumberRow("Melee", data, &HeroStatsCell::melee, MELEE_RGB, false, true);
-  NumberRow("Ranged", data, &HeroStatsCell::ranged, RANGED_RGB, false, true);
-  NumberRow("Magic", data, &HeroStatsCell::magic, MAGIC_RGB, false, true);
-  NumberRow("Total", data, &HeroStatsCell::total, 0, false, false);
-  RowLabel("share of party damage", true);
-  for (size_t i = 0; i < data.cells.size(); i++)
+  std::vector<std::string> summaries = HeroStatsPages_TableSummaries(data, shownLevel == HERO_STATS_WHOLE_RUN);
+  if (ImGui::BeginChild("##groups", ImVec2(width, ImGui::GetContentRegionAvail().y), 0))
   {
-    ImGui::TableSetColumnIndex((int)i + 1);
-    RightText(HeroStatsView_Percent(data.cells[i].total, party.total), DimmedColour());
+    if (BeginGroup(HeroGroupDealt, summaries[HeroGroupDealt], columnCount))
+    {
+      NumberRow("Melee", data, &HeroStatsCell::melee, MELEE_RGB, false, true);
+      NumberRow("Ranged", data, &HeroStatsCell::ranged, RANGED_RGB, false, true);
+      NumberRow("Magic", data, &HeroStatsCell::magic, MAGIC_RGB, false, true);
+      NumberRow("Total", data, &HeroStatsCell::total, 0, false, false);
+      RowLabel("share of party damage", true);
+      for (size_t i = 0; i < data.cells.size(); i++)
+      {
+        ImGui::TableSetColumnIndex((int)i + 1);
+        RightText(HeroStatsView_Percent(data.cells[i].total, party.total), DimmedColour());
+      }
+      NumberRow("Kills", data, &HeroStatsCell::kills, KILLS_RGB, false, false);
+      EndGroup();
+    }
+    if (BeginGroup(HeroGroupTaken, summaries[HeroGroupTaken], columnCount))
+    {
+      NumberRow("Total", data, &HeroStatsCell::taken, 0, false, false);
+      NumberRow("Friendly fire caused", data, &HeroStatsCell::friendlyFire, 0, true, false);
+      EndGroup();
+    }
+    if (BeginGroup(HeroGroupHealing, summaries[HeroGroupHealing], columnCount))
+    {
+      NumberRow("Healed", data, &HeroStatsCell::healed, HEALED_RGB, false, true);
+      NumberRow("Healing given (potions brewed)", data, &HeroStatsCell::given, GIVEN_RGB, false, true);
+      EndGroup();
+    }
+    if (BeginGroup(HeroGroupHardship, summaries[HeroGroupHardship], columnCount))
+    {
+      NumberRow("Deaths", data, &HeroStatsCell::deaths, 0, true, true);
+      if (shownLevel == HERO_STATS_WHOLE_RUN)
+      {
+        PartyOnlyRow("Party wiped out", columnCount, data.wipes, true);
+        PartyOnlyRow("Reloads", columnCount, data.reloads, false);
+      }
+      EndGroup();
+    }
+    if (BeginGroup(HeroGroupMana, summaries[HeroGroupMana], columnCount))
+    {
+      NumberRow("Generated", data, &HeroStatsCell::generated, GENERATED_RGB, false, true);
+      NumberRow("Spent", data, &HeroStatsCell::spent, 0, false, true);
+      NumberRow("Wasted on failures", data, &HeroStatsCell::wasted, 0, true, true);
+      EndGroup();
+    }
+    if (BeginGroup(HeroGroupMovement, summaries[HeroGroupMovement], columnCount))
+    {
+      for (int c = 0; c < HERO_MOVE_COLUMN_COUNT; c++)
+        PartyOnlyRow(HERO_STATS_MOVEMENT_LABELS[c], columnCount, HeroStatsPages_MovementValue(data.movement, c), false);
+      EndGroup();
+    }
+    if (BeginGroup(HeroGroupItems, summaries[HeroGroupItems], columnCount))
+    {
+      PartyOnlyRow("Picked up", columnCount, data.itemsPickedUp, false);
+      PartyOnlyRow("Used in walls (keys, coins ...)", columnCount, data.itemsUsedInWalls, false);
+      EndGroup();
+    }
+    if (BeginGroup(HeroGroupFood, summaries[HeroGroupFood], columnCount))
+    {
+      NumberRow("Eaten", data, &HeroStatsCell::eaten, 0, false, true);
+      for (size_t l = 0; l < data.eatenLines.size(); l++) CountRow(data.eatenLines[l], data);
+      NumberRow("Drunk", data, &HeroStatsCell::drunk, 0, false, true);
+      for (size_t l = 0; l < data.drunkLines.size(); l++) CountRow(data.drunkLines[l], data);
+      NumberRow("Food gained", data, &HeroStatsCell::foodGained, 0, false, true);
+      NumberRow("Food wasted (over full)", data, &HeroStatsCell::foodWasted, 0, true, true);
+      NumberRow("Water gained", data, &HeroStatsCell::waterGained, 0, false, true);
+      NumberRow("Water wasted (over full)", data, &HeroStatsCell::waterWasted, 0, true, true);
+      EndGroup();
+    }
+    if (BeginGroup(HeroGroupDungeon, summaries[HeroGroupDungeon], columnCount))
+    {
+      NumberRow("Doors bashed open", data, &HeroStatsCell::doorsBashed, 0, false, 1);
+      NumberRow("smashed (melee)", data, &HeroStatsCell::doorsSmashed, 0, false, 2);
+      NumberRow("shot open (thrown, fired)", data, &HeroStatsCell::doorsShot, 0, false, 2);
+      NumberRow("by spell (fireball ...)", data, &HeroStatsCell::doorsBySpell, 0, false, 2);
+      NumberRow("Doors opened with Zo", data, &HeroStatsCell::doorsOpenedByZo, 0, false, true);
+      PartyOnlyRow("Doors opened with their button", columnCount, data.doorsOpenedByButton, false);
+      PartyOnlyRow("Doors closed with their button", columnCount, data.doorsClosedByButton, false);
+      PartyOnlyRow("Chests opened", columnCount, data.chestsOpened, false);
+      EndGroup();
+    }
+    if (BeginGroup(HeroGroupReading, summaries[HeroGroupReading], columnCount))
+    {
+      PartyOnlyRow("Scrolls read", columnCount, data.scrollsRead, false);
+      PartyOnlyRow("Wall texts read", columnCount, data.wallTextsRead, false);
+      EndGroup();
+    }
+    if (BeginGroup(HeroGroupChampions, summaries[HeroGroupChampions], columnCount))
+    {
+      PartyOnlyRow("Champions seen (portraits face to face)", columnCount, data.championsSeen, false);
+      PartyOnlyRow("Champions viewed (mirror clicked)", columnCount, data.championsViewed, false);
+      EndGroup();
+    }
   }
-  NumberRow("Kills", data, &HeroStatsCell::kills, KILLS_RGB, false, false);
-
-  GroupRow("Damage taken");
-  NumberRow("Total", data, &HeroStatsCell::taken, 0, false, false);
-  NumberRow("Friendly fire caused", data, &HeroStatsCell::friendlyFire, 0, true, false);
-
-  GroupRow("Healing");
-  NumberRow("Healed", data, &HeroStatsCell::healed, HEALED_RGB, false, true);
-  NumberRow("Healing given (potions brewed)", data, &HeroStatsCell::given, GIVEN_RGB, false, true);
-
-  GroupRow("Hardship");
-  NumberRow("Deaths", data, &HeroStatsCell::deaths, 0, true, true);
-  if (shownLevel == HERO_STATS_WHOLE_RUN)
-  {
-    PartyOnlyRow("Party wiped out", columnCount, data.wipes, true);
-    PartyOnlyRow("Reloads", columnCount, data.reloads, false);
-  }
-
-  GroupRow("Mana");
-  NumberRow("Generated", data, &HeroStatsCell::generated, GENERATED_RGB, false, true);
-  NumberRow("Spent", data, &HeroStatsCell::spent, 0, false, true);
-  NumberRow("Wasted on failures", data, &HeroStatsCell::wasted, 0, true, true);
-
-  GroupRow("Movement");
-  for (int c = 0; c < HERO_MOVE_COLUMN_COUNT; c++)
-    PartyOnlyRow(HERO_STATS_MOVEMENT_LABELS[c], columnCount, HeroStatsPages_MovementValue(data.movement, c), false);
-  ImGui::EndTable();
+  ImGui::EndChild();
+  ImGui::EndChild();
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -962,15 +1096,38 @@ static void DrawMetricButtons(const std::vector<HeroStatsColumn> &columns)
   ImGui::SetCursorPos(ImVec2(GUTTER, ImGui::GetCursorPosY() + 4));
   for (int m = 0; m < HERO_METRIC_COUNT; m++)
   {
-    if (m > 0) ImGui::SameLine();
+    // A button that does not fit beside the one before starts a new row
+    if (m > 0)
+    {
+      ImGui::SameLine();
+      if (ImGui::GetContentRegionAvail().x < ButtonWidth(HERO_STATS_METRIC_LABELS[m]) + GUTTER)
+      {
+        ImGui::NewLine();
+        ImGui::SetCursorPosX(GUTTER);
+      }
+    }
+    // The front pages have an "Items" button too: the metrics get IDs of their own
+    ImGui::PushID("metric");
+    ImGui::PushID(m);
     if (PageButton(HERO_STATS_METRIC_LABELS[m], m == shownMetric)) shownMetric = m;
+    ImGui::PopID();
+    ImGui::PopID();
   }
-  if (shownMetric == HeroMetricMovement) return;  // the party's: no champions to tell apart
+  // The party's tables have no champions to tell apart, and before a champion joins neither do the others
+  if (shownMetric >= HERO_STATS_FIRST_PARTY_TABLE || columns.empty()) return;
+  // The legend sits beside the buttons when it fits, else on a line of its own
+  float legendWidth = 0;
+  for (size_t i = 0; i < columns.size(); i++) legendWidth += 14 + 10 + 4 + ImGui::CalcTextSize(columns[i].name.c_str()).x;
   ImGui::SameLine(0, 30);
+  if (ImGui::GetContentRegionAvail().x < legendWidth)
+  {
+    ImGui::NewLine();
+    ImGui::SetCursorPosX(GUTTER);
+  }
   for (size_t i = 0; i < columns.size(); i++) LegendEntry(HERO_RGB[i % 4], columns[i].name.c_str(), i == 0);
 }
 
-static void DrawMovement(const HeroStats &stats, const HeroStatsPicker &picker);
+static void DrawPartyTable(const HeroStats &stats, const HeroStatsPicker &picker, int metric);
 
 // A level's row of a table that lists the levels: clicking it shows the level in the Table
 static void LevelCell(int level, bool isRun)
@@ -988,9 +1145,9 @@ static void DrawByLevel(const HeroStats &stats, const std::vector<HeroStatsColum
                         const HeroStatsPicker &picker)
 {
   DrawMetricButtons(columns);
-  if (shownMetric == HeroMetricMovement)
+  if (shownMetric >= HERO_STATS_FIRST_PARTY_TABLE)
   {
-    DrawMovement(stats, picker);
+    DrawPartyTable(stats, picker, shownMetric);
     return;
   }
   size_t n = columns.size();
@@ -1162,36 +1319,94 @@ static void DrawMonsters(const HeroStats &stats, const std::vector<HeroStatsColu
   ImGui::TextColored(DimmedColour(), "(Other = clouds, traps and monsters)");
 }
 
-struct MovementRow
+// The party's items on the picked level: picked up the first time, and taken by walls
+static void DrawItems(const HeroStats &stats)
+{
+  std::vector<HeroStatsItemLine> lines = HeroStatsPages_Items(stats, shownLevel, HeroStats_NamesOfTheGame());
+  ImGui::SetCursorPos(ImVec2(GUTTER, ImGui::GetCursorPosY() + 4));
+  if (lines.empty())
+  {
+    ImGui::TextColored(DimmedColour(), "No items picked up, used, drunk or eaten yet.");
+    return;
+  }
+  HeroStatsItemLine all = HeroStatsPages_AllItems(lines);
+  ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY |
+                          ImGuiTableFlags_Sortable;
+  ImVec2 size = ImGui::GetContentRegionAvail();
+  size.y = std::max(40.0f, size.y - ImGui::GetTextLineHeightWithSpacing() - 4);  // room for the note
+  if (!ImGui::BeginTable("##items", 5, flags, size)) return;
+  SortColumn("Item", 190, false);
+  SortColumn("Picked up", 92, true, true);
+  SortColumn("Used in walls", 110, true);
+  SortColumn("Drunk", 72, true);
+  SortColumn("Eaten", 72, true);
+  ImGui::TableSetupScrollFreeze(1, 1);
+  SortHeaders(std::vector<bool>());
+  auto valueOf = [](const HeroStatsItemLine &line, int column) {
+    int values[4] = {line.pickedUp, line.usedInWall, line.drunk, line.eaten};
+    return values[column - 1];
+  };
+  SortRows(&lines, CurrentSort(), [&](const HeroStatsItemLine &a, const HeroStatsItemLine &b, int column) {
+    if (column == 0) return a.name.compare(b.name);
+    return Compare(valueOf(a, column), valueOf(b, column));
+  });
+  for (size_t l = 0; l <= lines.size(); l++)
+  {
+    bool isAll = l == lines.size();
+    const HeroStatsItemLine &line = isAll ? all : lines[l];
+    ImGui::TableNextRow();
+    if (isAll) ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, PackedColour(FRAME_RGB));
+    ImGui::TableSetColumnIndex(0);
+    ImGui::TextColored(isAll ? Colour(TITLE_TEXT_RGB) : Colour(TEXT_RGB), "%s", line.name.c_str());
+    for (int column = 1; column <= 4; column++)
+    {
+      ImGui::TableSetColumnIndex(column);
+      MonsterCount(valueOf(line, column), false);
+    }
+  }
+  ImGui::EndTable();
+  ImGui::SetCursorPosX(GUTTER);
+  ImGui::TextColored(DimmedColour(), "(Picked up = the first time the party held it; used in walls = keys in locks, "
+                                     "coins and gems in slots)");
+}
+
+struct PartyTableRow
 {
   int level;  // HERO_STATS_WHOLE_RUN for the last row
-  HeroStatsMovement movement;
+  std::vector<int> values;
 };
 
-// By level's Movement: the party's steps, turns, bumps, teleports, pits and time on each visited
-// level and in the whole run
-static void DrawMovement(const HeroStats &stats, const HeroStatsPicker &picker)
+// By level's party tables (Movement, Items, Food and water, Dungeon): the party's numbers on each
+// visited level and in the whole run
+static void DrawPartyTable(const HeroStats &stats, const HeroStatsPicker &picker, int metric)
 {
-  std::vector<MovementRow> rows;
+  std::vector<std::string> labels = HeroStatsPages_PartyTableLabels(metric);
+  std::vector<PartyTableRow> rows;
   for (size_t r = 0; r < picker.levels.size(); r++)
   {
-    MovementRow row = {picker.levels[r], stats.Movement(picker.levels[r])};
+    PartyTableRow row = {picker.levels[r], HeroStatsPages_PartyTableRow(stats, picker.levels[r], metric)};
     rows.push_back(row);
   }
   ImGui::SetCursorPos(ImVec2(GUTTER, ImGui::GetCursorPosY() + 4));
   ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY |
                           ImGuiTableFlags_Sortable;
-  int columnCount = 1 + HERO_MOVE_COLUMN_COUNT;
-  if (!ImGui::BeginTable("##movement", columnCount, flags, ImGui::GetContentRegionAvail())) return;
+  int columnCount = 1 + (int)labels.size();
+  ImGui::PushID(metric);
+  if (!ImGui::BeginTable("##partytable", columnCount, flags, ImGui::GetContentRegionAvail()))
+  {
+    ImGui::PopID();
+    return;
+  }
   SortColumn("Level", 100, false, true);
-  for (int c = 0; c < HERO_MOVE_COLUMN_COUNT; c++) SortColumn(HERO_STATS_MOVEMENT_LABELS[c], c >= HeroMoveTicks ? 110 : 84, true);
+  for (size_t c = 0; c < labels.size(); c++)
+    SortColumn(labels[c], std::max(84.0f, ImGui::CalcTextSize(labels[c].c_str()).x + 30), true);
   ImGui::TableSetupScrollFreeze(1, 1);
   SortHeaders(std::vector<bool>());
-  SortRows(&rows, CurrentSort(), [](const MovementRow &a, const MovementRow &b, int column) {
+  SortRows(&rows, CurrentSort(), [](const PartyTableRow &a, const PartyTableRow &b, int column) {
     if (column == 0) return Compare(a.level, b.level);
-    return Compare(HeroStatsPages_MovementValue(a.movement, column - 1), HeroStatsPages_MovementValue(b.movement, column - 1));
+    return Compare(a.values[column - 1], b.values[column - 1]);
   });
-  MovementRow run = {HERO_STATS_WHOLE_RUN, stats.Movement(HERO_STATS_WHOLE_RUN)};
+  PartyTableRow run = {HERO_STATS_WHOLE_RUN, HeroStatsPages_PartyTableRow(stats, HERO_STATS_WHOLE_RUN, metric)};
   rows.push_back(run);
   for (size_t r = 0; r < rows.size(); r++)
   {
@@ -1205,10 +1420,11 @@ static void DrawMovement(const HeroStats &stats, const HeroStatsPicker &picker)
     for (int column = 1; column < columnCount; column++)
     {
       ImGui::TableSetColumnIndex(column);
-      MonsterCount(HeroStatsPages_MovementValue(rows[r].movement, column - 1), false);
+      MonsterCount(rows[r].values[column - 1], false);
     }
   }
   ImGui::EndTable();
+  ImGui::PopID();
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1247,20 +1463,9 @@ static const HeroStatsHeroPage &CachedHeroPage(const HeroStats &stats, const std
 // A section header that folds; the summary sits right-aligned on the header line
 static bool SectionHeader(int bit, const char *title, const std::string &summary, ImU32 summaryRgb)
 {
-  ImGui::SetNextItemOpen((openSections & bit) != 0, ImGuiCond_Always);
-  ImGui::PushStyleColor(ImGuiCol_Text, Colour(SECTION_RGB));
-  bool open = ImGui::CollapsingHeader(title);
-  ImGui::PopStyleColor();
+  bool open = FoldingHeader((openSections & bit) != 0, title, summary, summaryRgb);
   if (open) openSections |= bit;
   else openSections &= ~bit;
-  ImVec2 min = ImGui::GetItemRectMin();
-  ImVec2 max = ImGui::GetItemRectMax();
-  float width = ImGui::CalcTextSize(summary.c_str()).x;
-  float titleEnd = min.x + ImGui::CalcTextSize(title).x + ImGui::GetTreeNodeToLabelSpacing() + 20;
-  float x = max.x - width - 10;
-  if (x > titleEnd)
-    ImGui::GetWindowDrawList()->AddText(ImVec2(x, min.y + ImGui::GetStyle().FramePadding.y), PackedColour(summaryRgb),
-                                        summary.c_str());
   return open;
 }
 
@@ -1423,9 +1628,10 @@ static void ValueLine(const std::string &label, const std::string &value, const 
 {
   const float VALUE_RIGHT = 230 + 78;
   float x = ImGui::GetCursorPosX();
-  ImGui::Indent(indent);
+  // Indent(0) would indent by the style's default: no indent is no call
+  if (indent > 0) ImGui::Indent(indent);
   ImGui::TextColored(labelColour, "%s", label.c_str());
-  ImGui::Unindent(indent);
+  if (indent > 0) ImGui::Unindent(indent);
   if (!value.empty())
   {
     ImGui::SameLine();
@@ -1468,6 +1674,27 @@ static void DrawHeroPage(const HeroStatsHeroPage &page, HeroStatsChampion who)
       ValueLine("Healing given (potions brewed)", HeroStatsView_Number(page.given), text, Colour(GIVEN_RGB), 0);
     if (page.resurrected != 0)
       ValueLine("Resurrected", std::to_string(page.resurrected) + "\xc3\x97", text, text, 0);
+    SectionGap();
+  }
+  if (SectionHeader(32, "Food and water", page.summaries.food, TAKEN_RGB))
+  {
+    const HeroStatsNourishment &food = page.nourishment;
+    if (page.eatenTotal == 0 && page.drunkTotal == 0) ImGui::TextColored(DimmedColour(), "Nothing eaten or drunk.");
+    else
+    {
+      ValueLine("Eaten", HeroStatsView_Number(page.eatenTotal), text, text, 0);
+      for (size_t i = 0; i < page.eaten.size(); i++)
+        ValueLine(page.eaten[i].text, HeroStatsView_Number(page.eaten[i].amount), DimmedColour(), text, 12);
+      ValueLine("Drunk", HeroStatsView_Number(page.drunkTotal), text, text, 0);
+      for (size_t i = 0; i < page.drunk.size(); i++)
+        ValueLine(page.drunk[i].text, HeroStatsView_Number(page.drunk[i].amount), DimmedColour(), text, 12);
+      ValueLine("Food gained", HeroStatsView_Number(food.foodGained), text, text, 0);
+      ValueLine("Food wasted (over full)", HeroStatsView_Number(food.foodWasted), text,
+                food.foodWasted > 0 ? bad : text, 0);
+      ValueLine("Water gained", HeroStatsView_Number(food.waterGained), text, text, 0);
+      ValueLine("Water wasted (over full)", HeroStatsView_Number(food.waterWasted), text,
+                food.waterWasted > 0 ? bad : text, 0);
+    }
     SectionGap();
   }
   bool hurt = !page.deathLines.empty() || page.wipes != 0 || page.reloads != 0;
@@ -1515,6 +1742,7 @@ static void ExportStatistics(void)
     strftime(date, sizeof date, "%Y-%m-%d %H:%M", local);
   }
   std::string path = std::string(pwd) + "/statistics-" + stamp + ".html";
+  HeroStats_RefreshMapCounts(true);
   const HeroStats &stats = HeroStats_Store();
   HeroStatsExportInfo info = {HeroStats_DungeonInPlay(), date};
   std::string html = HeroStatsExport_Html(stats, HeroStatsView_Columns(stats, HeroStats_PartyNow()),
@@ -1549,6 +1777,7 @@ static void DrawWindowContents(void)
                            ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus;
   if (ImGui::Begin("##statistics", NULL, flags))
   {
+    HeroStats_RefreshMapCounts(false);
     const HeroStats &stats = HeroStats_Store();
     HeroStatsPicker picker = HeroStatsView_Picker(stats, shownLevel);
     // A level of the game before is not in this game's list
@@ -1566,7 +1795,8 @@ static void DrawWindowContents(void)
     // By level lists every level
     bool showPicker = heroPageOpen || shownPage != StatsPageByLevel;
     DrawTopBar(picker, showPicker, columns);
-    if (stats.Champions().empty())
+    // Steps and items count before a champion joins: only a game with no level yet has nothing
+    if (stats.Champions().empty() && stats.VisitedLevels().empty())
     {
       ImGui::SetCursorPos(ImVec2(GUTTER, ImGui::GetCursorPosY() + 8));
       ImGui::TextColored(DimmedColour(), "No statistics yet.");
@@ -1584,6 +1814,8 @@ static void DrawWindowContents(void)
       DrawByLevel(stats, columns, picker);
     else if (shownPage == StatsPageMonsters)
       DrawMonsters(stats, columns);
+    else if (shownPage == StatsPageItems)
+      DrawItems(stats);
 
   }
   ImGui::End();

@@ -505,7 +505,9 @@ void ProcessTT_25(TIMER *pTimer)
   case 0xff80: //Fireball
       if (D4W == 4)
       {
+        HeroStats_BeginDoorBlowByCloud(db.GetDBIndex(DB15A2, dbCLOUD));
         HitDoor(D7W, D6W, D5W, 1, 0);
+        HeroStats_EndDoorBlow();
       };
       break;
 
@@ -1516,6 +1518,7 @@ void ProcessTT_BASH_DOOR(TIMER *pTimer)
   CELLFLAG *pCF;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   pCF = &d.LevelCellFlags[pTimer->timerUByte6()][pTimer->timerUByte7()];
+  HeroStats_OnDoorBashTimer(d.LoadedLevel, pTimer->timerUByte6(), pTimer->timerUByte7(), (*pCF & 7) != 5);
   SETBBITS0_2(*pCF, 5); //Set door as bashed.
 }
 

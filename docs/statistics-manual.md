@@ -15,6 +15,7 @@ save.
 - [Bars](#bars)
 - [By level](#by-level)
 - [Monsters](#monsters)
+- [Items](#items)
 - [Movement (in By level)](#movement-in-by-level)
 - [Champion and Party pages](#champion-and-party-pages)
 - [Sorting](#sorting)
@@ -38,8 +39,8 @@ map.
 
 - The **title strip** at the top holds the **Export as HTML...** button (see
   [Sharing](#sharing-export-as-html)).
-- The **top bar** below it has the four front pages on the left (**Table**, **Bars**,
-  **By level**, **Monsters**) and the level picker on the right.
+- The **top bar** below it has the five front pages on the left (**Table**, **Bars**,
+  **By level**, **Monsters**, **Items**) and the level picker on the right.
 - **Champions are columns.** The champions in the party come first, in their slot order. In custom
   dungeons a champion can leave the party; such a champion is shown greyed out after the others,
   and still counts in the Party totals.
@@ -65,7 +66,8 @@ The levels are numbered as the map numbers them, starting at 0.
 
 ## Table
 
-One column per champion and one for the Party:
+One column per champion and one for the Party. Click a group's title to fold or open it; the
+window remembers which groups are open.
 
 | Group | Rows |
 |---|---|
@@ -74,7 +76,14 @@ One column per champion and one for the Party:
 | Healing | Healed, Healing given (potions brewed) |
 | Hardship | Deaths; for the whole run also Party wiped out and Reloads (Party column) |
 | Mana | Generated, Spent, Wasted on failures |
-| Movement | Steps, Turns, Wall bumps, Teleports, Pit falls, Pit climbs, Time (ticks), Asleep (ticks), in the Party column |
+| Movement | Steps, Tiles walked, Tiles explored, Turns, Wall bumps, Teleports, Pit falls, Pit climbs, Time (ticks), Asleep (ticks), in the Party column |
+| Items | Picked up, Used in walls (keys, coins ...), in the Party column (see [Items](#items)) |
+| Food and water | Eaten and Drunk, each with one line per item below it (and Fountain under Drunk), Food gained, Food wasted (over full), Water gained, Water wasted (over full) |
+| Dungeon | Doors bashed open with smashed, shot open and by spell below it, Doors opened with Zo; Doors opened and closed with their button, Chests opened in the Party column |
+| Reading | Scrolls read (each scroll once, the first time it is opened), Wall texts read (the wall texts the map knows as read), in the Party column |
+| Champions | Champions seen (portraits in mirrors seen face to face), Champions viewed (mirrors clicked to look at the champion), in the Party column; each mirror counts once |
+
+A row indented further and greyed is a part of the row above it.
 
 Numbers in red are bad news: friendly fire, deaths, wasted mana.
 
@@ -92,7 +101,9 @@ party:
 ## By level
 
 Choose a number with the buttons: **Damage dealt**, **Kills**, **Damage taken**, **Healed**,
-**Mana spent** or **Movement** (see [below](#movement-in-by-level)). The table then has one row per visited level with each champion's value, the
+**Mana spent**, or one of the party's tables: **Movement** (see [below](#movement-in-by-level)),
+**Items**, **Food and water**, **Dungeon**, **Reading** and **Champions** (the Table's groups of those names, one row per
+level). For the champions' numbers the table then has one row per visited level with each champion's value, the
 Party total and a **Share** bar in the champions' colours. The **Whole run** row stays at the
 bottom.
 
@@ -112,15 +123,58 @@ Every monster killed on the chosen level (or in the whole run), one row per kind
 The **All monsters** row at the bottom adds everything up. Monsters carry the names the dungeon
 gives them. Kinds that look alike (variants the dungeon gives no name of their own) share one row.
 
+## Items
+
+The party's items on the chosen level (or in the whole run), one row per item name:
+
+- **Picked up**: items the party took from the dungeon into the hand: from the floor, an alcove,
+  a torch holder, an alcove that swaps one item for another, a gift from the gods, or an open
+  chest. An item counts only **the first time** the party holds it, so dropping a dagger and
+  picking it up again does not count twice. What the champions carried when they joined is not
+  counted.
+- **Used in walls**: items a wall took: keys in locks, coins and gems in slots, and anything else
+  a lock in a custom dungeon takes.
+- **Drunk** and **Eaten**: what the champions drank (potions, water from a flask or waterskin) and
+  ate. A gulp from an empty waterskin or flask does not count; water from a fountain is no item.
+
+The **All items** row at the bottom adds everything up. The Table shows the totals of Picked up
+and Used in walls in its Items group.
+
+The Table's **Food and water** group has, per champion:
+
+- **Eaten**: everything eaten, with one line per item below it (APPLE, CORN, BREAD ...);
+- **Drunk**: everything drunk, with one line per item below it (WATERSKIN, WATER FLASK, potions
+  ...) and **Fountain** for drinks straight from a fountain;
+- **Food gained**, **Water gained**: how much the champion's food and water actually rose, in the
+  game's own units (a champion is full at 2048; an apple gives 500, a water flask 1600, a gulp
+  from a waterskin 800, a fountain 1600);
+- **Food wasted**, **Water wasted**: the part that went over full and was lost. An apple worth 500
+  eaten by a champion 200 short of full gains 200 and wastes 300.
+
+The Table's **Dungeon** group counts the doors each champion broke down. **Doors bashed open** is
+all of them ("bashed" is the game's own word for a broken door); below it, **smashed** with an
+attack, **shot open** with a thrown or fired item, and **by spell** with a spell's missile or its
+explosion. Doors broken by monsters or
+traps are not counted. **Doors opened with Zo** counts the closed doors a champion's Zo spell
+opened: the spell works the door's switch like its button and leaves the door whole, so these are
+not in Doors bashed open. A Zo on an open door closes it and does not count. **Doors opened with
+their button** and **Doors closed with their button** count the clicks on a door's button, in the
+Party column: a click on an open door closes it, a click on any other door opens it. Doors moved by
+levers, wall switches, pressure plates or scripts are not counted. **Chests opened** counts each chest once, the first time the party opens it.
+
 ## Movement (in By level)
 
 The **Movement** button of By level shows the party's movement instead of the champions' numbers:
-one row per visited level and the **Whole run** at the bottom. The Table shows the same numbers
+one row per visited level and the **Whole run** at the bottom. Movement and the other party
+numbers count from the start of a new game, before the first champion joins; the window shows
+them as soon as the party is on a level. The Table shows the same numbers
 for the level you pick, in its Movement group.
 
 | Column | What it counts |
 |---|---|
 | **Steps** | Moves you made to another square: forward, back, sideways, and up or down stairs |
+| **Tiles walked** | The different squares the party stood on, however it got there; each square counts once |
+| **Tiles explored** | The squares the map shows as explored that are not solid wall: floors, doors, stairs, pits, teleporters ... A false wall counts once it is seen to be passable. This comes from the map itself, so it is there for games saved before the statistics existed. |
 | **Turns** | Turns left or right you made. Turning while on stairs takes the stairs, so it counts as a step. |
 | **Wall bumps** | Moves that ran into a wall, a closed door or a solid false wall |
 | **Teleports** | Teleporters that moved the party. Each teleporter in a chain counts. |
@@ -168,12 +222,15 @@ one-line summary even when folded. Which sections are open is remembered for all
   back with the arrow; the game does not refund their mana), **Shield action**, **Heal action**
   and **Spells from items** (staffs and wands).
 - **Damage taken**: one line per source. **Monster attacks** are the blows of monsters (claws,
-  weapons, bites). Spells and missiles that monsters cast are listed by what they are:
-  **Fireball**, **Lightning**, **Poison bolt**, **Poison blob**, **Poison cloud** ... Then
+  weapons, bites), all monsters on one line. Spells and missiles that monsters cast are listed by
+  what they are and who cast them: **Fireball (Lord Order)**, **Lightning (Vexirk)**, **Poison
+  bolt**, **Poison blob**, **Poison cloud** ... Then
   **Friendly fire** (from whom, or "own"), **Poison**, **Pits**, **Walls**, **Doors**,
   **Starvation**, **Exhaustion**, **Traps**, **Harmful potions or food**.
 - **Healing**: HP healed by regeneration, the Heal action and potions (from whom, own, or found
   in the dungeon), healing given with potions the champion brewed, and resurrections.
+- **Food and water**: what the champion ate and drank, with one line per item (and Fountain under
+  Drunk), food and water gained and what was wasted over full; see [Table](#table) for the units.
 - **Hardship**: how often the champion died, each death with its cause and level, for example
   "Fireball from Lord Order · Lv 3", "own Fireball · Lv 9", "Fell into a pit · Lv 7". The
   Party page lists every death with the champion's name, and the party wipes and reloads.
@@ -190,9 +247,10 @@ export uses the same.
 
 Click a column's header to sort the table by it. Click it again to reverse the order. The small
 triangle shows the column and the direction. Numbers sort largest first on the first click, names
-alphabetically. The **Whole run** and **All monsters** rows always stay at the bottom.
+alphabetically. The **Whole run**, **All monsters** and **All items** rows always stay at the
+bottom.
 
-Sortable tables: **By level** (Movement too), **Monsters**, and on the champion pages **Attacks**
+Sortable tables: **By level** (Movement too), **Monsters**, **Items**, and on the champion pages **Attacks**
 (a weapon's options are sorted the same way below it) and **Spells**.
 
 On By level and Monsters the champions' names are column headers, so clicking one sorts instead
@@ -244,7 +302,15 @@ back to what it was at that save.
 
 Saves from before the statistics existed load with empty statistics; counting starts from there.
 Saves made before Movement was counted show 0 for the time before; saves made before wall bumps,
-pits, sleep and the actions that cannot hit were counted show 0 for those.
+pits, sleep and the actions that cannot hit were counted show 0 for those. Saves made before items
+were counted show none; from such a save on, the items the champions carry count as already held.
+Saves made before eating, drinking, bashed doors and opened chests were counted show 0 for those;
+a chest opened before still counts the first time it is opened again. Saves made before food,
+water and the way a door was broken were kept show 0 for those; their doors count only in Doors
+bashed open. Saves made before tiles walked were kept count them from the first square after loading. Saves
+made before scrolls read were kept count each scroll the first time it is opened after loading;
+wall texts read, champions seen and champions viewed come from the map and are there for old
+saves too. A champion portrait is not a wall text, even though the map marks both the same way.
 
 ## Settings in csb.cfg
 
@@ -254,6 +320,7 @@ The window keeps these in the `[settings]` section of `csb.cfg`:
 |---|---|
 | `stats_window` | 1 when the window was open when the game was left |
 | `stats_x`, `stats_y`, `stats_width`, `stats_height` | The window's place and size |
-| `stats_page` | The front page last chosen: 0 Table, 1 Bars, 2 By level, 3 Monsters |
+| `stats_page` | The front page last chosen: 0 Table, 1 Bars, 2 By level, 3 Monsters, 4 Items |
 | `stats_separator` | The mark between thousands: `comma` (4,261, the default), `dot` (4.261), `space` (4 261), `apostrophe` (4'261) or `none` (4261). Edit it while the game is closed. |
-| `stats_open` | Which sections of the champion pages are open (1 Attacks, 2 Spells, 4 Damage taken, 8 Healing, 16 Hardship, added up) |
+| `stats_open` | Which sections of the champion pages are open (1 Attacks, 2 Spells, 4 Damage taken, 8 Healing, 16 Hardship, 32 Food and water, added up) |
+| `stats_table_closed` | Which groups of the Table are folded (1 Damage dealt, 2 Damage taken, 4 Healing, 8 Hardship, 16 Mana, 32 Movement, 64 Items, 128 Food and water, 256 Dungeon, 512 Reading, 1024 Champions, added up; 0 none) |

@@ -6,16 +6,19 @@
 #include <utility>
 
 const char *const HERO_STATS_METRIC_LABELS[HERO_METRIC_COUNT] = {"Damage dealt", "Kills", "Damage taken", "Healed",
-                                                                 "Mana spent", "Movement"};
+                                                                 "Mana spent", "Movement", "Items", "Food and water",
+                                                                 "Dungeon", "Reading", "Champions"};
 
 const char *const HERO_STATS_MOVEMENT_LABELS[HERO_MOVE_COLUMN_COUNT] = {
-    "Steps", "Turns", "Wall bumps", "Teleports", "Pit falls", "Pit climbs", "Time (ticks)", "Asleep (ticks)"};
+    "Steps", "Tiles walked", "Tiles explored", "Turns", "Wall bumps", "Teleports", "Pit falls", "Pit climbs", "Time (ticks)", "Asleep (ticks)"};
 
 int HeroStatsPages_MovementValue(const HeroStatsMovement &m, int column)
 {
   switch (column)
   {
   case HeroMoveSteps: return m.steps;
+  case HeroMoveTilesWalked: return m.tilesWalked;
+  case HeroMoveTilesExplored: return m.tilesExplored;
   case HeroMoveTurns: return m.turns;
   case HeroMoveBumps: return m.bumps;
   case HeroMoveTeleports: return m.teleports;
@@ -44,6 +47,19 @@ static HeroStatsCell CellOf(const HeroStats &stats, HeroStatsChampion who, int l
   c.generated = stats.ManaGained(who, level);
   c.spent = stats.ManaSpent(who, level);
   c.wasted = stats.ManaWasted(who, level);
+  HeroStatsNourishment food = stats.Nourishment(who, level);
+  c.drunk = stats.Drunk(who, level) + food.fountainDrinks;   // the fountain is a way of drinking
+  c.eaten = stats.Eaten(who, level);
+  c.fountainDrinks = food.fountainDrinks;
+  c.foodGained = food.foodGained;
+  c.foodWasted = food.foodWasted;
+  c.waterGained = food.waterGained;
+  c.waterWasted = food.waterWasted;
+  c.doorsBashed = stats.DoorsBashed(who, level);
+  c.doorsSmashed = stats.DoorsBashed(who, level, HeroDoorSmashed);
+  c.doorsShot = stats.DoorsBashed(who, level, HeroDoorShot);
+  c.doorsBySpell = stats.DoorsBashed(who, level, HeroDoorBySpell);
+  c.doorsOpenedByZo = stats.DoorsOpenedByZo(who, level);
   c.deaths = 0;
   std::vector<HeroStatsDeath> deaths = stats.Deaths(who);
   for (size_t i = 0; i < deaths.size(); i++)
@@ -51,7 +67,54 @@ static HeroStatsCell CellOf(const HeroStats &stats, HeroStatsChampion who, int l
   return c;
 }
 
-HeroStatsOverview HeroStatsPages_Overview(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns, int level)
+static bool CountLineBefore(const HeroStatsOverview::CountLine &a, const HeroStatsOverview::CountLine &b)
+{
+  if (a.byCell.back() != b.byCell.back()) return a.byCell.back() > b.byCell.back();
+  return a.name < b.name;
+}
+
+// One line per item name, a number per cell (the champions, then the party)
+static void AddConsumedLines(HeroStatsOverview *data, const HeroStats &stats, int level, const HeroStatsNames &names)
+{
+  size_t cellCount = data->columns.size() + 1;
+  std::map<std::string, std::vector<int> > eaten, drunk;
+  for (size_t c = 0; c < cellCount; c++)
+  {
+    HeroStatsChampion who = c < data->columns.size() ? data->columns[c].id : HERO_STATS_PARTY;
+    std::vector<HeroStatsConsumedRow> rows = stats.Consumed(who, level);
+    for (size_t r = 0; r < rows.size(); r++)
+    {
+      std::string name = names.weapon(rows[r].item);
+      if (rows[r].eaten > 0)
+      {
+        std::vector<int> &line = eaten.insert(std::make_pair(name, std::vector<int>(cellCount, 0))).first->second;
+        line[c] += rows[r].eaten;
+      }
+      if (rows[r].drunk > 0)
+      {
+        std::vector<int> &line = drunk.insert(std::make_pair(name, std::vector<int>(cellCount, 0))).first->second;
+        line[c] += rows[r].drunk;
+      }
+    }
+  }
+  std::map<std::string, std::vector<int> > *maps[2] = {&eaten, &drunk};
+  std::vector<HeroStatsOverview::CountLine> *outs[2] = {&data->eatenLines, &data->drunkLines};
+  for (int m = 0; m < 2; m++)
+  {
+    for (std::map<std::string, std::vector<int> >::const_iterator at = maps[m]->begin(); at != maps[m]->end(); ++at)
+    {
+      HeroStatsOverview::CountLine line = {at->first, at->second};
+      outs[m]->push_back(line);
+    }
+    std::sort(outs[m]->begin(), outs[m]->end(), CountLineBefore);
+  }
+  HeroStatsOverview::CountLine fountain = {"Fountain", std::vector<int>()};
+  for (size_t c = 0; c < cellCount; c++) fountain.byCell.push_back(data->cells[c].fountainDrinks);
+  if (fountain.byCell.back() > 0) data->drunkLines.push_back(fountain);
+}
+
+HeroStatsOverview HeroStatsPages_Overview(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns, int level,
+                                          const HeroStatsNames *names)
 {
   HeroStatsOverview data;
   data.columns = columns;
@@ -60,7 +123,141 @@ HeroStatsOverview HeroStatsPages_Overview(const HeroStats &stats, const std::vec
   data.wipes = stats.PartyWipes();
   data.reloads = stats.Reloads();
   data.movement = stats.Movement(level);
+  std::vector<HeroStatsItemRow> items = stats.Items(level);
+  data.itemsPickedUp = data.itemsUsedInWalls = 0;
+  for (size_t i = 0; i < items.size(); i++)
+  {
+    data.itemsPickedUp += items[i].pickedUp;
+    data.itemsUsedInWalls += items[i].usedInWall;
+  }
+  data.chestsOpened = stats.ChestsOpened(level);
+  data.doorsOpenedByButton = stats.DoorsOpenedByButton(level);
+  data.doorsClosedByButton = stats.DoorsClosedByButton(level);
+  data.scrollsRead = stats.ScrollsRead(level);
+  data.wallTextsRead = stats.WallTextsRead(level);
+  data.championsSeen = stats.ChampionsSeen(level);
+  data.championsViewed = stats.ChampionsViewed(level);
+  if (names != 0) AddConsumedLines(&data, stats, level, *names);
   return data;
+}
+
+const char *const HERO_STATS_TABLE_GROUP_TITLES[HERO_TABLE_GROUP_COUNT] = {
+    "Damage dealt", "Damage taken", "Healing", "Hardship", "Mana", "Movement", "Items", "Food and water", "Dungeon",
+    "Reading", "Champions"};
+
+static std::string Count(int value, const char *one, const char *many)
+{
+  return HeroStatsView_Number(value) + " " + (value == 1 ? one : many);
+}
+
+std::vector<std::string> HeroStatsPages_TableSummaries(const HeroStatsOverview &data, bool wholeRun)
+{
+  const HeroStatsCell &p = data.cells.back();
+  const char *dot = " \xc2\xb7 ";
+  std::vector<std::string> s(HERO_TABLE_GROUP_COUNT);
+  s[HeroGroupDealt] = HeroStatsView_Number(p.total) + " damage" + dot + Count(p.kills, "kill", "kills");
+  s[HeroGroupTaken] = HeroStatsView_Number(p.taken) + " taken";
+  if (p.friendlyFire != 0) s[HeroGroupTaken] += dot + std::string("friendly fire ") + HeroStatsView_Number(p.friendlyFire);
+  s[HeroGroupHealing] = HeroStatsView_Number(p.healed) + " healed";
+  if (p.given != 0) s[HeroGroupHealing] += dot + HeroStatsView_Number(p.given) + " given";
+  std::string hardship;
+  if (p.deaths != 0) hardship = Count(p.deaths, "death", "deaths");
+  if (wholeRun && data.wipes != 0) hardship += (hardship.empty() ? "" : dot) + Count(data.wipes, "wipe", "wipes");
+  if (wholeRun && data.reloads != 0) hardship += (hardship.empty() ? "" : dot) + Count(data.reloads, "reload", "reloads");
+  s[HeroGroupHardship] = hardship.empty() ? "never died" : hardship;
+  s[HeroGroupMana] = HeroStatsView_Number(p.generated) + " generated" + dot + HeroStatsView_Number(p.spent) + " spent";
+  if (p.wasted != 0) s[HeroGroupMana] += dot + HeroStatsView_Number(p.wasted) + " wasted";
+  s[HeroGroupMovement] = Count(data.movement.steps, "step", "steps") + dot +
+                         Count(data.movement.tilesWalked, "tile walked", "tiles walked") + dot +
+                         HeroStatsView_Number(data.movement.tilesExplored) + " explored";
+  s[HeroGroupItems] = HeroStatsView_Number(data.itemsPickedUp) + " picked up" + dot +
+                      HeroStatsView_Number(data.itemsUsedInWalls) + " used in walls";
+  s[HeroGroupFood] = HeroStatsView_Number(p.eaten) + " eaten" + dot + HeroStatsView_Number(p.drunk) + " drunk";
+  if (p.foodWasted != 0 || p.waterWasted != 0)
+    s[HeroGroupFood] += dot + std::string("wasted ") + HeroStatsView_Number(p.foodWasted) + " food, " +
+                        HeroStatsView_Number(p.waterWasted) + " water";
+  s[HeroGroupDungeon] = Count(p.doorsBashed, "door bashed", "doors bashed") + dot +
+                        Count(data.chestsOpened, "chest opened", "chests opened");
+  s[HeroGroupReading] = Count(data.scrollsRead, "scroll", "scrolls") + dot +
+                        Count(data.wallTextsRead, "wall text", "wall texts");
+  s[HeroGroupChampions] = HeroStatsView_Number(data.championsSeen) + " seen" + dot +
+                          HeroStatsView_Number(data.championsViewed) + " viewed";
+  return s;
+}
+
+std::vector<std::string> HeroStatsPages_PartyTableLabels(int metric)
+{
+  static const char *const ITEMS[] = {"Picked up", "Used in walls"};
+  static const char *const FOOD[] = {"Eaten", "Drunk", "Fountain drinks", "Food gained", "Food wasted", "Water gained",
+                                     "Water wasted"};
+  static const char *const DUNGEON[] = {"Doors bashed open", "Smashed", "Shot open", "By spell", "Opened with Zo",
+                                        "Opened by button", "Closed by button", "Chests opened"};
+  std::vector<std::string> labels;
+  if (metric == HeroMetricMovement) labels.assign(HERO_STATS_MOVEMENT_LABELS, HERO_STATS_MOVEMENT_LABELS + HERO_MOVE_COLUMN_COUNT);
+  else if (metric == HeroMetricItems) labels.assign(ITEMS, ITEMS + 2);
+  else if (metric == HeroMetricFood) labels.assign(FOOD, FOOD + 7);
+  else if (metric == HeroMetricDungeon) labels.assign(DUNGEON, DUNGEON + 8);
+  else if (metric == HeroMetricReading)
+  {
+    labels.push_back("Scrolls read");
+    labels.push_back("Wall texts read");
+  }
+  else if (metric == HeroMetricChampions)
+  {
+    labels.push_back("Champions seen");
+    labels.push_back("Champions viewed");
+  }
+  return labels;
+}
+
+std::vector<int> HeroStatsPages_PartyTableRow(const HeroStats &stats, int level, int metric)
+{
+  std::vector<int> row;
+  if (metric == HeroMetricMovement)
+  {
+    HeroStatsMovement movement = stats.Movement(level);
+    for (int c = 0; c < HERO_MOVE_COLUMN_COUNT; c++) row.push_back(HeroStatsPages_MovementValue(movement, c));
+    return row;
+  }
+  HeroStatsChampion party = HERO_STATS_PARTY;
+  if (metric == HeroMetricItems)
+  {
+    std::vector<HeroStatsItemRow> items = stats.Items(level);
+    int pickedUp = 0, usedInWall = 0;
+    for (size_t i = 0; i < items.size(); i++)
+    {
+      pickedUp += items[i].pickedUp;
+      usedInWall += items[i].usedInWall;
+    }
+    row.push_back(pickedUp);
+    row.push_back(usedInWall);
+  }
+  else if (metric == HeroMetricFood)
+  {
+    HeroStatsNourishment food = stats.Nourishment(party, level);
+    int values[7] = {stats.Eaten(party, level), stats.Drunk(party, level) + food.fountainDrinks, food.fountainDrinks,
+                     food.foodGained, food.foodWasted, food.waterGained, food.waterWasted};
+    row.assign(values, values + 7);
+  }
+  else if (metric == HeroMetricDungeon)
+  {
+    int values[8] = {stats.DoorsBashed(party, level), stats.DoorsBashed(party, level, HeroDoorSmashed),
+                     stats.DoorsBashed(party, level, HeroDoorShot), stats.DoorsBashed(party, level, HeroDoorBySpell),
+                     stats.DoorsOpenedByZo(party, level), stats.DoorsOpenedByButton(level),
+                     stats.DoorsClosedByButton(level), stats.ChestsOpened(level)};
+    row.assign(values, values + 8);
+  }
+  else if (metric == HeroMetricReading)
+  {
+    row.push_back(stats.ScrollsRead(level));
+    row.push_back(stats.WallTextsRead(level));
+  }
+  else if (metric == HeroMetricChampions)
+  {
+    row.push_back(stats.ChampionsSeen(level));
+    row.push_back(stats.ChampionsViewed(level));
+  }
+  return row;
 }
 
 int HeroStatsPages_Metric(const HeroStats &stats, HeroStatsChampion who, int level, int metric)
@@ -141,6 +338,64 @@ HeroStatsMonsterLine HeroStatsPages_AllMonsters(const std::vector<HeroStatsMonst
     all.pit += lines[l].pit;
     all.other += lines[l].other;
     all.total += lines[l].total;
+  }
+  return all;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Items
+
+static bool ItemLineBefore(const HeroStatsItemLine &a, const HeroStatsItemLine &b)
+{
+  if (a.pickedUp != b.pickedUp) return a.pickedUp > b.pickedUp;
+  if (a.usedInWall != b.usedInWall) return a.usedInWall > b.usedInWall;
+  if (a.drunk != b.drunk) return a.drunk > b.drunk;
+  if (a.eaten != b.eaten) return a.eaten > b.eaten;
+  return a.name < b.name;
+}
+
+std::vector<HeroStatsItemLine> HeroStatsPages_Items(const HeroStats &stats, int level, const HeroStatsNames &names)
+{
+  std::map<std::string, size_t> lineOf;
+  std::vector<HeroStatsItemLine> lines;
+  auto lineFor = [&](int item) -> HeroStatsItemLine & {
+    std::string name = names.weapon(item);
+    std::map<std::string, size_t>::iterator found = lineOf.find(name);
+    if (found == lineOf.end())
+    {
+      HeroStatsItemLine empty = {name, 0, 0, 0, 0};
+      lines.push_back(empty);
+      found = lineOf.insert(std::make_pair(name, lines.size() - 1)).first;
+    }
+    return lines[found->second];
+  };
+  std::vector<HeroStatsItemRow> rows = stats.Items(level);
+  for (size_t r = 0; r < rows.size(); r++)
+  {
+    HeroStatsItemLine &line = lineFor(rows[r].item);
+    line.pickedUp += rows[r].pickedUp;
+    line.usedInWall += rows[r].usedInWall;
+  }
+  std::vector<HeroStatsConsumedRow> consumed = stats.Consumed(HERO_STATS_PARTY, level);
+  for (size_t r = 0; r < consumed.size(); r++)
+  {
+    HeroStatsItemLine &line = lineFor(consumed[r].item);
+    line.drunk += consumed[r].drunk;
+    line.eaten += consumed[r].eaten;
+  }
+  std::sort(lines.begin(), lines.end(), ItemLineBefore);
+  return lines;
+}
+
+HeroStatsItemLine HeroStatsPages_AllItems(const std::vector<HeroStatsItemLine> &lines)
+{
+  HeroStatsItemLine all = {"All items", 0, 0, 0, 0};
+  for (size_t l = 0; l < lines.size(); l++)
+  {
+    all.pickedUp += lines[l].pickedUp;
+    all.usedInWall += lines[l].usedInWall;
+    all.drunk += lines[l].drunk;
+    all.eaten += lines[l].eaten;
   }
   return all;
 }
@@ -245,10 +500,10 @@ static void AddSpells(HeroStatsHeroPage *page, const HeroStats &stats, HeroStats
   }
 }
 
-// One line per source; monster attacks in one line, a monster's missiles by kind; friendly fire
-// and clouds by causer
+// One line per source; monster attacks in one line, a monster's missiles by kind and caster;
+// friendly fire and clouds by causer
 static void AddHarm(HeroStatsHeroPage *page, const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
-                    HeroStatsChampion who, int level)
+                    HeroStatsChampion who, int level, const HeroStatsNames &names)
 {
   bool isParty = who == HERO_STATS_PARTY;
   std::vector<HeroStatsHarmRow> harm = stats.HarmRows(who, level);
@@ -263,7 +518,10 @@ static void AddHarm(HeroStatsHeroPage *page, const HeroStats &stats, const std::
     else
     {
       const HeroStatsColumn *causer = isParty ? NULL : ColumnOf(columns, row.causer);
-      text = HeroStatsView_HarmName(row, causer, "");
+      // The store keeps no variant of the caster: the first name of its type
+      std::string caster;
+      if (row.source == HeroHarmMonsterMissile && row.monsterType >= 0) caster = names.monster(row.monsterType, 0);
+      text = HeroStatsView_HarmName(row, causer, caster);
     }
     AddLine(&page->taken, text, row.amount, byChampion);
   }
@@ -334,14 +592,40 @@ static void AddHardship(HeroStatsHeroPage *page, const HeroStats &stats, const s
   page->reloads = isParty && wholeRun ? stats.Reloads() : 0;
 }
 
+// What the champion (or the party) ate and drank, by item; the fountain as the last drunk line
+static void AddFood(HeroStatsHeroPage *page, const HeroStats &stats, HeroStatsChampion who, int level,
+                    const HeroStatsNames &names)
+{
+  page->nourishment = stats.Nourishment(who, level);
+  page->eatenTotal = page->drunkTotal = 0;
+  std::vector<HeroStatsConsumedRow> rows = stats.Consumed(who, level);
+  for (size_t r = 0; r < rows.size(); r++)
+  {
+    std::string name = names.weapon(rows[r].item);
+    if (rows[r].eaten > 0) AddLine(&page->eaten, name, rows[r].eaten, false);
+    if (rows[r].drunk > 0) AddLine(&page->drunk, name, rows[r].drunk, false);
+    page->eatenTotal += rows[r].eaten;
+    page->drunkTotal += rows[r].drunk;
+  }
+  std::stable_sort(page->eaten.begin(), page->eaten.end(), LineBefore);
+  std::stable_sort(page->drunk.begin(), page->drunk.end(), LineBefore);
+  if (page->nourishment.fountainDrinks > 0)
+  {
+    HeroStatsAmountLine fountain = {"Fountain", page->nourishment.fountainDrinks, false};
+    page->drunk.push_back(fountain);
+    page->drunkTotal += fountain.amount;
+  }
+}
+
 HeroStatsHeroPage HeroStatsPages_Hero(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
                                       HeroStatsChampion who, int level, const HeroStatsNames &names)
 {
   HeroStatsHeroPage page;
   AddAttacks(&page, stats, who, level, names);
   AddSpells(&page, stats, who, level);
-  AddHarm(&page, stats, columns, who, level);
+  AddHarm(&page, stats, columns, who, level, names);
   AddHealing(&page, stats, columns, who, level);
+  AddFood(&page, stats, who, level, names);
   AddHardship(&page, stats, columns, who, level, names);
   page.summaries = HeroStatsView_Summaries(stats, who, level);
   return page;

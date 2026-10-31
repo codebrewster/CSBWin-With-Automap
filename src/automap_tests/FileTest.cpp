@@ -22,7 +22,7 @@ static const size_t FIRST_LEVEL_WIDTH_OFFSET = 16;
 // A file with no damaged monster group ends in its count of 4 bytes
 static const size_t NO_DAMAGE_BYTES = 4;
 
-// What a version 15 file ends in when both statistics stores are empty: the block length, the
+// What a version 20 file ends in when both statistics stores are empty: the block length, the
 // length of the statistics, and their empty tables
 static std::string EmptyStatistics(void)
 {
@@ -49,7 +49,7 @@ static std::string WithoutStatistics(std::string bytes)
 static std::string Complete(const std::string &withoutStatistics)
 {
   std::string bytes = withoutStatistics + EmptyStatistics();
-  bytes[VERSION_OFFSET] = 15;
+  bytes[VERSION_OFFSET] = 20;
   return bytes;
 }
 
@@ -295,7 +295,7 @@ static void FileOfAnotherKindIsRejected(void)
 static void UnknownVersionIsRejected(void)
 {
   std::string bytes = WrittenFile();
-  bytes[VERSION_OFFSET] = 16;
+  bytes[VERSION_OFFSET] = 21;
   CheckRejected(bytes, AutoMapFileHasUnknownVersion);
 }
 
@@ -1201,6 +1201,13 @@ static HeroStats FilledStats(void)
   stats.CountTurn(2);
   stats.CountTeleport(2);
   stats.CountTick(2, false);
+  stats.CountItem(2, 11, HeroItemUsedInWall);
+  stats.CountConsumed(3, 2, 20, HeroConsumeEaten);
+  stats.CountDoorBashed(9, 2, HeroDoorBySpell);
+  stats.CreditFood(3, 2, 500, 300);
+  stats.MarkTileWalked(2, 7, 9);
+  stats.CountScrollRead(2);
+  stats.CountChestOpened(2);
   stats.CountPartyWipe();
   stats.CountReload();
   stats.CountReload();
@@ -1224,6 +1231,8 @@ static HeroStatsOrigins FilledOrigins(void)
   cloud.spell = 0x00020304;
   origins.SetCloudOrigin(5, cloud);
   origins.SetBrewer(8, 9);
+  origins.MarkHeld(0x0c05);
+  origins.MarkOpened(0x0c07);
   return origins;
 }
 
@@ -1303,6 +1312,12 @@ static void StatisticsRoundTrip(void)
   HeroStatsMovement moved = read.Movement(HERO_STATS_WHOLE_RUN);
   CHECK(moved.steps == 2 && moved.turns == 1 && moved.teleports == 1 && moved.ticks == 1);
   CHECK(read.Movement(0).steps == 2 && read.Movement(0).turns == 0);
+  CHECK(read.Items(2).size() == 1 && read.Items(2)[0].item == 11 && read.Items(2)[0].usedInWall == 1);
+  CHECK(readOrigins.WasHeld(0x0c05) && !readOrigins.WasHeld(0x0c06));
+  CHECK(read.Eaten(3, 2) == 1 && read.DoorsBashed(9, 2, HeroDoorBySpell) == 1 && read.ChestsOpened(2) == 1);
+  CHECK(read.Movement(2).tilesWalked == 1 && read.ScrollsRead(2) == 1);
+  CHECK(read.Nourishment(3, 2).foodGained == 300 && read.Nourishment(3, 2).foodWasted == 200);
+  CHECK(!readOrigins.MarkOpened(0x0c07));
   HeroStatsBlow blow;
   CHECK(readOrigins.MissileOrigin(12, &blow) && SameBlow(blow, FilledOrigins().Missiles().begin()->second));
   CHECK(blow.thrown && blow.weapon == 40 && blow.option == HERO_STATS_THROW_OPTION);
@@ -1379,8 +1394,8 @@ static void ADamagedStatisticsBlockLeavesTheStoresUnchanged(void)
   none.Serialize(&rawOrigins);
   // The harm source (4 bytes) sits 2 + 4 after the start of the harm record, which ends the
   // statistics but for the empty healing, mana, spell, death and resurrection tables, the wipes
-  // and reloads and the empty movement table
-  size_t source = bad.size() - rawOrigins.size() - (8 * 4) - (2 + 4 + 4 + 2 + 4 + 4 + 4) + 2 + 4;
+  // and reloads and the empty movement, item, eaten, door, chest, food, tile and scroll tables
+  size_t source = bad.size() - rawOrigins.size() - (15 * 4) - (2 + 4 + 4 + 2 + 4 + 4 + 4) + 2 + 4;
   bad[source] = 99;
   CheckStatisticsFileLeavesTheStores(bad);
 }

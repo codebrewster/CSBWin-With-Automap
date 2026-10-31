@@ -11,8 +11,12 @@ static std::string MonsterName(int monsterType, int variant)
   return "Monster #" + std::to_string(monsterType);
 }
 
+// Items 11 to 13 are named apart; 14 is a second kind of key with the same name as 11
 static std::string WeaponName(int weapon)
 {
+  if (weapon == 11 || weapon == 14) return "GOLD KEY";
+  if (weapon == 12) return "GOLD COIN";
+  if (weapon == 13) return "TORCH";
   return weapon == HERO_STATS_UNARMED ? "UNARMED" : "SWORD";
 }
 
@@ -123,14 +127,22 @@ static void MonsterSpellsAreNotMonsterAttacks(void)
   claws.monsterType = 25;
   HeroStatsBlow fireball = claws;
   fireball.spell = HERO_SPELL_MONSTER_MISSILE | 0x80;
+  HeroStatsBlow screamerClaws = claws;
+  screamerClaws.monsterType = 6;
+  HeroStatsBlow screamerFireball = fireball;
+  screamerFireball.monsterType = 6;
   stats.CreditHarm(7, 3, HeroHarmMonster, claws, 10);
+  stats.CreditHarm(7, 3, HeroHarmMonster, screamerClaws, 4);
   stats.CreditHarm(7, 3, HeroHarmMonsterMissile, fireball, 30);
+  stats.CreditHarm(7, 3, HeroHarmMonsterMissile, screamerFireball, 20);
   HeroStatsHeroPage page = HeroStatsPages_Hero(stats, Columns(stats), 7, 3, NAMES);
-  CHECK(page.taken.size() == 2);
-  if (page.taken.size() == 2)
+  // A monster's spell names its caster; melee stays one line for all monsters
+  CHECK(page.taken.size() == 3);
+  if (page.taken.size() == 3)
   {
-    CHECK(page.taken[0].text == "Fireball" && page.taken[0].amount == 30);
-    CHECK(page.taken[1].text == "Monster attacks" && page.taken[1].amount == 10);
+    CHECK(page.taken[0].text == "Fireball (Lord Order)" && page.taken[0].amount == 30);
+    CHECK(page.taken[1].text == "Fireball (Screamer)" && page.taken[1].amount == 20);
+    CHECK(page.taken[2].text == "Monster attacks" && page.taken[2].amount == 14);
   }
 }
 
@@ -145,6 +157,90 @@ static void OverviewCarriesTheMovement(void)
   CHECK(level1.movement.steps == 1 && level1.movement.turns == 1 && level1.movement.ticks == 0);
   HeroStatsOverview run = HeroStatsPages_Overview(stats, Columns(stats), HERO_STATS_WHOLE_RUN);
   CHECK(run.movement.ticks == 1 && run.cells.size() == 2);
+}
+
+static void ItemsAreListedByName(void)
+{
+  HeroStats stats;
+  stats.CountItem(1, 13, HeroItemPickedUp);
+  stats.CountItem(1, 13, HeroItemPickedUp);
+  stats.CountItem(1, 11, HeroItemPickedUp);
+  stats.CountItem(2, 14, HeroItemUsedInWall);
+  stats.CountItem(2, 11, HeroItemUsedInWall);
+  stats.CountItem(2, 12, HeroItemUsedInWall);
+  // Eaten and drunk items join the lines of their names; an item never picked up gets its own
+  stats.MeetChampion(7, "HALK");
+  stats.CountConsumed(7, 2, 13, HeroConsumeEaten);
+  stats.CountConsumed(7, 2, 30, HeroConsumeDrunk);
+  stats.CountDoorBashed(7, 2, HeroDoorShot);
+  stats.CountChestOpened(2);
+  std::vector<HeroStatsItemLine> lines = HeroStatsPages_Items(stats, HERO_STATS_WHOLE_RUN, NAMES);
+  CHECK(lines.size() == 4);
+  if (lines.size() == 4)
+  {
+    CHECK(lines[0].name == "TORCH" && lines[0].pickedUp == 2 && lines[0].usedInWall == 0 && lines[0].eaten == 1);
+    CHECK(lines[1].name == "GOLD KEY" && lines[1].pickedUp == 1 && lines[1].usedInWall == 2);
+    CHECK(lines[2].name == "GOLD COIN" && lines[2].pickedUp == 0 && lines[2].usedInWall == 1);
+    CHECK(lines[3].name == "SWORD" && lines[3].drunk == 1 && lines[3].pickedUp == 0);
+  }
+  HeroStatsItemLine all = HeroStatsPages_AllItems(lines);
+  CHECK(all.name == "All items" && all.pickedUp == 3 && all.usedInWall == 3 && all.drunk == 1 && all.eaten == 1);
+  CHECK(HeroStatsPages_Items(stats, 2, NAMES).size() == 4);
+  HeroStatsOverview level2 = HeroStatsPages_Overview(stats, Columns(stats), 2);
+  CHECK(level2.itemsPickedUp == 0 && level2.itemsUsedInWalls == 3 && level2.chestsOpened == 1);
+  CHECK(level2.cells[0].eaten == 1 && level2.cells[0].drunk == 1 && level2.cells[0].doorsBashed == 1);
+  CHECK(level2.cells.back().doorsBashed == 1 && level2.cells.back().doorsShot == 1 && level2.cells.back().doorsSmashed == 0);
+  stats.CreditFood(7, 2, 500, 400);
+  stats.CountFountainDrink(7, 2);
+  HeroStatsOverview fed = HeroStatsPages_Overview(stats, Columns(stats), 2);
+  stats.CountDoorOpenedByZo(7, 2);
+  fed = HeroStatsPages_Overview(stats, Columns(stats), 2);
+  CHECK(fed.cells[0].doorsOpenedByZo == 1 && fed.cells[0].doorsBashed == 1);
+  stats.CountDoorButton(2, true);
+  stats.CountDoorButton(2, false);
+  stats.CountDoorButton(2, false);
+  fed = HeroStatsPages_Overview(stats, Columns(stats), 2);
+  CHECK(fed.doorsOpenedByButton == 1 && fed.doorsClosedByButton == 2 && fed.cells.back().doorsBashed == 1);
+  CHECK(fed.cells[0].foodGained == 400 && fed.cells[0].foodWasted == 100 && fed.cells.back().fountainDrinks == 1);
+  // Drunk includes the fountain; with names, the lines say what was eaten and drunk
+  CHECK(fed.cells[0].drunk == 2 && fed.cells[0].eaten == 1);
+  HeroStatsOverview named = HeroStatsPages_Overview(stats, Columns(stats), 2, &NAMES);
+  CHECK(named.eatenLines.size() == 1 && named.eatenLines[0].name == "TORCH" && named.eatenLines[0].byCell[0] == 1);
+  CHECK(named.drunkLines.size() == 2);
+  if (named.drunkLines.size() == 2)
+  {
+    CHECK(named.drunkLines[0].name == "SWORD" && named.drunkLines[0].byCell.back() == 1);
+    CHECK(named.drunkLines[1].name == "Fountain" && named.drunkLines[1].byCell[0] == 1);
+  }
+  CHECK(fed.eatenLines.empty());
+  // By level's party tables
+  CHECK(HeroStatsPages_PartyTableLabels(HeroMetricFood).size() == HeroStatsPages_PartyTableRow(stats, 2, HeroMetricFood).size());
+  std::vector<int> dungeon = HeroStatsPages_PartyTableRow(stats, 2, HeroMetricDungeon);
+  CHECK(dungeon.size() == 8 && dungeon[0] == 1 && dungeon[2] == 1 && dungeon[7] == 1);
+  std::vector<int> items = HeroStatsPages_PartyTableRow(stats, HERO_STATS_WHOLE_RUN, HeroMetricItems);
+  CHECK(items.size() == 2 && items[0] == 3 && items[1] == 3);
+  CHECK(HeroStatsPages_PartyTableRow(stats, 2, HeroMetricFood)[1] == 2);
+  // The champion's page: eaten and drunk by item, the fountain last, what was wasted in the summary
+  HeroStatsHeroPage halk = HeroStatsPages_Hero(stats, Columns(stats), 7, 2, NAMES);
+  CHECK(halk.eatenTotal == 1 && halk.drunkTotal == 2 && halk.eaten.size() == 1 && halk.eaten[0].text == "TORCH");
+  CHECK(halk.drunk.size() == 2 && halk.drunk[1].text == "Fountain" && halk.nourishment.foodWasted == 100);
+  CHECK(halk.summaries.food == "1 eaten \xc2\xb7 2 drunk \xc2\xb7 wasted 100 food, 0 water");
+  stats.CountScrollRead(2);
+  CHECK(HeroStatsPages_Overview(stats, Columns(stats), 2).scrollsRead == 1);
+  CHECK(HeroStatsPages_PartyTableRow(stats, 2, HeroMetricReading)[0] == 1);
+  std::map<int, int> seen, viewed;
+  seen[2] = 3;
+  viewed[2] = 1;
+  stats.SetChampionsSeen(seen, viewed);
+  CHECK(HeroStatsPages_Overview(stats, Columns(stats), 2).championsViewed == 1);
+  CHECK(HeroStatsPages_PartyTableRow(stats, 2, HeroMetricChampions)[0] == 3);
+  // The Table's group summaries are the party's numbers
+  std::vector<std::string> sums = HeroStatsPages_TableSummaries(HeroStatsPages_Overview(stats, Columns(stats), 2), false);
+  CHECK(sums.size() == HERO_TABLE_GROUP_COUNT);
+  CHECK(sums[HeroGroupHardship] == "never died");
+  CHECK(sums[HeroGroupDungeon] == "1 door bashed \xc2\xb7 1 chest opened");
+  CHECK(sums[HeroGroupChampions] == "3 seen \xc2\xb7 1 viewed");
+  CHECK(sums[HeroGroupFood] == "1 eaten \xc2\xb7 2 drunk \xc2\xb7 wasted 100 food, 0 water");
 }
 
 static void JsonStringsAreSafeInAScript(void)
@@ -166,6 +262,7 @@ static void ExportHoldsEveryLevel(void)
   stats.MarkLevelVisited(4);
   stats.CountStep(4);
   stats.CountMonsterKill(4, 6, 0, ChampionBlow(7, HERO_STATS_UNARMED, 1));
+  stats.CountItem(4, 11, HeroItemUsedInWall);
   HeroStatsExportInfo info = {"dungeon.dat", "2026-10-31 12:00"};
   std::string json = HeroStatsExport_Json(stats, Columns(stats), NAMES, info);
   CHECK(json.find("\"-1\":{") != std::string::npos);
@@ -173,8 +270,9 @@ static void ExportHoldsEveryLevel(void)
   CHECK(json.find("\"4\":{") != std::string::npos);
   CHECK(json.find("\"levels\":[0,4]") != std::string::npos);
   CHECK(json.find("\"separator\":\",\"") != std::string::npos);
-  CHECK(json.find("\"move\":[1,0,0,0,0,0,0,0]") != std::string::npos);
+  CHECK(json.find("\"move\":[1,0,0,0,0,0,0,0,0,0]") != std::string::npos);
   CHECK(json.find("[\"Screamer\",[1,0],0,0,0,1]") != std::string::npos);
+  CHECK(json.find("\"items\":[[\"GOLD KEY\",0,1,0,0]],\"chests\":0") != std::string::npos);
   std::string html = HeroStatsExport_Html(stats, Columns(stats), NAMES, info);
   CHECK(html.find("<!doctype html>") == 0);
   // The only </script> are the ones that close the three scripts
@@ -191,6 +289,7 @@ void TestHeroStatsPages(void)
   SpellLinesCountEveryCast();
   MonsterSpellsAreNotMonsterAttacks();
   OverviewCarriesTheMovement();
+  ItemsAreListedByName();
   JsonStringsAreSafeInAScript();
   ExportHoldsEveryLevel();
 }

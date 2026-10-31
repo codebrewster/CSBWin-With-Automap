@@ -429,6 +429,82 @@ void AutoMap_AfterMonsterDrawn(int group, int x1, int x2, int y1, int y2)
   AutoMapMeasure_AfterBlit(key, x1, x2, y1, y2);
 }
 
+std::map<int, int> AutoMap_ExploredTilesPerLevel(void)
+{
+  std::map<int, int> perLevel;
+  const AutoMapExplored &explored = recorder.Explored();
+  std::vector<std::pair<AutoMapCell, AutoMapCellLook> > looks = recorder.Cells().Looks();
+  for (size_t i = 0; i < looks.size(); i++)
+  {
+    const AutoMapCell &cell = looks[i].first;
+    if (cell.level < 0 || cell.level >= explored.LevelCount()) continue;
+    AutoMapLevelSize size = explored.SizeOfLevel(cell.level);
+    if (cell.x < 0 || cell.y < 0 || cell.x >= size.width || cell.y >= size.height) continue;  // the rim
+    if (!explored.IsExplored(cell)) continue;
+    AutoMapCellKind kind = looks[i].second.kind;
+    if (kind == AutoMapCellWall || kind == AutoMapCellFalseWall) continue;
+    perLevel[cell.level]++;
+  }
+  return perLevel;
+}
+
+// The read bit marks wall texts and champion portraits seen straight ahead (the 3D view draws
+// both only there, AutoMap_OnPortraitFaceDrawn); the looked-into bit of a portrait face marks the
+// champion viewed (AutoMap_OnPortraitViewed). The level's sides tell writing from portraits.
+// Reading a level is not cheap, so a level is read again only when its bits changed.
+std::map<int, AutoMapWallCounts> AutoMap_WallCountsPerLevel(void)
+{
+  struct LevelCount { std::vector<uint8_t> readBits, lookedIntoBits; AutoMapWallCounts counts; };
+  static std::map<int, LevelCount> cache;
+  std::map<int, AutoMapWallCounts> perLevel;
+  const AutoMapExplored &explored = recorder.Explored();
+  for (int level = 0; level < explored.LevelCount(); level++)
+  {
+    const std::vector<uint8_t> &readBits = explored.ReadTextBitsOfLevel(level);
+    const std::vector<uint8_t> &lookedIntoBits = explored.LookedIntoBitsOfLevel(level);
+    bool anySet = false;
+    for (size_t i = 0; i < readBits.size() && !anySet; i++) anySet = readBits[i] != 0;
+    for (size_t i = 0; i < lookedIntoBits.size() && !anySet; i++) anySet = lookedIntoBits[i] != 0;
+    if (!anySet)
+    {
+      cache.erase(level);
+      continue;
+    }
+    std::map<int, LevelCount>::iterator cached = cache.find(level);
+    if (cached == cache.end() || cached->second.readBits != readBits || cached->second.lookedIntoBits != lookedIntoBits)
+    {
+      AutoMapLevelSnapshot snapshot = AutoMapLevelReader_ReadLevel(level);
+      AutoMapLevelSize size = explored.SizeOfLevel(level);
+      AutoMapWallCounts counts = {0, 0, 0};
+      for (int y = 0; y < size.height; y++)
+        for (int x = 0; x < size.width; x++)
+        {
+          int sx = x + snapshot.boundaryMarginX, sy = y + snapshot.boundaryMarginY;
+          if (sx < 0 || sy < 0 || sx >= snapshot.width || sy >= snapshot.height) continue;
+          const AutoMapCellRecord &record = snapshot.cells[sy * snapshot.width + sx];
+          for (int side = 0; side < AUTOMAP_SIDE_COUNT; side++)
+          {
+            AutoMapCell cell = {level, x, y};
+            const AutoMapWallSide &wallSide = record.wallSides[side];
+            bool read = explored.TextIsRead(cell, side);
+            if (wallSide.hasWriting && read) counts.textsRead++;
+            if (wallSide.portrait != AUTOMAP_NO_PICTURE)
+            {
+              if (read) counts.portraitsSeen++;
+              if (explored.AlcoveIsLookedInto(cell, side)) counts.portraitsViewed++;
+            }
+          }
+        }
+      LevelCount fresh = {readBits, lookedIntoBits, counts};
+      cached = cache.insert(std::make_pair(level, fresh)).first;
+      cached->second = fresh;
+    }
+    const AutoMapWallCounts &counts = cached->second.counts;
+    if (counts.textsRead > 0 || counts.portraitsSeen > 0 || counts.portraitsViewed > 0) perLevel[level] = counts;
+  }
+  return perLevel;
+}
+
 // Picked up, the item is gone from where the map showed it
 void AutoMap_OnItemPickedUp(int item)
 {

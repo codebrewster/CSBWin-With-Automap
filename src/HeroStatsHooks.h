@@ -50,6 +50,55 @@ void HeroStats_OnPartyTeleported(int level);
 void HeroStats_OnPartyWentDownPit(int level);
 // MoveParty: the party bumped into a wall, a closed door or a solid false wall
 void HeroStats_OnPartyBumped(void);
+// Before the numbers are shown or exported: the explored tiles and the wall texts read, from the
+// automap (at most twice a second unless forced)
+void HeroStats_RefreshMapCounts(bool force);
+// A scroll was opened and shown: counted the first time for each scroll
+void HeroStats_OnScrollRead(int scroll);
+
+// Items, known by their record (RN::ConvertToInteger), counted by their basic object type at the
+// party's level. An item counts as picked up only the first time the party holds it.
+// The party took an item from the dungeon into the hand: the floor, an alcove, a torch holder,
+// a swap alcove, a gift from the gods, an open chest
+void HeroStats_OnItemPickedUp(int item);
+// The item is the party's without being found: taken from a champion's own inventory
+void HeroStats_OnItemHeld(int item);
+// Every item the champions carry, and the one in hand, is held: a game was loaded (files from
+// before the held items were kept know none), a champion joined
+void HeroStats_MarkPartyItemsHeld(void);
+// A wall took the item in hand (a key in a lock, a coin or gem in a slot), before it is freed
+void HeroStats_OnItemUsedInWall(int item);
+// DeleteDBEntry freed an item's record: a later item in it is a new one
+void HeroStats_OnItemFreed(int item);
+// The slot's champion ate (chewed) or drank the item: food, a potion, a gulp from a waterskin
+void HeroStats_OnItemConsumed(int slot, int item, bool eaten);
+// The slot's champion ate or drank: food and water the item gives, and how much the champion's
+// food and water rose (the rest went over the game's maximum)
+void HeroStats_OnNourished(int slot, int foodValue, int foodGained, int waterValue, int waterGained);
+// The slot's champion drank from a fountain
+void HeroStats_OnFountainDrink(int slot, int waterValue, int waterGained);
+// A chest was opened in the inventory: counted the first time for each chest
+void HeroStats_OnChestOpened(int chest);
+
+// Doors. Begin/End around HitDoor names whose blow hits the door: a champion's attack, a missile,
+// an explosion's cloud. Only a champion's (by origin, for missiles and clouds) is counted: an
+// attack smashes the door, a thrown or fired item shoots it open, a spell missile or an explosion
+// opens it by spell.
+void HeroStats_BeginDoorBlowByChampion(int slot);
+void HeroStats_BeginDoorBlowByMissile(int missileIndex);
+void HeroStats_BeginDoorBlowByCloud(int cloudIndex);
+void HeroStats_EndDoorBlow(void);
+// HitDoor broke the door at once, or set the timer that breaks it (an attack takes a moment)
+void HeroStats_OnDoorBashed(int level, int x, int y);
+void HeroStats_OnDoorBashScheduled(int level, int x, int y);
+// The party clicked the button of the door at x, y on the loaded level: the toggle it sets closes
+// an open door and opens any other
+void HeroStats_OnDoorButtonClicked(int x, int y);
+// A Zo spell's missile reached a closed door with a door switch and set it opening
+void HeroStats_OnDoorOpenedByZo(int missileIndex, int level);
+// ProcessTT_BASH_DOOR: the first timer of the door is done. breaksNow: the door was not broken
+// yet, and the blow that set the timer counts.
+void HeroStats_OnDoorBashTimer(int level, int x, int y, bool breaksNow);
 
 // The engine hooks below only observe: no randomness, no engine state, no change of flow.
 // Each converts a slot to its champion (CHARDESC::fingerPrint), meets the champion by name and

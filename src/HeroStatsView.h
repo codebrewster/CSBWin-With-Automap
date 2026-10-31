@@ -30,7 +30,7 @@ std::vector<HeroStatsColumn> HeroStatsView_Columns(const HeroStats &stats,
 struct HeroStatsPicker { bool stepper; std::vector<int> levels; int previous, next; };
 HeroStatsPicker HeroStatsView_Picker(const HeroStats &stats, int shownLevel);
 
-struct HeroStatsSummaries { std::string attacks, spells, harm, healing, hardship; };
+struct HeroStatsSummaries { std::string attacks, spells, harm, healing, hardship, food; };
 HeroStatsSummaries HeroStatsView_Summaries(const HeroStats &stats, HeroStatsChampion who, int level);
 
 // "Ful Ir Fireball", the special rows, "Ful Ya Ku (no spell)", "(no runes)" for key 0

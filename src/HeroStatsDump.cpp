@@ -94,6 +94,19 @@ static void DumpOne(const HeroStats &stats, HeroStatsChampion who, std::string *
   Number(out, name, "mana spent %d", stats.ManaSpent(who, run));
   Number(out, name, "mana wasted %d", stats.ManaWasted(who, run));
   Number(out, name, "resurrections %d", stats.Resurrections(who, run));
+  std::vector<HeroStatsConsumedRow> consumed = stats.Consumed(who, run);
+  for (size_t i = 0; i < consumed.size(); i++)
+    Line(out, name, "consumed %d drunk %d eaten %d", consumed[i].item, consumed[i].drunk, consumed[i].eaten);
+  Number(out, name, "doors bashed %d", stats.DoorsBashed(who, run));
+  if (stats.DoorsBashed(who, run) != 0)
+    Line(out, name, "doors smashed %d shot %d by spell %d", stats.DoorsBashed(who, run, HeroDoorSmashed),
+         stats.DoorsBashed(who, run, HeroDoorShot), stats.DoorsBashed(who, run, HeroDoorBySpell));
+  Number(out, name, "doors opened by zo %d", stats.DoorsOpenedByZo(who, run));
+  HeroStatsNourishment food = stats.Nourishment(who, run);
+  if (food.foodGained != 0 || food.foodWasted != 0 || food.waterGained != 0 || food.waterWasted != 0 ||
+      food.fountainDrinks != 0)
+    Line(out, name, "food gained %d wasted %d water gained %d wasted %d fountain drinks %d", food.foodGained,
+         food.foodWasted, food.waterGained, food.waterWasted, food.fountainDrinks);
   std::vector<HeroStatsDeath> deaths = stats.Deaths(who);
   for (size_t i = 0; i < deaths.size(); i++)
   {
@@ -130,7 +143,14 @@ static void DumpOne(const HeroStats &stats, HeroStatsChampion who, std::string *
     Line(out, name, "movement steps %d turns %d bumps %d teleports %d pit falls %d pit climbs %d", moved.steps,
          moved.turns, moved.bumps, moved.teleports, moved.pitFalls, moved.pitClimbs);
     Line(out, name, "time ticks %d asleep %d", moved.ticks, moved.sleepTicks);
+    Line(out, name, "tiles walked %d explored %d", moved.tilesWalked, moved.tilesExplored);
   }
+  std::vector<HeroStatsItemRow> items = stats.Items(run);
+  for (size_t i = 0; i < items.size(); i++)
+    Line(out, name, "item %d picked up %d used in walls %d", items[i].item, items[i].pickedUp, items[i].usedInWall);
+  Number(out, name, "chests opened %d", stats.ChestsOpened(run));
+  Number(out, name, "doors opened by button %d", stats.DoorsOpenedByButton(run));
+  Number(out, name, "doors closed by button %d", stats.DoorsClosedByButton(run));
   Number(out, name, "wipes %d", stats.PartyWipes());
   Number(out, name, "reloads %d", stats.Reloads());
 }

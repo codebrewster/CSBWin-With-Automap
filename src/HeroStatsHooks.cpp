@@ -4,6 +4,7 @@
 // Before CSB.h, which leaves #pragma pack(1) switched on
 #include <cstdio>
 #include <cstring>
+#include <map>
 #include <set>
 #include <string>
 #include <vector>
@@ -14,6 +15,7 @@
 #include "HeroStatsRunes.h"
 #include "HeroStatsWindow.h"
 #include "AutoMapWindow.h"
+#include "AutoMapHooks.h"
 
 #include "UI.h"
 #include "Dispatch.h"
@@ -52,6 +54,12 @@ static HeroStatsPending pending;
 static HeroStatsRunes runes;
 // Between HeroStats_BeginRuneCast and HeroStats_EndRuneCast: the slot whose incantation resolves
 static int runeCastSlot = -1;
+// Between HeroStats_BeginDoorBlow* and HeroStats_EndDoorBlow: the champion whose blow hits a door
+// (HERO_STATS_NOBODY for anyone else); doors whose bash timer runs, with the champion who hit them
+struct DoorBlow { HeroStatsChampion by; HeroDoorMethod method; };
+static bool doorBlowSet = false;
+static DoorBlow doorBlow = {HERO_STATS_NOBODY, HeroDoorSmashed};
+static std::map<int, DoorBlow> scheduledDoorBashes;   // DoorKey
 // The level last marked visited in the store, so that a tick on the same level costs nothing;
 // -1 after the store was replaced
 static int levelMarked = -1;
@@ -108,12 +116,15 @@ static void ForgetEngineState(void)
   runes.ClearAll();
   runeCastSlot = -1;
   levelMarked = -1;
+  doorBlowSet = false;
+  scheduledDoorBashes.clear();
 }
 
 static void GameStartsOrContinues(void)
 {
   // The store was replaced: the next tick marks the level the party stands on
   levelMarked = -1;
+  HeroStats_MarkPartyItemsHeld();
   gameInPlay = true;
   dungeonInPlay = CurrentDungeon();
   gameBeforeLoad.Forget();
@@ -193,10 +204,33 @@ static void MarkPartyLevelVisited(void)
   levelMarked = d.partyLevel;
 }
 
+// A champion who joined is met at once, not at their first blow or wound: walking, picking up and
+// eating count for the party too, and the window shows nothing until it knows a champion. A
+// candidate in a mirror is not met until taken.
+static void MeetNewChampions(void)
+{
+  static int metCount = -1;
+  if (d.PotentialCharacterOrdinal != 0) return;
+  int count = d.NumCharacter < 4 ? d.NumCharacter : 4;
+  bool allKnown = count == metCount;
+  for (int i = 0; i < count && allKnown; i++)
+  {
+    bool known = false;
+    for (size_t c = 0; c < store.Champions().size() && !known; c++)
+      known = store.Champions()[c].id == d.hero[i].fingerPrint;
+    allKnown = known;
+  }
+  if (allKnown) return;
+  MeetParty();
+  metCount = count;
+}
+
 void HeroStats_OnPartyOnLevel(void)
 {
   MarkPartyLevelVisited();
+  MeetNewChampions();
   store.CountTick(d.partyLevel, d.PartySleeping != 0);
+  store.MarkTileWalked(d.partyLevel, d.partyX, d.partyY);
 }
 
 // The level everything is counted at; being there visits it
@@ -206,6 +240,170 @@ static int PartyLevel(void)
   return d.partyLevel;
 }
 
+static bool IsItem(int item, RN *rn)
+{
+  if (item < 0 || item >= RNFireball) return false;
+  rn->ConstructFromInteger(item);
+  if (*rn == RNnul || *rn == RNeof) return false;
+  DBTYPE type = rn->dbType();
+  return type >= dbWEAPON && type <= dbMISC;
+}
+
+void HeroStats_OnItemPickedUp(int item)
+{
+  RN rn;
+  if (!IsItem(item, &rn) || !origins.MarkHeld(item)) return;
+  store.CountItem(PartyLevel(), HeroStats_WeaponOf(rn), HeroItemPickedUp);
+}
+
+void HeroStats_OnItemHeld(int item)
+{
+  RN rn;
+  if (IsItem(item, &rn)) origins.MarkHeld(item);
+}
+
+void HeroStats_MarkPartyItemsHeld(void)
+{
+  for (int slot = 0; slot < d.NumCharacter && slot < 4; slot++)
+    for (int place = 0; place < 30; place++) HeroStats_OnItemHeld(d.hero[slot].Possession(place).ConvertToInteger());
+  HeroStats_OnItemHeld(d.objectInHand.ConvertToInteger());
+}
+
+void HeroStats_OnItemUsedInWall(int item)
+{
+  RN rn;
+  if (!IsItem(item, &rn)) return;
+  store.CountItem(PartyLevel(), HeroStats_WeaponOf(rn), HeroItemUsedInWall);
+}
+
+void HeroStats_OnItemFreed(int item)
+{
+  origins.ForgetItem(item);
+}
+
+void HeroStats_OnItemConsumed(int slot, int item, bool eaten)
+{
+  RN rn;
+  if (!IsHero(slot) || !IsItem(item, &rn)) return;
+  MeetHero(slot);
+  store.CountConsumed(d.hero[slot].fingerPrint, PartyLevel(), HeroStats_WeaponOf(rn),
+                      eaten ? HeroConsumeEaten : HeroConsumeDrunk);
+}
+
+void HeroStats_OnScrollRead(int scroll)
+{
+  RN rn;
+  if (!IsItem(scroll, &rn) || rn.dbType() != dbSCROLL || !origins.MarkRead(scroll)) return;
+  store.CountScrollRead(PartyLevel());
+}
+
+void HeroStats_OnNourished(int slot, int foodValue, int foodGained, int waterValue, int waterGained)
+{
+  if (!IsHero(slot)) return;
+  MeetHero(slot);
+  int level = PartyLevel();
+  store.CreditFood(d.hero[slot].fingerPrint, level, foodValue, foodGained);
+  store.CreditWater(d.hero[slot].fingerPrint, level, waterValue, waterGained);
+}
+
+void HeroStats_OnFountainDrink(int slot, int waterValue, int waterGained)
+{
+  if (!IsHero(slot)) return;
+  MeetHero(slot);
+  int level = PartyLevel();
+  store.CountFountainDrink(d.hero[slot].fingerPrint, level);
+  store.CreditWater(d.hero[slot].fingerPrint, level, waterValue, waterGained);
+}
+
+void HeroStats_OnChestOpened(int chest)
+{
+  RN rn;
+  if (!IsItem(chest, &rn) || rn.dbType() != dbCHEST || !origins.MarkOpened(chest)) return;
+  store.CountChestOpened(PartyLevel());
+}
+
+static HeroStatsBlow MissileBlow(int missileIndex);
+
+static int DoorKey(int level, int x, int y)
+{
+  return (level << 16) | ((x & 0xff) << 8) | (y & 0xff);
+}
+
+static void BeginDoorBlow(const HeroStatsBlow &blow, HeroDoorMethod method)
+{
+  doorBlowSet = true;
+  doorBlow.by = blow.by == HeroBlowByChampion ? blow.champion : HERO_STATS_NOBODY;
+  doorBlow.method = method;
+}
+
+void HeroStats_BeginDoorBlowByChampion(int slot)
+{
+  if (!IsHero(slot)) return;
+  MeetHero(slot);
+  doorBlowSet = true;
+  doorBlow.by = d.hero[slot].fingerPrint;
+  doorBlow.method = HeroDoorSmashed;
+}
+
+void HeroStats_BeginDoorBlowByMissile(int missileIndex)
+{
+  HeroStatsBlow blow = MissileBlow(missileIndex);
+  BeginDoorBlow(blow, blow.kind == HeroDamageMagic ? HeroDoorBySpell : HeroDoorShot);
+}
+
+void HeroStats_BeginDoorBlowByCloud(int cloudIndex)
+{
+  HeroStatsBlow blow;
+  if (!origins.CloudOrigin(cloudIndex, &blow)) blow = HeroStatsBlow_Nobody(HeroBlowByCloud);
+  BeginDoorBlow(blow, HeroDoorBySpell);
+}
+
+void HeroStats_EndDoorBlow(void)
+{
+  doorBlowSet = false;
+}
+
+void HeroStats_OnDoorBashed(int level, int x, int y)
+{
+  (void)x;
+  (void)y;
+  if (!doorBlowSet || doorBlow.by == HERO_STATS_NOBODY) return;
+  MarkPartyLevelVisited();
+  store.CountDoorBashed(doorBlow.by, level, doorBlow.method);
+}
+
+void HeroStats_OnDoorButtonClicked(int x, int y)
+{
+  bool isOpen = (d.LevelCellFlags[x][y] & 7) == 0;
+  store.CountDoorButton(PartyLevel(), !isOpen);
+}
+
+void HeroStats_OnDoorOpenedByZo(int missileIndex, int level)
+{
+  HeroStatsBlow blow = MissileBlow(missileIndex);
+  if (blow.by != HeroBlowByChampion) return;
+  MarkPartyLevelVisited();
+  store.CountDoorOpenedByZo(blow.champion, level);
+}
+
+void HeroStats_OnDoorBashScheduled(int level, int x, int y)
+{
+  // Every blow before the timer fires sets another timer: the first one breaks the door
+  int key = DoorKey(level, x, y);
+  if (scheduledDoorBashes.count(key) != 0) return;
+  DoorBlow nobody = {HERO_STATS_NOBODY, HeroDoorSmashed};
+  scheduledDoorBashes[key] = doorBlowSet ? doorBlow : nobody;
+}
+
+void HeroStats_OnDoorBashTimer(int level, int x, int y, bool breaksNow)
+{
+  std::map<int, DoorBlow>::iterator it = scheduledDoorBashes.find(DoorKey(level, x, y));
+  if (it == scheduledDoorBashes.end()) return;
+  DoorBlow blow = it->second;
+  scheduledDoorBashes.erase(it);
+  if (breaksNow && blow.by != HERO_STATS_NOBODY) store.CountDoorBashed(blow.by, level, blow.method);
+}
+
 // Chaos Strikes Back starts on a screen of its own, which is no dungeon level
 static const int LEVEL_OF_THE_PRISON_SCREEN = 255;
 
@@ -213,6 +411,27 @@ void HeroStats_OnPartyStepped(void)
 {
   if (d.partyLevel == LEVEL_OF_THE_PRISON_SCREEN) return;
   store.CountStep(PartyLevel());
+}
+
+void HeroStats_RefreshMapCounts(bool force)
+{
+  static Uint32 lastRefresh = 0;
+  static bool refreshed = false;
+  Uint32 now = SDL_GetTicks();
+  if (!force && refreshed && now - lastRefresh < 500) return;
+  lastRefresh = now;
+  refreshed = true;
+  store.SetExploredTiles(AutoMap_ExploredTilesPerLevel());
+  std::map<int, AutoMapWallCounts> walls = AutoMap_WallCountsPerLevel();
+  std::map<int, int> texts, seen, viewed;
+  for (std::map<int, AutoMapWallCounts>::const_iterator at = walls.begin(); at != walls.end(); ++at)
+  {
+    texts[at->first] = at->second.textsRead;
+    seen[at->first] = at->second.portraitsSeen;
+    viewed[at->first] = at->second.portraitsViewed;
+  }
+  store.SetWallTextsRead(texts);
+  store.SetChampionsSeen(seen, viewed);
 }
 
 void HeroStats_OnPartyTurned(void)

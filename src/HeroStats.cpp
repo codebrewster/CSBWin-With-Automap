@@ -62,6 +62,17 @@ void HeroStats::Forget(void)
   m_deaths.clear();
   m_resurrections.clear();
   m_movement.clear();
+  m_tilesWalked.clear();
+  m_tilesExplored.clear();
+  m_items.clear();
+  m_consumed.clear();
+  m_doorsBashed.clear();
+  m_nourishment.clear();
+  m_chestsOpened.clear();
+  m_scrollsRead.clear();
+  m_wallTextsRead.clear();
+  m_championsSeen.clear();
+  m_championsViewed.clear();
   m_partyWipes = 0;
   m_reloads = 0;
 }
@@ -470,7 +481,7 @@ std::vector<HeroStatsSpellRow> HeroStats::Spells(HeroStatsChampion who, int leve
 
 static HeroStatsMovement NoMovement(void)
 {
-  HeroStatsMovement none = {0, 0, 0, 0, 0, 0, 0, 0};
+  HeroStatsMovement none = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
   return none;
 }
 
@@ -511,9 +522,23 @@ void HeroStats::CountBump(int level)
   m_movement.insert(std::make_pair(level, NoMovement())).first->second.bumps++;
 }
 
+void HeroStats::MarkTileWalked(int level, int x, int y)
+{
+  m_tilesWalked.insert(std::make_tuple(level, x, y));
+}
+
+void HeroStats::SetExploredTiles(const std::map<int, int> &perLevel)
+{
+  m_tilesExplored = perLevel;
+}
+
 HeroStatsMovement HeroStats::Movement(int level) const
 {
   HeroStatsMovement sum = NoMovement();
+  for (std::set<std::tuple<int, int, int> >::const_iterator at = m_tilesWalked.begin(); at != m_tilesWalked.end(); ++at)
+    if (LevelMatches(level, std::get<0>(*at))) sum.tilesWalked++;
+  for (std::map<int, int>::const_iterator at = m_tilesExplored.begin(); at != m_tilesExplored.end(); ++at)
+    if (LevelMatches(level, at->first)) sum.tilesExplored += at->second;
   for (std::map<int, HeroStatsMovement>::const_iterator at = m_movement.begin(); at != m_movement.end(); ++at)
   {
     if (!LevelMatches(level, at->first)) continue;
@@ -526,6 +551,231 @@ HeroStatsMovement HeroStats::Movement(int level) const
     sum.pitClimbs += at->second.pitClimbs;
     sum.bumps += at->second.bumps;
   }
+  return sum;
+}
+
+void HeroStats::CountItem(int level, int item, HeroItemEvent event)
+{
+  ItemCounts zero = {0, 0};
+  ItemCounts &counts = m_items.insert(std::make_pair(std::make_pair(level, item), zero)).first->second;
+  if (event == HeroItemPickedUp) counts.pickedUp++;
+  else if (event == HeroItemUsedInWall) counts.usedInWall++;
+}
+
+std::vector<HeroStatsItemRow> HeroStats::Items(int level) const
+{
+  std::map<int, ItemCounts> sums;
+  for (std::map<std::pair<int, int>, ItemCounts>::const_iterator at = m_items.begin(); at != m_items.end(); ++at)
+  {
+    if (!LevelMatches(level, at->first.first)) continue;
+    ItemCounts zero = {0, 0};
+    ItemCounts &sum = sums.insert(std::make_pair(at->first.second, zero)).first->second;
+    sum.pickedUp += at->second.pickedUp;
+    sum.usedInWall += at->second.usedInWall;
+  }
+  std::vector<HeroStatsItemRow> rows;
+  for (std::map<int, ItemCounts>::const_iterator at = sums.begin(); at != sums.end(); ++at)
+  {
+    if (at->second.pickedUp == 0 && at->second.usedInWall == 0) continue;
+    HeroStatsItemRow row = {at->first, at->second.pickedUp, at->second.usedInWall};
+    rows.push_back(row);
+  }
+  return rows;
+}
+
+void HeroStats::CountConsumed(HeroStatsChampion who, int level, int item, HeroConsumeKind kind)
+{
+  m_consumed[ConsumeKey(who, level, item, (int)kind)]++;
+}
+
+std::vector<HeroStatsConsumedRow> HeroStats::Consumed(HeroStatsChampion who, int level) const
+{
+  std::map<int, HeroStatsConsumedRow> sums;
+  for (std::map<ConsumeKey, int>::const_iterator at = m_consumed.begin(); at != m_consumed.end(); ++at)
+  {
+    const ConsumeKey &key = at->first;
+    if (!Matches(who, std::get<0>(key)) || !LevelMatches(level, std::get<1>(key))) continue;
+    HeroStatsConsumedRow zero = {std::get<2>(key), 0, 0};
+    HeroStatsConsumedRow &row = sums.insert(std::make_pair(std::get<2>(key), zero)).first->second;
+    if (std::get<3>(key) == HeroConsumeDrunk) row.drunk += at->second;
+    else row.eaten += at->second;
+  }
+  std::vector<HeroStatsConsumedRow> rows;
+  for (std::map<int, HeroStatsConsumedRow>::const_iterator at = sums.begin(); at != sums.end(); ++at)
+    rows.push_back(at->second);
+  return rows;
+}
+
+int HeroStats::ConsumedOfKind(HeroStatsChampion who, int level, int kind) const
+{
+  int sum = 0;
+  for (std::map<ConsumeKey, int>::const_iterator at = m_consumed.begin(); at != m_consumed.end(); ++at)
+  {
+    const ConsumeKey &key = at->first;
+    if (Matches(who, std::get<0>(key)) && LevelMatches(level, std::get<1>(key)) && std::get<3>(key) == kind)
+      sum += at->second;
+  }
+  return sum;
+}
+
+int HeroStats::Drunk(HeroStatsChampion who, int level) const
+{
+  return ConsumedOfKind(who, level, HeroConsumeDrunk);
+}
+
+int HeroStats::Eaten(HeroStatsChampion who, int level) const
+{
+  return ConsumedOfKind(who, level, HeroConsumeEaten);
+}
+
+HeroStatsNourishment &HeroStats::NourishmentRow(HeroStatsChampion who, int level)
+{
+  HeroStatsNourishment zero = {0, 0, 0, 0, 0};
+  return m_nourishment.insert(std::make_pair(std::make_pair(who, level), zero)).first->second;
+}
+
+void HeroStats::CreditFood(HeroStatsChampion who, int level, int value, int gained)
+{
+  if (value <= 0) return;
+  gained = std::max(0, std::min(gained, value));
+  HeroStatsNourishment &row = NourishmentRow(who, level);
+  row.foodGained += gained;
+  row.foodWasted += value - gained;
+}
+
+void HeroStats::CreditWater(HeroStatsChampion who, int level, int value, int gained)
+{
+  if (value <= 0) return;
+  gained = std::max(0, std::min(gained, value));
+  HeroStatsNourishment &row = NourishmentRow(who, level);
+  row.waterGained += gained;
+  row.waterWasted += value - gained;
+}
+
+void HeroStats::CountFountainDrink(HeroStatsChampion who, int level)
+{
+  NourishmentRow(who, level).fountainDrinks++;
+}
+
+HeroStatsNourishment HeroStats::Nourishment(HeroStatsChampion who, int level) const
+{
+  HeroStatsNourishment sum = {0, 0, 0, 0, 0};
+  for (std::map<std::pair<HeroStatsChampion, int>, HeroStatsNourishment>::const_iterator at = m_nourishment.begin();
+       at != m_nourishment.end(); ++at)
+  {
+    if (!Matches(who, at->first.first) || !LevelMatches(level, at->first.second)) continue;
+    sum.foodGained += at->second.foodGained;
+    sum.foodWasted += at->second.foodWasted;
+    sum.waterGained += at->second.waterGained;
+    sum.waterWasted += at->second.waterWasted;
+    sum.fountainDrinks += at->second.fountainDrinks;
+  }
+  return sum;
+}
+
+void HeroStats::CountDoorBashed(HeroStatsChampion who, int level, HeroDoorMethod method)
+{
+  m_doorsBashed[DoorKey(who, level, (int)method)]++;
+}
+
+int HeroStats::DoorsBashed(HeroStatsChampion who, int level, int method) const
+{
+  int sum = 0;
+  for (std::map<DoorKey, int>::const_iterator at = m_doorsBashed.begin(); at != m_doorsBashed.end(); ++at)
+  {
+    const DoorKey &key = at->first;
+    bool isBash = std::get<2>(key) <= HeroDoorUnknown;
+    bool methodMatches = method == HERO_DOOR_ANY_METHOD ? isBash : method == std::get<2>(key);
+    if (Matches(who, std::get<0>(key)) && LevelMatches(level, std::get<1>(key)) && methodMatches) sum += at->second;
+  }
+  return sum;
+}
+
+void HeroStats::CountDoorOpenedByZo(HeroStatsChampion who, int level)
+{
+  m_doorsBashed[DoorKey(who, level, (int)HeroDoorOpenedByZo)]++;
+}
+
+int HeroStats::DoorsOpenedByZo(HeroStatsChampion who, int level) const
+{
+  return DoorsBashed(who, level, HeroDoorOpenedByZo);
+}
+
+void HeroStats::CountDoorButton(int level, bool opened)
+{
+  m_doorsBashed[DoorKey(HERO_STATS_NOBODY, level, (int)(opened ? HeroDoorButtonOpened : HeroDoorButtonClosed))]++;
+}
+
+int HeroStats::DoorsOpenedByButton(int level) const
+{
+  return DoorsBashed(HERO_STATS_PARTY, level, HeroDoorButtonOpened);
+}
+
+int HeroStats::DoorsClosedByButton(int level) const
+{
+  return DoorsBashed(HERO_STATS_PARTY, level, HeroDoorButtonClosed);
+}
+
+void HeroStats::CountChestOpened(int level)
+{
+  m_chestsOpened[level]++;
+}
+
+int HeroStats::ChestsOpened(int level) const
+{
+  int sum = 0;
+  for (std::map<int, int>::const_iterator at = m_chestsOpened.begin(); at != m_chestsOpened.end(); ++at)
+    if (LevelMatches(level, at->first)) sum += at->second;
+  return sum;
+}
+
+void HeroStats::CountScrollRead(int level)
+{
+  m_scrollsRead[level]++;
+}
+
+int HeroStats::ScrollsRead(int level) const
+{
+  int sum = 0;
+  for (std::map<int, int>::const_iterator at = m_scrollsRead.begin(); at != m_scrollsRead.end(); ++at)
+    if (LevelMatches(level, at->first)) sum += at->second;
+  return sum;
+}
+
+void HeroStats::SetWallTextsRead(const std::map<int, int> &perLevel)
+{
+  m_wallTextsRead = perLevel;
+}
+
+int HeroStats::SumOverLevels(const std::map<int, int> &perLevel, int level)
+{
+  int sum = 0;
+  for (std::map<int, int>::const_iterator at = perLevel.begin(); at != perLevel.end(); ++at)
+    if (LevelMatches(level, at->first)) sum += at->second;
+  return sum;
+}
+
+void HeroStats::SetChampionsSeen(const std::map<int, int> &seen, const std::map<int, int> &viewed)
+{
+  m_championsSeen = seen;
+  m_championsViewed = viewed;
+}
+
+int HeroStats::ChampionsSeen(int level) const
+{
+  return SumOverLevels(m_championsSeen, level);
+}
+
+int HeroStats::ChampionsViewed(int level) const
+{
+  return SumOverLevels(m_championsViewed, level);
+}
+
+int HeroStats::WallTextsRead(int level) const
+{
+  int sum = 0;
+  for (std::map<int, int>::const_iterator at = m_wallTextsRead.begin(); at != m_wallTextsRead.end(); ++at)
+    if (LevelMatches(level, at->first)) sum += at->second;
   return sum;
 }
 
@@ -720,6 +970,62 @@ void HeroStats::Serialize(std::vector<uint8_t> *out) const
     HeroBytes_PutInt(out, it->second.pitClimbs);
     HeroBytes_PutInt(out, it->second.bumps);
   }
+  HeroBytes_Put(out, (uint32_t)m_items.size(), 4);
+  for (std::map<std::pair<int, int>, ItemCounts>::const_iterator it = m_items.begin(); it != m_items.end(); ++it)
+  {
+    HeroBytes_PutInt(out, it->first.first);
+    HeroBytes_PutInt(out, it->first.second);
+    HeroBytes_PutInt(out, it->second.pickedUp);
+    HeroBytes_PutInt(out, it->second.usedInWall);
+  }
+  HeroBytes_Put(out, (uint32_t)m_consumed.size(), 4);
+  for (std::map<ConsumeKey, int>::const_iterator it = m_consumed.begin(); it != m_consumed.end(); ++it)
+  {
+    HeroBytes_Put(out, std::get<0>(it->first), 2);
+    HeroBytes_PutInt(out, std::get<1>(it->first));
+    HeroBytes_PutInt(out, std::get<2>(it->first));
+    HeroBytes_PutInt(out, std::get<3>(it->first));
+    HeroBytes_PutInt(out, it->second);
+  }
+  HeroBytes_Put(out, (uint32_t)m_doorsBashed.size(), 4);
+  for (std::map<DoorKey, int>::const_iterator it = m_doorsBashed.begin(); it != m_doorsBashed.end(); ++it)
+  {
+    HeroBytes_Put(out, std::get<0>(it->first), 2);
+    HeroBytes_PutInt(out, std::get<1>(it->first));
+    HeroBytes_PutInt(out, it->second);
+    HeroBytes_PutInt(out, std::get<2>(it->first));
+  }
+  HeroBytes_Put(out, (uint32_t)m_chestsOpened.size(), 4);
+  for (std::map<int, int>::const_iterator it = m_chestsOpened.begin(); it != m_chestsOpened.end(); ++it)
+  {
+    HeroBytes_PutInt(out, it->first);
+    HeroBytes_PutInt(out, it->second);
+  }
+  HeroBytes_Put(out, (uint32_t)m_nourishment.size(), 4);
+  for (std::map<std::pair<HeroStatsChampion, int>, HeroStatsNourishment>::const_iterator it = m_nourishment.begin();
+       it != m_nourishment.end(); ++it)
+  {
+    HeroBytes_Put(out, it->first.first, 2);
+    HeroBytes_PutInt(out, it->first.second);
+    HeroBytes_PutInt(out, it->second.foodGained);
+    HeroBytes_PutInt(out, it->second.foodWasted);
+    HeroBytes_PutInt(out, it->second.waterGained);
+    HeroBytes_PutInt(out, it->second.waterWasted);
+    HeroBytes_PutInt(out, it->second.fountainDrinks);
+  }
+  HeroBytes_Put(out, (uint32_t)m_tilesWalked.size(), 4);
+  for (std::set<std::tuple<int, int, int> >::const_iterator it = m_tilesWalked.begin(); it != m_tilesWalked.end(); ++it)
+  {
+    HeroBytes_PutInt(out, std::get<0>(*it));
+    HeroBytes_Put(out, (uint32_t)std::get<1>(*it), 1);
+    HeroBytes_Put(out, (uint32_t)std::get<2>(*it), 1);
+  }
+  HeroBytes_Put(out, (uint32_t)m_scrollsRead.size(), 4);
+  for (std::map<int, int>::const_iterator it = m_scrollsRead.begin(); it != m_scrollsRead.end(); ++it)
+  {
+    HeroBytes_PutInt(out, it->first);
+    HeroBytes_PutInt(out, it->second);
+  }
 }
 
 bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
@@ -880,6 +1186,72 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
       movement.bumps = in.GetInt();
     }
     read.m_movement[level] = movement;
+  }
+  count = layout >= FIRST_LAYOUT_WITH_ITEMS ? in.GetCount(4 * 4) : 0;
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    int level = in.GetInt();
+    int item = in.GetInt();
+    ItemCounts counts;
+    counts.pickedUp = in.GetInt();
+    counts.usedInWall = in.GetInt();
+    read.m_items[std::make_pair(level, item)] = counts;
+  }
+  bool hasConsumption = layout >= FIRST_LAYOUT_WITH_CONSUMPTION;
+  count = hasConsumption ? in.GetCount(2 + 4 * 4) : 0;
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    HeroStatsChampion who = (HeroStatsChampion)in.Get(2);
+    int level = in.GetInt();
+    int item = in.GetInt();
+    int kind = in.GetInt();
+    int number = in.GetInt();
+    if (kind < 0 || kind >= HERO_CONSUME_KIND_COUNT) return false;
+    read.m_consumed[ConsumeKey(who, level, item, kind)] = number;
+  }
+  bool hasNourishment = layout >= FIRST_LAYOUT_WITH_NOURISHMENT;
+  count = hasConsumption ? in.GetCount(2 + 4 + 4 + (hasNourishment ? 4 : 0)) : 0;
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    HeroStatsChampion who = (HeroStatsChampion)in.Get(2);
+    int level = in.GetInt();
+    int number = in.GetInt();
+    int method = hasNourishment ? in.GetInt() : (int)HeroDoorUnknown;
+    if (method < 0 || method >= HERO_DOOR_METHOD_COUNT) return false;
+    read.m_doorsBashed[DoorKey(who, level, method)] = number;
+  }
+  count = hasConsumption ? in.GetCount(4 + 4) : 0;
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    int level = in.GetInt();
+    read.m_chestsOpened[level] = in.GetInt();
+  }
+  count = hasNourishment ? in.GetCount(2 + 6 * 4) : 0;
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    HeroStatsChampion who = (HeroStatsChampion)in.Get(2);
+    int level = in.GetInt();
+    HeroStatsNourishment row;
+    row.foodGained = in.GetInt();
+    row.foodWasted = in.GetInt();
+    row.waterGained = in.GetInt();
+    row.waterWasted = in.GetInt();
+    row.fountainDrinks = in.GetInt();
+    read.m_nourishment[std::make_pair(who, level)] = row;
+  }
+  count = layout >= FIRST_LAYOUT_WITH_TILES ? in.GetCount(4 + 1 + 1) : 0;
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    int level = in.GetInt();
+    int x = (int)in.Get(1);
+    int y = (int)in.Get(1);
+    read.m_tilesWalked.insert(std::make_tuple(level, x, y));
+  }
+  count = layout >= FIRST_LAYOUT_WITH_SCROLLS ? in.GetCount(4 + 4) : 0;
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    int level = in.GetInt();
+    read.m_scrollsRead[level] = in.GetInt();
   }
   if (!in.ok || in.left != 0) return false;
   *this = read;

@@ -3565,6 +3565,7 @@ void DescribeObject(RN object,i16 P2)
       }
 
       AutoMap_OnScrollRead(shownScroll.ConvertToInteger());
+      HeroStats_OnScrollRead(shownScroll.ConvertToInteger());
       DisplayScroll(dbA2->CastToDB7());
   }
   else
@@ -3572,6 +3573,7 @@ void DescribeObject(RN object,i16 P2)
     if (dbType == dbCHEST)
     {
       AutoMap_OnChestOpened(object.ConvertToInteger());
+      HeroStats_OnChestOpened(object.ConvertToInteger());
       ShowChestContents(object, dbA2->CastToDB9(), P2);
     }
     else
@@ -4414,6 +4416,13 @@ RESTARTABLE _FeedCharacter()
 /////////////////////////////////////////////////////////////////
   if (fp.performFeeding)
   {
+    {
+      // A gulp from an empty waterskin or an empty flask is nothing
+      bool nothing =
+          (dbType_18 == dbPOTION && dbA3->CastToDB8()->potionType() == potion_EmptyFlask) ||
+          (dbType_18 != dbSCROLL && objNID6 >= objNI_Waterskin && objNID6 <= objNI_Water && fp.waterValue == 0);
+      if (!nothing) HeroStats_OnItemConsumed(chIdx, objD7.ConvertToInteger(), fp.chew);
+    };
     heroStatsHp = pcA2->HP();
     heroStatsMana = pcA2->Mana();
     STHideCursor(HC6);
@@ -4491,8 +4500,13 @@ RESTARTABLE _FeedCharacter()
       };
     };
     pcA2->charFlags |= CHARFLAG_ouches | CHARFLAG_possession;
-    pcA2->water = sw(LIMIT(-1023,pcA2->water+fp.waterValue,2048));
-    pcA2->food = sw(LIMIT(-1023,pcA2->food+fp.foodValue,2048));
+    {
+      int waterBefore = pcA2->water;
+      int foodBefore = pcA2->food;
+      pcA2->water = sw(LIMIT(-1023,pcA2->water+fp.waterValue,2048));
+      pcA2->food = sw(LIMIT(-1023,pcA2->food+fp.foodValue,2048));
+      HeroStats_OnNourished(chIdx, fp.foodValue, pcA2->food - foodBefore, fp.waterValue, pcA2->water - waterBefore);
+    };
 /////////////////////////////////////////////////////////////////
 //We are done adjusting.  Back to normal processing.
 /////////////////////////////////////////////////////////////////

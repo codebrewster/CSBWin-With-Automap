@@ -86,8 +86,19 @@ const char *AutoMapFile_Describe(AutoMapFileResult result);
 //     then the party wipes and the reloads, 4 bytes each
 //     movement (version 14): per level 4 bytes level, steps, turns, teleports, ticks, then
 //              (version 15) ticks asleep, pits fallen into, pits climbed down, bumps
+//     items (version 16): per row level, item (basic object type), picked up, used in walls
+//     eaten and drunk (version 17): 2 bytes champion, level, item, kind (0 drunk, 1 eaten), count
+//     doors bashed (version 17): 2 bytes champion, level, count, then (version 18) the method
+//              (0 smashed, 1 shot open, 2 by spell, 4 a closed door opened by a Zo spell; 5 opened
+//              and 6 closed with the door's button, champion 0xffff)
+//     chests opened (version 17): level, count
+//     food and water (version 18): 2 bytes champion, level, food gained, food wasted, water
+//              gained, water wasted, fountain drinks
+//     tiles walked (version 19): per cell level, 1 byte x, 1 byte y
+//     scrolls read (version 20): level, count
 //     origins: missiles and clouds (4 byte index, the blow), brewers (4 byte index, 2 bytes
-//              champion)
+//              champion), then (version 16) the held items, (version 17) the opened chests and
+//              (version 20) the read scrolls (4 byte record key each)
 //
 // Numbers are stored lowest byte first. Version 1 files have no face bits and no facts,
 // version 2 files no floor items, version 3 files no glimpses, version 4 files no glimpsed
@@ -96,8 +107,10 @@ const char *AutoMapFile_Describe(AutoMapFileResult result);
 // version 8 files no player notes, version 9 files no damage, version 10 files no rims (a painted
 // rim cell is taken from the floor beside it, AutoMapExplored::TakeRimMarksFromTheEdge), version 11
 // files no seen floors (an explored cell counts as seen), version 12 files no statistics, version
-// 13 files no missile kinds and no movement, version 14 files no sleep, pits or bumps; they are
-// still read.
+// 13 files no missile kinds and no movement, version 14 files no sleep, pits or bumps, version 15
+// files no items, version 16 files nothing eaten or drunk, no doors bashed and no chests opened,
+// version 17 files no door methods and no food and water, version 18 files no tiles walked,
+// version 19 files no scrolls read; they are still read.
 class AutoMapFile
 {
 public:

@@ -1016,6 +1016,7 @@ void DeleteDBEntry(DBCOMMON *pDB)
   if (dbType == dbPOTION) HeroStats_OnPotionFreed(dbIndex);
   if (j != -1)
   {
+    if (dbType >= dbWEAPON && dbType <= dbMISC) HeroStats_OnItemFreed(j);
     dataTypeMap[j] = 0xff;
     dataIndexMap[j] = 0xffff;
   };

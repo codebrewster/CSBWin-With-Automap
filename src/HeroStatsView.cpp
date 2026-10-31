@@ -151,6 +151,19 @@ HeroStatsSummaries HeroStatsView_Summaries(const HeroStats &stats, HeroStatsCham
   if (wipes != 0) parts += (parts.empty() ? "" : " · ") + Plural(wipes, "wipe", "wipes");
   if (reloads != 0) parts += (parts.empty() ? "" : " · ") + Plural(reloads, "reload", "reloads");
   s.hardship = parts.empty() ? "never died" : parts;
+
+  HeroStatsNourishment food = stats.Nourishment(who, level);
+  int eaten = stats.Eaten(who, level);
+  int drunk = stats.Drunk(who, level) + food.fountainDrinks;
+  if (eaten == 0 && drunk == 0)
+    s.food = "nothing eaten or drunk";
+  else
+  {
+    s.food = HeroStatsView_Number(eaten) + " eaten · " + HeroStatsView_Number(drunk) + " drunk";
+    if (food.foodWasted != 0 || food.waterWasted != 0)
+      s.food += " · wasted " + HeroStatsView_Number(food.foodWasted) + " food, " +
+                HeroStatsView_Number(food.waterWasted) + " water";
+  }
   return s;
 }
 

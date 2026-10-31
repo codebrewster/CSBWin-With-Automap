@@ -1820,11 +1820,13 @@ RESTARTABLE _Attack(const i32 initialChIdx, const ATTACKTYPE initialAttackType)
         pParam->disableTime = 6;
         pParam->attdep.hitDoor.strength = DetermineThrowingDistance(pParam->charIdx, 1);
         CallAttackFilter(&filter, pParam, 1);
+        HeroStats_BeginDoorBlowByChampion(pParam->charIdx);
         HitDoor(pParam->attackX,
                 pParam->attackY,
                 pParam->attdep.hitDoor.strength,
                 0,  //Not a ZO spell
                 2); //delay
+        HeroStats_EndDoorBlow();
         QueueSound(4, d.partyX, d.partyY, 2);
         break;
       };

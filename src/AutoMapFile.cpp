@@ -7,7 +7,7 @@
 #include <vector>
 
 static const char FILE_TYPE_MARKER[4] = {'C', 'S', 'B', 'M'};
-static const uint32_t FORMAT_VERSION = 15;
+static const uint32_t FORMAT_VERSION = 20;
 static const uint32_t FIRST_VERSION_WITH_FACES = 2;
 static const uint32_t FIRST_VERSION_WITH_ITEMS = 3;
 static const uint32_t FIRST_VERSION_WITH_GLIMPSES = 4;
@@ -505,7 +505,7 @@ static AutoMapFileResult ReadStatistics(std::istream &in, uint32_t version, Hero
   const uint8_t *statsBytes = block.data() + 4;
   const uint8_t *originsBytes = statsBytes + statsLength;
   if (!stats->Deserialize(statsBytes, statsLength, (int)version)) return AutoMapFileIsTruncated;
-  if (!origins->Deserialize(originsBytes, block.size() - 4 - statsLength)) return AutoMapFileIsTruncated;
+  if (!origins->Deserialize(originsBytes, block.size() - 4 - statsLength, (int)version)) return AutoMapFileIsTruncated;
   return AutoMapFileRead;
 }
 

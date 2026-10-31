@@ -7032,6 +7032,9 @@ void HandleClothingClick(i32 button)
     {
       CursorFilter(&cfp);
     };
+    // Out of an open chest it comes from the dungeon; from a champion's own places it was held
+    if (D6W >= 30) HeroStats_OnItemPickedUp(objD4.ConvertToInteger());
+    else HeroStats_OnItemHeld(objD4.ConvertToInteger());
     ObjectToCursor(objD4, 0);
   };
   if (objD5 != RNnul)

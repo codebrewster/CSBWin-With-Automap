@@ -227,7 +227,8 @@ static void MovementIsKeptPerLevel(void)
 }
 
 // The layout of version 13: harm rows without the missile kind, no movement table. A store with
-// one harm row, written now, becomes that by cutting the kind and the movement count.
+// one harm row, written now, becomes that by cutting the kind and the eight empty counts at the
+// end (movement, items, eaten and drunk, doors bashed, chests opened, food and water, tiles, scrolls).
 static void LayoutThirteenIsStillRead(void)
 {
   HeroStats written;
@@ -237,7 +238,7 @@ static void LayoutThirteenIsStillRead(void)
   // Six empty tables, the harm count, then the record of 2 + 4 + 4 + 2 + 4 + 4 bytes and its kind
   size_t kind = 7 * 4 + 20;
   bytes.erase(bytes.begin() + kind, bytes.begin() + kind + 4);
-  bytes.erase(bytes.end() - 4, bytes.end());
+  bytes.erase(bytes.end() - 32, bytes.end());
   HeroStats read;
   CHECK(read.Deserialize(bytes.data(), bytes.size(), 13));
   CHECK(read.Harm(9, 3) == 12 && read.HarmRows(9, 3).size() == 1);
@@ -272,7 +273,7 @@ static void ActionUsesAreKeptApartFromTries(void)
 
 // The layout of version 14: attack rows without uses, movement without sleep, pits and bumps.
 // A store with one attack row and one level of movement, written now, becomes that by cutting
-// the uses and the four newer movement numbers.
+// the uses, the four newer movement numbers and the seven empty counts after them.
 static void LayoutFourteenIsStillRead(void)
 {
   HeroStats written;
@@ -286,12 +287,192 @@ static void LayoutFourteenIsStillRead(void)
   // counts, the uses
   size_t uses = 3 * 4 + 15 + 16;
   bytes.erase(bytes.begin() + uses, bytes.begin() + uses + 4);
-  bytes.erase(bytes.end() - 16, bytes.end());
+  bytes.erase(bytes.end() - 44, bytes.end());
   HeroStats read;
   CHECK(read.Deserialize(bytes.data(), bytes.size(), 14));
   CHECK(read.Attacks(7, 1).size() == 1 && read.Attacks(7, 1)[0].tries == 1 && read.Attacks(7, 1)[0].uses == 0);
   HeroStatsMovement moved = read.Movement(1);
   CHECK(moved.steps == 1 && moved.ticks == 1 && moved.sleepTicks == 0 && moved.bumps == 0);
+}
+
+static void ItemsAreKeptPerLevel(void)
+{
+  const int GOLD_KEY = 11, COIN = 12, TORCH = 4;
+  HeroStats stats;
+  stats.CountItem(1, TORCH, HeroItemPickedUp);
+  stats.CountItem(1, GOLD_KEY, HeroItemPickedUp);
+  stats.CountItem(3, GOLD_KEY, HeroItemUsedInWall);
+  stats.CountItem(3, COIN, HeroItemUsedInWall);
+  stats.CountItem(3, COIN, HeroItemUsedInWall);
+  std::vector<HeroStatsItemRow> run = stats.Items(HERO_STATS_WHOLE_RUN);
+  CHECK(run.size() == 3);
+  if (run.size() == 3)
+  {
+    CHECK(run[0].item == TORCH && run[0].pickedUp == 1 && run[0].usedInWall == 0);
+    CHECK(run[1].item == GOLD_KEY && run[1].pickedUp == 1 && run[1].usedInWall == 1);
+    CHECK(run[2].item == COIN && run[2].pickedUp == 0 && run[2].usedInWall == 2);
+  }
+  CHECK(stats.Items(1).size() == 2 && stats.Items(2).empty() && stats.Items(3).size() == 2);
+  std::vector<uint8_t> bytes;
+  stats.Serialize(&bytes);
+  HeroStats read;
+  CHECK(read.Deserialize(bytes.data(), bytes.size()));
+  CHECK(read.Items(3).size() == 2 && read.Items(3)[1].item == COIN && read.Items(3)[1].usedInWall == 2);
+  stats.Forget();
+  CHECK(stats.Items(HERO_STATS_WHOLE_RUN).empty());
+}
+
+// The layout of version 15 has no item table and nothing after it: the seven counts at the end are cut
+static void LayoutFifteenIsStillRead(void)
+{
+  HeroStats written;
+  written.CountStep(1);
+  std::vector<uint8_t> bytes;
+  written.Serialize(&bytes);
+  bytes.erase(bytes.end() - 28, bytes.end());
+  HeroStats read;
+  CHECK(read.Deserialize(bytes.data(), bytes.size(), 15));
+  CHECK(read.Movement(1).steps == 1 && read.Items(HERO_STATS_WHOLE_RUN).empty());
+  HeroStats current;
+  CHECK(!current.Deserialize(bytes.data(), bytes.size()));
+}
+
+static void EatingDoorsAndChestsAreCounted(void)
+{
+  const int APPLE = 20, VI_POTION = 30;
+  HeroStats stats;
+  stats.CountConsumed(7, 1, APPLE, HeroConsumeEaten);
+  stats.CountConsumed(7, 1, APPLE, HeroConsumeEaten);
+  stats.CountConsumed(9, 2, VI_POTION, HeroConsumeDrunk);
+  stats.CountDoorBashed(7, 2, HeroDoorSmashed);
+  stats.CountDoorBashed(9, 2, HeroDoorBySpell);
+  stats.CountChestOpened(1);
+  CHECK(stats.Eaten(7, 1) == 2 && stats.Eaten(7, 2) == 0 && stats.Drunk(7, HERO_STATS_WHOLE_RUN) == 0);
+  CHECK(stats.Drunk(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN) == 1);
+  std::vector<HeroStatsConsumedRow> rows = stats.Consumed(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN);
+  CHECK(rows.size() == 2);
+  if (rows.size() == 2)
+  {
+    CHECK(rows[0].item == APPLE && rows[0].eaten == 2 && rows[0].drunk == 0);
+    CHECK(rows[1].item == VI_POTION && rows[1].drunk == 1);
+  }
+  CHECK(stats.DoorsBashed(7, 2) == 1 && stats.DoorsBashed(HERO_STATS_PARTY, 2) == 2 && stats.DoorsBashed(9, 1) == 0);
+  CHECK(stats.DoorsBashed(HERO_STATS_PARTY, 2, HeroDoorSmashed) == 1 && stats.DoorsBashed(9, 2, HeroDoorBySpell) == 1);
+  CHECK(stats.DoorsBashed(HERO_STATS_PARTY, 2, HeroDoorShot) == 0);
+  // A door opened by Zo is no bash
+  stats.CountDoorOpenedByZo(9, 2);
+  CHECK(stats.DoorsOpenedByZo(9, 2) == 1 && stats.DoorsOpenedByZo(7, 2) == 0 && stats.DoorsBashed(9, 2) == 1);
+  // Nor are the door buttons the party clicks
+  stats.CountDoorButton(2, true);
+  stats.CountDoorButton(2, true);
+  stats.CountDoorButton(1, false);
+  CHECK(stats.DoorsOpenedByButton(2) == 2 && stats.DoorsClosedByButton(HERO_STATS_WHOLE_RUN) == 1);
+  CHECK(stats.DoorsBashed(HERO_STATS_PARTY, 2) == 2);
+  CHECK(stats.ChestsOpened(1) == 1 && stats.ChestsOpened(HERO_STATS_WHOLE_RUN) == 1 && stats.ChestsOpened(2) == 0);
+  std::vector<uint8_t> bytes;
+  stats.Serialize(&bytes);
+  HeroStats read;
+  CHECK(read.Deserialize(bytes.data(), bytes.size()));
+  CHECK(read.Eaten(7, 1) == 2 && read.DoorsBashed(9, 2, HeroDoorBySpell) == 1 && read.ChestsOpened(1) == 1);
+  CHECK(read.DoorsOpenedByZo(9, 2) == 1 && read.DoorsOpenedByButton(2) == 2 && read.DoorsClosedByButton(1) == 1);
+  // Version 17: a door row without its method, no food and water table. One door row of
+  // 2 + 4 + 4 bytes, its method, then the empty chest, food, tile and scroll counts.
+  HeroStats door;
+  door.CountDoorBashed(7, 3, HeroDoorShot);
+  bytes.clear();
+  door.Serialize(&bytes);
+  bytes.erase(bytes.end() - 12, bytes.end());
+  bytes.erase(bytes.end() - 8, bytes.end() - 4);
+  CHECK(read.Deserialize(bytes.data(), bytes.size(), 17));
+  CHECK(read.DoorsBashed(7, 3) == 1 && read.DoorsBashed(7, 3, HeroDoorUnknown) == 1 && read.DoorsBashed(7, 3, HeroDoorShot) == 0);
+  // Version 16 has none of the six tables
+  HeroStats empty;
+  empty.CountItem(1, 4, HeroItemPickedUp);
+  bytes.clear();
+  empty.Serialize(&bytes);
+  bytes.erase(bytes.end() - 24, bytes.end());
+  CHECK(read.Deserialize(bytes.data(), bytes.size(), 16));
+  CHECK(read.Items(1).size() == 1 && read.Eaten(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN) == 0);
+  stats.Forget();
+  CHECK(stats.Consumed(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN).empty() && stats.ChestsOpened(HERO_STATS_WHOLE_RUN) == 0);
+}
+
+// Food and water: what rose counts as gained, the rest of the value as wasted
+static void FoodAndWaterAreGainedOrWasted(void)
+{
+  HeroStats stats;
+  stats.CreditFood(7, 1, 500, 500);
+  stats.CreditFood(7, 1, 500, 120);
+  stats.CreditFood(7, 1, -200, 0);     // a harmful item adds nothing
+  stats.CreditWater(7, 2, 1600, 1600);
+  stats.CreditWater(9, 2, 1600, 0);
+  stats.CountFountainDrink(9, 2);
+  HeroStatsNourishment halk = stats.Nourishment(7, HERO_STATS_WHOLE_RUN);
+  CHECK(halk.foodGained == 620 && halk.foodWasted == 380 && halk.waterGained == 1600 && halk.waterWasted == 0);
+  HeroStatsNourishment party = stats.Nourishment(HERO_STATS_PARTY, 2);
+  CHECK(party.waterGained == 1600 && party.waterWasted == 1600 && party.fountainDrinks == 1 && party.foodGained == 0);
+  std::vector<uint8_t> bytes;
+  stats.Serialize(&bytes);
+  HeroStats read;
+  CHECK(read.Deserialize(bytes.data(), bytes.size()));
+  CHECK(read.Nourishment(7, 1).foodWasted == 380 && read.Nourishment(9, 2).fountainDrinks == 1);
+}
+
+// Tiles walked count each cell once; explored tiles come from outside and are not stored
+static void TilesWalkedAndExplored(void)
+{
+  HeroStats stats;
+  stats.MarkTileWalked(1, 3, 4);
+  stats.MarkTileWalked(1, 3, 4);
+  stats.MarkTileWalked(1, 3, 5);
+  stats.MarkTileWalked(2, 3, 4);
+  std::map<int, int> explored;
+  explored[1] = 40;
+  explored[2] = 12;
+  stats.SetExploredTiles(explored);
+  CHECK(stats.Movement(1).tilesWalked == 2 && stats.Movement(1).tilesExplored == 40);
+  HeroStatsMovement run = stats.Movement(HERO_STATS_WHOLE_RUN);
+  CHECK(run.tilesWalked == 3 && run.tilesExplored == 52);
+  std::vector<uint8_t> bytes;
+  stats.Serialize(&bytes);
+  HeroStats read;
+  CHECK(read.Deserialize(bytes.data(), bytes.size()));
+  CHECK(read.Movement(1).tilesWalked == 2 && read.Movement(1).tilesExplored == 0);
+  // Version 18 has no tiles and no scrolls: the two counts at the end are cut
+  HeroStats none;
+  bytes.clear();
+  none.Serialize(&bytes);
+  bytes.erase(bytes.end() - 8, bytes.end());
+  CHECK(read.Deserialize(bytes.data(), bytes.size(), 18) && read.Movement(1).tilesWalked == 0);
+}
+
+static void ScrollsAndWallTextsRead(void)
+{
+  HeroStats stats;
+  stats.CountScrollRead(1);
+  stats.CountScrollRead(3);
+  stats.CountScrollRead(3);
+  std::map<int, int> texts;
+  texts[1] = 4;
+  stats.SetWallTextsRead(texts);
+  CHECK(stats.ScrollsRead(3) == 2 && stats.ScrollsRead(HERO_STATS_WHOLE_RUN) == 3);
+  CHECK(stats.WallTextsRead(1) == 4 && stats.WallTextsRead(2) == 0 && stats.WallTextsRead(HERO_STATS_WHOLE_RUN) == 4);
+  std::vector<uint8_t> bytes;
+  stats.Serialize(&bytes);
+  HeroStats read;
+  CHECK(read.Deserialize(bytes.data(), bytes.size()));
+  CHECK(read.ScrollsRead(3) == 2 && read.WallTextsRead(1) == 0);
+  std::map<int, int> seen, viewed;
+  seen[0] = 12;
+  viewed[0] = 5;
+  stats.SetChampionsSeen(seen, viewed);
+  CHECK(stats.ChampionsSeen(0) == 12 && stats.ChampionsViewed(HERO_STATS_WHOLE_RUN) == 5 && stats.ChampionsSeen(1) == 0);
+  // Version 19 has no scroll table
+  HeroStats none;
+  bytes.clear();
+  none.Serialize(&bytes);
+  bytes.erase(bytes.end() - 4, bytes.end());
+  CHECK(read.Deserialize(bytes.data(), bytes.size(), 19) && read.ScrollsRead(HERO_STATS_WHOLE_RUN) == 0);
 }
 
 static void HealingRemembersTheBrewer(void)
@@ -487,6 +668,12 @@ void TestHeroStats(void)
   LayoutThirteenIsStillRead();
   ActionUsesAreKeptApartFromTries();
   LayoutFourteenIsStillRead();
+  ItemsAreKeptPerLevel();
+  LayoutFifteenIsStillRead();
+  EatingDoorsAndChestsAreCounted();
+  FoodAndWaterAreGainedOrWasted();
+  TilesWalkedAndExplored();
+  ScrollsAndWallTextsRead();
   HealingRemembersTheBrewer();
   ManaIsKeptPerSpell();
   SpellBlowsCreditTheSpellRow();

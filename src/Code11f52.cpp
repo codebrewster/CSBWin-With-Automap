@@ -1902,6 +1902,8 @@ i16 ProcessMissileEncounter(
       {
         if (pdb_12->CastToDB0()->doorSwitch())
         {
+          // A Zo on an open door closes it: only a closed one is opened
+          if (doorstate == 4) HeroStats_OnDoorOpenedByZo(db.GetDBIndex(pDBmissile, dbMISSILE), d.LoadedLevel);
           CreateTimer(TT_DOOR,
                       objX,
                       objY,
@@ -1985,11 +1987,13 @@ i16 ProcessMissileEncounter(
 
 
 
+      HeroStats_BeginDoorBlowByMissile(db.GetDBIndex(pDBmissile, dbMISSILE));
       HitDoor(objX,
               objY,
               D5W + (STRandom()&0xffff)%D5W, //i32 force
               0,                             //bool explosion
               0);                            //i32 delay
+      HeroStats_EndDoorBlow();
     };
     break;
   case -2: // Party
@@ -2351,10 +2355,12 @@ i16 HitDoor(i32 mapX, i32 mapY,
       timer.timerUByte6((ui8)mapX);
       timer.timerUByte7((ui8)mapY);
       gameTimers.SetTimer(&timer);
+      HeroStats_OnDoorBashScheduled(d.LoadedLevel, mapX, mapY);
     }
     else
     {
       *cfA2 = (UI8)((*cfA2 & 0xf8) | 5);//Set bottom 3 bits to 5
+      HeroStats_OnDoorBashed(d.LoadedLevel, mapX, mapY);
     };
     return 1;
   };
