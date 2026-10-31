@@ -383,8 +383,85 @@ static void CardsShareOfDamage(void)
   CHECK(cards.size() == 2 && cards[0].column.id == 7 && cards[0].record.value[HeroNumDamage] == 3);
 }
 
+// HALK (7) kills on levels 0 and 4, SYRA (9) on level 4; steps on both
+static HeroStats KillsOnTwoLevels(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  stats.MeetChampion(9, "SYRA");
+  stats.MarkLevelVisited(0);
+  stats.MarkLevelVisited(4);
+  stats.CountMonsterKill(0, 6, 0, ChampionBlow(7, HERO_STATS_UNARMED, 1));
+  stats.CountMonsterKill(4, 6, 0, ChampionBlow(7, HERO_STATS_UNARMED, 1));
+  stats.CountMonsterKill(4, 6, 0, ChampionBlow(9, HERO_STATS_UNARMED, 1));
+  stats.CountMonsterKill(4, 6, 0, ChampionBlow(9, HERO_STATS_UNARMED, 1));
+  stats.CountStep(0);
+  stats.CountStep(4);
+  stats.CountStep(4);
+  return stats;
+}
+
+static void PerLevelEndsWithTheWholeRun(void)
+{
+  HeroStats stats = KillsOnTwoLevels();
+  HeroStatsPerLevel table = HeroStatsPages_PerLevelTotals(stats, Columns(stats), HERO_STATS_PARTY, HeroTopicOverview);
+  CHECK(table.rows.size() == 3);
+  if (table.rows.size() != 3) return;
+  CHECK(table.rows[0].level == 0 && table.rows[1].level == 4 && table.rows[2].level == HERO_STATS_WHOLE_RUN);
+  for (size_t n = 0; n < table.numbers.size(); n++)
+    if (HeroStatsCatalogue_Summable(table.numbers[n]))
+      CHECK(table.rows[2].values[n] == table.rows[0].values[n] + table.rows[1].values[n]);
+  CHECK(table.hasShare && table.shareNumber == HeroNumDamage);
+  CHECK(table.rows[1].share.size() == 2);
+}
+
+static void ManyLevelsAllListed(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  for (int level = 0; level < 20; level++) stats.MarkLevelVisited(level);
+  HeroStatsPerLevel table = HeroStatsPages_PerLevelTotals(stats, Columns(stats), HERO_STATS_PARTY, HeroTopicExploration);
+  CHECK(table.rows.size() == 21);
+  if (!table.rows.empty()) CHECK(table.rows.back().level == HERO_STATS_WHOLE_RUN);
+  CHECK(HeroStatsView_Picker(stats, HERO_STATS_WHOLE_RUN).stepper);
+}
+
+static void ChampionTotalsSkipPartyNumbers(void)
+{
+  HeroStats stats = KillsOnTwoLevels();
+  HeroStatsPerLevel table = HeroStatsPages_PerLevelTotals(stats, Columns(stats), 7, HeroTopicExploration);
+  CHECK(table.numbers == std::vector<HeroStatsNumber>({HeroNumDoorsBashed, HeroNumDoorsByZo}));
+  CHECK(!table.hasShare);
+  CHECK(!table.rows.empty() && table.rows[0].share.empty());
+}
+
+static void GridMatchesTheRecords(void)
+{
+  HeroStats stats = KillsOnTwoLevels();
+  HeroStatsPerLevel grid = HeroStatsPages_PerLevelGrid(stats, Columns(stats), HeroNumKills);
+  CHECK(grid.numbers == std::vector<HeroStatsNumber>({HeroNumKills}));
+  CHECK(grid.rows.size() == 3);
+  if (grid.rows.size() != 3) return;
+  CHECK(grid.rows[1].level == 4 && grid.rows[1].values == std::vector<int>({1, 2, 3}));
+  CHECK(grid.rows[1].share == std::vector<int>({1, 2}));
+  CHECK(grid.rows[2].values == std::vector<int>({2, 2, 4}));
+}
+
+static void WipesStayOutOfPerLevel(void)
+{
+  HeroStats stats = KillsOnTwoLevels();
+  HeroStatsPerLevel table = HeroStatsPages_PerLevelTotals(stats, Columns(stats), HERO_STATS_PARTY, HeroTopicSurvival);
+  for (size_t n = 0; n < table.numbers.size(); n++) CHECK(table.numbers[n] != HeroNumWipes && table.numbers[n] != HeroNumReloads);
+  CHECK(!table.numbers.empty() && table.numbers[0] == HeroNumTaken);
+}
+
 void TestHeroStatsPages(void)
 {
+  PerLevelEndsWithTheWholeRun();
+  ManyLevelsAllListed();
+  ChampionTotalsSkipPartyNumbers();
+  GridMatchesTheRecords();
+  WipesStayOutOfPerLevel();
   PartyWeaponsAreSplitByChampion();
   ChampionPageDropsPartyOnlyRows();
   LeftChampionStillCounts();

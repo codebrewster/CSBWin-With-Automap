@@ -160,6 +160,23 @@ HeroStatsTopicPage HeroStatsPages_Topic(const HeroStats &stats, const std::vecto
 struct HeroStatsCard { HeroStatsColumn column; HeroStatsRecord record; int damagePercent; };
 std::vector<HeroStatsCard> HeroStatsPages_Cards(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns, int level);
 
+// Per level: one row per visited level (ascending), then the whole run (level HERO_STATS_WHOLE_RUN)
+struct HeroStatsLevelRow { int level; std::vector<int> values; std::vector<int> share; };
+struct HeroStatsPerLevel
+{
+  std::vector<HeroStatsNumber> numbers;  // the columns after the level
+  HeroStatsNumber shareNumber;           // what share splits by column, when hasShare
+  bool hasShare;
+  std::vector<HeroStatsLevelRow> rows;
+};
+// The party's (who HERO_STATS_PARTY) or a champion's totals: the topic's top-level rows that
+// apply to who on a level. The party's rows share out the topic's first number kept per champion.
+HeroStatsPerLevel HeroStatsPages_PerLevelTotals(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
+                                                HeroStatsChampion who, int topic);
+// Champions side by side: values are one per column, then the party; share one per column
+HeroStatsPerLevel HeroStatsPages_PerLevelGrid(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
+                                              HeroStatsNumber number);
+
 #pragma pack(pop)
 
 #endif
