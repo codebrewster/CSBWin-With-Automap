@@ -520,7 +520,7 @@ static std::vector<int> ShareOf(const HeroStats &stats, const std::vector<HeroSt
 {
   std::vector<int> share;
   for (size_t c = 0; c < columns.size(); c++)
-    share.push_back(HeroStatsCatalogue_Record(stats, columns[c].id, level).value[number]);
+    share.push_back(HeroStatsCatalogue_Value(stats, columns[c].id, level, number));
   return share;
 }
 
@@ -550,8 +550,9 @@ HeroStatsPerLevel HeroStatsPages_PerLevelTotals(const HeroStats &stats, const st
   {
     HeroStatsLevelRow row;
     row.level = levels[l];
-    HeroStatsRecord record = HeroStatsCatalogue_Record(stats, who, row.level);
-    for (size_t n = 0; n < table.numbers.size(); n++) row.values.push_back(record.value[table.numbers[n]]);
+    // Only the numbers shown: a whole record per level and champion would scan the store for all
+    for (size_t n = 0; n < table.numbers.size(); n++)
+      row.values.push_back(HeroStatsCatalogue_Value(stats, who, row.level, table.numbers[n]));
     if (table.hasShare) row.share = ShareOf(stats, columns, row.level, table.shareNumber);
     table.rows.push_back(row);
   }
@@ -572,7 +573,7 @@ HeroStatsPerLevel HeroStatsPages_PerLevelGrid(const HeroStats &stats, const std:
     row.level = levels[l];
     row.values = ShareOf(stats, columns, row.level, number);
     if (table.hasShare) row.share = row.values;
-    row.values.push_back(HeroStatsCatalogue_Record(stats, HERO_STATS_PARTY, row.level).value[number]);
+    row.values.push_back(HeroStatsCatalogue_Value(stats, HERO_STATS_PARTY, row.level, number));
     table.rows.push_back(row);
   }
   return table;

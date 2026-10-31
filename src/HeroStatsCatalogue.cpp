@@ -127,18 +127,29 @@ static int RoundedRatio(long long part, long long whole)
   return (int)((part * 2 + whole) / (whole * 2));
 }
 
-HeroStatsRecord HeroStatsCatalogue_Record(const HeroStats &stats, HeroStatsChampion who, int level)
+// The numbers come in groups that one look at the store fills together. Record fills them all;
+// Value only the group of its number, which is what Per level needs for one number per champion.
+typedef void (*FillGroup)(const HeroStats &stats, HeroStatsChampion who, int level, int *v);
+
+static void FillDamage(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
 {
-  HeroStatsRecord r = {};
-  int *v = r.value;
   v[HeroNumMelee] = stats.DamageDealt(who, level, HeroDamageMelee);
   v[HeroNumRanged] = stats.DamageDealt(who, level, HeroDamageRanged);
   v[HeroNumMagic] = stats.DamageDealt(who, level, HeroDamageMagic);
   v[HeroNumDamage] = v[HeroNumMelee] + v[HeroNumRanged] + v[HeroNumMagic];
+}
+
+static void FillKills(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
+{
   v[HeroNumKills] = stats.Kills(who, level);
-  // As the Weapons table counts them: spells entered as runes are no attacks; the actions that
-  // cannot hit are attacks but not in the hit rate
+}
+
+// As the Weapons table counts them: spells entered as runes are no attacks; the actions that
+// cannot hit are attacks but not in the hit rate
+static void FillAttacks(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
+{
   int tries = 0, attackDamage = 0;
+  v[HeroNumAttacks] = v[HeroNumHits] = 0;
   std::vector<HeroStatsAttackRow> attacks = stats.Attacks(who, level);
   for (size_t i = 0; i < attacks.size(); i++)
   {
@@ -150,22 +161,42 @@ HeroStatsRecord HeroStatsCatalogue_Record(const HeroStats &stats, HeroStatsChamp
   }
   v[HeroNumHitRate] = RoundedRatio((long long)v[HeroNumHits] * 100, tries);
   v[HeroNumDamagePerHit] = RoundedRatio(attackDamage, v[HeroNumHits]);
-  v[HeroNumFriendlyFire] = stats.FriendlyFireCaused(who, level);
+}
 
+static void FillFriendlyFire(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
+{
+  v[HeroNumFriendlyFire] = stats.FriendlyFireCaused(who, level);
+}
+
+static void FillMana(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
+{
   v[HeroNumManaRegeneration] = stats.ManaGainedBy(who, level, HeroManaRegeneration);
   v[HeroNumManaPotions] = stats.ManaGainedBy(who, level, HeroManaPotion);
   v[HeroNumManaGenerated] = stats.ManaGained(who, level);
   v[HeroNumManaSpent] = stats.ManaSpent(who, level);
   v[HeroNumManaWasted] = stats.ManaWasted(who, level);
+}
+
+static void FillCasts(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
+{
+  v[HeroNumCasts] = v[HeroNumCastsFailed] = 0;
   std::vector<HeroStatsSpellRow> spells = stats.Spells(who, level);
   for (size_t i = 0; i < spells.size(); i++)
   {
     v[HeroNumCasts] += spells[i].casts + spells[i].failed;
     v[HeroNumCastsFailed] += spells[i].failed;
   }
+}
 
+static void FillTaken(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
+{
   v[HeroNumTaken] = stats.Harm(who, level);
+}
+
+static void FillHealing(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
+{
   v[HeroNumHealed] = stats.Healed(who, level);
+  v[HeroNumHealRegeneration] = v[HeroNumHealPotions] = v[HeroNumHealAction] = 0;
   std::vector<HeroStatsHealRow> heals = stats.HealRows(who, level);
   for (size_t i = 0; i < heals.size(); i++)
   {
@@ -174,11 +205,19 @@ HeroStatsRecord HeroStatsCatalogue_Record(const HeroStats &stats, HeroStatsChamp
     else v[HeroNumHealAction] += heals[i].amount;
   }
   v[HeroNumHealingGiven] = stats.HealingGiven(who, level);
+}
+
+static void FillDeaths(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
+{
+  v[HeroNumDeaths] = 0;
   std::vector<HeroStatsDeath> deaths = stats.Deaths(who);
   for (size_t i = 0; i < deaths.size(); i++)
     if (level == HERO_STATS_WHOLE_RUN || deaths[i].level == level) v[HeroNumDeaths]++;
   v[HeroNumResurrected] = stats.Resurrections(who, level);
+}
 
+static void FillFood(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
+{
   v[HeroNumEaten] = stats.Eaten(who, level);
   HeroStatsNourishment food = stats.Nourishment(who, level);
   v[HeroNumDrunk] = stats.Drunk(who, level) + food.fountainDrinks;  // the fountain is a way of drinking
@@ -186,25 +225,38 @@ HeroStatsRecord HeroStatsCatalogue_Record(const HeroStats &stats, HeroStatsChamp
   v[HeroNumFoodWasted] = food.foodWasted;
   v[HeroNumWaterGained] = food.waterGained;
   v[HeroNumWaterWasted] = food.waterWasted;
+}
 
+static void FillDoors(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
+{
   v[HeroNumDoorsBashed] = stats.DoorsBashed(who, level);
   v[HeroNumDoorsSmashed] = stats.DoorsBashed(who, level, HeroDoorSmashed);
   v[HeroNumDoorsShot] = stats.DoorsBashed(who, level, HeroDoorShot);
   v[HeroNumDoorsBySpell] = stats.DoorsBashed(who, level, HeroDoorBySpell);
   v[HeroNumDoorsByZo] = stats.DoorsOpenedByZo(who, level);
+}
 
-  if (who != HERO_STATS_PARTY) return r;
-  if (level == HERO_STATS_WHOLE_RUN)
-  {
-    v[HeroNumWipes] = stats.PartyWipes();
-    v[HeroNumReloads] = stats.Reloads();
-  }
+// The party's only: who is HERO_STATS_PARTY
+static void FillHardship(const HeroStats &stats, HeroStatsChampion, int level, int *v)
+{
+  bool wholeRun = level == HERO_STATS_WHOLE_RUN;
+  v[HeroNumWipes] = wholeRun ? stats.PartyWipes() : 0;
+  v[HeroNumReloads] = wholeRun ? stats.Reloads() : 0;
+}
+
+static void FillItems(const HeroStats &stats, HeroStatsChampion, int level, int *v)
+{
+  v[HeroNumPickedUp] = v[HeroNumUsedInWalls] = 0;
   std::vector<HeroStatsItemRow> items = stats.Items(level);
   for (size_t i = 0; i < items.size(); i++)
   {
     v[HeroNumPickedUp] += items[i].pickedUp;
     v[HeroNumUsedInWalls] += items[i].usedInWall;
   }
+}
+
+static void FillMovement(const HeroStats &stats, HeroStatsChampion, int level, int *v)
+{
   HeroStatsMovement move = stats.Movement(level);
   v[HeroNumSteps] = move.steps;
   v[HeroNumTilesWalked] = move.tilesWalked;
@@ -216,6 +268,10 @@ HeroStatsRecord HeroStatsCatalogue_Record(const HeroStats &stats, HeroStatsChamp
   v[HeroNumPitClimbs] = move.pitClimbs;
   v[HeroNumTicks] = move.ticks;
   v[HeroNumSleepTicks] = move.sleepTicks;
+}
+
+static void FillDungeon(const HeroStats &stats, HeroStatsChampion, int level, int *v)
+{
   v[HeroNumDoorsButtonOpened] = stats.DoorsOpenedByButton(level);
   v[HeroNumDoorsButtonClosed] = stats.DoorsClosedByButton(level);
   v[HeroNumChests] = stats.ChestsOpened(level);
@@ -223,7 +279,12 @@ HeroStatsRecord HeroStatsCatalogue_Record(const HeroStats &stats, HeroStatsChamp
   v[HeroNumWallTexts] = stats.WallTextsRead(level);
   v[HeroNumChampionsSeen] = stats.ChampionsSeen(level);
   v[HeroNumChampionsViewed] = stats.ChampionsViewed(level);
-  // As the Monsters page counts them: a door, a fall, or any cause but a champion's blow
+}
+
+// As the Monsters page counts them: a door, a fall, or any cause but a champion's blow
+static void FillKillCauses(const HeroStats &stats, HeroStatsChampion, int level, int *v)
+{
+  v[HeroNumDoorKills] = v[HeroNumPitKills] = v[HeroNumOtherKills] = 0;
   std::vector<HeroStatsMonsterRow> kills = stats.MonsterKills(level);
   for (size_t i = 0; i < kills.size(); i++)
   {
@@ -231,7 +292,57 @@ HeroStatsRecord HeroStatsCatalogue_Record(const HeroStats &stats, HeroStatsChamp
     else if (kills[i].by == HeroBlowByPit) v[HeroNumPitKills] += kills[i].count;
     else if (kills[i].by != HeroBlowByChampion) v[HeroNumOtherKills] += kills[i].count;
   }
+}
+
+static const FillGroup CHAMPION_GROUPS[] = {FillDamage, FillKills, FillAttacks, FillFriendlyFire, FillMana, FillCasts,
+                                            FillTaken, FillHealing, FillDeaths, FillFood, FillDoors};
+static const FillGroup PARTY_GROUPS[] = {FillHardship, FillItems, FillMovement, FillDungeon, FillKillCauses};
+
+static FillGroup GroupOf(HeroStatsNumber number)
+{
+  switch (number)
+  {
+  case HeroNumDamage: case HeroNumMelee: case HeroNumRanged: case HeroNumMagic: return FillDamage;
+  case HeroNumKills: return FillKills;
+  case HeroNumAttacks: case HeroNumHits: case HeroNumHitRate: case HeroNumDamagePerHit: return FillAttacks;
+  case HeroNumFriendlyFire: return FillFriendlyFire;
+  case HeroNumManaGenerated: case HeroNumManaRegeneration: case HeroNumManaPotions: case HeroNumManaSpent:
+  case HeroNumManaWasted: return FillMana;
+  case HeroNumCasts: case HeroNumCastsFailed: return FillCasts;
+  case HeroNumTaken: return FillTaken;
+  case HeroNumHealed: case HeroNumHealRegeneration: case HeroNumHealPotions: case HeroNumHealAction:
+  case HeroNumHealingGiven: return FillHealing;
+  case HeroNumDeaths: case HeroNumResurrected: return FillDeaths;
+  case HeroNumWipes: case HeroNumReloads: return FillHardship;
+  case HeroNumEaten: case HeroNumDrunk: case HeroNumFoodGained: case HeroNumFoodWasted: case HeroNumWaterGained:
+  case HeroNumWaterWasted: return FillFood;
+  case HeroNumPickedUp: case HeroNumUsedInWalls: return FillItems;
+  case HeroNumSteps: case HeroNumTilesWalked: case HeroNumTilesExplored: case HeroNumTurns: case HeroNumBumps:
+  case HeroNumTeleports: case HeroNumPitFalls: case HeroNumPitClimbs: case HeroNumTicks: case HeroNumSleepTicks:
+    return FillMovement;
+  case HeroNumDoorsBashed: case HeroNumDoorsSmashed: case HeroNumDoorsShot: case HeroNumDoorsBySpell:
+  case HeroNumDoorsByZo: return FillDoors;
+  case HeroNumDoorsButtonOpened: case HeroNumDoorsButtonClosed: case HeroNumChests: case HeroNumScrolls:
+  case HeroNumWallTexts: case HeroNumChampionsSeen: case HeroNumChampionsViewed: return FillDungeon;
+  default: return FillKillCauses;
+  }
+}
+
+HeroStatsRecord HeroStatsCatalogue_Record(const HeroStats &stats, HeroStatsChampion who, int level)
+{
+  HeroStatsRecord r = {};
+  for (size_t g = 0; g < sizeof CHAMPION_GROUPS / sizeof CHAMPION_GROUPS[0]; g++) CHAMPION_GROUPS[g](stats, who, level, r.value);
+  if (who == HERO_STATS_PARTY)
+    for (size_t g = 0; g < sizeof PARTY_GROUPS / sizeof PARTY_GROUPS[0]; g++) PARTY_GROUPS[g](stats, who, level, r.value);
   return r;
+}
+
+int HeroStatsCatalogue_Value(const HeroStats &stats, HeroStatsChampion who, int level, HeroStatsNumber number)
+{
+  if (NUMBERS[number].partyOnly && who != HERO_STATS_PARTY) return 0;
+  HeroStatsRecord r = {};
+  GroupOf(number)(stats, who, level, r.value);
+  return r.value[number];
 }
 
 bool HeroStatsCatalogue_Applies(HeroStatsNumber number, HeroStatsChampion who, int level)

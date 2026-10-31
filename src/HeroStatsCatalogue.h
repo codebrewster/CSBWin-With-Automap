@@ -46,6 +46,8 @@ const HeroStatsTopicInfo &HeroStatsCatalogue_Topic(int topic);
 // ratio is -1 when it is undefined (no attacks, no hits); a number that does not apply is 0.
 struct HeroStatsRecord { int value[HERO_NUMBER_COUNT]; };
 HeroStatsRecord HeroStatsCatalogue_Record(const HeroStats &stats, HeroStatsChampion who, int level);
+// One number of the record, without the rest
+int HeroStatsCatalogue_Value(const HeroStats &stats, HeroStatsChampion who, int level, HeroStatsNumber number);
 bool HeroStatsCatalogue_Applies(HeroStatsNumber number, HeroStatsChampion who, int level);
 bool HeroStatsCatalogue_Summable(HeroStatsNumber number);
 // "4,412", "63%", "-" for an undefined ratio

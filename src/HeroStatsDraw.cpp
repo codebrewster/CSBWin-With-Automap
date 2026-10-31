@@ -3,6 +3,7 @@
 #include "stdafx.h"
 
 #include <algorithm>
+#include <cfloat>
 #include <cmath>
 #include <string>
 #include <vector>
@@ -155,6 +156,12 @@ static bool ChoiceButton(const char *label, bool isOn)
 static void ChampionDot(ImVec2 centre, size_t column, bool dimmed)
 {
   ImGui::GetWindowDrawList()->AddCircleFilled(centre, 4.0f, Packed(ChampionRgb(column), dimmed ? 0.45f : 1.0f));
+}
+
+// Bad news: its text on a faint red pill, so that it reads apart from the red champion's colour
+static void PillBehind(ImDrawList *drawList, ImVec2 at, ImVec2 size)
+{
+  drawList->AddRectFilled(ImVec2(at.x - 4, at.y - 1), ImVec2(at.x + size.x + 4, at.y + size.y + 1), Packed(BAD_RGB, 0.16f), 3.0f);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -404,9 +411,7 @@ static void NumberCell(const std::string &text, int value, bool isBad, ImU32 rgb
   float width = ImGui::CalcTextSize(text.c_str()).x;
   float room = ImGui::GetContentRegionAvail().x - width;
   if (room > 0) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + room);
-  ImVec2 at = ImGui::GetCursorScreenPos();
-  ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(at.x - 4, at.y - 1), ImVec2(at.x + width + 4, at.y + ImGui::GetTextLineHeight() + 1),
-                                            Packed(BAD_RGB, 0.16f), 3.0f);
+  PillBehind(ImGui::GetWindowDrawList(), ImGui::GetCursorScreenPos(), ImVec2(width, ImGui::GetTextLineHeight()));
   ImGui::TextColored(Colour(BAD_RGB), "%s", text.c_str());
 }
 
@@ -502,7 +507,9 @@ static const ImGuiTableFlags TABLE_FLAGS = ImGuiTableFlags_SizingFixedFit | ImGu
 // A table as wide as the page, or as wide as its columns need when the page is narrower
 static bool BeginPageTable(const char *id, int columnCount, float fixedWidth, bool sortable)
 {
-  float width = std::max(ImGui::GetContentRegionAvail().x, LABEL_SMALLEST + fixedWidth);
+  // Each column has its cell padding on both sides besides its width
+  float needed = LABEL_SMALLEST + fixedWidth + ImGui::GetStyle().CellPadding.x * 2 * columnCount;
+  float width = std::max(ImGui::GetContentRegionAvail().x, needed);
   ImGuiTableFlags flags = TABLE_FLAGS | (sortable ? ImGuiTableFlags_Sortable : 0);
   return ImGui::BeginTable(id, columnCount, flags, ImVec2(width, 0));
 }
@@ -637,8 +644,11 @@ static void DrawTiles(const HeroStatsTopicPage &page)
     drawList->AddRectFilled(min, ImVec2(min.x + tileWidth, min.y + height), Packed(PANEL_RGB), 4.0f);
     drawList->PushClipRect(min, ImVec2(min.x + tileWidth - 6, min.y + height), true);
     std::string text = HeroStatsCatalogue_Format(number, value);
-    drawList->AddText(ImGui::GetFont(), bigSize, ImVec2(min.x + 10, min.y + 7), Packed(info.isBad && value > 0 ? BAD_RGB : WHITE_RGB),
-                      text.c_str());
+    bool bad = info.isBad && value > 0;
+    if (bad)
+      PillBehind(drawList, ImVec2(min.x + 10, min.y + 7),
+                 ImGui::GetFont()->CalcTextSizeA(bigSize, FLT_MAX, 0.0f, text.c_str()));
+    drawList->AddText(ImGui::GetFont(), bigSize, ImVec2(min.x + 10, min.y + 7), Packed(bad ? BAD_RGB : WHITE_RGB), text.c_str());
     drawList->AddText(ImVec2(min.x + 10, min.y + 9 + bigSize), Packed(DIM_RGB), info.label);
     drawList->PopClipRect();
   }
@@ -1213,8 +1223,9 @@ static void DrawCards(HeroStatsDrawState *state, const std::vector<HeroStatsCard
       bool bad = HeroStatsCatalogue_Info(ROWS[r]).isBad && value > 0;
       drawList->AddText(ImVec2(min.x + 10, y), Packed(DIM_RGB), LABELS[r]);
       std::string text = value == 0 ? MIDDLE_DOT : HeroStatsView_Number(value);
-      float textWidth = ImGui::CalcTextSize(text.c_str()).x;
-      drawList->AddText(ImVec2(max.x - 10 - textWidth, y), Packed(bad ? BAD_RGB : value == 0 ? FAINT_RGB : TEXT_RGB), text.c_str());
+      ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
+      if (bad) PillBehind(drawList, ImVec2(max.x - 10 - textSize.x, y), textSize);
+      drawList->AddText(ImVec2(max.x - 10 - textSize.x, y), Packed(bad ? BAD_RGB : value == 0 ? FAINT_RGB : TEXT_RGB), text.c_str());
       float barLeft = min.x + 10 + ImGui::CalcTextSize("Damage").x + 8;
       float barRight = max.x - 10 - ImGui::CalcTextSize("00,000").x - 6;
       float mid = y + ImGui::GetTextLineHeight() / 2;

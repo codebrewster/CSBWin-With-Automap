@@ -181,8 +181,29 @@ static void SummaryIsTheFirstThreeTiles(void)
   CHECK(HeroStatsCatalogue_Summary(HeroTopicExploration, record, 7, HERO_STATS_WHOLE_RUN) == "2 doors bashed open");
 }
 
+// One number alone is what the whole record says (Per level asks for one number per champion)
+static void ValueMatchesTheRecord(void)
+{
+  HeroStats stats = TwoChampions();
+  stats.CountPartyWipe();
+  HeroStatsChampion who[3] = {HERO_STATS_PARTY, 7, 9};
+  int levels[3] = {HERO_STATS_WHOLE_RUN, 1, 2};
+  for (int w = 0; w < 3; w++)
+    for (int l = 0; l < 3; l++)
+    {
+      HeroStatsRecord record = HeroStatsCatalogue_Record(stats, who[w], levels[l]);
+      for (int n = 0; n < HERO_NUMBER_COUNT; n++)
+      {
+        int value = HeroStatsCatalogue_Value(stats, who[w], levels[l], (HeroStatsNumber)n);
+        if (value != record.value[n]) std::printf("number %d: %d, record %d\n", n, value, record.value[n]);
+        CHECK(value == record.value[n]);
+      }
+    }
+}
+
 void TestHeroStatsCatalogue(void)
 {
+  ValueMatchesTheRecord();
   EveryNumberHasOneTopic();
   PartySumsItsChampions();
   RecordMatchesTheStore();
