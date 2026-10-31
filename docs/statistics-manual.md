@@ -85,7 +85,7 @@ Throughout the window:
 
 - a **dim dot** (·) is a zero; a **-** is a rate or an average with nothing to work it out from,
   for example a hit rate without attacks;
-- a number on a **red pill** is bad news: friendly fire, deaths, wasted mana, food wasted;
+- a number in **red** is bad news: friendly fire, deaths, wasted mana, food wasted;
 - the last row of a table, shaded, is its total.
 
 ## Overview
