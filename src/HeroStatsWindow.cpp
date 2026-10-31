@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cfloat>
+#include <cstdlib>
 #include <cstdio>
 #include <ctime>
 #include <string>
@@ -34,6 +35,11 @@ static const float FONT_SIZE = 13.0f;
 static const Uint8 BACKGROUND[3] = {0x1e, 0x1f, 0x24};
 // stats_page keeps the topic since stats_layout 2; before, it kept the front page
 static const int SETTINGS_LAYOUT = 2;
+// The zoom steps in percent (stats_zoom): Ctrl with the mouse wheel or with + and - goes one step,
+// Ctrl+0 back to 100
+static const int ZOOM_STEPS[] = {70, 80, 90, 100, 110, 125, 150, 175, 200, 250};
+static const int ZOOM_STEP_COUNT = (int)(sizeof ZOOM_STEPS / sizeof ZOOM_STEPS[0]);
+static const int NORMAL_ZOOM = 100;
 
 struct WindowPlacement
 {
@@ -60,6 +66,8 @@ static HeroStatsDrawState drawState = HeroStatsDraw_InitialState();
 // stats_separator as csb.cfg has it ("comma", "dot", "space", "apostrophe", "none"), written back
 // as it was read
 static std::string separatorSetting = "comma";
+// In percent, one of ZOOM_STEPS
+static int zoomPercent = NORMAL_ZOOM;
 
 // Makes the statistics context current for as long as it lives, and the one that was current
 // before (the game's) again when it goes, on every path out of the function
@@ -89,6 +97,11 @@ void HeroStatsWindow_ReadSettings(void)
   char defaultSeparator[] = "comma";
   separatorSetting = csb_get_config_string(SETTINGS_SECTION, "stats_separator", defaultSeparator);
   HeroStatsView_SetThousandsSeparator(HeroStatsView_SeparatorOfSetting(separatorSetting));
+  // A value between the steps (csb.cfg edited by hand) goes to the nearest step
+  int zoom = csb_get_config_int(SETTINGS_SECTION, "stats_zoom", NORMAL_ZOOM);
+  zoomPercent = ZOOM_STEPS[0];
+  for (int i = 1; i < ZOOM_STEP_COUNT; i++)
+    if (abs(ZOOM_STEPS[i] - zoom) < abs(zoomPercent - zoom)) zoomPercent = ZOOM_STEPS[i];
 }
 
 static void RememberPlacement(void)
@@ -109,6 +122,7 @@ void HeroStatsWindow_WriteSettings(void)
   csb_set_config_int(SETTINGS_SECTION, "stats_page", drawState.topic);
   csb_set_config_int(SETTINGS_SECTION, "stats_layout", SETTINGS_LAYOUT);
   csb_set_config_int(SETTINGS_SECTION, "stats_closed", drawState.closedSections);
+  csb_set_config_int(SETTINGS_SECTION, "stats_zoom", zoomPercent);
   std::vector<char> separator(separatorSetting.begin(), separatorSetting.end());
   separator.push_back(0);
   csb_set_config_string(SETTINGS_SECTION, "stats_separator", separator.data());
@@ -191,6 +205,8 @@ static void DestroyStatsWindow(void)
   statsWindowId = 0;
 }
 
+static void ShowZoomInTitle(void);
+
 static bool CreateStatsWindow(void)
 {
   Uint32 flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN;
@@ -204,6 +220,7 @@ static bool CreateStatsWindow(void)
   }
   statsWindowId = SDL_GetWindowID(statsWindow);
   SDL_SetWindowMinimumSize(statsWindow, SMALLEST_WIDTH, SMALLEST_HEIGHT);
+  ShowZoomInTitle();
   return true;
 }
 
@@ -276,6 +293,55 @@ bool HeroStatsWindow_PointerIsOver(void)
 }
 
 // ---------------------------------------------------------------------------------------------
+// Zoom
+//
+// ImGui lays the page out on a smaller (or larger) display and the renderer scales it up (or
+// down) to the window: every size on the pages grows alike, and the text stays sharp, as ImGui
+// draws the font at the density of the display scale. The mouse positions are scaled down to
+// match.
+
+static float Zoom(void)
+{
+  return zoomPercent / 100.0f;
+}
+
+static void ShowZoomInTitle(void)
+{
+  if (statsWindow == NULL) return;
+  std::string title = "Statistics";
+  if (zoomPercent != NORMAL_ZOOM) title += " (" + std::to_string(zoomPercent) + "%)";
+  SDL_SetWindowTitle(statsWindow, title.c_str());
+}
+
+// steps > 0 zooms in, < 0 out, 0 goes back to 100 %
+static void ZoomBy(int steps)
+{
+  int at = 0;
+  while (at < ZOOM_STEP_COUNT - 1 && ZOOM_STEPS[at] < zoomPercent) at++;
+  if (steps == 0) zoomPercent = NORMAL_ZOOM;
+  else zoomPercent = ZOOM_STEPS[std::max(0, std::min(ZOOM_STEP_COUNT - 1, at + steps))];
+  ShowZoomInTitle();
+  hasPainted = false;
+}
+
+// Ctrl with +, - or 0, on the main keys or the keypad: the zoom step, 0 for back to 100 %,
+// or false for another key
+static bool ZoomKey(SDL_Keycode key, int *steps)
+{
+  switch (key)
+  {
+  case SDLK_PLUS:
+  case SDLK_EQUALS:
+  case SDLK_KP_PLUS: *steps = 1; return true;
+  case SDLK_MINUS:
+  case SDLK_KP_MINUS: *steps = -1; return true;
+  case SDLK_0:
+  case SDLK_KP_0: *steps = 0; return true;
+  default: return false;
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
 // Events
 
 // The window an event was sent to, 0 for events that belong to no window
@@ -299,10 +365,18 @@ static Uint32 WindowIdOfEvent(const SDL_Event &event)
 bool HeroStatsWindow_HandleEvent(const SDL_Event &event)
 {
   if (statsWindow == NULL || statsContext == NULL) return false;
-  // No keyboard input here: the keys go on steering the game, as when the Map window has focus
-  if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP || event.type == SDL_TEXTINPUT ||
-      event.type == SDL_TEXTEDITING)
-    return false;
+  // No keyboard input here: the keys go on steering the game, as when the Map window has focus.
+  // Only the zoom keys, with Ctrl and the pointer over this window, are this window's.
+  if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP)
+  {
+    int steps = 0;
+    if (!isShown || !pointerIsOverWindow || (event.key.keysym.mod & KMOD_CTRL) == 0 ||
+        !ZoomKey(event.key.keysym.sym, &steps))
+      return false;
+    if (event.type == SDL_KEYDOWN) ZoomBy(steps);
+    return true;
+  }
+  if (event.type == SDL_TEXTINPUT || event.type == SDL_TEXTEDITING) return false;
   if (WindowIdOfEvent(event) != statsWindowId) return false;
   if (event.type == SDL_WINDOWEVENT)
   {
@@ -314,7 +388,22 @@ bool HeroStatsWindow_HandleEvent(const SDL_Event &event)
     default: break;
     }
   }
+  if (event.type == SDL_MOUSEWHEEL && (SDL_GetModState() & KMOD_CTRL) != 0)
+  {
+    int notches = event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -event.wheel.y : event.wheel.y;
+    if (notches != 0) ZoomBy(notches > 0 ? 1 : -1);
+    return true;
+  }
   StatsContextScope scope;
+  if (event.type == SDL_MOUSEMOTION)
+  {
+    // What the backend does with it, in the zoomed page's coordinates
+    ImGuiIO &io = ImGui::GetIO();
+    io.AddMouseSourceEvent(event.motion.which == SDL_TOUCH_MOUSEID ? ImGuiMouseSource_TouchScreen
+                                                                    : ImGuiMouseSource_Mouse);
+    io.AddMousePosEvent(event.motion.x / Zoom(), event.motion.y / Zoom());
+    return true;
+  }
   ImGui_ImplSDL2_ProcessEvent(&event);
   return true;
 }
@@ -420,6 +509,13 @@ void HeroStatsWindow_Paint(void)
   }
   ImGui_ImplSDLRenderer2_NewFrame();
   ImGui_ImplSDL2_NewFrame();
+  {
+    ImGuiIO &zoomIo = ImGui::GetIO();
+    zoomIo.DisplaySize.x /= Zoom();
+    zoomIo.DisplaySize.y /= Zoom();
+    zoomIo.DisplayFramebufferScale.x *= Zoom();
+    zoomIo.DisplayFramebufferScale.y *= Zoom();
+  }
   ImGui::NewFrame();
   DrawWindowContents();
   ImGui::Render();

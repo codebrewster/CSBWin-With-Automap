@@ -36,6 +36,11 @@ When you win, the window opens by itself and shows the whole run.
 The keys keep steering the game while the Statistics window is in front, as they do with the
 map.
 
+To make everything in the window bigger or smaller, hold **Ctrl** and turn the mouse wheel over
+the window, or press **Ctrl +** and **Ctrl −** with the pointer over it. **Ctrl 0** goes back to
+100 %. The zoom goes from 70 % to 250 %, the window's title shows it when it is not 100 %, and it
+is kept for the next time.
+
 ## The window
 
 ![The Statistics window on the Party's Combat topic: the tiles, the Numbers with a column per champion, and the Weapons table](images/statistics-combat.png)
@@ -318,6 +323,7 @@ The window keeps these in the `[settings]` section of `csb.cfg`:
 | `stats_page` | The topic last chosen: 0 Overview, 1 Combat, 2 Magic, 3 Survival, 4 Food & items, 5 Exploration, 6 Monsters |
 | `stats_layout` | 2: `stats_page` holds a topic. Without it, `stats_page` is read as the front page of earlier versions (3 Monsters, 4 Items; the others open the Overview). |
 | `stats_separator` | The mark between thousands: `comma` (4,261, the default), `dot` (4.261), `space` (4 261), `apostrophe` (4'261) or `none` (4261). Edit it while the game is closed. |
+| `stats_zoom` | The zoom in percent: 70, 80, 90, 100 (the default), 110, 125, 150, 175, 200 or 250. Another number is taken as the nearest of these. |
 | `stats_closed` | Which sections are folded, added up: 1 Weapons, 2 Spells, 4 Damage taken by source, 8 Healing by source, 16 Deaths, 32 Eaten and drunk, 64 Items, 128 Monsters killed, 256 Numbers, 512 Key numbers; 0 none |
 
 Who is picked, Per level and its choices are not kept: the window opens on the Party.
