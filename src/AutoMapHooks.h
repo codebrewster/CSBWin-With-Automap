@@ -2,6 +2,7 @@
 #define AUTOMAPHOOKS_H
 
 #include <map>
+#include "AutoMapScene.h"
 
 // The places where the engine and the platform layer call into the automap. This header
 // declares functions only, so that it can be included after CSB.h, which leaves
@@ -67,7 +68,6 @@ void AutoMap_OnItemPickedUp(int item);
 std::map<int, int> AutoMap_ExploredTilesPerLevel(void);
 // Per level, what the party has read and seen on the walls: wall texts read, champion portraits
 // seen (drawn on the wall straight ahead) and champions viewed (the mirror clicked)
-struct AutoMapWallCounts { int textsRead, portraitsSeen, portraitsViewed; };
 std::map<int, AutoMapWallCounts> AutoMap_WallCountsPerLevel(void);
 // The party put the item onto (x, y) of the loaded level: dropped it, or a champion died
 void AutoMap_OnItemDropped(int item, int x, int y);

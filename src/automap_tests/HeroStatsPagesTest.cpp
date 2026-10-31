@@ -278,6 +278,8 @@ static void ExportHoldsEveryLevel(void)
   size_t closings = 0;
   for (size_t at = html.find("</script>"); at != std::string::npos; at = html.find("</script>", at + 1)) closings++;
   CHECK(closings == 3);
+  // The Who buttons are .who: a table cell with that class would get their border and padding
+  CHECK(html.find("class=\"who\">") == std::string::npos);
 }
 
 static HeroStatsBlow KindBlow(HeroStatsChampion who, int weapon, HeroDamageKind kind)

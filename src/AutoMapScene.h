@@ -1406,4 +1406,11 @@ int AutoMapScene_SkillLevel(int experience);
 // The experience that lifts a skill exactly to its next level; 0 when the cap is in the way
 int AutoMapScene_ExperienceToNextLevel(int experience);
 
+// The wall texts read and champion portraits seen and viewed on one level
+struct AutoMapWallCounts { int textsRead, portraitsSeen, portraitsViewed; };
+// Adds one wall side to counts. read: the side was seen straight ahead; lookedInto: its mirror
+// was clicked (only a portrait sets that bit). A recruited champion's mirror shows no portrait
+// any more, so a mirror that was clicked counts as seen and viewed whatever it shows now.
+void AutoMapScene_CountWallSide(const AutoMapWallSide &side, bool read, bool lookedInto, AutoMapWallCounts *counts);
+
 #endif

@@ -485,14 +485,8 @@ std::map<int, AutoMapWallCounts> AutoMap_WallCountsPerLevel(void)
           for (int side = 0; side < AUTOMAP_SIDE_COUNT; side++)
           {
             AutoMapCell cell = {level, x, y};
-            const AutoMapWallSide &wallSide = record.wallSides[side];
-            bool read = explored.TextIsRead(cell, side);
-            if (wallSide.hasWriting && read) counts.textsRead++;
-            if (wallSide.portrait != AUTOMAP_NO_PICTURE)
-            {
-              if (read) counts.portraitsSeen++;
-              if (explored.AlcoveIsLookedInto(cell, side)) counts.portraitsViewed++;
-            }
+            AutoMapScene_CountWallSide(record.wallSides[side], explored.TextIsRead(cell, side),
+                                       explored.AlcoveIsLookedInto(cell, side), &counts);
           }
         }
       LevelCount fresh = {readBits, lookedIntoBits, counts};

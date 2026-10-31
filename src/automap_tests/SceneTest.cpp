@@ -5083,6 +5083,45 @@ static void APlainFaceIsNoFeature(void)
                                  WaterItemName, NULL).empty());
 }
 
+// A recruited champion's mirror loses its portrait (the engine turns the actuator off); the
+// champion was still seen and viewed
+static void RecruitedChampionStaysSeenAndViewed(void)
+{
+  AutoMapWallSide mirror;
+  mirror.portrait = AUTOMAP_NO_PICTURE;
+  mirror.hasWriting = false;
+  AutoMapWallCounts counts = {0, 0, 0};
+  AutoMapScene_CountWallSide(mirror, true, true, &counts);
+  CHECK(counts.portraitsSeen == 1);
+  CHECK(counts.portraitsViewed == 1);
+  CHECK(counts.textsRead == 0);
+}
+
+static void MirrorOnlySeenIsNotViewed(void)
+{
+  AutoMapWallSide mirror;
+  mirror.portrait = 7;
+  mirror.hasWriting = false;
+  AutoMapWallCounts counts = {0, 0, 0};
+  AutoMapScene_CountWallSide(mirror, true, false, &counts);
+  CHECK(counts.portraitsSeen == 1);
+  CHECK(counts.portraitsViewed == 0);
+  AutoMapScene_CountWallSide(mirror, false, false, &counts);
+  CHECK(counts.portraitsSeen == 1);
+}
+
+static void PlainWallCountsNothing(void)
+{
+  AutoMapWallSide wall;
+  wall.portrait = AUTOMAP_NO_PICTURE;
+  wall.hasWriting = true;
+  AutoMapWallCounts counts = {0, 0, 0};
+  AutoMapScene_CountWallSide(wall, false, false, &counts);
+  CHECK(counts.textsRead == 0 && counts.portraitsSeen == 0 && counts.portraitsViewed == 0);
+  AutoMapScene_CountWallSide(wall, true, false, &counts);
+  CHECK(counts.textsRead == 1 && counts.portraitsSeen == 0);
+}
+
 void TestAutoMapScene(void)
 {
   AsManyMonstersAsFitShareACell();
@@ -5144,6 +5183,9 @@ void TestAutoMapScene(void)
   VisibleRangeCoversTheCellsTouchingTheMap();
   DigitsAreThreeByFive();
   FontMatchesTheDigits();
+  RecruitedChampionStaysSeenAndViewed();
+  MirrorOnlySeenIsNotViewed();
+  PlainWallCountsNothing();
   GlobalOffsetsReachTheDrawList();
   GlobalPositionAddsTheLevelOffset();
   WithoutFogMissilesAndCloudsAreShown();

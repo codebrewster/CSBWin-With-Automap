@@ -227,7 +227,9 @@ static float DrawWhoRow(HeroStatsDrawState *state, const std::vector<HeroStatsCo
 static float PickerWidth(const HeroStatsPicker &picker)
 {
   float spacing = 1;
-  float width = ButtonWidth("Whole run") + spacing + ButtonWidth("Per level") + 8 + ImGui::CalcTextSize("Lv").x + 6;
+  float width = ButtonWidth("Whole run") + spacing + ButtonWidth("Per level");
+  if (picker.levels.empty()) return width;
+  width += 8 + ImGui::CalcTextSize("Lv").x + 6;
   if (picker.stepper) return width + spacing * 3 + ImGui::GetFrameHeight() * 2 + 110;
   for (size_t i = 0; i < picker.levels.size(); i++) width += spacing + ButtonWidth(std::to_string(picker.levels[i]).c_str());
   return width;
@@ -244,6 +246,12 @@ static void DrawPicker(HeroStatsDrawState *state, const HeroStatsPicker &picker)
   }
   ImGui::SameLine();
   if (ChoiceButton("Per level", state->perLevel)) state->perLevel = true;
+  if (picker.levels.empty())
+  {
+    // No level visited yet (the party not in the dungeon): nothing to pick, and the line ends here
+    ImGui::PopStyleVar();
+    return;
+  }
   ImGui::SameLine(0, 8);
   ImGui::AlignTextToFramePadding();
   ImGui::TextColored(Colour(FAINT_RGB), "Lv");
@@ -1183,10 +1191,12 @@ static void DrawMonsters(HeroStatsDrawState *state, const std::vector<HeroStatsM
 // ---------------------------------------------------------------------------------------------
 // Overview
 
-// The Party's Overview: a card per champion with small bars against the best of them
-static void DrawCards(HeroStatsDrawState *state, const std::vector<HeroStatsCard> &cards)
+// The Party's Overview: a card per champion with small bars against the best of them. True with
+// the champion whose card was clicked.
+static bool DrawCards(const std::vector<HeroStatsCard> &cards, HeroStatsChampion *clicked)
 {
-  if (cards.empty()) return;
+  bool anyClicked = false;
+  if (cards.empty()) return false;
   static const HeroStatsNumber ROWS[6] = {HeroNumDamage, HeroNumKills, HeroNumTaken, HeroNumHealed, HeroNumManaSpent, HeroNumDeaths};
   static const char *const LABELS[6] = {"Damage", "Kills", "Taken", "Healed", "Mana", "Deaths"};
   int largest[6] = {0};
@@ -1207,7 +1217,11 @@ static void DrawCards(HeroStatsDrawState *state, const std::vector<HeroStatsCard
     ImVec2 max(min.x + cardWidth, min.y + height);
     ImGui::SetCursorScreenPos(min);
     ImGui::PushID((int)c);
-    if (ImGui::InvisibleButton("##card", ImVec2(cardWidth, height))) state->who = card.column.id;
+    if (ImGui::InvisibleButton("##card", ImVec2(cardWidth, height)))
+    {
+      *clicked = card.column.id;
+      anyClicked = true;
+    }
     bool hovered = ImGui::IsItemHovered();
     ImGui::PopID();
     drawList->AddRectFilled(min, max, Packed(hovered ? PANEL_HOVERED_RGB : PANEL_RGB), 4.0f);
@@ -1242,11 +1256,13 @@ static void DrawCards(HeroStatsDrawState *state, const std::vector<HeroStatsCard
   int rows = ((int)cards.size() + perRow - 1) / perRow;
   ImGui::SetCursorScreenPos(origin);
   ImGui::Dummy(ImVec2(width, rows * (height + gap) + 4));
+  return anyClicked;
 }
 
-// A champion's Overview: a tile per topic with its summary; a click opens the topic
-static void DrawTopicTiles(HeroStatsDrawState *state, const std::vector<std::string> &summaries)
+// A champion's Overview: a tile per topic with its summary. The topic clicked, or -1.
+static int DrawTopicTiles(const std::vector<std::string> &summaries)
 {
+  int clicked = -1;
   float gap = 8;
   float width = ImGui::GetContentRegionAvail().x;
   float tileWidth = (width - gap) / 2;
@@ -1259,7 +1275,7 @@ static void DrawTopicTiles(HeroStatsDrawState *state, const std::vector<std::str
     ImVec2 min(origin.x + (shown % 2) * (tileWidth + gap), origin.y + (shown / 2) * (height + gap));
     ImGui::SetCursorScreenPos(min);
     ImGui::PushID(t);
-    if (ImGui::InvisibleButton("##topic", ImVec2(tileWidth, height))) state->topic = t;
+    if (ImGui::InvisibleButton("##topic", ImVec2(tileWidth, height))) clicked = t;
     bool hovered = ImGui::IsItemHovered();
     ImGui::PopID();
     drawList->AddRectFilled(min, ImVec2(min.x + tileWidth, min.y + height), Packed(hovered ? PANEL_HOVERED_RGB : PANEL_RGB), 4.0f);
@@ -1271,6 +1287,7 @@ static void DrawTopicTiles(HeroStatsDrawState *state, const std::vector<std::str
   }
   ImGui::SetCursorScreenPos(origin);
   ImGui::Dummy(ImVec2(width, ((shown + 1) / 2) * (height + gap) + 4));
+  return clicked;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1283,14 +1300,19 @@ static void DrawTopicPage(HeroStatsDrawState *state, const PageData &data, const
   DrawTiles(page);
   if (state->topic == HeroTopicOverview)
   {
-    if (isParty) DrawCards(state, data.cards);
-    else DrawTopicTiles(state, data.topicSummaries);
+    // A card or a tile opens another page from the next frame: the rest of this one is drawn
+    // with the numbers it was made with
+    HeroStatsChampion clickedWho = HERO_STATS_PARTY;
+    bool whoClicked = isParty && DrawCards(data.cards, &clickedWho);
+    int clickedTopic = isParty ? -1 : DrawTopicTiles(data.topicSummaries);
     if (SectionHeader(state, HERO_STATS_KEY_NUMBERS_SECTION, "Key numbers",
                       isParty ? "one row from each topic" : "compared with the party"))
     {
       DrawNumbers(page, *state, columns);
       SectionGap();
     }
+    if (whoClicked) state->who = clickedWho;
+    if (clickedTopic >= 0) state->topic = clickedTopic;
     return;
   }
   std::string whose = isParty ? "each champion and the party" : WhoLabel(columns, state->who) + " and the party";

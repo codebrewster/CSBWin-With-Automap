@@ -2529,3 +2529,10 @@ void AutoMapScene_RememberExploredLooks(const AutoMapLevelSnapshot &snapshot,
     }
   }
 }
+
+void AutoMapScene_CountWallSide(const AutoMapWallSide &side, bool read, bool lookedInto, AutoMapWallCounts *counts)
+{
+  if (side.hasWriting && read) counts->textsRead++;
+  if (lookedInto) counts->portraitsViewed++;
+  if (lookedInto || (read && side.portrait != AUTOMAP_NO_PICTURE)) counts->portraitsSeen++;
+}

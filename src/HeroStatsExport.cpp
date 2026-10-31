@@ -305,7 +305,7 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   tr.opt td { color:var(--part) } tr.opt td:first-child { padding-left:26px; color:var(--dim) }
   .z { color:var(--faint) } .gone { color:var(--dim) }
   .pill { color:var(--bad); background:rgba(229,115,95,.16); border-radius:3px; padding:0 4px }
-  td.bar { width:170px } td.who { width:140px }
+  td.bar { width:170px } td.whobar { width:140px }
   .share { display:flex; height:9px; background:var(--track); border-radius:2px; overflow:hidden; min-width:100px } .share i { display:block; height:100% }
   .choices { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:8px }
   .note { color:var(--dim); padding:4px 0 }
@@ -455,7 +455,7 @@ const attackCells = (l, cls) => {
   return [td(tries + uses, plain(tries + uses)), td(hits, plain(hits)), td(rate, rate < 0 ? '<td class="z">-</td>' : `<td>${Math.round(rate * 100)}%</td>`),
     td(avg, avg < 0 ? '<td class="z">-</td>' : `<td>${fmt(Math.round(avg))}</td>`), td(damage, plain(damage)), td(kills, plain(kills))];
 };
-const whoTd = by => td(sum(by), `<td class="who">${isParty() ? shareBar(by) : ''}</td>`);
+const whoTd = by => td(sum(by), `<td class="whobar">${isParty() ? shareBar(by) : ''}</td>`);
 
 function weapons(p) {
   const all = [0, 0, 0, 0, 0];
@@ -626,7 +626,7 @@ function perLevel() {
     cols = [nameCol('Level')].concat(numbers.map(n => numCol(NUM[n].label)));
     if (share !== undefined) cols.push(numCol('Who: ' + NUM[share].label));
     rowOf = l => [levelTd(l)].concat(numbers.map(n => td(rec(st.who, l)[n], numCell(n, rec(st.who, l)[n]))),
-      share === undefined ? [] : [td(rec(N, l)[share], `<td class="who">${shareBar(H.map((h, i) => rec(i, l)[share]))}</td>`)]);
+      share === undefined ? [] : [td(rec(N, l)[share], `<td class="whobar">${shareBar(H.map((h, i) => rec(i, l)[share]))}</td>`)]);
   }
   const rows = D.levels.map(l => ({cls: 'lv', act: `set({per:false,level:${l}})`, cells: rowOf(l)}));
   const foot = {cls: 'all lv', act: 'set({per:false,level:-1})', cells: rowOf(-1)};
