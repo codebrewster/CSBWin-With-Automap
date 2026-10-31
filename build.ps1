@@ -65,7 +65,11 @@ $CppSources = @(
     'AutoMapMonsterDamage', 'AutoMapVisibilityCases', 'AutoMapWindow',
     'AutoMapHooks', 'AutoMapRecorder',
     'AutoMapLevelReader', 'AutoMapSprites', 'AutoMapMeasure',
-    'ShotMissiles'
+    'ShotMissiles',
+    'HeroStats', 'HeroStatsCatalogue', 'HeroStatsOrigins', 'HeroStatsPending',
+    'HeroStatsRunes', 'HeroStatsDump', 'HeroStatsGame', 'HeroStatsView',
+    'HeroStatsPages', 'HeroStatsExport', 'HeroStatsHooks', 'HeroStatsWindow',
+    'HeroStatsDraw'
 )
 
 $ImguiSources = @(
