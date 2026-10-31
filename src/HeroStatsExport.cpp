@@ -141,7 +141,15 @@ static std::string PageJson(const HeroStatsHeroPage &page)
       for (int i = 0; i < 5; i++) out += "," + Number(optionCounts[i]);
       out += "]";
     }
-    out += "]," + Ints(weapon.byColumn) + "]";
+    // Each column's own [tries, hits, damage, kills, uses] with it
+    out += "],[";
+    for (size_t c = 0; c < weapon.byColumn.size(); c++)
+    {
+      const HeroStatsOptionLine &mine = weapon.byColumn[c];
+      out += std::string(c > 0 ? "," : "") + "[" + Number(mine.tries) + "," + Number(mine.hits) + "," + Number(mine.damage) +
+             "," + Number(mine.kills) + "," + Number(mine.uses) + "]";
+    }
+    out += "]]";
   }
   out += "],\"spells\":[";
   for (size_t i = 0; i < page.spells.size(); i++)
@@ -150,7 +158,15 @@ static std::string PageJson(const HeroStatsHeroPage &page)
     int counts[6] = {spell.casts, spell.failed, spell.mana, spell.wasted, spell.damage, spell.kills};
     out += (i > 0 ? ",[" : "[") + HeroStatsExport_JsonString(spell.name);
     for (int k = 0; k < 6; k++) out += "," + Number(counts[k]);
-    out += "," + Ints(spell.byColumn) + "]";
+    // Each column's own [casts, failed, mana, wasted, damage, kills] with it
+    out += ",[";
+    for (size_t c = 0; c < spell.byColumn.size(); c++)
+    {
+      const HeroStatsSpellCounts &mine = spell.byColumn[c];
+      out += std::string(c > 0 ? "," : "") + "[" + Number(mine.casts) + "," + Number(mine.failed) + "," + Number(mine.mana) +
+             "," + Number(mine.wasted) + "," + Number(mine.damage) + "," + Number(mine.kills) + "]";
+    }
+    out += "]]";
   }
   out += "],\"taken\":" + AmountLinesJson(page.taken, true);
   out += ",\"healing\":" + AmountLinesJson(page.healing, false);
@@ -371,9 +387,15 @@ function sortTable(id, cols, rows, foot, defaultCol) {
     const c = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y));
     return s.desc ? -c : c;
   });
+  // A Who column ({who: {split, fallback}}) splits the sorted column when it can be split among
+  // the champions, else its table's own; its cells ({by: column => values}) draw that
+  const whoCol = cols.find(c => c.who);
+  const measure = whoCol ? (whoCol.who.split.includes(s.col) ? s.col : whoCol.who.fallback) : null;
+  const label = c => c.who ? 'Who: ' + cols[measure].label : c.label;
   const head = cols.map((c, i) => `<th class="sort${c.cls ? ' ' + c.cls : ''}" onclick="sortBy('${id}',${i},${c.num ? 1 : 0})">` +
-    (c.html || esc(c.label)) + (s.col === i ? ` <span class="arrow">${s.desc ? '&#9660;' : '&#9650;'}</span>` : '') + '</th>').join('');
-  const line = r => `<tr${r.cls ? ` class="${r.cls}"` : ''}${r.act ? ` onclick="${r.act}"` : ''}>` + r.cells.map(c => c.html).join('') + '</tr>';
+    (c.html || esc(label(c))) + (s.col === i ? ` <span class="arrow">${s.desc ? '&#9660;' : '&#9650;'}</span>` : '') + '</th>').join('');
+  const html = c => c.by ? whoBar(c.by(measure)) : c.html;
+  const line = r => `<tr${r.cls ? ` class="${r.cls}"` : ''}${r.act ? ` onclick="${r.act}"` : ''}>` + r.cells.map(html).join('') + '</tr>';
   let body = '';
   for (const r of rows) { body += line(r); for (const sub of r.sub || []) body += line(sub); }
   if (foot) body += line(foot);
@@ -385,6 +407,9 @@ function sortBy(id, col, num) {
   draw();
 }
 const nameCol = label => ({label});
+const whoColumn = (split, fallback) => ({label: 'Who', num: true, who: {split, fallback}});
+// Each champion's part as a bar; hovered, their numbers
+const whoBar = by => `<td class="whobar" title="${esc(by.map((v, i) => v ? H[i].name + ' ' + fmt(v) : '').filter(x => x).join('\n'))}">${shareBar(by)}</td>`;
 const numCol = label => ({label, num: true});
 const heroCol = i => ({label: H[i].name, html: dotOf(i) + ' ' + esc(H[i].name), num: true, cls: H[i].left ? 'left' : ''});
 const td = (v, html) => ({v, html});
@@ -449,13 +474,16 @@ function numbersTable(t) {
 
 const attackCells = (l, cls) => {
   const [tries, hits, damage, kills, uses] = l;
-  if (tries === 0 && uses > 0) return [td(uses, plain(uses)), td(-1, '<td class="z">-</td>'), td(-1, '<td class="z">-</td>'),
-    td(-1, '<td class="z">-</td>'), td(-1, '<td class="z">-</td>'), td(-1, '<td class="z">-</td>')];
+  // Actions that cannot hit (War Cry ...): no hits, damage or kills, and no rate or average to work out
+  if (tries === 0 && uses > 0) return [td(uses, plain(uses)), td(0, plain(0)), td(-1, '<td class="z">-</td>'),
+    td(-1, '<td class="z">-</td>'), td(0, plain(0)), td(0, plain(0))];
   const rate = tries ? hits / tries : -1, avg = hits ? damage / hits : -1;
   return [td(tries + uses, plain(tries + uses)), td(hits, plain(hits)), td(rate, rate < 0 ? '<td class="z">-</td>' : `<td>${Math.round(rate * 100)}%</td>`),
     td(avg, avg < 0 ? '<td class="z">-</td>' : `<td>${fmt(Math.round(avg))}</td>`), td(damage, plain(damage)), td(kills, plain(kills))];
 };
-const whoTd = by => td(sum(by), `<td class="whobar">${isParty() ? shareBar(by) : ''}</td>`);
+const whoTd = by => td(sum(by), whoBar(by));
+// A Who cell that splits whichever column the table is sorted by: valueOf(column) is each champion's
+const whoBy = (v, valueOf) => ({v, by: valueOf});
 
 function weapons(p) {
   const all = [0, 0, 0, 0, 0];
@@ -463,11 +491,13 @@ function weapons(p) {
   const summary = p.weapons.length ? `${fmt(all[2])} damage · ${fmt(all[3])} kills` : 'none';
   if (!p.weapons.length) return section(DETAIL.WEAPONS, 'Weapons', summary, '<div class="note">No attacks.</div>');
   const cols = [nameCol('Weapon'), numCol('Tries'), numCol('Hits'), numCol('Rate'), numCol('Avg'), numCol('Damage'), numCol('Kills')];
-  if (isParty()) cols.push(numCol('Who'));
+  if (isParty()) cols.push(whoColumn([1, 2, 5, 6], 5));
+  // A champion's [tries, hits, damage, kills, uses] in a column of the table
+  const attack = (c, k) => k === 1 ? c[0] + c[4] : k === 2 ? c[1] : k === 6 ? c[3] : c[2];
   const rows = p.weapons.map(w => {
     const key = st.who + ':' + w[0], open = !!st.open[key];
     const cells = [td(w[0], `<td>${open ? '&#9662;' : '&#9656;'} ${esc(w[0])}</td>`)].concat(attackCells(w.slice(1, 6)));
-    if (isParty()) cells.push(whoTd(w[7]));
+    if (isParty()) cells.push(whoBy(w[3], k => w[7].map(c => attack(c, k))));
     const sub = open ? w[6].map(o => ({cls: 'opt', cells: [nameTd(o[0])].concat(attackCells(o.slice(1, 6)), isParty() ? [td(0, '<td></td>')] : [])})) : [];
     return {cls: 'wrow', act: `toggleWeapon(${JSON.stringify(key).replace(/"/g, '&quot;')})`, cells, sub};
   });
@@ -483,9 +513,11 @@ function spells(p) {
   if (!p.spells.length) return section(DETAIL.SPELLS, 'Spells', summary, '<div class="note">No spells cast.</div>');
   const cols = ['Casts', 'Failed', 'Mana', 'Wasted', 'Damage', 'Kills'].map(numCol);
   cols.unshift(nameCol('Spell'));
-  if (isParty()) cols.push(numCol('Who'));
+  if (isParty()) cols.push(whoColumn([1, 2, 3, 4, 5, 6], 3));
   const cellsOf = v => v.map((x, k) => td(x, plain(x, k === 1 || k === 3)));
-  const rows = p.spells.map(s => ({cells: [nameTd(s[0])].concat(cellsOf(s.slice(1, 7)), isParty() ? [whoTd(s[7])] : [])}));
+  // Each champion's [casts, failed, mana, wasted, damage, kills]: table column k is k - 1
+  const rows = p.spells.map(s => ({cells: [nameTd(s[0])].concat(cellsOf(s.slice(1, 7)),
+    isParty() ? [whoBy(s[3], k => s[7].map(c => c[k - 1]))] : [])}));
   const foot = {cls: 'all', cells: [nameTd('All spells')].concat(cellsOf(all), isParty() ? [td(0, '<td></td>')] : [])};
   return section(DETAIL.SPELLS, 'Spells', summary, sortTable('spells', cols, rows, foot, 3));
 }
@@ -494,7 +526,7 @@ function amounts(id, title, column, what, lines, withBad) {
   const total = lines.reduce((a, l) => a + l[1], 0);
   if (!lines.length) return section(id, title, 'none', '<div class="note">None.</div>');
   const cols = [nameCol('Source'), numCol(column)];
-  if (isParty()) cols.push(numCol('Who'));
+  if (isParty()) cols.push(numCol('Who: ' + column));
   const rows = lines.map(l => ({cells: [nameTd(l[0]), td(l[1], plain(l[1], withBad && l[2]))].concat(isParty() ? [whoTd(l[withBad ? 3 : 2])] : [])}));
   const foot = {cls: 'all', cells: [nameTd('All sources'), td(total, plain(total))].concat(isParty() ? [td(0, '<td></td>')] : [])};
   return section(id, title, `${fmt(total)} ${what}`, sortTable('amounts' + id, cols, rows, foot, 1));
@@ -510,15 +542,17 @@ function consumed(p) {
   const lines = [];
   for (const [list, k] of [[p.eaten, 1], [p.drunk, 2]]) for (const l of list) {
     let line = lines.find(x => x[0] === l[0]);
-    if (!line) lines.push(line = [l[0], 0, 0, H.map(() => 0)]);
+    // [name, eaten, drunk, each column's eaten, each column's drunk]
+    if (!line) lines.push(line = [l[0], 0, 0, H.map(() => 0), H.map(() => 0)]);
     line[k] += l[1];
-    l[2].forEach((v, i) => line[3][i] += v);
+    l[2].forEach((v, i) => line[k + 2][i] += v);
   }
   const summary = `${fmt(p.eatenTotal)} eaten · ${fmt(p.drunkTotal)} drunk`;
   if (!lines.length) return section(DETAIL.CONSUMED, 'Eaten and drunk', 'nothing', '<div class="note">Nothing eaten or drunk.</div>');
   const cols = [nameCol('Item'), numCol('Eaten'), numCol('Drunk')];
-  if (isParty()) cols.push(numCol('Who'));
-  const rows = lines.map(l => ({cells: [nameTd(l[0]), td(l[1], plain(l[1])), td(l[2], plain(l[2]))].concat(isParty() ? [whoTd(l[3])] : [])}));
+  if (isParty()) cols.push(whoColumn([1, 2], 1));
+  const rows = lines.map(l => ({cells: [nameTd(l[0]), td(l[1], plain(l[1])), td(l[2], plain(l[2]))]
+    .concat(isParty() ? [whoBy(l[1] + l[2], k => k === 2 ? l[4] : l[3])] : [])}));
   const foot = {cls: 'all', cells: [nameTd('Everything'), td(0, plain(p.eatenTotal)), td(0, plain(p.drunkTotal))].concat(isParty() ? [td(0, '<td></td>')] : [])};
   return section(DETAIL.CONSUMED, 'Eaten and drunk', summary, sortTable('consumed', cols, rows, foot, 1));
 }
@@ -543,7 +577,7 @@ function monsters() {
   let cols, cellsOf;
   if (isParty()) {
     const extra = [[2, 'Door'], [3, 'Pit'], [4, 'Other']].filter(([k]) => all[k] > 0);
-    cols = [nameCol('Monster')].concat(H.map((h, i) => heroCol(i)), extra.map(([, l]) => numCol(l)), [numCol('All'), numCol('Who')]);
+    cols = [nameCol('Monster')].concat(H.map((h, i) => heroCol(i)), extra.map(([, l]) => numCol(l)), [numCol('All'), numCol('Who: Kills')]);
     cellsOf = (m, foot) => [nameTd(m[0])].concat(m[1].map((v, i) => td(v, plain(v, false, H[i].left ? 'gone' : ''))),
       extra.map(([k]) => td(m[k], plain(m[k]))), [td(m[5], plain(m[5])), foot ? td(0, '<td></td>') : whoTd(m[1])]);
   } else {

@@ -121,6 +121,26 @@ static void SpellLinesCountEveryCast(void)
   }
 }
 
+static void PartySpellsAreSplitByChampion(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  stats.MeetChampion(9, "SYRA");
+  uint32_t fireball = 0x00006f69;  // Ful Ir
+  stats.CountCast(7, 1, fireball, 13);
+  stats.CountCast(9, 1, fireball, 13);
+  stats.CountCast(9, 1, fireball, 13);
+  stats.CountFailedCast(9, 1, fireball, 5);
+  HeroStatsHeroPage page = HeroStatsPages_Hero(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, NAMES);
+  CHECK(page.spells.size() == 1);
+  if (page.spells.size() != 1) return;
+  const std::vector<HeroStatsSpellCounts> &by = page.spells[0].byColumn;
+  CHECK(by.size() == 2);
+  if (by.size() != 2) return;
+  CHECK(by[0].casts == 1 && by[0].mana == 13 && by[0].failed == 0);
+  CHECK(by[1].casts == 3 && by[1].mana == 26 && by[1].failed == 1 && by[1].wasted == 5);
+}
+
 static void MonsterSpellsAreNotMonsterAttacks(void)
 {
   HeroStats stats;
@@ -307,7 +327,17 @@ static void PartyWeaponsAreSplitByChampion(void)
   HeroStatsTopicPage combat = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN,
                                                    HeroTopicCombat, NAMES);
   CHECK(combat.hero.weapons.size() == 1);
-  if (combat.hero.weapons.size() == 1) CHECK(combat.hero.weapons[0].byColumn == std::vector<int>({6, 4}));
+  // Each champion's own numbers with the weapon, so the Who bar can split any of its columns
+  if (combat.hero.weapons.size() == 1)
+  {
+    const std::vector<HeroStatsOptionLine> &by = combat.hero.weapons[0].byColumn;
+    CHECK(by.size() == 2);
+    if (by.size() == 2)
+    {
+      CHECK(by[0].damage == 6 && by[0].tries == 1 && by[0].hits == 1 && by[0].kills == 0);
+      CHECK(by[1].damage == 4 && by[1].tries == 1 && by[1].hits == 1);
+    }
+  }
   HeroStatsTopicPage survival = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN,
                                                      HeroTopicSurvival, NAMES);
   CHECK(survival.hero.taken.size() == 1);
@@ -471,6 +501,7 @@ void TestHeroStatsPages(void)
   UnarmedAttacksAreOneWeapon();
   WarCryIsAnUnarmedAction();
   SpellLinesCountEveryCast();
+  PartySpellsAreSplitByChampion();
   MonsterSpellsAreNotMonsterAttacks();
   RecordsCarryTheMovement();
   ItemsAreListedByName();

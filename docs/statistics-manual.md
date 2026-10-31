@@ -65,14 +65,18 @@ Every topic is built the same way:
    A row indented further and greyed is a part of the row above it. Hover a number's name for a
    word on what it counts, where there is one.
 3. **Detail tables** of the topic (weapons, spells, sources of damage, monsters ...). For the
-   Party they have a **Who** bar: who of the champions the line belongs to.
+   Party they have a **Who** bar: how the line splits among the champions. Its header says what it
+   splits: the column the table is sorted by, when that can be split (Weapons and Spells by Damage,
+   Kills, Casts ...; Eaten and drunk by Eaten or Drunk), otherwise the table's main number
+   (Damage for Weapons, Mana for Spells). Click a column's header to sort by it and split by it.
+   Hover a bar for each champion's number.
 
 Click a section's title to fold or open it; the window remembers which sections are folded.
 
 Throughout the window:
 
-- a **dim dot** (·) is a zero; a **-** means "does not apply", for example a hit rate without
-  attacks;
+- a **dim dot** (·) is a zero; a **-** is a rate or an average with nothing to work it out from,
+  for example a hit rate without attacks;
 - a number on a **red pill** is bad news: friendly fire, deaths, wasted mana, food wasted;
 - the last row of a table, shaded, is its total.
 
@@ -102,9 +106,9 @@ hit), Damage, Kills.
 - Actions with an empty hand (PUNCH, KICK, WAR CRY) are listed under **UNARMED**.
 - Actions that cannot hit are listed too: WAR CRY, CALM, BRANDISH, BLOW HORN, CONFUSE, the shields
   and spells of wands and staffs that make no missile (SPELLSHIELD, FIRESHIELD, LIGHT, FREEZE LIFE,
-  FLUXCAGE ...), CLIMB DOWN and the like. Their Tries count how often you used them; Hits, Rate,
-  Avg, Damage and Kills show "-". They are left out of a weapon's hit rate, so a War Cry does not
-  lower your punches' rate.
+  FLUXCAGE ...), CLIMB DOWN and the like. Their Tries count how often you used them; Hits, Damage
+  and Kills are zero and Rate and Avg show "-", as there is nothing to work them out from. They
+  are left out of a weapon's hit rate, so a War Cry does not lower your punches' rate.
 - An item thrown by hand is listed as "*item*, thrown". A shot belongs to the bow, crossbow or
   sling, not to the arrow.
 - Only attacks aimed at a monster count as tries; swinging at an empty square does not.

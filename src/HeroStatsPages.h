@@ -51,11 +51,13 @@ struct HeroStatsWeaponLine
   int tries, hits, damage, kills, uses;
   int id;  // the same for the same weapon on every page, for its fold state
   std::vector<HeroStatsOptionLine> options;
-  std::vector<int> byColumn;  // the Party's page: each column's damage with it
+  std::vector<HeroStatsOptionLine> byColumn;  // the Party's page: each column's own numbers with it (no name)
 };
 // casts: every cast, successful ones and failures
-// byColumn: on the Party's page, each column's share of the line (a spell's mana, an amount)
-struct HeroStatsSpellLine { std::string name; int casts, successful, failed, mana, wasted, damage, kills; std::vector<int> byColumn; };
+struct HeroStatsSpellCounts { int casts, successful, failed, mana, wasted, damage, kills; };
+// byColumn: on the Party's page, each column's own numbers with the spell
+struct HeroStatsSpellLine { std::string name; int casts, successful, failed, mana, wasted, damage, kills; std::vector<HeroStatsSpellCounts> byColumn; };
+// byColumn: on the Party's page, each column's part of the amount
 struct HeroStatsAmountLine { std::string text; int amount; bool isBad; std::vector<int> byColumn; };
 
 struct HeroStatsHeroPage

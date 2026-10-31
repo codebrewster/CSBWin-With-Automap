@@ -376,17 +376,38 @@ HeroStatsHeroPage HeroStatsPages_Hero(const HeroStats &stats, const std::vector<
   HeroStatsHeroPage page = BuildHero(stats, columns, who, level, names, who == HERO_STATS_PARTY);
   if (who != HERO_STATS_PARTY) return page;
   size_t n = columns.size();
-  for (size_t w = 0; w < page.weapons.size(); w++) page.weapons[w].byColumn.assign(n, 0);
-  for (size_t s = 0; s < page.spells.size(); s++) page.spells[s].byColumn.assign(n, 0);
+  HeroStatsOptionLine noAttacks = {"", 0, 0, 0, 0, 0};
+  HeroStatsSpellCounts noCasts = {0, 0, 0, 0, 0, 0, 0};
+  for (size_t w = 0; w < page.weapons.size(); w++) page.weapons[w].byColumn.assign(n, noAttacks);
+  for (size_t s = 0; s < page.spells.size(); s++) page.spells[s].byColumn.assign(n, noCasts);
   for (size_t c = 0; c < n; c++)
   {
     HeroStatsHeroPage one = BuildHero(stats, columns, columns[c].id, level, names, true);
     for (size_t w = 0; w < page.weapons.size(); w++)
       for (size_t o = 0; o < one.weapons.size(); o++)
-        if (one.weapons[o].id == page.weapons[w].id) page.weapons[w].byColumn[c] += one.weapons[o].damage;
+        if (one.weapons[o].id == page.weapons[w].id)
+        {
+          HeroStatsOptionLine &mine = page.weapons[w].byColumn[c];
+          mine.tries += one.weapons[o].tries;
+          mine.hits += one.weapons[o].hits;
+          mine.damage += one.weapons[o].damage;
+          mine.kills += one.weapons[o].kills;
+          mine.uses += one.weapons[o].uses;
+        }
     for (size_t s = 0; s < page.spells.size(); s++)
       for (size_t o = 0; o < one.spells.size(); o++)
-        if (one.spells[o].name == page.spells[s].name) page.spells[s].byColumn[c] += one.spells[o].mana;
+        if (one.spells[o].name == page.spells[s].name)
+        {
+          HeroStatsSpellCounts &mine = page.spells[s].byColumn[c];
+          const HeroStatsSpellLine &theirs = one.spells[o];
+          mine.casts += theirs.casts;
+          mine.successful += theirs.successful;
+          mine.failed += theirs.failed;
+          mine.mana += theirs.mana;
+          mine.wasted += theirs.wasted;
+          mine.damage += theirs.damage;
+          mine.kills += theirs.kills;
+        }
     SplitAmounts(&page.taken, one.taken, c, n);
     SplitAmounts(&page.healing, one.healing, c, n);
     SplitAmounts(&page.eaten, one.eaten, c, n);
