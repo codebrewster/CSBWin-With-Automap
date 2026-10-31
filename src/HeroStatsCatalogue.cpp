@@ -282,6 +282,7 @@ std::string HeroStatsCatalogue_Summary(int topic, const HeroStatsRecord &record,
   {
     HeroStatsNumber number = info.tiles[i];
     if (!HeroStatsCatalogue_Applies(number, who, level)) continue;
+    if (NUMBERS[number].isRatio && record.value[number] < 0) continue;  // "- hit rate" says nothing
     std::string label = NUMBERS[number].label;
     label[0] = (char)tolower((unsigned char)label[0]);
     if (shown > 0) summary += " \xc2\xb7 ";

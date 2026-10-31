@@ -172,6 +172,10 @@ static void SummaryIsTheFirstThreeTiles(void)
   record.value[HeroNumHitRate] = 63;
   CHECK(HeroStatsCatalogue_Summary(HeroTopicCombat, record, 7, HERO_STATS_WHOLE_RUN) ==
         "4,412 damage dealt \xc2\xb7 31 kills \xc2\xb7 63% hit rate");
+  // An undefined ratio is left out: the next tile takes its place
+  record.value[HeroNumHitRate] = -1;
+  CHECK(HeroStatsCatalogue_Summary(HeroTopicCombat, record, 7, HERO_STATS_WHOLE_RUN) ==
+        "4,412 damage dealt \xc2\xb7 31 kills \xc2\xb7 0 friendly fire caused");
   // Tiles that do not apply are skipped: a champion's Exploration has only the doors
   record.value[HeroNumDoorsBashed] = 2;
   CHECK(HeroStatsCatalogue_Summary(HeroTopicExploration, record, 7, HERO_STATS_WHOLE_RUN) == "2 doors bashed open");

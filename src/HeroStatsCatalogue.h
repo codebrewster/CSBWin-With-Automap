@@ -56,7 +56,8 @@ std::vector<HeroStatsNumber> HeroStatsCatalogue_GridNumbers(int topic);
 // csb.cfg's stats_page as written before the redesign (0 Table, 1 Bars, 2 By level, 3 Monsters,
 // 4 Items) as a topic; anything else is the Overview
 int HeroStatsCatalogue_TopicOfOldPage(int oldPage);
-// "4,412 damage dealt · 31 kills · 63% hit rate": the topic's first three tiles that apply
+// "4,412 damage dealt · 31 kills · 63% hit rate": the topic's first three tiles that apply and
+// are defined
 std::string HeroStatsCatalogue_Summary(int topic, const HeroStatsRecord &record, HeroStatsChampion who, int level);
 
 #pragma pack(pop)
