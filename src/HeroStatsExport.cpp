@@ -320,7 +320,7 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   tr.wrow { cursor:pointer } tr.wrow:hover td { background:var(--hover) }
   tr.opt td { color:var(--part) } tr.opt td:first-child { padding-left:26px; color:var(--dim) }
   .z, table tr td.z { color:var(--faint) } .gone { color:var(--dim) }  /* a zero is faint in part and total rows too */
-  .worse { color:var(--bad) }
+  .pill { color:var(--bad); background:rgba(229,115,95,.16); border-radius:3px; padding:0 4px }
   td.bar { width:170px } td.whobar { width:140px }
   .share { display:flex; height:9px; background:var(--track); border-radius:2px; overflow:hidden; min-width:100px } .share i { display:block; height:100% }
   .choices { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:8px }
@@ -355,13 +355,13 @@ const dotOf = i => `<span class="dot" style="background:${COLOUR(i)}"></span>`;
 
 function set(changes) { Object.assign(st, changes); draw(); }
 
-// A number in a cell: a dim dot for zero, bad news in red, nothing where it does not apply
+// A number in a cell: a dim dot for zero, bad news on a red pill, nothing where it does not apply
 function cell(v, bad, ratio, label, cls) {
   const c = cls ? ` class="${cls}"` : '';
   if (v === null || v === undefined) return `<td${c}></td>`;
   if (v === 0) return `<td class="z">·</td>`;
   if (ratio && v < 0) return `<td class="z">-</td>`;
-  return bad && v > 0 ? `<td${c}><span class="worse">${label}</span></td>` : `<td${c}>${label}</td>`;
+  return bad && v > 0 ? `<td${c}><span class="pill">${label}</span></td>` : `<td${c}>${label}</td>`;
 }
 const numCell = (n, v, cls) => cell(v, NUM[n].bad, NUM[n].ratio, v === null ? '' : text(n, v), cls);
 const plain = (v, bad, cls) => cell(v, bad, false, fmt(v), cls);
@@ -601,7 +601,7 @@ function cards() {
       ids.map(([n, l], k) => {
         const v = r[n], bad = NUM[n].bad && v > 0;
         return `<div class="cr"><span class="l">${l}</span><div class="mini"><i style="width:${100 * v / largest[k]}%;background:${bad ? 'var(--bad)' : COLOUR(i)}"></i></div>` +
-          `<span class="n${v === 0 ? ' z' : ''}">${v === 0 ? '·' : bad ? `<span class="worse">${fmt(v)}</span>` : fmt(v)}</span></div>`;
+          `<span class="n${v === 0 ? ' z' : ''}">${v === 0 ? '·' : bad ? `<span class="pill">${fmt(v)}</span>` : fmt(v)}</span></div>`;
       }).join('') + '</div>';
   }).join('') + '</div>';
 }
