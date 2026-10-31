@@ -319,7 +319,7 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   tr.lv { cursor:pointer } tr.lv:hover td { background:var(--hover) }
   tr.wrow { cursor:pointer } tr.wrow:hover td { background:var(--hover) }
   tr.opt td { color:var(--part) } tr.opt td:first-child { padding-left:26px; color:var(--dim) }
-  .z { color:var(--faint) } .gone { color:var(--dim) }
+  .z, table tr td.z { color:var(--faint) } .gone { color:var(--dim) }  /* a zero is faint in part and total rows too */
   .pill { color:var(--bad); background:rgba(229,115,95,.16); border-radius:3px; padding:0 4px }
   td.bar { width:170px } td.whobar { width:140px }
   .share { display:flex; height:9px; background:var(--track); border-radius:2px; overflow:hidden; min-width:100px } .share i { display:block; height:100% }
