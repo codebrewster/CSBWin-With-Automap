@@ -1333,7 +1333,9 @@ static int DrawTopicTiles(const std::vector<std::string> &summaries)
     drawList->AddText(ImVec2(min.x + 10, min.y + 7), Packed(WHITE_RGB), HeroStatsCatalogue_Topic(t).label);
     drawList->AddText(ImVec2(min.x + 10, min.y + 9 + ImGui::GetTextLineHeight()), Packed(DIM_RGB), summaries[t].c_str());
     drawList->PopClipRect();
-    if (hovered) ImGui::SetTooltip("%s", summaries[t].c_str());
+    // Only a summary cut off at the tile's edge needs the whole of it on hover
+    bool cutOff = 10 + ImGui::CalcTextSize(summaries[t].c_str()).x > tileWidth - 8;
+    if (hovered && cutOff) ImGui::SetTooltip("%s", summaries[t].c_str());
   }
   ImGui::SetCursorScreenPos(origin);
   ImGui::Dummy(ImVec2(width, ((shown + 1) / 2) * (height + gap) + 4));
