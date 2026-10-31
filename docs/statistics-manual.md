@@ -114,8 +114,9 @@ hit), Damage, Kills.
   FLUXCAGE ...), CLIMB DOWN and the like. Their Tries count how often you used them; Hits, Damage
   and Kills are zero and Rate and Avg show "-", as there is nothing to work them out from. They
   are left out of a weapon's hit rate, so a War Cry does not lower your punches' rate.
-- An item thrown by hand is listed as "*item*, thrown". A shot belongs to the bow, crossbow or
-  sling, not to the arrow.
+- Throwing an item is listed under the item itself: **THROW** when you chose the THROW action of
+  the weapon hand, **Throw (by hand)** when you threw it from the mouse pointer. A shot belongs to
+  the bow, crossbow or sling, not to the arrow.
 - Only attacks aimed at a monster count as tries; swinging at an empty square does not.
 - Spells entered as runes are no attacks: they are under [Magic](#magic).
 

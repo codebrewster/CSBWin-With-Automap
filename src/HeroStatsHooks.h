@@ -121,7 +121,7 @@ class RN;
 int HeroStats_WeaponOf(RN item);
 // The display name of a weapon key, from the game's item names (d.ObjectNames)
 std::string HeroStats_WeaponNameOf(int weapon);
-// The name of an attack option (d.AttackNames), "Throw" for HERO_STATS_THROW_OPTION, "" when unknown
+// The name of an attack option (d.AttackNames), "Throw (by hand)" for HERO_STATS_THROW_OPTION, "" when unknown
 std::string HeroStats_AttackOptionNameOf(int option);
 // The names of the game in play for the statistics pages: monsters as the dungeon names them
 // (GetMonsterDisplayName), weapons and attack options as above

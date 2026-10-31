@@ -169,24 +169,23 @@ static bool OptionBefore(const HeroStatsOptionLine &a, const HeroStatsOptionLine
 static void AddAttacks(HeroStatsHeroPage *page, const HeroStats &stats, HeroStatsChampion who, int level,
                        const HeroStatsNames &names)
 {
-  // Grouped by weapon (and by whether it was thrown). Rune spells are in Spells.
+  // Grouped by weapon; throwing it is one of its options (THROW, Throw (by hand)). Rune spells are
+  // in Spells.
   std::vector<HeroStatsAttackRow> attacks = stats.Attacks(who, level);
-  std::map<std::pair<int, bool>, size_t> weaponAt;
+  std::map<int, size_t> weaponAt;
   for (size_t i = 0; i < attacks.size(); i++)
   {
     const HeroStatsAttackRow &a = attacks[i];
     if (a.weapon == HERO_STATS_NO_WEAPON) continue;
-    std::pair<int, bool> key(a.weapon, a.thrown);
-    std::map<std::pair<int, bool>, size_t>::iterator found = weaponAt.find(key);
+    std::map<int, size_t>::iterator found = weaponAt.find(a.weapon);
     if (found == weaponAt.end())
     {
       HeroStatsWeaponLine w;
       w.name = names.weapon(a.weapon);
-      if (a.thrown) w.name += ", thrown";
       w.tries = w.hits = w.damage = w.kills = w.uses = 0;
-      w.id = (a.weapon + 2) * 2 + (a.thrown ? 1 : 0);
+      w.id = a.weapon + 2;
       page->weapons.push_back(w);
-      found = weaponAt.insert(std::make_pair(key, page->weapons.size() - 1)).first;
+      found = weaponAt.insert(std::make_pair(a.weapon, page->weapons.size() - 1)).first;
     }
     HeroStatsWeaponLine &w = page->weapons[found->second];
     w.tries += a.tries;

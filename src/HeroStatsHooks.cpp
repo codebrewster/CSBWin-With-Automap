@@ -520,7 +520,7 @@ std::string HeroStats_WeaponNameOf(int weapon)
 
 std::string HeroStats_AttackOptionNameOf(int option)
 {
-  if (option == HERO_STATS_THROW_OPTION) return "Throw";
+  if (option == HERO_STATS_THROW_OPTION) return "Throw (by hand)";
   if (option < 0) return "";
   const char *at = (const char *)d.AttackNames;
   const char *end = at + sizeof d.AttackNames;
