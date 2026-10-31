@@ -651,8 +651,23 @@ static void WeaponNamesComeFromTheItemNames(void)
   CHECK(HeroStats_WeaponName(-7, names, 3) == "#-7");
 }
 
+static void ManaGainIsKeptBySource(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  stats.MeetChampion(9, "SYRA");
+  stats.CreditManaGained(7, 1, HeroManaRegeneration, 30);
+  stats.CreditManaGained(7, 2, HeroManaPotion, 12);
+  stats.CreditManaGained(9, 1, HeroManaPotion, 5);
+  CHECK(stats.ManaGainedBy(7, HERO_STATS_WHOLE_RUN, HeroManaRegeneration) == 30);
+  CHECK(stats.ManaGainedBy(7, HERO_STATS_WHOLE_RUN, HeroManaPotion) == 12);
+  CHECK(stats.ManaGainedBy(HERO_STATS_PARTY, 1, HeroManaPotion) == 5);
+  CHECK(stats.ManaGainedBy(7, 1, HeroManaRegeneration) + stats.ManaGainedBy(7, 1, HeroManaPotion) == stats.ManaGained(7, 1));
+}
+
 void TestHeroStats(void)
 {
+  ManaGainIsKeptBySource();
   RuneSpellKeyLeavesOutThePowerRune();
   WeaponNamesComeFromTheItemNames();
   ChampionsKeepOrderAndRename();

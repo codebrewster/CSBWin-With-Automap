@@ -415,6 +415,18 @@ int HeroStats::ManaGained(HeroStatsChampion who, int level) const
   return sum;
 }
 
+int HeroStats::ManaGainedBy(HeroStatsChampion who, int level, HeroManaGain gain) const
+{
+  int sum = 0;
+  for (std::map<GainKey, int>::const_iterator at = m_manaGained.begin(); at != m_manaGained.end(); ++at)
+  {
+    if (Matches(who, std::get<0>(at->first)) && LevelMatches(level, std::get<1>(at->first)) &&
+        std::get<2>(at->first) == gain)
+      sum += at->second;
+  }
+  return sum;
+}
+
 int HeroStats::ManaSpent(HeroStatsChampion who, int level) const
 {
   int sum = 0;

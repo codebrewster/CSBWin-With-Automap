@@ -148,6 +148,7 @@ public:
   int HealingGiven(HeroStatsChampion who, int level) const;                // potion healing with brewer == who
   std::vector<HeroStatsHealRow> HealRows(HeroStatsChampion who, int level) const;  // biggest first
   int ManaGained(HeroStatsChampion who, int level) const;
+  int ManaGainedBy(HeroStatsChampion who, int level, HeroManaGain gain) const;  // one source of ManaGained
   int ManaSpent(HeroStatsChampion who, int level) const;                   // casts + special rows, wasted included
   int ManaWasted(HeroStatsChampion who, int level) const;                  // failed casts + runes cleared
   std::vector<HeroStatsSpellRow> Spells(HeroStatsChampion who, int level) const;  // most mana first
