@@ -1587,8 +1587,16 @@ static void DrawPage(HeroStatsDrawState *state, const HeroStats &stats, const st
   ImGui::PopStyleVar();
   if (visible)
   {
+    // Tables of their own for each layout: a table that gets other columns matches them to the
+    // old ones by name and keeps their old places, which shuffled the champions' columns (a
+    // champion's "BORIS" and "Party" landing between the Party page's champions). Our columns
+    // never move, so a table never needs another layout's state.
+    std::string layout = ColumnsKey(columns) + "|" + std::to_string(state->who) + "|" + std::to_string(state->topic) +
+                         (state->perLevel ? (state->sideBySide ? "|side" : "|levels") : "");
+    ImGui::PushID(layout.c_str());
     if (state->perLevel) DrawPerLevel(state, stats, columns);
     else DrawTopicPage(state, CachedPage(*state, stats, columns), columns);
+    ImGui::PopID();
   }
   ImGui::EndChild();
 }
