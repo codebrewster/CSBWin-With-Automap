@@ -5,6 +5,7 @@
 #include <vector>
 #include "HeroStats.h"
 #include "HeroStatsView.h"
+#include "HeroStatsCatalogue.h"
 
 // The same layout whatever was included before: CSB.h leaves #pragma pack(1) switched on
 #pragma pack(push, 8)
@@ -107,10 +108,12 @@ struct HeroStatsWeaponLine
   int tries, hits, damage, kills, uses;
   int id;  // the same for the same weapon on every page, for its fold state
   std::vector<HeroStatsOptionLine> options;
+  std::vector<int> byColumn;  // the Party's page: each column's damage with it
 };
 // casts: every cast, successful ones and failures
-struct HeroStatsSpellLine { std::string name; int casts, successful, failed, mana, wasted, damage, kills; };
-struct HeroStatsAmountLine { std::string text; int amount; bool isBad; };
+// byColumn: on the Party's page, each column's share of the line (a spell's mana, an amount)
+struct HeroStatsSpellLine { std::string name; int casts, successful, failed, mana, wasted, damage, kills; std::vector<int> byColumn; };
+struct HeroStatsAmountLine { std::string text; int amount; bool isBad; std::vector<int> byColumn; };
 
 struct HeroStatsHeroPage
 {
@@ -131,6 +134,31 @@ struct HeroStatsHeroPage
 };
 HeroStatsHeroPage HeroStatsPages_Hero(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
                                       HeroStatsChampion who, int level, const HeroStatsNames &names);
+
+// A topic page (HeroStatsCatalogue): its summary tiles, its numbers and its detail tables
+
+// One row of the Numbers table. byColumn: the Party's page: one value per column (empty for a
+// party-only number); a champion's page: that champion's value. party: the party's value.
+struct HeroStatsNumbersRow { HeroStatsNumber number; int depth; std::vector<int> byColumn; int party; bool partyOnly; };
+enum HeroStatsDetail { HeroDetailWeapons, HeroDetailSpells, HeroDetailHarm, HeroDetailHealing, HeroDetailDeaths,
+                       HeroDetailConsumed, HeroDetailItems, HeroDetailMonsters, HERO_DETAIL_COUNT };
+struct HeroStatsTopicPage
+{
+  std::vector<HeroStatsNumber> tiles;         // the tiles that apply, at most 4
+  HeroStatsRecord record;                     // who's numbers on the level
+  std::vector<HeroStatsNumbersRow> numbers;   // the topic's rows that apply
+  std::vector<HeroStatsDetail> details;       // in drawing order
+  HeroStatsHeroPage hero;                     // weapons, spells, taken, healing, deaths, eaten, drunk
+  std::vector<HeroStatsMonsterLine> monsters;
+  std::vector<HeroStatsItemLine> items;
+  std::string summary;                        // HeroStatsCatalogue_Summary
+};
+HeroStatsTopicPage HeroStatsPages_Topic(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
+                                        HeroStatsChampion who, int level, int topic, const HeroStatsNames &names);
+
+// The Party's Overview: a card per champion; damagePercent: their share of the party's damage
+struct HeroStatsCard { HeroStatsColumn column; HeroStatsRecord record; int damagePercent; };
+std::vector<HeroStatsCard> HeroStatsPages_Cards(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns, int level);
 
 #pragma pack(pop)
 

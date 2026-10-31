@@ -1,6 +1,7 @@
 #include "TestSupport.h"
 #include "../HeroStatsExport.h"
 #include "../HeroStatsPages.h"
+#include "../HeroStatsCatalogue.h"
 
 // Type 6 has two variants the dungeon does not name apart; type 25 is named
 static std::string MonsterName(int monsterType, int variant)
@@ -281,8 +282,114 @@ static void ExportHoldsEveryLevel(void)
   CHECK(closings == 3);
 }
 
+static HeroStatsBlow KindBlow(HeroStatsChampion who, int weapon, HeroDamageKind kind)
+{
+  HeroStatsBlow blow = ChampionBlow(who, weapon, 1);
+  blow.kind = kind;
+  return blow;
+}
+
+static void PartyWeaponsAreSplitByChampion(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  stats.MeetChampion(9, "SYRA");
+  stats.CountAttackTry(1, KindBlow(7, 5, HeroDamageMelee));
+  stats.CountAttackHit(1, KindBlow(7, 5, HeroDamageMelee));
+  stats.CreditMonsterDamage(1, KindBlow(7, 5, HeroDamageMelee), 6);
+  stats.CountAttackTry(1, KindBlow(9, 5, HeroDamageMelee));
+  stats.CountAttackHit(1, KindBlow(9, 5, HeroDamageMelee));
+  stats.CreditMonsterDamage(1, KindBlow(9, 5, HeroDamageMelee), 4);
+  // Friendly fire is named apart on a champion's page ("own", "from"), but splits on the party's
+  HeroStatsBlow fire = KindBlow(9, HERO_STATS_NO_WEAPON, HeroDamageMagic);
+  stats.CreditHarm(7, 1, HeroHarmFriendlyFire, fire, 8);
+  stats.CreditHarm(9, 1, HeroHarmFriendlyFire, fire, 3);
+  HeroStatsTopicPage combat = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN,
+                                                   HeroTopicCombat, NAMES);
+  CHECK(combat.hero.weapons.size() == 1);
+  if (combat.hero.weapons.size() == 1) CHECK(combat.hero.weapons[0].byColumn == std::vector<int>({6, 4}));
+  HeroStatsTopicPage survival = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN,
+                                                     HeroTopicSurvival, NAMES);
+  CHECK(survival.hero.taken.size() == 1);
+  if (survival.hero.taken.size() == 1) CHECK(survival.hero.taken[0].byColumn == std::vector<int>({8, 3}));
+  HeroStatsTopicPage halk = HeroStatsPages_Topic(stats, Columns(stats), 7, HERO_STATS_WHOLE_RUN, HeroTopicCombat, NAMES);
+  CHECK(halk.hero.weapons.size() == 1 && halk.hero.weapons[0].byColumn.empty());
+  CHECK(halk.details == std::vector<HeroStatsDetail>({HeroDetailWeapons}));
+}
+
+static void ChampionPageDropsPartyOnlyRows(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  stats.MeetChampion(9, "SYRA");
+  stats.CountStep(1);
+  stats.CountDoorBashed(7, 1, HeroDoorSmashed);
+  HeroStatsTopicPage halk = HeroStatsPages_Topic(stats, Columns(stats), 7, HERO_STATS_WHOLE_RUN, HeroTopicExploration, NAMES);
+  CHECK(halk.numbers.size() == 5);
+  for (size_t i = 0; i < halk.numbers.size(); i++) CHECK(!halk.numbers[i].partyOnly && halk.numbers[i].byColumn.size() == 1);
+  if (halk.numbers.size() == 5) CHECK(halk.numbers[0].number == HeroNumDoorsBashed && halk.numbers[0].byColumn[0] == 1 && halk.numbers[0].party == 1);
+  HeroStatsTopicPage party = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroTopicExploration, NAMES);
+  CHECK(party.numbers.size() == 22);
+  if (!party.numbers.empty()) CHECK(party.numbers[0].number == HeroNumSteps && party.numbers[0].partyOnly && party.numbers[0].party == 1);
+  CHECK(party.tiles.size() == 4);
+  // A champion's Overview has tiles of their own
+  HeroStatsTopicPage overview = HeroStatsPages_Topic(stats, Columns(stats), 7, HERO_STATS_WHOLE_RUN, HeroTopicOverview, NAMES);
+  CHECK(overview.tiles == std::vector<HeroStatsNumber>({HeroNumDamage, HeroNumKills, HeroNumTaken, HeroNumDeaths}));
+}
+
+static void LeftChampionStillCounts(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  stats.MeetChampion(9, "SYRA");
+  stats.CreditMonsterDamage(1, KindBlow(7, 5, HeroDamageMelee), 5);
+  stats.CreditMonsterDamage(1, KindBlow(9, 5, HeroDamageMelee), 2);
+  std::vector<HeroStatsChampion> inParty(1, 7);
+  std::vector<HeroStatsColumn> columns = HeroStatsView_Columns(stats, inParty);
+  CHECK(columns.size() == 2 && columns[1].hasLeft);
+  HeroStatsTopicPage combat = HeroStatsPages_Topic(stats, columns, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroTopicCombat, NAMES);
+  CHECK(!combat.numbers.empty());
+  if (!combat.numbers.empty())
+  {
+    CHECK(combat.numbers[0].byColumn == std::vector<int>({5, 2}));
+    CHECK(combat.numbers[0].party == 7);
+  }
+}
+
+static void NoChampionsYet(void)
+{
+  HeroStats stats;
+  stats.MarkLevelVisited(0);
+  stats.CountStep(0);
+  std::vector<HeroStatsColumn> none;
+  HeroStatsTopicPage explore = HeroStatsPages_Topic(stats, none, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroTopicExploration, NAMES);
+  CHECK(!explore.numbers.empty() && explore.numbers[0].byColumn.empty() && explore.numbers[0].party == 1);
+  CHECK(HeroStatsPages_Cards(stats, none, HERO_STATS_WHOLE_RUN).empty());
+  HeroStatsTopicPage combat = HeroStatsPages_Topic(stats, none, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroTopicCombat, NAMES);
+  CHECK(!combat.numbers.empty() && combat.numbers[0].party == 0);
+}
+
+static void CardsShareOfDamage(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  stats.MeetChampion(9, "SYRA");
+  std::vector<HeroStatsCard> zero = HeroStatsPages_Cards(stats, Columns(stats), HERO_STATS_WHOLE_RUN);
+  CHECK(zero.size() == 2 && zero[0].damagePercent == 0 && zero[1].damagePercent == 0);
+  stats.CreditMonsterDamage(1, KindBlow(7, 5, HeroDamageMelee), 3);
+  stats.CreditMonsterDamage(1, KindBlow(9, 5, HeroDamageMelee), 1);
+  std::vector<HeroStatsCard> cards = HeroStatsPages_Cards(stats, Columns(stats), HERO_STATS_WHOLE_RUN);
+  CHECK(cards.size() == 2 && cards[0].damagePercent == 75 && cards[1].damagePercent == 25);
+  CHECK(cards.size() == 2 && cards[0].column.id == 7 && cards[0].record.value[HeroNumDamage] == 3);
+}
+
 void TestHeroStatsPages(void)
 {
+  PartyWeaponsAreSplitByChampion();
+  ChampionPageDropsPartyOnlyRows();
+  LeftChampionStillCounts();
+  NoChampionsYet();
+  CardsShareOfDamage();
   VariantsWithoutNamesShareALine();
   UnarmedAttacksAreOneWeapon();
   WarCryIsAnUnarmedAction();

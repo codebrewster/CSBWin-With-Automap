@@ -503,9 +503,8 @@ static void AddSpells(HeroStatsHeroPage *page, const HeroStats &stats, HeroStats
 // One line per source; monster attacks in one line, a monster's missiles by kind and caster;
 // friendly fire and clouds by causer
 static void AddHarm(HeroStatsHeroPage *page, const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
-                    HeroStatsChampion who, int level, const HeroStatsNames &names)
+                    HeroStatsChampion who, int level, const HeroStatsNames &names, bool isParty)
 {
-  bool isParty = who == HERO_STATS_PARTY;
   std::vector<HeroStatsHarmRow> harm = stats.HarmRows(who, level);
   for (size_t i = 0; i < harm.size(); i++)
   {
@@ -529,9 +528,8 @@ static void AddHarm(HeroStatsHeroPage *page, const HeroStats &stats, const std::
 }
 
 static void AddHealing(HeroStatsHeroPage *page, const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
-                       HeroStatsChampion who, int level)
+                       HeroStatsChampion who, int level, bool isParty)
 {
-  bool isParty = who == HERO_STATS_PARTY;
   page->healedTotal = stats.Healed(who, level);
   std::vector<HeroStatsHealRow> heals = stats.HealRows(who, level);
   for (size_t i = 0; i < heals.size(); i++)
@@ -617,16 +615,166 @@ static void AddFood(HeroStatsHeroPage *page, const HeroStats &stats, HeroStatsCh
   }
 }
 
-HeroStatsHeroPage HeroStatsPages_Hero(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
-                                      HeroStatsChampion who, int level, const HeroStatsNames &names)
+// partyNames: name the lines as the Party's page does (no "own", no "from"), so that a
+// champion's lines can be matched with the party's
+static HeroStatsHeroPage BuildHero(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
+                                   HeroStatsChampion who, int level, const HeroStatsNames &names, bool partyNames)
 {
   HeroStatsHeroPage page;
   AddAttacks(&page, stats, who, level, names);
   AddSpells(&page, stats, who, level);
-  AddHarm(&page, stats, columns, who, level, names);
-  AddHealing(&page, stats, columns, who, level);
+  AddHarm(&page, stats, columns, who, level, names, partyNames);
+  AddHealing(&page, stats, columns, who, level, partyNames);
   AddFood(&page, stats, who, level, names);
   AddHardship(&page, stats, columns, who, level, names);
   page.summaries = HeroStatsView_Summaries(stats, who, level);
   return page;
+}
+
+// Each column's part of the party's amount lines, matched by text
+static void SplitAmounts(std::vector<HeroStatsAmountLine> *party, const std::vector<HeroStatsAmountLine> &champion,
+                         size_t column, size_t columnCount)
+{
+  for (size_t i = 0; i < party->size(); i++)
+  {
+    HeroStatsAmountLine &line = (*party)[i];
+    line.byColumn.resize(columnCount, 0);
+    for (size_t c = 0; c < champion.size(); c++)
+      if (champion[c].text == line.text) line.byColumn[column] += champion[c].amount;
+  }
+}
+
+HeroStatsHeroPage HeroStatsPages_Hero(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
+                                      HeroStatsChampion who, int level, const HeroStatsNames &names)
+{
+  HeroStatsHeroPage page = BuildHero(stats, columns, who, level, names, who == HERO_STATS_PARTY);
+  if (who != HERO_STATS_PARTY) return page;
+  size_t n = columns.size();
+  for (size_t w = 0; w < page.weapons.size(); w++) page.weapons[w].byColumn.assign(n, 0);
+  for (size_t s = 0; s < page.spells.size(); s++) page.spells[s].byColumn.assign(n, 0);
+  for (size_t c = 0; c < n; c++)
+  {
+    HeroStatsHeroPage one = BuildHero(stats, columns, columns[c].id, level, names, true);
+    for (size_t w = 0; w < page.weapons.size(); w++)
+      for (size_t o = 0; o < one.weapons.size(); o++)
+        if (one.weapons[o].id == page.weapons[w].id) page.weapons[w].byColumn[c] += one.weapons[o].damage;
+    for (size_t s = 0; s < page.spells.size(); s++)
+      for (size_t o = 0; o < one.spells.size(); o++)
+        if (one.spells[o].name == page.spells[s].name) page.spells[s].byColumn[c] += one.spells[o].mana;
+    SplitAmounts(&page.taken, one.taken, c, n);
+    SplitAmounts(&page.healing, one.healing, c, n);
+    SplitAmounts(&page.eaten, one.eaten, c, n);
+    SplitAmounts(&page.drunk, one.drunk, c, n);
+  }
+  return page;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Topic pages
+
+static std::vector<HeroStatsDetail> DetailsOf(int topic, HeroStatsChampion who)
+{
+  std::vector<HeroStatsDetail> details;
+  switch (topic)
+  {
+  case HeroTopicCombat: details.push_back(HeroDetailWeapons); break;
+  case HeroTopicMagic: details.push_back(HeroDetailSpells); break;
+  case HeroTopicSurvival:
+    details.push_back(HeroDetailHarm);
+    details.push_back(HeroDetailHealing);
+    details.push_back(HeroDetailDeaths);
+    break;
+  case HeroTopicSupplies:
+    details.push_back(HeroDetailConsumed);
+    if (who == HERO_STATS_PARTY) details.push_back(HeroDetailItems);
+    break;
+  case HeroTopicMonsters: details.push_back(HeroDetailMonsters); break;
+  default: break;
+  }
+  return details;
+}
+
+HeroStatsTopicPage HeroStatsPages_Topic(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
+                                        HeroStatsChampion who, int level, int topic, const HeroStatsNames &names)
+{
+  HeroStatsTopicPage page;
+  const HeroStatsTopicInfo &info = HeroStatsCatalogue_Topic(topic);
+  bool isParty = who == HERO_STATS_PARTY;
+  page.record = HeroStatsCatalogue_Record(stats, who, level);
+  HeroStatsRecord party = isParty ? page.record : HeroStatsCatalogue_Record(stats, HERO_STATS_PARTY, level);
+  std::vector<HeroStatsRecord> perColumn;
+  if (isParty)
+    for (size_t c = 0; c < columns.size(); c++) perColumn.push_back(HeroStatsCatalogue_Record(stats, columns[c].id, level));
+
+  // A champion's Overview: their own damage, kills, harm and deaths (tiles explored is the party's)
+  std::vector<HeroStatsNumber> tiles = info.tiles;
+  if (topic == HeroTopicOverview && !isParty)
+    tiles = {HeroNumDamage, HeroNumKills, HeroNumTaken, HeroNumDeaths};
+  for (size_t t = 0; t < tiles.size() && page.tiles.size() < 4; t++)
+    if (HeroStatsCatalogue_Applies(tiles[t], who, level)) page.tiles.push_back(tiles[t]);
+
+  for (size_t r = 0; r < info.rows.size(); r++)
+  {
+    HeroStatsNumber number = info.rows[r].number;
+    if (!HeroStatsCatalogue_Applies(number, who, level)) continue;
+    HeroStatsNumbersRow row;
+    row.number = number;
+    row.depth = info.rows[r].depth;
+    row.partyOnly = HeroStatsCatalogue_Info(number).partyOnly;
+    row.party = party.value[number];
+    if (!isParty) row.byColumn.push_back(page.record.value[number]);
+    else if (!row.partyOnly)
+      for (size_t c = 0; c < perColumn.size(); c++) row.byColumn.push_back(perColumn[c].value[number]);
+    page.numbers.push_back(row);
+  }
+
+  page.details = DetailsOf(topic, who);
+  for (size_t d = 0; d < page.details.size(); d++)
+  {
+    HeroStatsDetail detail = page.details[d];
+    if (detail == HeroDetailMonsters)
+    {
+      page.monsters = HeroStatsPages_Monsters(stats, columns, level, names);
+      // A champion's own kills only: the monsters they killed, in their column
+      if (!isParty)
+      {
+        std::vector<HeroStatsMonsterLine> own;
+        size_t column = 0;
+        while (column < columns.size() && columns[column].id != who) column++;
+        for (size_t l = 0; l < page.monsters.size(); l++)
+        {
+          int kills = column < columns.size() ? page.monsters[l].byColumn[column] : 0;
+          if (kills <= 0) continue;
+          HeroStatsMonsterLine line = page.monsters[l];
+          line.byColumn.assign(1, kills);
+          line.door = line.pit = line.other = 0;
+          line.total = kills;
+          own.push_back(line);
+        }
+        std::stable_sort(own.begin(), own.end(), [](const HeroStatsMonsterLine &a, const HeroStatsMonsterLine &b) { return a.total > b.total; });
+        page.monsters = own;
+      }
+    }
+    else if (detail == HeroDetailItems) page.items = HeroStatsPages_Items(stats, level, names);
+  }
+  if (topic == HeroTopicCombat || topic == HeroTopicMagic || topic == HeroTopicSurvival || topic == HeroTopicSupplies)
+    page.hero = HeroStatsPages_Hero(stats, columns, who, level, names);
+  page.summary = HeroStatsCatalogue_Summary(topic, page.record, who, level);
+  return page;
+}
+
+std::vector<HeroStatsCard> HeroStatsPages_Cards(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns, int level)
+{
+  std::vector<HeroStatsCard> cards;
+  int partyDamage = HeroStatsCatalogue_Record(stats, HERO_STATS_PARTY, level).value[HeroNumDamage];
+  for (size_t c = 0; c < columns.size(); c++)
+  {
+    HeroStatsCard card;
+    card.column = columns[c];
+    card.record = HeroStatsCatalogue_Record(stats, columns[c].id, level);
+    int damage = card.record.value[HeroNumDamage];
+    card.damagePercent = partyDamage > 0 ? (int)(((long long)damage * 200 + partyDamage) / (partyDamage * 2)) : 0;
+    cards.push_back(card);
+  }
+  return cards;
 }
