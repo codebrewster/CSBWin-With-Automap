@@ -23,8 +23,8 @@ a theme, it was split into a separate `CodeNNNN.cpp` file named after its load
 address; see [reference-disassembly.md](reference-disassembly.md).
 
 Around that ported core, files without a `Code`/`TAG` name are the new C++:
-`CSBUI.cpp` and the platform UIs, the SDL layer, the automap, and the sound
-mixer.
+`CSBUI.cpp` and the platform UIs, the SDL layer, the automap, the statistics, and
+the sound mixer.
 
 ## Directory map (`src/`)
 
@@ -39,6 +39,7 @@ The cheat-sheet below groups the source by role. The makefile's `OBJS` list
 | UI | `UI.h`, `CSBUI.cpp`, `LinCSBUI.cpp`, `Menu.cpp`, `Mouse.cpp`, `Hint.cpp`, `HintCE.cpp`, `AsciiDump.cpp` | The UI message interface, the menu bar, the mouse, help/hint screens, debug dumps |
 | Platform mains | `CSBlinux.cpp`, `CSBMac.cpp`, `CSBraspian.cpp`, `CSBwin.cpp`, `CSBWinCE2002.cpp` | One front end per target; owns the event loop |
 | Automap | `AutoMap*.cpp/.h` | The live map window and its engine-free rules units |
+| Statistics | `HeroStats*.cpp/.h` | The hero statistics: counting hooks, the store, and the Statistics window and HTML export |
 | Sound | `Sound.cpp`, `SoundMixer.cpp`, `Win32_SoundMixer.cpp`, `sdl_sound/` | Sound playback and the bundled `SDL_sound` decoder |
 | Vendored | `imgui/`, `sdl_sound/`, `fnmatch/` | Third-party: Dear ImGui (UI) and SDL_sound (MP3/WAV) |
 | Headers | `CSB.h`, `CSBTypes.h`, `Data.h`, `Objects.h`, `UI.h`, `Dispatch.h`, `Transition.h`, `ShotMissiles.h` | Shared types, the engine state, object layouts, the UI contract |
@@ -64,6 +65,7 @@ main (CSBlinux.cpp:1286)
     SDL_WaitEvent, then ImGui_ProcessEvent
     route the event to the engine       Process_SDL_*  CSBlinux.cpp:1651-1660
     pump the automap window             AutoMapWindow_PaintIfDirty
+    and the statistics window           HeroStatsWindow_Paint
 ```
 
 An event becomes a `CSB_UI_MESSAGE` carrying a `UIM_*` code (`UI.h:41`).
@@ -109,5 +111,6 @@ is selected in `CSBTypes.h`. That is why saves need the conversion tools in
 | Graphics decoding, viewport, screens, ImGui, sound | [rendering.md](rendering.md) |
 | Platform mains, UI layers, per-platform differences | [platform.md](platform.md) |
 | Automap | [automap.md](automap.md) |
+| Statistics | [statistics.md](statistics.md) |
 | Game files, saves, config, tables | [data-formats.md](data-formats.md) |
 | The `CodeNNNN.cpp` files and decode tables | [reference-disassembly.md](reference-disassembly.md) |

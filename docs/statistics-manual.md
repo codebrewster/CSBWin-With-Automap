@@ -35,7 +35,10 @@ When you win, the window opens by itself and shows the whole run.
 
 The keys keep steering the game while the Statistics window is in front, as they do with the
 map.
+
 ## The window
+
+![The Statistics window on the Party's Combat topic: the tiles, the Numbers with a column per champion, and the Weapons table](images/statistics-combat.png)
 
 The window has three controls that never move:
 
@@ -89,6 +92,8 @@ row from each topic. Click a card to see that champion.
 
 For a **champion**: their damage, kills, damage taken and deaths; a **tile per topic** with its
 main numbers (click one to open the topic); and the Key numbers next to the party's.
+
+![A champion's Overview: their tiles, a tile per topic, and the Key numbers beside the party's](images/statistics-champion.png)
 
 ## Combat
 
@@ -196,7 +201,7 @@ Most of these are the party's, not a champion's; a champion's Exploration shows 
 | **Chests opened** | each chest once, the first time the party opens it |
 | **Scrolls read** | each scroll once, the first time it is opened |
 | **Wall texts read** | the wall texts the map knows as read |
-| **Champions seen**, **Champions viewed** | portraits in mirrors seen face to face, and mirrors clicked to look at the champion; each mirror counts once |
+| **Champions seen**, **Champions viewed** | portraits in mirrors seen face to face, and mirrors clicked to look at the champion; each mirror counts once, and the champions you took into the party count too, although their mirror is empty afterwards |
 
 Only what you did counts as steps and turns. Falling, climbing down, being teleported or being
 moved by a script is not a step. Movement and the other party numbers count from the start of a
@@ -227,11 +232,14 @@ For the Party, **Show** chooses between two tables:
 
 For a champion, Per level shows that champion's numbers of the topic.
 
+![Per level, Champions side by side: the damage each champion dealt on each level](images/statistics-per-level.png)
+
 ## Numbers
 
 Numbers above 999 are written with a comma between the thousands, for example 4,261. The
 `stats_separator` entry in `csb.cfg` changes that, see [Settings](#settings-in-csbcfg). The HTML
 export uses the same.
+
 ## Sorting
 
 Click a column's header to sort a table by it. Click it again to reverse the order. The small
@@ -257,6 +265,7 @@ The file is a copy of the Statistics window as a web page:
   attach it to a forum post.
 
 It holds the numbers as they were when you clicked; export again for newer numbers.
+
 ## What is counted, and how
 
 - **Damage is the number the game shows**: the attack panel, PROJECTILE DAMAGE, SPELL DAMAGE. A hit
@@ -275,6 +284,7 @@ It holds the numbers as they were when you clicked; export again for newer numbe
 - Everything is counted on the level the party is on when it happens.
 - Stats belong to the **champion**, not to the slot in the party: a champion who moves to another
   slot keeps their numbers.
+
 ## Saving and reloading
 
 The statistics are stored in the save's `.map` companion file (the same file the map uses), so
@@ -295,6 +305,7 @@ bashed open. Saves made before tiles walked were kept count them from the first 
 made before scrolls read were kept count each scroll the first time it is opened after loading;
 wall texts read, champions seen and champions viewed come from the map and are there for old
 saves too. A champion portrait is not a wall text, even though the map marks both the same way.
+
 ## Settings in csb.cfg
 
 The window keeps these in the `[settings]` section of `csb.cfg`:

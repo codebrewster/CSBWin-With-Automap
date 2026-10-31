@@ -70,7 +70,7 @@ together. The automap writes its own settings (window size, whether it was open)
 into `csb.cfg` via `AutoMapWindow_ReadSettings`/`AutoMapWindow_WriteSettings`
 (`AutoMapWindow.h`).
 
-The file is format version 15. After the explored bits of each level it holds four
+The file is format version 20. After the explored bits of each level it holds four
 seen-face bits per cell, four glimpsed-face bits per cell, four read-text bits per cell, four looked-into bits per cell and one seen-floor bit per cell (since version 12: the floor picture was noticed), then the same six sets for the level's rim (since version 11, see the rim rock below), and after the levels the list of learned facts: kind, record,
 level, x, y, then the floor items the 3D view last showed (`AutoMapItemMemory`): record,
 description index, level, x, y and whether it was a mere glimpse, in the order seen, and

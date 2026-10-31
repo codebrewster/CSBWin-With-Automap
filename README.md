@@ -16,8 +16,8 @@ saw to the whole dungeon laid open.
 setting.
 
 The **Statistics** window beside it shows what each champion did, for the whole run and per
-level: damage, kills, attacks, spells, healing, deaths and the party's movement. It can be
-exported as one HTML file to share. See the
+level: damage, kills, attacks, spells, healing, deaths, food and the party's exploration. It
+can be exported as one HTML file to share. See the
 **[Statistics manual](docs/statistics-manual.md)**.
 
 ## Download
@@ -41,7 +41,7 @@ next to the program:
    and [Olde English](https://www.dafont.com/olde-english.font) from dafont,
    into `fonts`, named `diogenes.ttf` and `OldeEnglish.ttf`.
 4. **Play:** start `csb.exe`, or `./csb` on Linux, and open the map with
-   **Misc → Map → Window**.
+   **Misc → Map → Window** and the statistics with **Misc → Statistics → Window**.
 
 Copy only the files named above: the other packages also hold a program and a
 `csb.cfg` that would replace this one. `HOW-TO-PLAY.txt` in each release
@@ -111,6 +111,26 @@ A legend behind the **?** button explains every mark on the map.
 - Notes are drawn in their own colour at every spoiler level, and saved with the
   map.
 
+### Statistics for the whole run
+
+![The Statistics window: the Party's overview with a card per champion and the key numbers](docs/images/statistics-overview.png)
+
+- A window of its own, opened with **Misc → Statistics → Window**, that counts while you play
+  and opens by itself when you win.
+- Seven topics: **Overview**, **Combat**, **Magic**, **Survival**, **Food & items**,
+  **Exploration** and **Monsters**. Each shows its main numbers as tiles, every number of the
+  topic with one column per champion and the party, and detail tables: attacks by weapon and
+  action, spells, damage taken by source (which monster's fireball, which pit, whose friendly
+  fire), healing, deaths with their causes, food and drink, items, monsters killed.
+- **Whole run**, any single level, or **Per level**: one row per level, for the party's totals
+  or one number with the champions side by side.
+- One click switches between the **Party** and each champion; the topic stays.
+- Hardship survives reloads: deaths, party wipes and the number of reloads stay when you load an
+  earlier save of the same game.
+- **Export as HTML** writes the whole window into one file to share or post on the forum: every
+  topic, champion and level, sortable and foldable, with nothing loaded from the internet.
+- Kept in the save's `.map` file; saves from before the statistics load with empty statistics.
+
 ### Testing aids
 
 - With `map_debug = 1` in `csb.cfg`: teleport the party, spawn monsters, raise
@@ -126,8 +146,11 @@ A legend behind the **?** button explains every mark on the map.
 | Hovering a pad at spoiler level all: two more presses open the false wall | Searching for KEY OF B across levels, including the locks that need it |
 | ![Fog of war](docs/images/automap-fog.png) | ![Item tooltip](docs/images/automap-items.png) |
 | Fog of war: only the corner the party has explored | Hovering a pile: item names and the contents the map remembers |
+| ![Statistics: Combat](docs/images/statistics-combat.png) | ![Statistics: per level](docs/images/statistics-per-level.png) |
+| Statistics, Combat: each champion's numbers and the attacks by weapon | Per level: one number, the champions side by side |
 
-More screenshots are in the [user manual](docs/automap-manual.md).
+More screenshots are in the [map manual](docs/automap-manual.md) and the
+[statistics manual](docs/statistics-manual.md).
 
 ## Building from source
 
@@ -138,7 +161,8 @@ this repository; see [Game data and community](#game-data-and-community).
 - Windows: [BUILDING-WINDOWS.md](BUILDING-WINDOWS.md)
 - How to use the map: [docs/automap-manual.md](docs/automap-manual.md)
 - How to use the Statistics window: [docs/statistics-manual.md](docs/statistics-manual.md)
-- Code map and internals: [docs/automap.md](docs/automap.md)
+- Code map and internals: [docs/automap.md](docs/automap.md) and, for the statistics,
+  [docs/statistics.md](docs/statistics.md)
 - Visibility rules in detail: [docs/automap-visibility.md](docs/automap-visibility.md)
 - All documentation: [docs/README.md](docs/README.md)
 
@@ -164,8 +188,8 @@ cd Dungeons/Dungeonmaster
 `Dungeons/` is ignored by git, so game data and saves never end up in a commit.
 
 Open the map from the menu bar at the top of the game window with
-**Misc → Map → Window**. It opens with the game
-from then on, until you close it.
+**Misc → Map → Window**, and the statistics with **Misc → Statistics → Window**. Each opens
+with the game from then on, until you close it.
 
 ## How it works
 
@@ -234,7 +258,7 @@ nor those optional files.
 - CSBwin and the original reverse engineering: Paul R. Stevens.
 - The SDL2 Linux port this tree builds on: the CSBwin Linux community.
 - Original games, artwork and game data: FTL Games / Software Heaven, Inc.
-- Automap, Windows build and documentation:
+- Automap, statistics, Windows build and documentation:
   [codebrewster](https://github.com/codebrewster).
 - Bundled libraries: [Dear ImGui](https://github.com/ocornut/imgui),
   [SDL_sound](https://github.com/icculus/SDL_sound) and
