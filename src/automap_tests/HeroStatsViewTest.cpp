@@ -210,8 +210,20 @@ static void MissileNames(void)
   CHECK(HeroStatsView_DeathName(burnt, "Lord Order") == "Fireball from Lord Order · Lv 3");
 }
 
+static void GoneChampionFallsBackToParty(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  std::vector<HeroStatsChampion> party(1, 7);
+  std::vector<HeroStatsColumn> columns = HeroStatsView_Columns(stats, party);
+  CHECK(HeroStatsView_ValidWho(columns, 9) == HERO_STATS_PARTY);
+  CHECK(HeroStatsView_ValidWho(columns, 7) == 7);
+  CHECK(HeroStatsView_ValidWho(columns, HERO_STATS_PARTY) == HERO_STATS_PARTY);
+}
+
 void TestHeroStatsView(void)
 {
+  GoneChampionFallsBackToParty();
   NumbersAndPercents();
   ColumnsPutThePartyFirst();
   PickerShowsButtonsUpToSixteenLevels();

@@ -348,3 +348,10 @@ std::string HeroStatsView_DeathName(const HeroStatsDeath &death, const std::stri
   }
   return what + " · Lv " + std::to_string(death.level);
 }
+
+HeroStatsChampion HeroStatsView_ValidWho(const std::vector<HeroStatsColumn> &columns, HeroStatsChampion who)
+{
+  for (size_t i = 0; i < columns.size(); i++)
+    if (columns[i].id == who) return who;
+  return HERO_STATS_PARTY;
+}

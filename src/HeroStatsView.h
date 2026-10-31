@@ -26,6 +26,9 @@ struct HeroStatsColumn { HeroStatsChampion id; std::string name; bool hasLeft; }
 std::vector<HeroStatsColumn> HeroStatsView_Columns(const HeroStats &stats,
                                                    const std::vector<HeroStatsChampion> &inParty);
 
+// who when it is one of the columns or the party, else the party (a champion of a game before)
+HeroStatsChampion HeroStatsView_ValidWho(const std::vector<HeroStatsColumn> &columns, HeroStatsChampion who);
+
 // previous/next: -2 none, -1 whole run, else a level
 struct HeroStatsPicker { bool stepper; std::vector<int> levels; int previous, next; };
 HeroStatsPicker HeroStatsView_Picker(const HeroStats &stats, int shownLevel);
