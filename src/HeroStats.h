@@ -16,7 +16,7 @@ typedef uint16_t HeroStatsChampion;              // CHARDESC::fingerPrint
 const HeroStatsChampion HERO_STATS_NOBODY = 0xffff;
 const HeroStatsChampion HERO_STATS_PARTY = 0xfffe; // "all champions" in queries
 const int HERO_STATS_WHOLE_RUN = -1;               // "all levels" in queries
-const int HERO_STATS_FISTS = -1;                   // weapon of an empty hand
+const int HERO_STATS_UNARMED = -1;                 // weapon of an empty hand
 const int HERO_STATS_NO_WEAPON = -2;               // spells entered as runes
 const int HERO_STATS_THROW_OPTION = -1;            // option of an item thrown by hand
 const int HERO_STATS_NO_OPTION = -2;
@@ -32,7 +32,7 @@ struct HeroStatsBlow
   HeroBlowBy by;
   HeroStatsChampion champion;  // HeroBlowByChampion, else HERO_STATS_NOBODY
   HeroDamageKind kind;
-  int weapon;                  // basic object type, HERO_STATS_FISTS or HERO_STATS_NO_WEAPON
+  int weapon;                  // basic object type, HERO_STATS_UNARMED or HERO_STATS_NO_WEAPON
   bool thrown;                 // the weapon itself was thrown by hand
   int option;                  // attack option index (d.AttackNames), or the two constants
   uint32_t spell;              // rune key, or HERO_STATS_NO_SPELL
@@ -53,22 +53,32 @@ const uint32_t HERO_SPELL_SHIELD_ACTION = 0x02000000;
 const uint32_t HERO_SPELL_HEAL_ACTION   = 0x03000000;
 const uint32_t HERO_SPELL_ITEM_SPELLS   = 0x04000000;  // spells cast from staffs and wands
 const uint32_t HERO_SPELL_NO_SUCH_SPELL = 0x80000000;  // ORed onto runes that form no spell
+// A monster's missile: ORed onto the low byte of the missile's RN (0xff80 fireball ... 0xff87
+// poison cloud), kept in HeroStatsBlow::spell of HeroBlowByMonster
+const uint32_t HERO_SPELL_MONSTER_MISSILE = 0x05000000;
 // The rune key of an incantation (CHARDESC::incantation: four bytes, no terminator when all four
 // are entered): incantation[1] | incantation[2] << 8 | incantation[3] << 16, the power rune
 // left out and nothing after the first 0 taken as a rune
 uint32_t HeroStats_RuneSpellKey(const void *incantation);
 // The display name of a weapon key: the basic object type's name from the game's item names
-// (d.ObjectNames, nameCount entries), "FISTS" for an empty hand, "" for spells entered as runes,
+// (d.ObjectNames, nameCount entries), "UNARMED" for an empty hand, "" for spells entered as runes,
 // "#N" for a type the table does not name
 std::string HeroStats_WeaponName(int weapon, const char *const *itemNames, int nameCount);
 
 struct HeroStatsChampionInfo { HeroStatsChampion id; std::string name; };
-struct HeroStatsAttackRow { int weapon; bool thrown; int option; int tries, hits, damage, kills; };
+// uses: actions that cannot hit (War Cry, Calm, Spellshield ...), counted apart from the tries
+struct HeroStatsAttackRow { int weapon; bool thrown; int option; int tries, hits, damage, kills, uses; };
 struct HeroStatsMonsterRow { int monsterType, variant; HeroBlowBy by; HeroStatsChampion champion; int count; };
-struct HeroStatsHarmRow { HeroHarmSource source; HeroStatsChampion causer; int monsterType; int amount; };
+// spell: the missile kind of HeroHarmMonsterMissile (HERO_SPELL_MONSTER_MISSILE | kind), else 0
+struct HeroStatsHarmRow { HeroHarmSource source; HeroStatsChampion causer; int monsterType; int amount; uint32_t spell; };
 struct HeroStatsHealRow { HeroHealKind kind; HeroStatsChampion brewer; int amount; };
 // Cleared runes count their mana as wasted; the shield and heal actions count theirs as mana
 struct HeroStatsSpellRow { uint32_t spell; int casts, mana, failed, wasted, damage, kills; };
+
+// What the party did on its own feet: steps and turns the player made, teleporters passed,
+// engine ticks spent on the level (and how many of them asleep), pits fallen into, pits climbed
+// down with a rope, and bumps into walls and closed doors
+struct HeroStatsMovement { int steps, turns, teleports, ticks, sleepTicks, pitFalls, pitClimbs, bumps; };
 
 // A champion's death: where, from what, and the blow that did it (monster type, causing champion)
 struct HeroStatsDeath { HeroStatsChampion who; int level; HeroHarmSource cause; HeroStatsBlow by; };
@@ -87,6 +97,7 @@ public:
 
   // Only blows by a champion change these
   void CountAttackTry(int level, const HeroStatsBlow &blow);
+  void CountActionUse(int level, const HeroStatsBlow &blow);   // an action that cannot hit
   void CountAttackHit(int level, const HeroStatsBlow &blow);
   void CreditMonsterDamage(int level, const HeroStatsBlow &blow, int damage);
   // Every death; the champion's kills, attack row and spell row count a champion's blow
@@ -116,6 +127,16 @@ public:
   int ManaWasted(HeroStatsChampion who, int level) const;                  // failed casts + runes cleared
   std::vector<HeroStatsSpellRow> Spells(HeroStatsChampion who, int level) const;  // most mana first
 
+  // The party's movement, per level (not per champion)
+  void CountStep(int level);
+  void CountTurn(int level);
+  void CountTeleport(int level);
+  void CountTick(int level, bool asleep);
+  void CountPitFall(int level);
+  void CountPitClimb(int level);
+  void CountBump(int level);
+  HeroStatsMovement Movement(int level) const;
+
   // Hardship. Deaths are kept for the whole run, each with its level.
   void CountDeath(const HeroStatsDeath &death);
   void CountResurrection(HeroStatsChampion who, int level);
@@ -133,12 +154,17 @@ public:
 
   // For the .map file: appends every record to *out. Deserialize replaces everything (hardship
   // included) and returns false, leaving the store as it was, on any short, surplus or
-  // out-of-range byte.
+  // out-of-range byte. layout is the .map format version the bytes were written in: 13 had no
+  // missile kind in the harm rows and no movement, 14 only steps, turns, teleports and ticks and
+  // no uses in the attack rows.
+  static const int LAYOUT = 15;
+  static const int FIRST_LAYOUT_WITH_MOVEMENT = 14;
+  static const int FIRST_LAYOUT_WITH_PITS_AND_SLEEP = 15;
   void Serialize(std::vector<uint8_t> *out) const;
-  bool Deserialize(const uint8_t *data, size_t size);
+  bool Deserialize(const uint8_t *data, size_t size, int layout = LAYOUT);
 
 private:
-  struct AttackCounts { int tries, hits, damage, kills; };
+  struct AttackCounts { int tries, hits, damage, kills, uses; };
   // (champion, level, weapon, thrown, option)
   typedef std::tuple<HeroStatsChampion, int, int, bool, int> AttackKey;
   // (champion, level, kind)
@@ -147,8 +173,8 @@ private:
   typedef std::tuple<int, int, int, int, HeroStatsChampion> MonsterKey;
 
   struct SpellCounts { int casts, mana, failed, wasted, damage, kills; };
-  // (victim, level, source, causer, monster type)
-  typedef std::tuple<HeroStatsChampion, int, int, HeroStatsChampion, int> HarmKey;
+  // (victim, level, source, causer, monster type, missile kind)
+  typedef std::tuple<HeroStatsChampion, int, int, HeroStatsChampion, int, uint32_t> HarmKey;
   // (champion, level, kind, brewer)
   typedef std::tuple<HeroStatsChampion, int, int, HeroStatsChampion> HealKey;
   // (champion, level, gain)
@@ -173,6 +199,7 @@ private:
   std::map<SpellKey, SpellCounts> m_spells;
   std::vector<HeroStatsDeath> m_deaths;
   std::map<std::pair<HeroStatsChampion, int>, int> m_resurrections;
+  std::map<int, HeroStatsMovement> m_movement;
   int m_partyWipes = 0;
   int m_reloads = 0;
 };

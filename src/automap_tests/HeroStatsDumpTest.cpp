@@ -30,7 +30,7 @@ static void EveryNumberGetsALine(void)
   stats.CountAttackTry(3, axe);
   stats.CountAttackHit(3, axe);
   stats.CreditMonsterDamage(3, axe, 40);
-  HeroStatsBlow fists = ChampionBlow(9, HERO_STATS_FISTS, 0);
+  HeroStatsBlow fists = ChampionBlow(9, HERO_STATS_UNARMED, 0);
   stats.CountAttackTry(3, fists);
   stats.CountAttackHit(3, fists);
   stats.CreditMonsterDamage(3, fists, 5);

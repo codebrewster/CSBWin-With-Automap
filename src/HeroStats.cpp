@@ -29,7 +29,7 @@ uint32_t HeroStats_RuneSpellKey(const void *incantation)
 
 std::string HeroStats_WeaponName(int weapon, const char *const *itemNames, int nameCount)
 {
-  if (weapon == HERO_STATS_FISTS) return "FISTS";
+  if (weapon == HERO_STATS_UNARMED) return "UNARMED";
   if (weapon == HERO_STATS_NO_WEAPON) return "";
   if (weapon >= 0 && weapon < nameCount && itemNames[weapon] != NULL) return itemNames[weapon];
   char number[16];
@@ -61,6 +61,7 @@ void HeroStats::Forget(void)
   m_spells.clear();
   m_deaths.clear();
   m_resurrections.clear();
+  m_movement.clear();
   m_partyWipes = 0;
   m_reloads = 0;
 }
@@ -103,7 +104,7 @@ HeroStats::AttackCounts &HeroStats::AttackRow(int level, const HeroStatsBlow &bl
   std::map<AttackKey, AttackCounts>::iterator at = m_attacks.find(key);
   if (at == m_attacks.end())
   {
-    AttackCounts zero = {0, 0, 0, 0};
+    AttackCounts zero = {0, 0, 0, 0, 0};
     at = m_attacks.insert(std::make_pair(key, zero)).first;
   }
   return at->second;
@@ -125,6 +126,12 @@ void HeroStats::CountAttackTry(int level, const HeroStatsBlow &blow)
 {
   if (blow.by != HeroBlowByChampion) return;
   AttackRow(level, blow).tries++;
+}
+
+void HeroStats::CountActionUse(int level, const HeroStatsBlow &blow)
+{
+  if (blow.by != HeroBlowByChampion) return;
+  AttackRow(level, blow).uses++;
 }
 
 void HeroStats::CountAttackHit(int level, const HeroStatsBlow &blow)
@@ -158,7 +165,9 @@ void HeroStats::CreditHarm(HeroStatsChampion victim, int level, HeroHarmSource s
   if (amount <= 0) return;
   HeroStatsChampion causer = blow.by == HeroBlowByChampion ? blow.champion : HERO_STATS_NOBODY;
   int monsterType = blow.by == HeroBlowByMonster ? blow.monsterType : -1;
-  m_harm[HarmKey(victim, level, source, causer, monsterType)] += amount;
+  uint32_t missile = source == HeroHarmMonsterMissile && (blow.spell & 0xff000000) == HERO_SPELL_MONSTER_MISSILE
+                         ? blow.spell : 0;
+  m_harm[HarmKey(victim, level, source, causer, monsterType, missile)] += amount;
 }
 
 void HeroStats::CreditHealing(HeroStatsChampion who, int level, HeroHealKind kind,
@@ -231,13 +240,14 @@ std::vector<HeroStatsAttackRow> HeroStats::Attacks(HeroStatsChampion who, int le
   {
     const AttackKey &key = at->first;
     if (!Matches(who, std::get<0>(key)) || !LevelMatches(level, std::get<1>(key))) continue;
-    AttackCounts zero = {0, 0, 0, 0};
+    AttackCounts zero = {0, 0, 0, 0, 0};
     AttackCounts &sum = sums.insert(std::make_pair(
         RowKey(std::get<2>(key), std::get<3>(key), std::get<4>(key)), zero)).first->second;
     sum.tries += at->second.tries;
     sum.hits += at->second.hits;
     sum.damage += at->second.damage;
     sum.kills += at->second.kills;
+    sum.uses += at->second.uses;
   }
   std::vector<HeroStatsAttackRow> rows;
   for (std::map<RowKey, AttackCounts>::const_iterator at = sums.begin(); at != sums.end(); ++at)
@@ -250,6 +260,7 @@ std::vector<HeroStatsAttackRow> HeroStats::Attacks(HeroStatsChampion who, int le
     row.hits = at->second.hits;
     row.damage = at->second.damage;
     row.kills = at->second.kills;
+    row.uses = at->second.uses;
     rows.push_back(row);
   }
   return rows;
@@ -309,13 +320,13 @@ static bool BiggestHarmFirst(const HeroStatsHarmRow &a, const HeroStatsHarmRow &
 
 std::vector<HeroStatsHarmRow> HeroStats::HarmRows(HeroStatsChampion who, int level) const
 {
-  typedef std::tuple<int, HeroStatsChampion, int> RowKey;  // source, causer, monster type
+  typedef std::tuple<int, HeroStatsChampion, int, uint32_t> RowKey;  // source, causer, monster type, missile
   std::map<RowKey, int> sums;
   for (std::map<HarmKey, int>::const_iterator at = m_harm.begin(); at != m_harm.end(); ++at)
   {
     const HarmKey &key = at->first;
     if (!Matches(who, std::get<0>(key)) || !LevelMatches(level, std::get<1>(key))) continue;
-    sums[RowKey(std::get<2>(key), std::get<3>(key), std::get<4>(key))] += at->second;
+    sums[RowKey(std::get<2>(key), std::get<3>(key), std::get<4>(key), std::get<5>(key))] += at->second;
   }
   std::vector<HeroStatsHarmRow> rows;
   for (std::map<RowKey, int>::const_iterator at = sums.begin(); at != sums.end(); ++at)
@@ -324,6 +335,7 @@ std::vector<HeroStatsHarmRow> HeroStats::HarmRows(HeroStatsChampion who, int lev
     row.source = (HeroHarmSource)std::get<0>(at->first);
     row.causer = std::get<1>(at->first);
     row.monsterType = std::get<2>(at->first);
+    row.spell = std::get<3>(at->first);
     row.amount = at->second;
     rows.push_back(row);
   }
@@ -456,6 +468,67 @@ std::vector<HeroStatsSpellRow> HeroStats::Spells(HeroStatsChampion who, int leve
   return rows;
 }
 
+static HeroStatsMovement NoMovement(void)
+{
+  HeroStatsMovement none = {0, 0, 0, 0, 0, 0, 0, 0};
+  return none;
+}
+
+void HeroStats::CountStep(int level)
+{
+  m_movement.insert(std::make_pair(level, NoMovement())).first->second.steps++;
+}
+
+void HeroStats::CountTurn(int level)
+{
+  m_movement.insert(std::make_pair(level, NoMovement())).first->second.turns++;
+}
+
+void HeroStats::CountTeleport(int level)
+{
+  m_movement.insert(std::make_pair(level, NoMovement())).first->second.teleports++;
+}
+
+void HeroStats::CountTick(int level, bool asleep)
+{
+  HeroStatsMovement &movement = m_movement.insert(std::make_pair(level, NoMovement())).first->second;
+  movement.ticks++;
+  if (asleep) movement.sleepTicks++;
+}
+
+void HeroStats::CountPitFall(int level)
+{
+  m_movement.insert(std::make_pair(level, NoMovement())).first->second.pitFalls++;
+}
+
+void HeroStats::CountPitClimb(int level)
+{
+  m_movement.insert(std::make_pair(level, NoMovement())).first->second.pitClimbs++;
+}
+
+void HeroStats::CountBump(int level)
+{
+  m_movement.insert(std::make_pair(level, NoMovement())).first->second.bumps++;
+}
+
+HeroStatsMovement HeroStats::Movement(int level) const
+{
+  HeroStatsMovement sum = NoMovement();
+  for (std::map<int, HeroStatsMovement>::const_iterator at = m_movement.begin(); at != m_movement.end(); ++at)
+  {
+    if (!LevelMatches(level, at->first)) continue;
+    sum.steps += at->second.steps;
+    sum.turns += at->second.turns;
+    sum.teleports += at->second.teleports;
+    sum.ticks += at->second.ticks;
+    sum.sleepTicks += at->second.sleepTicks;
+    sum.pitFalls += at->second.pitFalls;
+    sum.pitClimbs += at->second.pitClimbs;
+    sum.bumps += at->second.bumps;
+  }
+  return sum;
+}
+
 void HeroStats::CountDeath(const HeroStatsDeath &death)
 {
   m_deaths.push_back(death);
@@ -549,6 +622,7 @@ void HeroStats::Serialize(std::vector<uint8_t> *out) const
     HeroBytes_PutInt(out, it->second.hits);
     HeroBytes_PutInt(out, it->second.damage);
     HeroBytes_PutInt(out, it->second.kills);
+    HeroBytes_PutInt(out, it->second.uses);
   }
   HeroBytes_Put(out, (uint32_t)m_damage.size(), 4);
   for (std::map<DamageKey, int>::const_iterator it = m_damage.begin(); it != m_damage.end(); ++it)
@@ -584,6 +658,7 @@ void HeroStats::Serialize(std::vector<uint8_t> *out) const
     HeroBytes_Put(out, std::get<3>(it->first), 2);
     HeroBytes_PutInt(out, std::get<4>(it->first));
     HeroBytes_PutInt(out, it->second);
+    HeroBytes_Put(out, std::get<5>(it->first), 4);
   }
   HeroBytes_Put(out, (uint32_t)m_healing.size(), 4);
   for (std::map<HealKey, int>::const_iterator it = m_healing.begin(); it != m_healing.end(); ++it)
@@ -632,10 +707,25 @@ void HeroStats::Serialize(std::vector<uint8_t> *out) const
   }
   HeroBytes_PutInt(out, m_partyWipes);
   HeroBytes_PutInt(out, m_reloads);
+  HeroBytes_Put(out, (uint32_t)m_movement.size(), 4);
+  for (std::map<int, HeroStatsMovement>::const_iterator it = m_movement.begin(); it != m_movement.end(); ++it)
+  {
+    HeroBytes_PutInt(out, it->first);
+    HeroBytes_PutInt(out, it->second.steps);
+    HeroBytes_PutInt(out, it->second.turns);
+    HeroBytes_PutInt(out, it->second.teleports);
+    HeroBytes_PutInt(out, it->second.ticks);
+    HeroBytes_PutInt(out, it->second.sleepTicks);
+    HeroBytes_PutInt(out, it->second.pitFalls);
+    HeroBytes_PutInt(out, it->second.pitClimbs);
+    HeroBytes_PutInt(out, it->second.bumps);
+  }
 }
 
-bool HeroStats::Deserialize(const uint8_t *data, size_t size)
+bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
 {
+  bool hasMovement = layout >= FIRST_LAYOUT_WITH_MOVEMENT;
+  bool hasPitsAndSleep = layout >= FIRST_LAYOUT_WITH_PITS_AND_SLEEP;
   HeroBytesReader in(data, size);
   HeroStats read;
   uint32_t count = in.GetCount(3);
@@ -658,7 +748,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size)
     read.MarkLevelVisited(level);   // keeps the list sorted and free of repeats
   }
 
-  count = in.GetCount(2 + 4 + 4 + 1 + 4 + 16);
+  count = in.GetCount(2 + 4 + 4 + 1 + 4 + (hasPitsAndSleep ? 20 : 16));
   for (uint32_t i = 0; i < count && in.ok; i++)
   {
     HeroStatsChampion who = (HeroStatsChampion)in.Get(2);
@@ -671,6 +761,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size)
     counts.hits = in.GetInt();
     counts.damage = in.GetInt();
     counts.kills = in.GetInt();
+    counts.uses = hasPitsAndSleep ? in.GetInt() : 0;
     read.m_attacks[AttackKey(who, level, weapon, thrown, option)] = counts;
   }
   count = in.GetCount(2 + 4 + 4 + 4);
@@ -702,7 +793,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size)
     if (by < 0 || by > (int)HeroBlowByOther) return false;
     read.m_monsterKills[MonsterKey(level, type, variant, by, who)] = number;
   }
-  count = in.GetCount(2 + 4 + 4 + 2 + 4 + 4);
+  count = in.GetCount(2 + 4 + 4 + 2 + 4 + 4 + (hasMovement ? 4 : 0));
   for (uint32_t i = 0; i < count && in.ok; i++)
   {
     HeroStatsChampion victim = (HeroStatsChampion)in.Get(2);
@@ -711,8 +802,9 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size)
     HeroStatsChampion causer = (HeroStatsChampion)in.Get(2);
     int type = in.GetInt();
     int amount = in.GetInt();
+    uint32_t missile = hasMovement ? in.Get(4) : 0;
     if (source < 0 || source >= HERO_HARM_SOURCE_COUNT) return false;
-    read.m_harm[HarmKey(victim, level, source, causer, type)] = amount;
+    read.m_harm[HarmKey(victim, level, source, causer, type, missile)] = amount;
   }
   count = in.GetCount(2 + 4 + 4 + 2 + 4);
   for (uint32_t i = 0; i < count && in.ok; i++)
@@ -771,6 +863,24 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size)
   }
   read.m_partyWipes = in.GetInt();
   read.m_reloads = in.GetInt();
+  count = hasMovement ? in.GetCount((hasPitsAndSleep ? 9 : 5) * 4) : 0;
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    int level = in.GetInt();
+    HeroStatsMovement movement = NoMovement();
+    movement.steps = in.GetInt();
+    movement.turns = in.GetInt();
+    movement.teleports = in.GetInt();
+    movement.ticks = in.GetInt();
+    if (hasPitsAndSleep)
+    {
+      movement.sleepTicks = in.GetInt();
+      movement.pitFalls = in.GetInt();
+      movement.pitClimbs = in.GetInt();
+      movement.bumps = in.GetInt();
+    }
+    read.m_movement[level] = movement;
+  }
   if (!in.ok || in.left != 0) return false;
   *this = read;
   return true;

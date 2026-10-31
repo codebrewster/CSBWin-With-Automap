@@ -72,10 +72,11 @@ const char *AutoMapFile_Describe(AutoMapFileResult result);
 //     champions: per champion 2 bytes id, 1 byte name length, the name
 //     visited levels: per level 4 bytes
 //     attacks: per row 2 bytes champion, level, weapon, 1 byte thrown, option, tries, hits,
-//              damage, kills
+//              damage, kills, then (version 15) uses of actions that cannot hit
 //     damage dealt: champion, level, kind, amount; kills: champion, level, amount
 //     monster kills: level, monster type, variant, blow-by, 2 bytes champion, count
-//     harm: 2 bytes victim, level, source, 2 bytes causer, monster type, amount
+//     harm: 2 bytes victim, level, source, 2 bytes causer, monster type, amount, then (version
+//           14) the 4 byte missile kind of a monster's missile (HERO_SPELL_MONSTER_MISSILE | kind)
 //     healing: 2 bytes champion, level, kind, 2 bytes brewer, amount
 //     mana gained: 2 bytes champion, level, gain, amount
 //     spells: 2 bytes champion, level, 4 byte spell key, casts, mana, failed, wasted, damage, kills
@@ -83,6 +84,8 @@ const char *AutoMapFile_Describe(AutoMapFileResult result);
 //             weapon, 1 byte thrown, option, 4 byte spell, monster type)
 //     resurrections: 2 bytes champion, level, count
 //     then the party wipes and the reloads, 4 bytes each
+//     movement (version 14): per level 4 bytes level, steps, turns, teleports, ticks, then
+//              (version 15) ticks asleep, pits fallen into, pits climbed down, bumps
 //     origins: missiles and clouds (4 byte index, the blow), brewers (4 byte index, 2 bytes
 //              champion)
 //
@@ -92,8 +95,9 @@ const char *AutoMapFile_Describe(AutoMapFileResult result);
 // looked-into bits (a seen face counts as looked into), version 7 files no cell looks,
 // version 8 files no player notes, version 9 files no damage, version 10 files no rims (a painted
 // rim cell is taken from the floor beside it, AutoMapExplored::TakeRimMarksFromTheEdge), version 11
-// files no seen floors (an explored cell counts as seen), version 12 files no statistics; they
-// are still read.
+// files no seen floors (an explored cell counts as seen), version 12 files no statistics, version
+// 13 files no missile kinds and no movement, version 14 files no sleep, pits or bumps; they are
+// still read.
 class AutoMapFile
 {
 public:

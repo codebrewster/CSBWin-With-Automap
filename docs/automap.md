@@ -70,7 +70,7 @@ together. The automap writes its own settings (window size, whether it was open)
 into `csb.cfg` via `AutoMapWindow_ReadSettings`/`AutoMapWindow_WriteSettings`
 (`AutoMapWindow.h`).
 
-The file is format version 12. After the explored bits of each level it holds four
+The file is format version 15. After the explored bits of each level it holds four
 seen-face bits per cell, four glimpsed-face bits per cell, four read-text bits per cell, four looked-into bits per cell and one seen-floor bit per cell (since version 12: the floor picture was noticed), then the same six sets for the level's rim (since version 11, see the rim rock below), and after the levels the list of learned facts: kind, record,
 level, x, y, then the floor items the 3D view last showed (`AutoMapItemMemory`): record,
 description index, level, x, y and whether it was a mere glimpse, in the order seen, and
@@ -80,7 +80,11 @@ notes (`AutoMapPlayerNotes`, see [Player notes](#player-notes)): a count of pit 
 level, x, y and open per mark, then a count of player links with the source's level, x, y and
 side (a signed byte, -1 for a floor source) and the target's level, x, y (layout in
 `AutoMapFile.h`, [data-formats.md](data-formats.md)). A cell outside the dungeon or a side
-outside -1..3 fails the read. A file older than version 9 reads with no notes. A
+outside -1..3 fails the read. Since version 13 the file ends in the hero statistics of the
+Statistics window ([statistics-manual.md](statistics-manual.md)); version 14 added the kind of a
+monster's missile to the damage the party took and the party's movement per level, version 15 the
+uses of actions that cannot hit, sleep, pits and wall bumps. A file older
+than version 9 reads with no notes. A
 version-1 file is still read: its seen faces are filled in by the old rule (every face
 whose facing floor cell is explored, `AutoMapExplored::MarkFacesTowardsExploredCells`)
 and it holds no facts. A file older than version 3 holds no items, and `Read` reports that so the

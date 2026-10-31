@@ -55,8 +55,10 @@ static void DumpOne(const HeroStats &stats, HeroStatsChampion who, std::string *
   for (size_t i = 0; i < attacks.size(); i++)
   {
     const HeroStatsAttackRow &a = attacks[i];
-    Line(out, name, a.thrown ? "attack %d/%d thrown tries %d hits %d damage %d kills %d"
-                             : "attack %d/%d tries %d hits %d damage %d kills %d",
+    // Uses of actions that cannot hit only where there are any
+    std::string uses = a.uses != 0 ? " uses " + std::to_string(a.uses) : "";
+    Line(out, name, (a.thrown ? "attack %d/%d thrown tries %d hits %d damage %d kills %d"
+                              : "attack %d/%d tries %d hits %d damage %d kills %d") + uses,
          a.weapon, a.option, a.tries, a.hits, a.damage, a.kills);
   }
   std::vector<HeroStatsSpellRow> spells = stats.Spells(who, run);
@@ -73,7 +75,10 @@ static void DumpOne(const HeroStats &stats, HeroStatsChampion who, std::string *
   for (size_t i = 0; i < harm.size(); i++)
   {
     const HeroStatsHarmRow &h = harm[i];
-    Line(out, name, "harm source %d by " + InFormat(NameOf(stats, h.causer)) + " monster %d amount %d",
+    // A monster's missile names its kind; other rows have none
+    char missile[32] = "";
+    if (h.spell != 0) snprintf(missile, sizeof missile, " missile 0x%08x", (unsigned)h.spell);
+    Line(out, name, "harm source %d by " + InFormat(NameOf(stats, h.causer)) + " monster %d amount %d" + missile,
          (int)h.source, h.monsterType, h.amount);
   }
   Number(out, name, "friendly fire caused %d", stats.FriendlyFireCaused(who, run));
@@ -117,6 +122,14 @@ static void DumpOne(const HeroStats &stats, HeroStatsChampion who, std::string *
       levels += number;
     }
     *out += name + " " + levels + "\n";
+  }
+  HeroStatsMovement moved = stats.Movement(run);
+  if (moved.steps != 0 || moved.turns != 0 || moved.teleports != 0 || moved.ticks != 0 || moved.bumps != 0 ||
+      moved.pitFalls != 0 || moved.pitClimbs != 0)
+  {
+    Line(out, name, "movement steps %d turns %d bumps %d teleports %d pit falls %d pit climbs %d", moved.steps,
+         moved.turns, moved.bumps, moved.teleports, moved.pitFalls, moved.pitClimbs);
+    Line(out, name, "time ticks %d asleep %d", moved.ticks, moved.sleepTicks);
   }
   Number(out, name, "wipes %d", stats.PartyWipes());
   Number(out, name, "reloads %d", stats.Reloads());

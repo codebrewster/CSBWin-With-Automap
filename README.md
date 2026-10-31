@@ -15,6 +15,11 @@ saw to the whole dungeon laid open.
 **[Read the user manual](docs/automap-manual.md)** for every control and
 setting.
 
+The **Statistics** window beside it shows what each champion did, for the whole run and per
+level: damage, kills, attacks, spells, healing, deaths and the party's movement. It can be
+exported as one HTML file to share. See the
+**[Statistics manual](docs/statistics-manual.md)**.
+
 ## Download
 
 Ready-to-run builds for Windows and Linux are on the
@@ -132,6 +137,7 @@ this repository; see [Game data and community](#game-data-and-community).
 - Linux and macOS: [BUILDING.md](BUILDING.md)
 - Windows: [BUILDING-WINDOWS.md](BUILDING-WINDOWS.md)
 - How to use the map: [docs/automap-manual.md](docs/automap-manual.md)
+- How to use the Statistics window: [docs/statistics-manual.md](docs/statistics-manual.md)
 - Code map and internals: [docs/automap.md](docs/automap.md)
 - Visibility rules in detail: [docs/automap-visibility.md](docs/automap-visibility.md)
 - All documentation: [docs/README.md](docs/README.md)

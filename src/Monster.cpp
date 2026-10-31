@@ -1199,7 +1199,7 @@ bool MonsterAttacks(RN  monster,
     };
     if (missile != RNnul)
     {
-      HeroStats_ExpectMonsterMissile((int)attackParameters.monsterType);
+      HeroStats_ExpectMonsterMissile((int)attackParameters.monsterType, missile.ConvertToInteger());
       LaunchMissile(
                     missile,
                     attackParameters.monsterX,

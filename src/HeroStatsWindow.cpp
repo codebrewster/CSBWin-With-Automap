@@ -6,21 +6,22 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdio>
+#include <ctime>
 #include <map>
 #include <string>
 #include <vector>
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_sdlrenderer2.h"
+#include "HeroStatsExport.h"
 #include "HeroStatsHooks.h"
+#include "HeroStatsPages.h"
 #include "HeroStatsView.h"
 #include "HeroStatsWindow.h"
 
 #include "confile.h"
 
 extern char pwd[]; // LinCSBUI.cpp
-// Statistics.cpp: the monster's name as the game shows it, custom dungeon names included
-void GetMonsterName(int monsterType, int graphic, char *name);
 
 static const char *SETTINGS_SECTION = "settings";
 static const int DEFAULT_WIDTH = 900;
@@ -99,13 +100,14 @@ static bool heroPageCached = false;
 static int shownLevel = HERO_STATS_WHOLE_RUN;
 // The hero page a click on a name asked for; HERO_STATS_PARTY for the party
 static bool heroPageOpen = false;
-// What the By level page adds up; kept while the program runs, not in csb.cfg
-enum ByLevelMetric { MetricDealt, MetricKills, MetricTaken, MetricHealed, MetricSpent, BY_LEVEL_METRIC_COUNT };
-static const char *const METRIC_LABELS[BY_LEVEL_METRIC_COUNT] = {"Damage dealt", "Kills", "Damage taken", "Healed", "Mana spent"};
-static int shownMetric = MetricDealt;
+// What the By level page adds up (HeroStatsMetric); kept while the program runs, not in csb.cfg
+static int shownMetric = HeroMetricDealt;
 // The open sections of the hero pages: 1 Attacks, 2 Spells, 4 Damage taken, 8 Healing, 16 Hardship
 static const int DEFAULT_OPEN_SECTIONS = 1 | 16;
 static int openSections = DEFAULT_OPEN_SECTIONS;
+// stats_separator as csb.cfg has it ("comma", "dot", "space", "apostrophe", "none"), written back
+// as it was read
+static std::string separatorSetting = "comma";
 static HeroStatsChampion heroPageWho = HERO_STATS_PARTY;
 
 static ImVec4 Colour(ImU32 rgb, float alpha = 1.0f)
@@ -140,6 +142,9 @@ void HeroStatsWindow_ReadSettings(void)
   shownPage = csb_get_config_int(SETTINGS_SECTION, "stats_page", StatsPageTable);
   if (shownPage < 0 || shownPage >= STATS_PAGE_COUNT) shownPage = StatsPageTable;
   openSections = csb_get_config_int(SETTINGS_SECTION, "stats_open", DEFAULT_OPEN_SECTIONS) & 31;
+  char defaultSeparator[] = "comma";
+  separatorSetting = csb_get_config_string(SETTINGS_SECTION, "stats_separator", defaultSeparator);
+  HeroStatsView_SetThousandsSeparator(HeroStatsView_SeparatorOfSetting(separatorSetting));
 }
 
 static void RememberPlacement(void)
@@ -159,6 +164,9 @@ void HeroStatsWindow_WriteSettings(void)
   csb_set_config_int(SETTINGS_SECTION, "stats_height", placement.height);
   csb_set_config_int(SETTINGS_SECTION, "stats_page", shownPage);
   csb_set_config_int(SETTINGS_SECTION, "stats_open", openSections);
+  std::vector<char> separator(separatorSetting.begin(), separatorSetting.end());
+  separator.push_back(0);
+  csb_set_config_string(SETTINGS_SECTION, "stats_separator", separator.data());
 }
 
 void HeroStatsWindow_RestoreVisibility(void)
@@ -194,6 +202,7 @@ static void ApplyStyle(void)
   style.Colors[ImGuiCol_Header] = Colour(BUTTON_RGB);
   style.Colors[ImGuiCol_HeaderHovered] = Colour(BUTTON_HOVERED_RGB);
   style.Colors[ImGuiCol_HeaderActive] = Colour(BUTTON_ON_RGB);
+  style.Colors[ImGuiCol_TableHeaderBg] = Colour(BACKGROUND_RGB);
 }
 
 // Vera Sans Mono beside the game's Vera.ttf when it is there; otherwise ImGui's own font,
@@ -400,7 +409,21 @@ bool HeroStatsWindow_HandleEvent(const SDL_Event &event)
 // ---------------------------------------------------------------------------------------------
 // Drawing
 
-// The strip at the top, as the mockup has it: the window's name on blue
+static const float GUTTER = 8;
+
+static ImVec4 DimmedColour(void)
+{
+  return ImGui::GetStyle().Colors[ImGuiCol_TextDisabled];
+}
+
+static float ButtonWidth(const char *label)
+{
+  return ImGui::CalcTextSize(label).x + ImGui::GetStyle().FramePadding.x * 2;
+}
+
+static void ExportStatistics(void);
+
+// The strip at the top, as the mockup has it: the window's name on blue, and the export
 static void DrawTitle(void)
 {
   ImDrawList *drawList = ImGui::GetWindowDrawList();
@@ -409,6 +432,12 @@ static void DrawTitle(void)
   float height = ImGui::GetTextLineHeight() + 6;
   drawList->AddRectFilled(origin, ImVec2(origin.x + width, origin.y + height), PackedColour(TITLE_RGB));
   drawList->AddText(ImVec2(origin.x + 8, origin.y + 3), PackedColour(TITLE_TEXT_RGB), "Statistics");
+  const char *exportLabel = "Export as HTML...";
+  ImGui::SetCursorScreenPos(ImVec2(origin.x + width - ButtonWidth(exportLabel) - 4, origin.y + 1));
+  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(ImGui::GetStyle().FramePadding.x, 1));
+  if (ImGui::Button(exportLabel)) ExportStatistics();
+  ImGui::PopStyleVar();
+  ImGui::SetCursorScreenPos(origin);
   ImGui::Dummy(ImVec2(width, height));
 }
 
@@ -426,41 +455,7 @@ static bool PageButton(const char *label, bool isOn)
 }
 
 // ---------------------------------------------------------------------------------------------
-// The numbers of the visible page, made once per frame
-
-struct StatsCell
-{
-  int melee, ranged, magic, total, kills, taken, friendlyFire, healed, given, generated, spent, wasted, deaths;
-};
-
-struct StatsPageData
-{
-  std::vector<HeroStatsColumn> columns;  // champions; the party's cell is cells.back()
-  std::vector<StatsCell> cells;          // columns.size() + 1
-  int wipes, reloads;
-};
-
-static StatsCell CellOf(const HeroStats &stats, HeroStatsChampion who, int level)
-{
-  StatsCell c;
-  c.melee = stats.DamageDealt(who, level, HeroDamageMelee);
-  c.ranged = stats.DamageDealt(who, level, HeroDamageRanged);
-  c.magic = stats.DamageDealt(who, level, HeroDamageMagic);
-  c.total = c.melee + c.ranged + c.magic;
-  c.kills = stats.Kills(who, level);
-  c.taken = stats.Harm(who, level);
-  c.friendlyFire = stats.FriendlyFireCaused(who, level);
-  c.healed = stats.Healed(who, level);
-  c.given = stats.HealingGiven(who, level);
-  c.generated = stats.ManaGained(who, level);
-  c.spent = stats.ManaSpent(who, level);
-  c.wasted = stats.ManaWasted(who, level);
-  c.deaths = 0;
-  std::vector<HeroStatsDeath> deaths = stats.Deaths(who);
-  for (size_t i = 0; i < deaths.size(); i++)
-    if (level == HERO_STATS_WHOLE_RUN || deaths[i].level == level) c.deaths++;
-  return c;
-}
+// The numbers of the visible page
 
 // Who the columns are, as text, to see that they changed
 static std::string ColumnsKey(const std::vector<HeroStatsColumn> &columns)
@@ -471,21 +466,10 @@ static std::string ColumnsKey(const std::vector<HeroStatsColumn> &columns)
   return key;
 }
 
-static StatsPageData BuildPageData(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns, int level)
-{
-  StatsPageData data;
-  data.columns = columns;
-  for (size_t i = 0; i < data.columns.size(); i++) data.cells.push_back(CellOf(stats, data.columns[i].id, level));
-  data.cells.push_back(CellOf(stats, HERO_STATS_PARTY, level));
-  data.wipes = stats.PartyWipes();
-  data.reloads = stats.Reloads();
-  return data;
-}
-
 // The page data for level, rebuilt when the level or the columns change and at most twice a second
-static const StatsPageData &CachedPageData(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns, int level)
+static const HeroStatsOverview &CachedOverview(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns, int level)
 {
-  static StatsPageData data;
+  static HeroStatsOverview data;
   static int cachedLevel;
   static std::string cachedColumns;
   static Uint32 cachedAt;
@@ -493,7 +477,7 @@ static const StatsPageData &CachedPageData(const HeroStats &stats, const std::ve
   Uint32 now = SDL_GetTicks();
   if (!pageDataCached || level != cachedLevel || key != cachedColumns || now - cachedAt >= CACHE_LIFETIME)
   {
-    data = BuildPageData(stats, columns, level);
+    data = HeroStatsPages_Overview(stats, columns, level);
     cachedLevel = level;
     cachedColumns = key;
     cachedAt = now;
@@ -503,19 +487,70 @@ static const StatsPageData &CachedPageData(const HeroStats &stats, const std::ve
 }
 
 // ---------------------------------------------------------------------------------------------
+// Sortable tables
+
+// The sort the player clicked in the table being drawn: column -1 when there is none
+struct TableSort
+{
+  int column;
+  bool descending;
+};
+
+static TableSort CurrentSort(void)
+{
+  TableSort sort = {-1, false};
+  ImGuiTableSortSpecs *specs = ImGui::TableGetSortSpecs();
+  if (specs != NULL && specs->SpecsCount > 0)
+  {
+    sort.column = specs->Specs[0].ColumnIndex;
+    sort.descending = specs->Specs[0].SortDirection == ImGuiSortDirection_Descending;
+    specs->SpecsDirty = false;
+  }
+  return sort;
+}
+
+static int Compare(double a, double b)
+{
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+// compare(a, b, column) < 0 when a comes first in ascending order; ties keep their order
+template <typename Row, typename Comparison>
+static void SortRows(std::vector<Row> *rows, const TableSort &sort, Comparison compare)
+{
+  if (sort.column < 0) return;
+  std::stable_sort(rows->begin(), rows->end(), [&](const Row &a, const Row &b) {
+    int c = compare(a, b, sort.column);
+    return sort.descending ? c > 0 : c < 0;
+  });
+}
+
+// A column whose header sorts the table; numbers sort biggest first on the first click
+static void SortColumn(const std::string &label, float width, bool isNumber, bool sortsFirst = false)
+{
+  ImGuiTableColumnFlags flags = ImGuiTableColumnFlags_WidthFixed;
+  if (isNumber) flags |= ImGuiTableColumnFlags_PreferSortDescending;
+  if (sortsFirst) flags |= ImGuiTableColumnFlags_DefaultSort;
+  ImGui::TableSetupColumn(label.c_str(), flags, width);
+}
+
+// The header row; dimmed[i] greys the header of column i (a champion who left)
+static void SortHeaders(const std::vector<bool> &dimmed)
+{
+  ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+  int count = ImGui::TableGetColumnCount();
+  for (int i = 0; i < count; i++)
+  {
+    if (!ImGui::TableSetColumnIndex(i)) continue;
+    bool dim = i < (int)dimmed.size() && dimmed[i];
+    if (dim) ImGui::PushStyleColor(ImGuiCol_Text, DimmedColour());
+    ImGui::TableHeader(ImGui::TableGetColumnName(i));
+    if (dim) ImGui::PopStyleColor();
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
 // The top bar
-
-static const float GUTTER = 8;
-
-static ImVec4 DimmedColour(void)
-{
-  return ImGui::GetStyle().Colors[ImGuiCol_TextDisabled];
-}
-
-static float ButtonWidth(const char *label)
-{
-  return ImGui::CalcTextSize(label).x + ImGui::GetStyle().FramePadding.x * 2;
-}
 
 // The automap shows the level index as it is; it has no names of its own for levels
 static std::string LevelLabel(int level)
@@ -656,7 +691,7 @@ static void ClickableName(const std::string &name, bool dimmed, HeroStatsChampio
   if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) OpenHeroPage(who);
 }
 
-typedef int StatsCell::*CellField;
+typedef int HeroStatsCell::*CellField;
 
 static void RowLabel(const char *label, bool indent)
 {
@@ -667,7 +702,7 @@ static void RowLabel(const char *label, bool indent)
   if (indent) ImGui::Unindent(10);
 }
 
-static void NumberRow(const char *label, const StatsPageData &data, CellField field, ImU32 colour,
+static void NumberRow(const char *label, const HeroStatsOverview &data, CellField field, ImU32 colour,
                       bool isBad, bool indent)
 {
   RowLabel(label, indent);
@@ -700,7 +735,7 @@ static void PartyOnlyRow(const char *label, int columnCount, int value, bool isB
   RightText(HeroStatsView_Number(value), isBad && value > 0 ? Colour(BAD_RGB) : Colour(TEXT_RGB));
 }
 
-static void DrawTable(const StatsPageData &data)
+static void DrawTable(const HeroStatsOverview &data)
 {
   int columnCount = (int)data.cells.size() + 1;
   ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY;
@@ -715,31 +750,31 @@ static void DrawTable(const StatsPageData &data)
     if (i < data.columns.size()) ClickableName(data.columns[i].name, data.columns[i].hasLeft, data.columns[i].id);
     else ClickableName("Party", false, HERO_STATS_PARTY);
   }
-  const StatsCell &party = data.cells.back();
+  const HeroStatsCell &party = data.cells.back();
 
   GroupRow("Damage dealt");
-  NumberRow("Melee", data, &StatsCell::melee, MELEE_RGB, false, true);
-  NumberRow("Ranged", data, &StatsCell::ranged, RANGED_RGB, false, true);
-  NumberRow("Magic", data, &StatsCell::magic, MAGIC_RGB, false, true);
-  NumberRow("Total", data, &StatsCell::total, 0, false, false);
+  NumberRow("Melee", data, &HeroStatsCell::melee, MELEE_RGB, false, true);
+  NumberRow("Ranged", data, &HeroStatsCell::ranged, RANGED_RGB, false, true);
+  NumberRow("Magic", data, &HeroStatsCell::magic, MAGIC_RGB, false, true);
+  NumberRow("Total", data, &HeroStatsCell::total, 0, false, false);
   RowLabel("share of party damage", true);
   for (size_t i = 0; i < data.cells.size(); i++)
   {
     ImGui::TableSetColumnIndex((int)i + 1);
     RightText(HeroStatsView_Percent(data.cells[i].total, party.total), DimmedColour());
   }
-  NumberRow("Kills", data, &StatsCell::kills, KILLS_RGB, false, false);
+  NumberRow("Kills", data, &HeroStatsCell::kills, KILLS_RGB, false, false);
 
   GroupRow("Damage taken");
-  NumberRow("Total", data, &StatsCell::taken, 0, false, false);
-  NumberRow("Friendly fire caused", data, &StatsCell::friendlyFire, 0, true, false);
+  NumberRow("Total", data, &HeroStatsCell::taken, 0, false, false);
+  NumberRow("Friendly fire caused", data, &HeroStatsCell::friendlyFire, 0, true, false);
 
   GroupRow("Healing");
-  NumberRow("Healed", data, &StatsCell::healed, HEALED_RGB, false, true);
-  NumberRow("Healing given (potions brewed)", data, &StatsCell::given, GIVEN_RGB, false, true);
+  NumberRow("Healed", data, &HeroStatsCell::healed, HEALED_RGB, false, true);
+  NumberRow("Healing given (potions brewed)", data, &HeroStatsCell::given, GIVEN_RGB, false, true);
 
   GroupRow("Hardship");
-  NumberRow("Deaths", data, &StatsCell::deaths, 0, true, true);
+  NumberRow("Deaths", data, &HeroStatsCell::deaths, 0, true, true);
   if (shownLevel == HERO_STATS_WHOLE_RUN)
   {
     PartyOnlyRow("Party wiped out", columnCount, data.wipes, true);
@@ -747,9 +782,13 @@ static void DrawTable(const StatsPageData &data)
   }
 
   GroupRow("Mana");
-  NumberRow("Generated", data, &StatsCell::generated, GENERATED_RGB, false, true);
-  NumberRow("Spent", data, &StatsCell::spent, 0, false, true);
-  NumberRow("Wasted on failures", data, &StatsCell::wasted, 0, true, true);
+  NumberRow("Generated", data, &HeroStatsCell::generated, GENERATED_RGB, false, true);
+  NumberRow("Spent", data, &HeroStatsCell::spent, 0, false, true);
+  NumberRow("Wasted on failures", data, &HeroStatsCell::wasted, 0, true, true);
+
+  GroupRow("Movement");
+  for (int c = 0; c < HERO_MOVE_COLUMN_COUNT; c++)
+    PartyOnlyRow(HERO_STATS_MOVEMENT_LABELS[c], columnCount, HeroStatsPages_MovementValue(data.movement, c), false);
   ImGui::EndTable();
 }
 
@@ -812,12 +851,12 @@ static float ScaleFor(float width, int largest)
   return width / (float)std::max(1, largest);
 }
 
-static void DrawBars(const StatsPageData &data)
+static void DrawBars(const HeroStatsOverview &data)
 {
   ImGui::BeginChild("##bars", ImGui::GetContentRegionAvail(), false);
   ImGui::Indent(GUTTER);
   size_t n = data.columns.size();
-  const std::vector<StatsCell> &cells = data.cells;
+  const std::vector<HeroStatsCell> &cells = data.cells;
 
   BarSectionTitle("Damage dealt");
   LegendEntry(MELEE_RGB, "melee", true);
@@ -889,7 +928,7 @@ static void DrawBars(const StatsPageData &data)
 }
 
 // ---------------------------------------------------------------------------------------------
-// Share bars, By level and Monsters
+// Share bars, By level, Monsters and Movement
 
 // A bar of the segments side by side, as wide as the cell, each as wide as its share of total
 static void ShareBar(const std::vector<BarSegment> &segments, int total)
@@ -912,20 +951,6 @@ static void ShareBar(const std::vector<BarSegment> &segments, int total)
   ImGui::Dummy(ImVec2(width, height));
 }
 
-static int MetricOf(const HeroStats &stats, HeroStatsChampion who, int level, int metric)
-{
-  switch (metric)
-  {
-  case MetricDealt:
-    return stats.DamageDealt(who, level, HeroDamageMelee) + stats.DamageDealt(who, level, HeroDamageRanged) +
-           stats.DamageDealt(who, level, HeroDamageMagic);
-  case MetricKills: return stats.Kills(who, level);
-  case MetricTaken: return stats.Harm(who, level);
-  case MetricHealed: return stats.Healed(who, level);
-  default: return stats.ManaSpent(who, level);
-  }
-}
-
 struct ByLevelRow
 {
   int level;                // HERO_STATS_WHOLE_RUN for the last row
@@ -935,22 +960,42 @@ struct ByLevelRow
 static void DrawMetricButtons(const std::vector<HeroStatsColumn> &columns)
 {
   ImGui::SetCursorPos(ImVec2(GUTTER, ImGui::GetCursorPosY() + 4));
-  for (int m = 0; m < BY_LEVEL_METRIC_COUNT; m++)
+  for (int m = 0; m < HERO_METRIC_COUNT; m++)
   {
     if (m > 0) ImGui::SameLine();
-    if (PageButton(METRIC_LABELS[m], m == shownMetric)) shownMetric = m;
+    if (PageButton(HERO_STATS_METRIC_LABELS[m], m == shownMetric)) shownMetric = m;
   }
+  if (shownMetric == HeroMetricMovement) return;  // the party's: no champions to tell apart
   ImGui::SameLine(0, 30);
   for (size_t i = 0; i < columns.size(); i++) LegendEntry(HERO_RGB[i % 4], columns[i].name.c_str(), i == 0);
+}
+
+static void DrawMovement(const HeroStats &stats, const HeroStatsPicker &picker);
+
+// A level's row of a table that lists the levels: clicking it shows the level in the Table
+static void LevelCell(int level, bool isRun)
+{
+  std::string label = isRun ? "Whole run" : LevelLabel(level);
+  if (isRun) ImGui::TextColored(Colour(TITLE_TEXT_RGB), "%s", label.c_str());
+  else if (ImGui::Selectable(label.c_str(), false, ImGuiSelectableFlags_SpanAllColumns))
+  {
+    shownLevel = level;
+    shownPage = StatsPageTable;
+  }
 }
 
 static void DrawByLevel(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
                         const HeroStatsPicker &picker)
 {
   DrawMetricButtons(columns);
+  if (shownMetric == HeroMetricMovement)
+  {
+    DrawMovement(stats, picker);
+    return;
+  }
   size_t n = columns.size();
   // One query per level, column and metric, but only when the metric, the columns or the levels
-  // changed, and at most twice a second
+  // changed, and at most twice a second; the last row is the whole run
   static std::vector<ByLevelRow> rows;
   static int cachedMetric;
   static std::string cachedKey;
@@ -965,8 +1010,8 @@ static void DrawByLevel(const HeroStats &stats, const std::vector<HeroStatsColum
     {
       ByLevelRow row;
       row.level = r < picker.levels.size() ? picker.levels[r] : HERO_STATS_WHOLE_RUN;
-      for (size_t i = 0; i < n; i++) row.values.push_back(MetricOf(stats, columns[i].id, row.level, shownMetric));
-      row.values.push_back(MetricOf(stats, HERO_STATS_PARTY, row.level, shownMetric));
+      for (size_t i = 0; i < n; i++) row.values.push_back(HeroStatsPages_Metric(stats, columns[i].id, row.level, shownMetric));
+      row.values.push_back(HeroStatsPages_Metric(stats, HERO_STATS_PARTY, row.level, shownMetric));
       rows.push_back(row);
     }
     cachedMetric = shownMetric;
@@ -976,38 +1021,36 @@ static void DrawByLevel(const HeroStats &stats, const std::vector<HeroStatsColum
   }
   ImGui::SetCursorPos(ImVec2(GUTTER, ImGui::GetCursorPosY() + 4));
   int columnCount = (int)n + 3;
-  ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY;
+  ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY |
+                          ImGuiTableFlags_Sortable;
   if (!ImGui::BeginTable("##bylevel", columnCount, flags, ImGui::GetContentRegionAvail())) return;
-  ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 100);
-  for (int i = 1; i < columnCount - 1; i++) ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 92);
-  ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 240);
-  ImGui::TableSetupScrollFreeze(1, 1);
-  ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
-  ImGui::TableSetColumnIndex(0);
-  ImGui::TextColored(DimmedColour(), "Level");
-  for (size_t i = 0; i <= n; i++)
+  SortColumn("Level", 100, false, true);
+  std::vector<bool> dimmed(1, false);
+  for (size_t i = 0; i < n; i++)
   {
-    ImGui::TableSetColumnIndex((int)i + 1);
-    if (i < n) ClickableName(columns[i].name, columns[i].hasLeft, columns[i].id);
-    else ClickableName("Party", false, HERO_STATS_PARTY);
+    SortColumn(columns[i].name + "##" + std::to_string(i), 92, true);
+    dimmed.push_back(columns[i].hasLeft);
   }
-  ImGui::TableSetColumnIndex(columnCount - 1);
-  ImGui::TextColored(DimmedColour(), "Share");
-  for (size_t r = 0; r < rows.size(); r++)
+  SortColumn("Party", 92, true);
+  SortColumn("Share", 240, true);
+  ImGui::TableSetupScrollFreeze(1, 1);
+  SortHeaders(dimmed);
+  std::vector<ByLevelRow> levels(rows.begin(), rows.end() - 1);
+  SortRows(&levels, CurrentSort(), [n](const ByLevelRow &a, const ByLevelRow &b, int column) {
+    if (column == 0) return Compare(a.level, b.level);
+    size_t value = std::min((size_t)column - 1, n);  // the Share column sorts by the party's value
+    return Compare(a.values[value], b.values[value]);
+  });
+  levels.push_back(rows.back());
+  for (size_t r = 0; r < levels.size(); r++)
   {
-    const ByLevelRow &row = rows[r];
+    const ByLevelRow &row = levels[r];
     bool isRun = row.level == HERO_STATS_WHOLE_RUN;
     ImGui::TableNextRow();
     if (isRun) ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, PackedColour(FRAME_RGB));
     ImGui::TableSetColumnIndex(0);
-    ImGui::PushID((int)r);
-    std::string label = isRun ? "Whole run" : LevelLabel(row.level);
-    if (isRun) ImGui::TextColored(Colour(TITLE_TEXT_RGB), "%s", label.c_str());
-    else if (ImGui::Selectable(label.c_str(), false, ImGuiSelectableFlags_SpanAllColumns))
-    {
-      shownLevel = row.level;
-      shownPage = StatsPageTable;
-    }
+    ImGui::PushID(row.level);
+    LevelCell(row.level, isRun);
     ImGui::PopID();
     std::vector<BarSegment> segments;
     for (size_t i = 0; i <= n; i++)
@@ -1023,66 +1066,6 @@ static void DrawByLevel(const HeroStats &stats, const std::vector<HeroStatsColum
   ImGui::EndTable();
 }
 
-struct MonsterLine
-{
-  std::string name;
-  std::vector<int> byColumn;  // per champion column
-  int door, pit, other, total;
-};
-
-static bool MonsterLineBefore(const MonsterLine &a, const MonsterLine &b)
-{
-  if (a.total != b.total) return a.total > b.total;
-  return a.name < b.name;
-}
-
-static MonsterLine EmptyMonsterLine(const std::string &name, size_t columnCount)
-{
-  MonsterLine line;
-  line.name = name;
-  line.byColumn.assign(columnCount, 0);
-  line.door = line.pit = line.other = line.total = 0;
-  return line;
-}
-
-static std::vector<MonsterLine> BuildMonsterLines(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
-                                                  int level)
-{
-  std::vector<HeroStatsMonsterRow> kills = stats.MonsterKills(level);
-  std::map<std::pair<int, int>, size_t> lineOf;
-  std::vector<MonsterLine> lines;
-  for (size_t k = 0; k < kills.size(); k++)
-  {
-    const HeroStatsMonsterRow &kill = kills[k];
-    if (kill.count <= 0) continue;
-    std::pair<int, int> key(kill.monsterType, kill.variant);
-    std::map<std::pair<int, int>, size_t>::iterator found = lineOf.find(key);
-    if (found == lineOf.end())
-    {
-      char raw[256] = "";
-      GetMonsterName(kill.monsterType, kill.variant, raw);
-      lines.push_back(EmptyMonsterLine(raw[0] != 0 ? std::string(raw) : "Monster #" + std::to_string(kill.monsterType),
-                                       columns.size()));
-      found = lineOf.insert(std::make_pair(key, lines.size() - 1)).first;
-    }
-    MonsterLine &line = lines[found->second];
-    line.total += kill.count;
-    if (kill.by == HeroBlowByDoor) line.door += kill.count;
-    else if (kill.by == HeroBlowByPit) line.pit += kill.count;
-    else
-    {
-      int column = -1;
-      if (kill.by == HeroBlowByChampion)
-        for (size_t i = 0; i < columns.size(); i++)
-          if (columns[i].id == kill.champion) column = (int)i;
-      if (column >= 0) line.byColumn[column] += kill.count;
-      else line.other += kill.count;  // clouds, traps, monsters, unknown
-    }
-  }
-  std::sort(lines.begin(), lines.end(), MonsterLineBefore);
-  return lines;
-}
-
 static void MonsterCount(int value, bool greyed)
 {
   if (value == 0) RightText("\xc2\xb7", Colour(OTHER_RGB));
@@ -1091,7 +1074,7 @@ static void MonsterCount(int value, bool greyed)
 
 static void DrawMonsters(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns)
 {
-  std::vector<MonsterLine> lines = BuildMonsterLines(stats, columns, shownLevel);
+  std::vector<HeroStatsMonsterLine> lines = HeroStatsPages_Monsters(stats, columns, shownLevel, HeroStats_NamesOfTheGame());
   ImGui::SetCursorPos(ImVec2(GUTTER, ImGui::GetCursorPosY() + 4));
   if (lines.empty())
   {
@@ -1099,15 +1082,7 @@ static void DrawMonsters(const HeroStats &stats, const std::vector<HeroStatsColu
     return;
   }
   size_t n = columns.size();
-  MonsterLine all = EmptyMonsterLine("All monsters", n);
-  for (size_t l = 0; l < lines.size(); l++)
-  {
-    for (size_t i = 0; i < n; i++) all.byColumn[i] += lines[l].byColumn[i];
-    all.door += lines[l].door;
-    all.pit += lines[l].pit;
-    all.other += lines[l].other;
-    all.total += lines[l].total;
-  }
+  HeroStatsMonsterLine all = HeroStatsPages_AllMonsters(lines, n);
   // Door, Pit and Other only when something was killed that way
   const char *extraLabel[3] = {"Door", "Pit", "Other"};
   int extraTotal[3] = {all.door, all.pit, all.other};
@@ -1115,35 +1090,42 @@ static void DrawMonsters(const HeroStats &stats, const std::vector<HeroStatsColu
   for (int e = 0; e < 3; e++)
     if (extraTotal[e] > 0) shownExtra.push_back(e);
   int columnCount = 1 + (int)n + (int)shownExtra.size() + 2;
-  ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY;
+  ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY |
+                          ImGuiTableFlags_Sortable;
   ImVec2 size = ImGui::GetContentRegionAvail();
   size.y = std::max(40.0f, size.y - ImGui::GetTextLineHeightWithSpacing() - 4);  // room for the note
   if (!ImGui::BeginTable("##monsters", columnCount, flags, size)) return;
-  ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 190);
-  for (int i = 1; i < columnCount - 1; i++) ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 72);
-  ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 240);
-  ImGui::TableSetupScrollFreeze(1, 1);
-  ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
-  ImGui::TableSetColumnIndex(0);
-  ImGui::TextColored(DimmedColour(), "Monster");
+  SortColumn("Monster", 190, false);
+  std::vector<bool> dimmed(1, false);
   for (size_t i = 0; i < n; i++)
   {
-    ImGui::TableSetColumnIndex((int)i + 1);
-    ClickableName(columns[i].name, columns[i].hasLeft, columns[i].id);
+    SortColumn(columns[i].name + "##" + std::to_string(i), 72, true);
+    dimmed.push_back(columns[i].hasLeft);
   }
-  for (size_t e = 0; e < shownExtra.size(); e++)
-  {
-    ImGui::TableSetColumnIndex((int)(n + 1 + e));
-    RightText(extraLabel[shownExtra[e]], DimmedColour());
-  }
-  ImGui::TableSetColumnIndex(columnCount - 2);
-  RightText("All causes", DimmedColour());
-  ImGui::TableSetColumnIndex(columnCount - 1);
-  ImGui::TextColored(DimmedColour(), "Killed by");
+  for (size_t e = 0; e < shownExtra.size(); e++) SortColumn(extraLabel[shownExtra[e]], 72, true);
+  SortColumn("All causes", 72, true, true);
+  SortColumn("Killed by", 240, true);
+  ImGui::TableSetupScrollFreeze(1, 1);
+  SortHeaders(dimmed);
+  // The value of a column: the champions, the shown extras, then the total (twice: the bar)
+  auto valueOf = [&](const HeroStatsMonsterLine &line, int column) {
+    if (column <= (int)n) return line.byColumn[column - 1];
+    size_t e = column - 1 - n;
+    if (e < shownExtra.size())
+    {
+      int extra[3] = {line.door, line.pit, line.other};
+      return extra[shownExtra[e]];
+    }
+    return line.total;
+  };
+  SortRows(&lines, CurrentSort(), [&](const HeroStatsMonsterLine &a, const HeroStatsMonsterLine &b, int column) {
+    if (column == 0) return a.name.compare(b.name);
+    return Compare(valueOf(a, column), valueOf(b, column));
+  });
   for (size_t l = 0; l <= lines.size(); l++)
   {
     bool isAll = l == lines.size();
-    const MonsterLine &line = isAll ? all : lines[l];
+    const HeroStatsMonsterLine &line = isAll ? all : lines[l];
     ImGui::TableNextRow();
     if (isAll) ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, PackedColour(FRAME_RGB));
     ImGui::TableSetColumnIndex(0);
@@ -1180,32 +1162,57 @@ static void DrawMonsters(const HeroStats &stats, const std::vector<HeroStatsColu
   ImGui::TextColored(DimmedColour(), "(Other = clouds, traps and monsters)");
 }
 
+struct MovementRow
+{
+  int level;  // HERO_STATS_WHOLE_RUN for the last row
+  HeroStatsMovement movement;
+};
+
+// By level's Movement: the party's steps, turns, bumps, teleports, pits and time on each visited
+// level and in the whole run
+static void DrawMovement(const HeroStats &stats, const HeroStatsPicker &picker)
+{
+  std::vector<MovementRow> rows;
+  for (size_t r = 0; r < picker.levels.size(); r++)
+  {
+    MovementRow row = {picker.levels[r], stats.Movement(picker.levels[r])};
+    rows.push_back(row);
+  }
+  ImGui::SetCursorPos(ImVec2(GUTTER, ImGui::GetCursorPosY() + 4));
+  ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY |
+                          ImGuiTableFlags_Sortable;
+  int columnCount = 1 + HERO_MOVE_COLUMN_COUNT;
+  if (!ImGui::BeginTable("##movement", columnCount, flags, ImGui::GetContentRegionAvail())) return;
+  SortColumn("Level", 100, false, true);
+  for (int c = 0; c < HERO_MOVE_COLUMN_COUNT; c++) SortColumn(HERO_STATS_MOVEMENT_LABELS[c], c >= HeroMoveTicks ? 110 : 84, true);
+  ImGui::TableSetupScrollFreeze(1, 1);
+  SortHeaders(std::vector<bool>());
+  SortRows(&rows, CurrentSort(), [](const MovementRow &a, const MovementRow &b, int column) {
+    if (column == 0) return Compare(a.level, b.level);
+    return Compare(HeroStatsPages_MovementValue(a.movement, column - 1), HeroStatsPages_MovementValue(b.movement, column - 1));
+  });
+  MovementRow run = {HERO_STATS_WHOLE_RUN, stats.Movement(HERO_STATS_WHOLE_RUN)};
+  rows.push_back(run);
+  for (size_t r = 0; r < rows.size(); r++)
+  {
+    bool isRun = rows[r].level == HERO_STATS_WHOLE_RUN;
+    ImGui::TableNextRow();
+    if (isRun) ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, PackedColour(FRAME_RGB));
+    ImGui::TableSetColumnIndex(0);
+    ImGui::PushID(rows[r].level);
+    LevelCell(rows[r].level, isRun);
+    ImGui::PopID();
+    for (int column = 1; column < columnCount; column++)
+    {
+      ImGui::TableSetColumnIndex(column);
+      MonsterCount(HeroStatsPages_MovementValue(rows[r].movement, column - 1), false);
+    }
+  }
+  ImGui::EndTable();
+}
+
 // ---------------------------------------------------------------------------------------------
 // Hero and Party pages
-
-struct HeroOption { std::string name; int tries, hits, damage, kills; };
-struct HeroWeapon
-{
-  std::string name;
-  int tries, hits, damage, kills;
-  int id;  // for the fold state
-  std::vector<HeroOption> options;
-};
-struct HeroLine { std::string text; int amount; bool isBad; };
-
-struct HeroPageData
-{
-  std::vector<HeroWeapon> weapons;
-  std::vector<HeroStatsSpellRow> spells;
-  std::vector<std::string> spellNames;
-  std::vector<HeroLine> taken;
-  int healedTotal;
-  std::vector<HeroLine> healing;
-  int given, resurrected;
-  std::vector<std::string> deathLines;
-  int wipes, reloads;
-  HeroStatsSummaries summaries;
-};
 
 static const HeroStatsColumn *ColumnOf(const std::vector<HeroStatsColumn> &columns, HeroStatsChampion id)
 {
@@ -1214,177 +1221,10 @@ static const HeroStatsColumn *ColumnOf(const std::vector<HeroStatsColumn> &colum
   return NULL;
 }
 
-static std::string MonsterNameOf(int monsterType, int variant)
+static const HeroStatsHeroPage &CachedHeroPage(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
+                                               HeroStatsChampion who, int level)
 {
-  char raw[256] = "";
-  GetMonsterName(monsterType, variant, raw);
-  return raw[0] != 0 ? std::string(raw) : "Monster #" + std::to_string(monsterType);
-}
-
-static void AddLine(std::vector<HeroLine> *lines, const std::string &text, int amount, bool isBad)
-{
-  for (size_t i = 0; i < lines->size(); i++)
-    if ((*lines)[i].text == text)
-    {
-      (*lines)[i].amount += amount;
-      return;
-    }
-  HeroLine line = {text, amount, isBad};
-  lines->push_back(line);
-}
-
-static bool LineBefore(const HeroLine &a, const HeroLine &b)
-{
-  return a.amount > b.amount;
-}
-
-static bool WeaponBefore(const HeroWeapon &a, const HeroWeapon &b)
-{
-  if (a.damage != b.damage) return a.damage > b.damage;
-  return a.name < b.name;
-}
-
-static bool OptionBefore(const HeroOption &a, const HeroOption &b)
-{
-  if (a.damage != b.damage) return a.damage > b.damage;
-  return a.name < b.name;
-}
-
-static HeroPageData BuildHeroPage(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
-                                  HeroStatsChampion who, int level)
-{
-  HeroPageData page;
-  bool isParty = who == HERO_STATS_PARTY;
-
-  // Attacks, grouped by weapon (and by whether it was thrown). Rune spells are in Spells.
-  std::vector<HeroStatsAttackRow> attacks = stats.Attacks(who, level);
-  std::map<std::pair<int, bool>, size_t> weaponAt;
-  for (size_t i = 0; i < attacks.size(); i++)
-  {
-    const HeroStatsAttackRow &a = attacks[i];
-    if (a.weapon == HERO_STATS_NO_WEAPON) continue;
-    std::pair<int, bool> key(a.weapon, a.thrown);
-    std::map<std::pair<int, bool>, size_t>::iterator found = weaponAt.find(key);
-    if (found == weaponAt.end())
-    {
-      HeroWeapon w;
-      w.name = a.weapon == HERO_STATS_FISTS ? "Fists" : HeroStats_WeaponNameOf(a.weapon);
-      if (a.thrown) w.name += ", thrown";
-      w.tries = w.hits = w.damage = w.kills = 0;
-      w.id = (a.weapon + 2) * 2 + (a.thrown ? 1 : 0);
-      page.weapons.push_back(w);
-      found = weaponAt.insert(std::make_pair(key, page.weapons.size() - 1)).first;
-    }
-    HeroWeapon &w = page.weapons[found->second];
-    w.tries += a.tries;
-    w.hits += a.hits;
-    w.damage += a.damage;
-    w.kills += a.kills;
-    std::string optionName = HeroStats_AttackOptionNameOf(a.option);
-    if (optionName.empty()) optionName = "(no option)";
-    size_t o = 0;
-    while (o < w.options.size() && w.options[o].name != optionName) o++;
-    if (o == w.options.size())
-    {
-      HeroOption none = {optionName, 0, 0, 0, 0};
-      w.options.push_back(none);
-    }
-    HeroOption &option = w.options[o];
-    option.tries += a.tries;
-    option.hits += a.hits;
-    option.damage += a.damage;
-    option.kills += a.kills;
-  }
-  std::sort(page.weapons.begin(), page.weapons.end(), WeaponBefore);
-  for (size_t i = 0; i < page.weapons.size(); i++)
-    std::sort(page.weapons[i].options.begin(), page.weapons[i].options.end(), OptionBefore);
-
-  // Spells
-  page.spells = stats.Spells(who, level);
-  for (size_t i = 0; i < page.spells.size(); i++) page.spellNames.push_back(HeroStatsView_SpellName(page.spells[i].spell));
-
-  // Damage taken: one line per source; monsters in one line; friendly fire and clouds by causer
-  std::vector<HeroStatsHarmRow> harm = stats.HarmRows(who, level);
-  for (size_t i = 0; i < harm.size(); i++)
-  {
-    const HeroStatsHarmRow &row = harm[i];
-    if (row.amount <= 0) continue;
-    bool byChampion = row.source == HeroHarmFriendlyFire || row.source == HeroHarmPoisonCloud;
-    std::string text;
-    if (row.source == HeroHarmMonster || row.source == HeroHarmMonsterMissile) text = "Monster attacks";
-    else if (byChampion && !isParty && row.causer == who)
-      text = row.source == HeroHarmFriendlyFire ? "Friendly fire (own)" : "Poison clouds (own)";
-    else
-    {
-      const HeroStatsColumn *causer = isParty ? NULL : ColumnOf(columns, row.causer);
-      text = HeroStatsView_HarmName(row, causer, "");
-    }
-    AddLine(&page.taken, text, row.amount, byChampion);
-  }
-  std::sort(page.taken.begin(), page.taken.end(), LineBefore);
-
-  // Healing
-  page.healedTotal = stats.Healed(who, level);
-  std::vector<HeroStatsHealRow> heals = stats.HealRows(who, level);
-  for (size_t i = 0; i < heals.size(); i++)
-  {
-    const HeroStatsHealRow &row = heals[i];
-    if (row.amount <= 0) continue;
-    std::string text = "Regeneration";
-    if (row.kind == HeroHealAction) text = "Heal action";
-    else if (row.kind == HeroHealPotion)
-    {
-      text = "Potions";
-      if (!isParty)
-      {
-        const HeroStatsColumn *brewer = ColumnOf(columns, row.brewer);
-        if (row.brewer == who) text += " (own)";
-        else if (brewer != NULL) text += " (from " + brewer->name + ")";
-        else text += " (found)";
-      }
-    }
-    AddLine(&page.healing, text, row.amount, false);
-  }
-  std::sort(page.healing.begin(), page.healing.end(), LineBefore);
-  page.given = stats.HealingGiven(who, level);
-  page.resurrected = stats.Resurrections(who, level);
-
-  // Hardship: only the deaths on the picked level; wipes and reloads are the whole run's
-  std::vector<HeroStatsDeath> deaths = stats.Deaths(who);
-  for (size_t i = 0; i < deaths.size(); i++)
-  {
-    const HeroStatsDeath &death = deaths[i];
-    if (level != HERO_STATS_WHOLE_RUN && death.level != level) continue;
-    std::string causerName;
-    if (death.cause == HeroHarmMonster || death.cause == HeroHarmMonsterMissile)
-    {
-      // The store keeps no variant of the monster that killed: the first name of its type
-      if (death.by.monsterType >= 0) causerName = MonsterNameOf(death.by.monsterType, 0);
-    }
-    else
-    {
-      const HeroStatsColumn *causer = ColumnOf(columns, death.by.champion);
-      if (causer != NULL) causerName = causer->name;
-    }
-    std::string text = HeroStatsView_DeathName(death, causerName);
-    if (isParty)
-    {
-      const HeroStatsColumn *victim = ColumnOf(columns, death.who);
-      text = (victim != NULL ? victim->name : std::string("?")) + ": " + text;
-    }
-    page.deathLines.push_back(text);
-  }
-  bool wholeRun = level == HERO_STATS_WHOLE_RUN;
-  page.wipes = isParty && wholeRun ? stats.PartyWipes() : 0;
-  page.reloads = isParty && wholeRun ? stats.Reloads() : 0;
-  page.summaries = HeroStatsView_Summaries(stats, who, level);
-  return page;
-}
-
-static const HeroPageData &CachedHeroPage(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
-                                          HeroStatsChampion who, int level)
-{
-  static HeroPageData data;
+  static HeroStatsHeroPage data;
   static HeroStatsChampion cachedWho;
   static int cachedLevel;
   static std::string cachedColumns;
@@ -1394,7 +1234,7 @@ static const HeroPageData &CachedHeroPage(const HeroStats &stats, const std::vec
   if (!heroPageCached || who != cachedWho || level != cachedLevel || key != cachedColumns ||
       now - cachedAt >= CACHE_LIFETIME)
   {
-    data = BuildHeroPage(stats, columns, who, level);
+    data = HeroStatsPages_Hero(stats, columns, who, level, HeroStats_NamesOfTheGame());
     heroPageCached = true;
     cachedWho = who;
     cachedLevel = level;
@@ -1435,38 +1275,75 @@ static void NumberCell(int column, int value, const ImVec4 &colour)
   RightText(HeroStatsView_Number(value), colour);
 }
 
-static void AttackCells(int tries, int hits, int damage, int kills, const ImVec4 &colour)
+static void TextCell(int column, const std::string &text, const ImVec4 &colour)
 {
-  NumberCell(1, tries, colour);
-  NumberCell(2, hits, colour);
-  ImGui::TableSetColumnIndex(3);
-  RightText(HeroStatsView_Percent(hits, tries), colour);
-  NumberCell(4, damage, colour);
-  NumberCell(5, kills, colour);
+  ImGui::TableSetColumnIndex(column);
+  RightText(text, colour);
 }
 
-static void DrawAttacks(const HeroPageData &page)
+// Tries shows the blows and missiles and the actions that cannot hit; a line of such actions
+// only (War Cry ...) has "-" for what only a hit can have. Rate is hits per blow or missile, Avg
+// the damage per hit.
+template <typename Line>
+static void AttackCells(const Line &line, const ImVec4 &colour)
+{
+  NumberCell(1, line.tries + line.uses, colour);
+  if (line.tries == 0 && line.uses > 0)
+  {
+    for (int column = 2; column <= 6; column++) TextCell(column, "-", DimmedColour());
+    return;
+  }
+  NumberCell(2, line.hits, colour);
+  TextCell(3, HeroStatsView_Percent(line.hits, line.tries), colour);
+  TextCell(4, line.hits > 0 ? HeroStatsView_Number((line.damage + line.hits / 2) / line.hits) : "-", colour);
+  NumberCell(5, line.damage, colour);
+  NumberCell(6, line.kills, colour);
+}
+
+static double Ratio(int part, int whole)
+{
+  return whole > 0 ? (double)part / whole : -1;
+}
+
+// The columns of the Attacks table: name, tries, hits, rate, avg, damage, kills
+template <typename Line>
+static int CompareAttacks(const Line &a, const Line &b, int column)
+{
+  switch (column)
+  {
+  case 0: return a.name.compare(b.name);
+  case 1: return Compare(a.tries + a.uses, b.tries + b.uses);
+  case 2: return Compare(a.hits, b.hits);
+  case 3: return Compare(Ratio(a.hits, a.tries), Ratio(b.hits, b.tries));
+  case 4: return Compare(Ratio(a.damage, a.hits), Ratio(b.damage, b.hits));
+  case 5: return Compare(a.damage, b.damage);
+  default: return Compare(a.kills, b.kills);
+  }
+}
+
+static void DrawAttacks(const HeroStatsHeroPage &page)
 {
   if (page.weapons.empty())
   {
     ImGui::TextColored(DimmedColour(), "No attacks yet.");
     return;
   }
-  if (!ImGui::BeginTable("##attacks", 6, ImGuiTableFlags_SizingFixedFit)) return;
-  ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 230);
-  for (int i = 1; i < 6; i++) ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 78);
-  ImGui::TableNextRow();
-  ImGui::TableSetColumnIndex(0);
-  ImGui::TextColored(DimmedColour(), "Weapon / option");
-  const char *heads[5] = {"Tries", "Hits", "Rate", "Damage", "Kills"};
-  for (int i = 0; i < 5; i++)
+  if (!ImGui::BeginTable("##attacks", 7, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_Sortable)) return;
+  SortColumn("Weapon / option", 230, false);
+  SortColumn("Tries", 70, true);
+  SortColumn("Hits", 70, true);
+  SortColumn("Rate", 70, true);
+  SortColumn("Avg", 70, true);
+  SortColumn("Damage", 78, true, true);
+  SortColumn("Kills", 70, true);
+  SortHeaders(std::vector<bool>());
+  TableSort sort = CurrentSort();
+  std::vector<HeroStatsWeaponLine> weapons = page.weapons;
+  SortRows(&weapons, sort, CompareAttacks<HeroStatsWeaponLine>);
+  for (size_t w = 0; w < weapons.size(); w++)
   {
-    ImGui::TableSetColumnIndex(i + 1);
-    RightText(heads[i], DimmedColour());
-  }
-  for (size_t w = 0; w < page.weapons.size(); w++)
-  {
-    const HeroWeapon &weapon = page.weapons[w];
+    HeroStatsWeaponLine &weapon = weapons[w];
+    SortRows(&weapon.options, sort, CompareAttacks<HeroStatsOptionLine>);
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
     // Open or folded is ImGui's own, per weapon and per hero, for as long as the program runs
@@ -1475,16 +1352,16 @@ static void DrawAttacks(const HeroPageData &page)
     ImGui::PushStyleColor(ImGuiCol_Text, Colour(TITLE_TEXT_RGB));
     bool open = ImGui::TreeNodeEx(weapon.name.c_str(), ImGuiTreeNodeFlags_None);
     ImGui::PopStyleColor();
-    AttackCells(weapon.tries, weapon.hits, weapon.damage, weapon.kills, Colour(TEXT_RGB));
+    AttackCells(weapon, Colour(TEXT_RGB));
     if (open)
     {
       for (size_t o = 0; o < weapon.options.size(); o++)
       {
-        const HeroOption &option = weapon.options[o];
+        const HeroStatsOptionLine &option = weapon.options[o];
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
         ImGui::TextColored(Colour(0xaaaaaa), "%s", option.name.c_str());
-        AttackCells(option.tries, option.hits, option.damage, option.kills, Colour(0xaaaaaa));
+        AttackCells(option, Colour(0xaaaaaa));
       }
       ImGui::TreePop();
     }
@@ -1494,38 +1371,48 @@ static void DrawAttacks(const HeroPageData &page)
   ImGui::EndTable();
 }
 
-static void DrawSpells(const HeroPageData &page)
+// The columns of the Spells table: name, casts, successful, failed, mana, wasted, damage, kills
+static int SpellValue(const HeroStatsSpellLine &line, int column)
+{
+  switch (column)
+  {
+  case 1: return line.casts;
+  case 2: return line.successful;
+  case 3: return line.failed;
+  case 4: return line.mana;
+  case 5: return line.wasted;
+  case 6: return line.damage;
+  default: return line.kills;
+  }
+}
+
+static void DrawSpells(const HeroStatsHeroPage &page)
 {
   if (page.spells.empty())
   {
     ImGui::TextColored(DimmedColour(), "No spells cast.");
     return;
   }
-  if (!ImGui::BeginTable("##spells", 7, ImGuiTableFlags_SizingFixedFit)) return;
-  ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 230);
-  for (int i = 1; i < 7; i++) ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 70);
-  ImGui::TableNextRow();
-  ImGui::TableSetColumnIndex(0);
-  ImGui::TextColored(DimmedColour(), "Spell");
-  const char *heads[6] = {"Casts", "Mana", "Failed", "Wasted", "Damage", "Kills"};
-  for (int i = 0; i < 6; i++)
+  if (!ImGui::BeginTable("##spells", 8, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_Sortable)) return;
+  SortColumn("Spell", 230, false);
+  const char *heads[7] = {"Casts", "Successful", "Failed", "Mana", "Wasted", "Damage", "Kills"};
+  for (int i = 0; i < 7; i++) SortColumn(heads[i], i == 1 ? 84 : 66, true, i == 3);
+  SortHeaders(std::vector<bool>());
+  std::vector<HeroStatsSpellLine> spells = page.spells;
+  SortRows(&spells, CurrentSort(), [](const HeroStatsSpellLine &a, const HeroStatsSpellLine &b, int column) {
+    if (column == 0) return a.name.compare(b.name);
+    return Compare(SpellValue(a, column), SpellValue(b, column));
+  });
+  for (size_t i = 0; i < spells.size(); i++)
   {
-    ImGui::TableSetColumnIndex(i + 1);
-    RightText(heads[i], DimmedColour());
-  }
-  for (size_t i = 0; i < page.spells.size(); i++)
-  {
-    const HeroStatsSpellRow &row = page.spells[i];
+    const HeroStatsSpellLine &line = spells[i];
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
-    ImGui::TextUnformatted(page.spellNames[i].c_str());
+    ImGui::TextUnformatted(line.name.c_str());
     // Every value is a number, 0 included (a Light spell does 0 damage)
-    NumberCell(1, row.casts, Colour(TEXT_RGB));
-    NumberCell(2, row.mana, Colour(TEXT_RGB));
-    NumberCell(3, row.failed, Colour(TEXT_RGB));
-    NumberCell(4, row.wasted, row.wasted > 0 ? Colour(BAD_RGB) : Colour(TEXT_RGB));
-    NumberCell(5, row.damage, Colour(TEXT_RGB));
-    NumberCell(6, row.kills, Colour(TEXT_RGB));
+    for (int column = 1; column < 8; column++)
+      NumberCell(column, SpellValue(line, column),
+                 column == 5 && line.wasted > 0 ? Colour(BAD_RGB) : Colour(TEXT_RGB));
   }
   ImGui::EndTable();
 }
@@ -1547,7 +1434,7 @@ static void ValueLine(const std::string &label, const std::string &value, const 
   }
 }
 
-static void DrawHeroPage(const HeroPageData &page, HeroStatsChampion who)
+static void DrawHeroPage(const HeroStatsHeroPage &page, HeroStatsChampion who)
 {
   ImGui::BeginChild("##hero", ImGui::GetContentRegionAvail(), false);
   ImGui::Indent(GUTTER);
@@ -1598,9 +1485,57 @@ static void DrawHeroPage(const HeroPageData &page, HeroStatsChampion who)
     if (page.reloads != 0) ValueLine("Reloads", std::to_string(page.reloads) + "\xc3\x97", text, text, 0);
     SectionGap();
   }
-  ImGui::TextColored(DimmedColour(), "Click a section or a weapon to fold it. Which sections are open is remembered.");
+  ImGui::TextColored(DimmedColour(),
+                     "Click a section or a weapon to fold it, a column header to sort. Which sections are open is remembered.");
   ImGui::Unindent(GUTTER);
   ImGui::EndChild();
+}
+
+// ---------------------------------------------------------------------------------------------
+// Export
+
+// file:///home/... or, for a Windows path, file:///C:/...
+static std::string FileUrl(std::string path)
+{
+  for (size_t i = 0; i < path.size(); i++)
+    if (path[i] == '\\') path[i] = '/';
+  return path.compare(0, 1, "/") == 0 ? "file://" + path : "file:///" + path;
+}
+
+// statistics-2026-10-31-153000.html in the game folder, beside csb.cfg and the saved games
+static void ExportStatistics(void)
+{
+  time_t now = time(NULL);
+  char stamp[32] = "";
+  char date[32] = "";
+  const struct tm *local = localtime(&now);
+  if (local != NULL)
+  {
+    strftime(stamp, sizeof stamp, "%Y-%m-%d-%H%M%S", local);
+    strftime(date, sizeof date, "%Y-%m-%d %H:%M", local);
+  }
+  std::string path = std::string(pwd) + "/statistics-" + stamp + ".html";
+  const HeroStats &stats = HeroStats_Store();
+  HeroStatsExportInfo info = {HeroStats_DungeonInPlay(), date};
+  std::string html = HeroStatsExport_Html(stats, HeroStatsView_Columns(stats, HeroStats_PartyNow()),
+                                          HeroStats_NamesOfTheGame(), info);
+  FILE *file = fopen(path.c_str(), "wb");
+  bool written = file != NULL && fwrite(html.data(), 1, html.size(), file) == html.size();
+  if (file != NULL && fclose(file) != 0) written = false;
+  if (!written)
+  {
+    std::string message = "The statistics could not be written to\n" + path;
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Statistics", message.c_str(), statsWindow);
+    return;
+  }
+  std::string message = "The statistics were written to\n" + path +
+                        "\n\nThe file holds every page and level and opens in any web browser.";
+  const SDL_MessageBoxButtonData buttons[2] = {
+      {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT | SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "OK"},
+      {0, 1, "Open"}};
+  SDL_MessageBoxData box = {SDL_MESSAGEBOX_INFORMATION, statsWindow, "Statistics", message.c_str(), 2, buttons, NULL};
+  int pressed = 0;
+  if (SDL_ShowMessageBox(&box, &pressed) == 0 && pressed == 1) SDL_OpenURL(FileUrl(path).c_str());
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1628,7 +1563,9 @@ static void DrawWindowContents(void)
     // A champion of a game before is not in this game's list
     if (heroPageOpen && heroPageWho != HERO_STATS_PARTY && ColumnOf(columns, heroPageWho) == NULL)
       heroPageWho = HERO_STATS_PARTY;
-    DrawTopBar(picker, heroPageOpen || shownPage != StatsPageByLevel, columns);
+    // By level lists every level
+    bool showPicker = heroPageOpen || shownPage != StatsPageByLevel;
+    DrawTopBar(picker, showPicker, columns);
     if (stats.Champions().empty())
     {
       ImGui::SetCursorPos(ImVec2(GUTTER, ImGui::GetCursorPosY() + 8));
@@ -1638,7 +1575,7 @@ static void DrawWindowContents(void)
       DrawHeroPage(CachedHeroPage(stats, columns, heroPageWho, shownLevel), heroPageWho);
     else if (shownPage == StatsPageTable || shownPage == StatsPageBars)
     {
-      const StatsPageData &data = CachedPageData(stats, columns, shownLevel);
+      const HeroStatsOverview &data = CachedOverview(stats, columns, shownLevel);
       ImGui::SetCursorPos(ImVec2(GUTTER, ImGui::GetCursorPosY() + 4));
       if (shownPage == StatsPageTable) DrawTable(data);
       else DrawBars(data);
@@ -1647,6 +1584,7 @@ static void DrawWindowContents(void)
       DrawByLevel(stats, columns, picker);
     else if (shownPage == StatsPageMonsters)
       DrawMonsters(stats, columns);
+
   }
   ImGui::End();
 }

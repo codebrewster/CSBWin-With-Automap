@@ -120,6 +120,8 @@ static void ForgetEmptiesEverything(void)
   stats.CountAttackTry(3, blow);
   stats.CreditMonsterDamage(3, blow, 5);
   stats.CountMonsterKill(3, 10, 1, blow);
+  stats.CountStep(3);
+  stats.CountTick(3, false);
   stats.Forget();
   CHECK(stats.Champions().empty());
   CHECK(stats.VisitedLevels().empty());
@@ -127,6 +129,7 @@ static void ForgetEmptiesEverything(void)
   CHECK(stats.MonsterKills(HERO_STATS_WHOLE_RUN).empty());
   CHECK(stats.Kills(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN) == 0);
   CHECK(stats.DamageDealt(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroDamageMelee) == 0);
+  CHECK(stats.Movement(HERO_STATS_WHOLE_RUN).steps == 0 && stats.Movement(HERO_STATS_WHOLE_RUN).ticks == 0);
 }
 
 static HeroStatsBlow MonsterBlow(int type)
@@ -173,6 +176,122 @@ static void MonsterHarmNamesTheMonsterType(void)
     CHECK(rows[1].monsterType == 10 && rows[1].amount == 20);
   }
   CHECK(stats.Harm(HERO_STATS_PARTY, 4) == 0);
+}
+
+static HeroStatsBlow MonsterMissile(int type, int missileRn)
+{
+  HeroStatsBlow blow = MonsterBlow(type);
+  blow.spell = HERO_SPELL_MONSTER_MISSILE | (uint32_t)(missileRn & 0xff);
+  return blow;
+}
+
+// A monster's fireball and its lightning are rows of their own; its claws are not a missile
+static void MonsterMissilesKeepTheirKind(void)
+{
+  HeroStats stats;
+  stats.CreditHarm(9, 3, HeroHarmMonsterMissile, MonsterMissile(22, 0xff80), 30);
+  stats.CreditHarm(9, 3, HeroHarmMonsterMissile, MonsterMissile(22, 0xff80), 10);
+  stats.CreditHarm(9, 3, HeroHarmMonsterMissile, MonsterMissile(22, 0xff82), 25);
+  stats.CreditHarm(9, 3, HeroHarmMonster, MonsterMissile(22, 0xff80), 5);
+  std::vector<HeroStatsHarmRow> rows = stats.HarmRows(9, 3);
+  CHECK(rows.size() == 3);
+  if (rows.size() == 3)
+  {
+    CHECK(rows[0].source == HeroHarmMonsterMissile && rows[0].spell == (HERO_SPELL_MONSTER_MISSILE | 0x80));
+    CHECK(rows[0].amount == 40);
+    CHECK(rows[1].spell == (HERO_SPELL_MONSTER_MISSILE | 0x82) && rows[1].amount == 25);
+    CHECK(rows[2].source == HeroHarmMonster && rows[2].spell == 0);
+  }
+}
+
+static void MovementIsKeptPerLevel(void)
+{
+  HeroStats stats;
+  stats.CountStep(1);
+  stats.CountStep(1);
+  stats.CountTurn(1);
+  stats.CountStep(4);
+  stats.CountTeleport(4);
+  for (int i = 0; i < 30; i++) stats.CountTick(4, i < 10);
+  HeroStatsMovement one = stats.Movement(1);
+  CHECK(one.steps == 2 && one.turns == 1 && one.teleports == 0 && one.ticks == 0);
+  stats.CountPitFall(4);
+  stats.CountPitClimb(4);
+  stats.CountPitClimb(5);
+  stats.CountBump(1);
+  HeroStatsMovement run = stats.Movement(HERO_STATS_WHOLE_RUN);
+  CHECK(run.steps == 3 && run.turns == 1 && run.teleports == 1 && run.ticks == 30 && run.sleepTicks == 10);
+  CHECK(run.pitFalls == 1 && run.pitClimbs == 2 && run.bumps == 1);
+  CHECK(stats.Movement(1).bumps == 1 && stats.Movement(5).pitClimbs == 1);
+  CHECK(stats.Movement(2).steps == 0);
+}
+
+// The layout of version 13: harm rows without the missile kind, no movement table. A store with
+// one harm row, written now, becomes that by cutting the kind and the movement count.
+static void LayoutThirteenIsStillRead(void)
+{
+  HeroStats written;
+  written.CreditHarm(9, 3, HeroHarmMonster, MonsterBlow(10), 12);
+  std::vector<uint8_t> bytes;
+  written.Serialize(&bytes);
+  // Six empty tables, the harm count, then the record of 2 + 4 + 4 + 2 + 4 + 4 bytes and its kind
+  size_t kind = 7 * 4 + 20;
+  bytes.erase(bytes.begin() + kind, bytes.begin() + kind + 4);
+  bytes.erase(bytes.end() - 4, bytes.end());
+  HeroStats read;
+  CHECK(read.Deserialize(bytes.data(), bytes.size(), 13));
+  CHECK(read.Harm(9, 3) == 12 && read.HarmRows(9, 3).size() == 1);
+  CHECK(read.HarmRows(9, 3)[0].monsterType == 10 && read.HarmRows(9, 3)[0].spell == 0);
+  CHECK(read.Movement(HERO_STATS_WHOLE_RUN).steps == 0);
+  // The same bytes are short for the current layout
+  HeroStats current;
+  CHECK(!current.Deserialize(bytes.data(), bytes.size()));
+}
+
+// Actions that cannot hit are uses, apart from the tries, and survive the file
+static void ActionUsesAreKeptApartFromTries(void)
+{
+  HeroStats stats;
+  HeroStatsBlow warCry = ChampionBlow(7, HERO_STATS_UNARMED, 8);
+  stats.CountActionUse(2, warCry);
+  stats.CountActionUse(2, warCry);
+  stats.CountAttackTry(2, ChampionBlow(7, HERO_STATS_UNARMED, 6));
+  std::vector<HeroStatsAttackRow> rows = stats.Attacks(7, 2);
+  CHECK(rows.size() == 2);
+  if (rows.size() == 2)
+  {
+    CHECK(rows[0].option == 6 && rows[0].tries == 1 && rows[0].uses == 0);
+    CHECK(rows[1].option == 8 && rows[1].tries == 0 && rows[1].uses == 2);
+  }
+  std::vector<uint8_t> bytes;
+  stats.Serialize(&bytes);
+  HeroStats read;
+  CHECK(read.Deserialize(bytes.data(), bytes.size()));
+  CHECK(read.Attacks(7, 2).size() == 2 && read.Attacks(7, 2)[1].uses == 2);
+}
+
+// The layout of version 14: attack rows without uses, movement without sleep, pits and bumps.
+// A store with one attack row and one level of movement, written now, becomes that by cutting
+// the uses and the four newer movement numbers.
+static void LayoutFourteenIsStillRead(void)
+{
+  HeroStats written;
+  written.CountAttackTry(1, ChampionBlow(7, AXE, 2));
+  written.CountStep(1);
+  written.CountTick(1, true);
+  written.CountBump(1);
+  std::vector<uint8_t> bytes;
+  written.Serialize(&bytes);
+  // Two empty tables, the attack count, then the record: 2 + 4 + 4 + 1 + 4 bytes of key, four
+  // counts, the uses
+  size_t uses = 3 * 4 + 15 + 16;
+  bytes.erase(bytes.begin() + uses, bytes.begin() + uses + 4);
+  bytes.erase(bytes.end() - 16, bytes.end());
+  HeroStats read;
+  CHECK(read.Deserialize(bytes.data(), bytes.size(), 14));
+  CHECK(read.Attacks(7, 1).size() == 1 && read.Attacks(7, 1)[0].tries == 1 && read.Attacks(7, 1)[0].uses == 0);
+  HeroStatsMovement moved = read.Movement(1);
+  CHECK(moved.steps == 1 && moved.ticks == 1 && moved.sleepTicks == 0 && moved.bumps == 0);
 }
 
 static void HealingRemembersTheBrewer(void)
@@ -343,7 +462,7 @@ static void WeaponNamesComeFromTheItemNames(void)
   const char *names[3] = {"DAGGER", NULL, "TORCH"};
   CHECK(HeroStats_WeaponName(0, names, 3) == "DAGGER");
   CHECK(HeroStats_WeaponName(2, names, 3) == "TORCH");
-  CHECK(HeroStats_WeaponName(HERO_STATS_FISTS, names, 3) == "FISTS");
+  CHECK(HeroStats_WeaponName(HERO_STATS_UNARMED, names, 3) == "UNARMED");
   CHECK(HeroStats_WeaponName(HERO_STATS_NO_WEAPON, names, 3) == "");
   // A type with no name, or none the table has: its number
   CHECK(HeroStats_WeaponName(1, names, 3) == "#1");
@@ -363,6 +482,11 @@ void TestHeroStats(void)
   ForgetEmptiesEverything();
   FriendlyFireIsHarmToTheVictimAndCausedByTheCauser();
   MonsterHarmNamesTheMonsterType();
+  MonsterMissilesKeepTheirKind();
+  MovementIsKeptPerLevel();
+  LayoutThirteenIsStillRead();
+  ActionUsesAreKeptApartFromTries();
+  LayoutFourteenIsStillRead();
   HealingRemembersTheBrewer();
   ManaIsKeptPerSpell();
   SpellBlowsCreditTheSpellRow();

@@ -22,9 +22,18 @@ static const int YA = 102, VI = 103, OH = 104, FUL = 105, VEN = 108, IR = 111, K
 static void NumbersAndPercents(void)
 {
   CHECK(HeroStatsView_Number(0) == "0");
+  CHECK(HeroStatsView_Number(8931) == "8,931");
+  CHECK(HeroStatsView_Number(1234567) == "1,234,567");
+  CHECK(HeroStatsView_Number(-1500) == "-1,500");
+  CHECK(HeroStatsView_Number(999) == "999");
+  HeroStatsView_SetThousandsSeparator(HeroStatsView_SeparatorOfSetting("dot"));
+  CHECK(HeroStatsView_Number(1234567) == "1.234.567");
+  HeroStatsView_SetThousandsSeparator(HeroStatsView_SeparatorOfSetting("none"));
+  CHECK(HeroStatsView_Number(8931) == "8931");
+  HeroStatsView_SetThousandsSeparator(HeroStatsView_SeparatorOfSetting("space"));
   CHECK(HeroStatsView_Number(8931) == "8 931");
-  CHECK(HeroStatsView_Number(1234567) == "1 234 567");
-  CHECK(HeroStatsView_Number(-1500) == "-1 500");
+  CHECK(HeroStatsView_SeparatorOfSetting("nonsense") == ",");
+  HeroStatsView_SetThousandsSeparator(",");
   CHECK(HeroStatsView_Percent(1, 0) == "-");
   CHECK(HeroStatsView_Percent(407, 636) == "64%");
   CHECK(HeroStatsView_Percent(0, 5) == "0%");
@@ -80,28 +89,28 @@ static void SummariesReadLikeTheMockup(void)
   stats.CreditMonsterDamage(3, axe, 8931);
   for (int i = 0; i < 77; i++) stats.CountMonsterKill(3, 10, 0, axe);
   CHECK(HeroStatsView_Summaries(stats, 7, HERO_STATS_WHOLE_RUN).attacks ==
-        "636 tries · 64% hits · 8 931 damage · 77 kills");
+        "636 tries · 64% hits · 8,931 damage · 77 kills");
 
   uint32_t fireball = Runes(FUL, IR, 0);
   HeroStatsBlow ball = ChampionBlow(7, HERO_STATS_NO_WEAPON, fireball);
-  for (int i = 0; i < 150; i++) stats.CountCast(7, 3, fireball, 27);
+  for (int i = 0; i < 149; i++) stats.CountCast(7, 3, fireball, 27);
   stats.CountFailedCast(7, 3, fireball, 292);
   stats.CreditMonsterDamage(3, ball, 3130);
   for (int i = 0; i < 29; i++) stats.CountMonsterKill(3, 10, 0, ball);
   std::string spells = HeroStatsView_Summaries(stats, 7, HERO_STATS_WHOLE_RUN).spells;
-  CHECK(spells.find("150 casts · ") == 0);
-  CHECK(spells.find(" mana · 3 130 damage · 29 kills · 292 wasted") != std::string::npos);
+  CHECK(spells.find("150 casts · ") == 0);  // 149 that worked and the one that failed
+  CHECK(spells.find(" mana · 3,130 damage · 29 kills · 292 wasted") != std::string::npos);
 
   stats.CreditHarm(7, 3, HeroHarmMonster, HeroStatsBlow_Nobody(HeroBlowByMonster), 5136);
   stats.CreditHarm(7, 3, HeroHarmFriendlyFire, ChampionBlow(9, HERO_STATS_NO_WEAPON, fireball), 204);
-  CHECK(HeroStatsView_Summaries(stats, 7, 3).harm == "5 340");  // 204 caused by 9, not by 7
+  CHECK(HeroStatsView_Summaries(stats, 7, 3).harm == "5,340");  // 204 caused by 9, not by 7
   CHECK(HeroStatsView_Summaries(stats, 9, 3).harm == "0 · friendly fire 204");
   CHECK(HeroStatsView_Summaries(stats, 9, 3).healing == "0 healed");
   stats.CreditHealing(7, 3, HeroHealPotion, 9, 2945);
-  CHECK(HeroStatsView_Summaries(stats, 7, 3).healing == "2 945 healed");
-  CHECK(HeroStatsView_Summaries(stats, 9, 3).healing == "0 healed · 2 945 given");
+  CHECK(HeroStatsView_Summaries(stats, 7, 3).healing == "2,945 healed");
+  CHECK(HeroStatsView_Summaries(stats, 9, 3).healing == "0 healed · 2,945 given");
   stats.CreditHealing(7, 3, HeroHealPotion, 7, 980);
-  CHECK(HeroStatsView_Summaries(stats, 7, 3).healing == "3 925 healed · 980 given");
+  CHECK(HeroStatsView_Summaries(stats, 7, 3).healing == "3,925 healed · 980 given");
 }
 
 static void HardshipCountsAndEmptyStore(void)
@@ -180,6 +189,25 @@ static void HarmNames(void)
   CHECK(HeroStatsView_HarmName(mon, 0, "") == "Monster attacks");
   HeroStatsHarmRow pit = {HeroHarmPit, HERO_STATS_NOBODY, -1, 5};
   CHECK(HeroStatsView_HarmName(pit, 0, "") == "Pits");
+  HeroStatsHarmRow fireball = {HeroHarmMonsterMissile, HERO_STATS_NOBODY, 25, 40, HERO_SPELL_MONSTER_MISSILE | 0x80};
+  CHECK(HeroStatsView_HarmName(fireball, 0, "") == "Fireball");
+  CHECK(HeroStatsView_HarmName(fireball, 0, "Lord Order") == "Fireball (Lord Order)");
+  HeroStatsHarmRow unknown = {HeroHarmMonsterMissile, HERO_STATS_NOBODY, 25, 40, 0};
+  CHECK(HeroStatsView_HarmName(unknown, 0, "") == "Monster missiles");
+}
+
+static void MissileNames(void)
+{
+  CHECK(HeroStatsView_MissileName(HERO_SPELL_MONSTER_MISSILE | 0x80) == "Fireball");
+  CHECK(HeroStatsView_MissileName(HERO_SPELL_MONSTER_MISSILE | 0x82) == "Lightning");
+  CHECK(HeroStatsView_MissileName(HERO_SPELL_MONSTER_MISSILE | 0x81) == "Poison blob");
+  CHECK(HeroStatsView_MissileName(HERO_SPELL_MONSTER_MISSILE | 0x87) == "Poison cloud");
+  CHECK(HeroStatsView_MissileName(0x00000b60) == "");
+  HeroStatsBlow lord = HeroStatsBlow_Nobody(HeroBlowByMonster);
+  lord.monsterType = 25;
+  lord.spell = HERO_SPELL_MONSTER_MISSILE | 0x80;
+  HeroStatsDeath burnt = {7, 3, HeroHarmMonsterMissile, lord};
+  CHECK(HeroStatsView_DeathName(burnt, "Lord Order") == "Fireball from Lord Order · Lv 3");
 }
 
 void TestHeroStatsView(void)
@@ -192,4 +220,5 @@ void TestHeroStatsView(void)
   SpellNames();
   DeathNames();
   HarmNames();
+  MissileNames();
 }

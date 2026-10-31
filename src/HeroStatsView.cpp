@@ -1,13 +1,34 @@
 #include "HeroStatsView.h"
 #include <algorithm>
 
+static std::string thousandsSeparator = ",";
+
+void HeroStatsView_SetThousandsSeparator(const std::string &separator)
+{
+  thousandsSeparator = separator;
+}
+
+const std::string &HeroStatsView_ThousandsSeparator(void)
+{
+  return thousandsSeparator;
+}
+
+std::string HeroStatsView_SeparatorOfSetting(const std::string &setting)
+{
+  if (setting == "dot") return ".";
+  if (setting == "space") return " ";
+  if (setting == "apostrophe") return "'";
+  if (setting == "none") return "";
+  return ",";
+}
+
 std::string HeroStatsView_Number(int value)
 {
   std::string digits = std::to_string(value < 0 ? -(long long)value : (long long)value);
   std::string out;
   for (size_t i = 0; i < digits.size(); i++)
   {
-    if (i > 0 && (digits.size() - i) % 3 == 0) out += ' ';
+    if (i > 0 && (digits.size() - i) % 3 == 0) out += thousandsSeparator;
     out += digits[i];
   }
   return value < 0 ? "-" + out : out;
@@ -74,32 +95,36 @@ HeroStatsSummaries HeroStatsView_Summaries(const HeroStats &stats, HeroStatsCham
   HeroStatsSummaries s;
 
   // Rune spells (HERO_STATS_NO_WEAPON) are in the Spells section, not here
-  int tries = 0, hits = 0, damage = 0, kills = 0;
+  // Tries are what the Attacks table shows: the blows and missiles, and the actions that cannot
+  // hit (War Cry ...); the hit rate is the blows' and missiles' only
+  int tries = 0, uses = 0, hits = 0, damage = 0, kills = 0;
   std::vector<HeroStatsAttackRow> attacks = stats.Attacks(who, level);
   for (size_t i = 0; i < attacks.size(); i++)
   {
     if (attacks[i].weapon == HERO_STATS_NO_WEAPON) continue;
     tries += attacks[i].tries;
+    uses += attacks[i].uses;
     hits += attacks[i].hits;
     damage += attacks[i].damage;
     kills += attacks[i].kills;
   }
-  s.attacks = HeroStatsView_Number(tries) + " tries · " + HeroStatsView_Percent(hits, tries) +
+  s.attacks = HeroStatsView_Number(tries + uses) + " tries · " + HeroStatsView_Percent(hits, tries) +
               " hits · " + HeroStatsView_Number(damage) + " damage · " + HeroStatsView_Number(kills) +
               " kills";
 
+  // Every cast, failed or not, as the Casts column of the Spells table counts them
   int casts = 0, spellDamage = 0, spellKills = 0;
   std::vector<HeroStatsSpellRow> spells = stats.Spells(who, level);
   for (size_t i = 0; i < spells.size(); i++)
   {
-    casts += spells[i].casts;
+    casts += spells[i].casts + spells[i].failed;
     spellDamage += spells[i].damage;
     spellKills += spells[i].kills;
   }
   if (casts == 0)
     s.spells = "none";
   else
-    s.spells = HeroStatsView_Number(casts) + " casts · " + HeroStatsView_Number(stats.ManaSpent(who, level)) +
+    s.spells = Plural(casts, "cast", "casts") + " · " + HeroStatsView_Number(stats.ManaSpent(who, level)) +
                " mana · " + HeroStatsView_Number(spellDamage) + " damage · " +
                HeroStatsView_Number(spellKills) + " kills · " +
                HeroStatsView_Number(stats.ManaWasted(who, level)) + " wasted";
@@ -212,6 +237,22 @@ std::string HeroStatsView_SpellName(uint32_t spell)
 
 // ---- Harm and death names ----
 
+std::string HeroStatsView_MissileName(uint32_t spell)
+{
+  if ((spell & 0xff000000) != HERO_SPELL_MONSTER_MISSILE) return "";
+  switch (spell & 0xff)
+  {
+  case 0x80: return "Fireball";
+  case 0x81: return "Poison blob";
+  case 0x82: return "Lightning";
+  case 0x83: return "Weaken nonmaterial";
+  case 0x84: return "Open door";
+  case 0x86: return "Poison bolt";
+  case 0x87: return "Poison cloud";
+  default: return "Monster missiles";
+  }
+}
+
 // What a champion's blow was: the spell's name (or its runes), else the weapon, which the view
 // does not know
 static std::string BlowWhat(const HeroStatsBlow &blow)
@@ -227,7 +268,12 @@ std::string HeroStatsView_HarmName(const HeroStatsHarmRow &row, const HeroStatsC
   switch (row.source)
   {
   case HeroHarmMonster: return monsterName.empty() ? "Monster attacks" : monsterName;
-  case HeroHarmMonsterMissile: return monsterName.empty() ? "Monster missiles" : monsterName;
+  case HeroHarmMonsterMissile:
+  {
+    std::string missile = HeroStatsView_MissileName(row.spell);
+    if (missile.empty()) missile = "Monster missiles";
+    return monsterName.empty() ? missile : missile + " (" + monsterName + ")";
+  }
   case HeroHarmTrap: return "Traps";
   case HeroHarmFriendlyFire:
   case HeroHarmPoisonCloud:
@@ -252,8 +298,14 @@ std::string HeroStatsView_DeathName(const HeroStatsDeath &death, const std::stri
   std::string what;
   switch (death.cause)
   {
-  case HeroHarmMonster:
-  case HeroHarmMonsterMissile: what = causerName.empty() ? "Monster" : causerName; break;
+  case HeroHarmMonster: what = causerName.empty() ? "Monster" : causerName; break;
+  case HeroHarmMonsterMissile:
+  {
+    std::string missile = HeroStatsView_MissileName(death.by.spell);
+    if (missile.empty()) what = causerName.empty() ? "Monster" : causerName;
+    else what = causerName.empty() ? missile : missile + " from " + causerName;
+    break;
+  }
   case HeroHarmFriendlyFire:
   {
     std::string blow = BlowWhat(death.by);

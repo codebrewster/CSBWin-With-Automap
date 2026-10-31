@@ -8,11 +8,14 @@
 
 #include "HeroStats.h"
 #include "HeroStatsOrigins.h"
+#include "HeroStatsPages.h"
 
 HeroStats &HeroStats_Store(void);
 HeroStatsOrigins &HeroStats_Origins(void);
 // Fingerprints of the champions in the party now, slot order (empty with no game loaded)
 std::vector<HeroStatsChampion> HeroStats_PartyNow(void);
+// The dungeon file of the game in play, "" before one is loaded
+std::string HeroStats_DungeonInPlay(void);
 
 // AutoMap_OnDungeonLoaded: forgets the stores of the last dungeon. A new game starts empty; for
 // a saved game the hardship stays in memory until HeroStats_OnMapFileRead (or, without a usable
@@ -34,7 +37,19 @@ void HeroStats_OnGameSaved(void);
 // AutoMap_OnEngineTick, once the party stands on a loaded level (not the prison screen, not
 // mid-way to another level): the level is visited, whether or not anything is counted there.
 // Only a change of level since the last mark (or a new or loaded game) touches the store.
+// It also counts the tick on that level, and whether the party slept through it.
 void HeroStats_OnPartyOnLevel(void);
+// The player moved the party: MoveParty went to another square or up or down stairs, TurnParty
+// turned it (turning on stairs takes the stairs: a step). Bumping into a wall is neither.
+void HeroStats_OnPartyStepped(void);
+void HeroStats_OnPartyTurned(void);
+// A teleporter on level took the party (each teleporter of a chain counts)
+void HeroStats_OnPartyTeleported(int level);
+// The party went down the pit on level: climbed down with a rope (the engine suppresses the
+// pit's damage) or fell. Each pit of a chain counts.
+void HeroStats_OnPartyWentDownPit(int level);
+// MoveParty: the party bumped into a wall, a closed door or a solid false wall
+void HeroStats_OnPartyBumped(void);
 
 // The engine hooks below only observe: no randomness, no engine state, no change of flow.
 // Each converts a slot to its champion (CHARDESC::fingerPrint), meets the champion by name and
@@ -49,7 +64,7 @@ void HeroStats_OnPartyOnLevel(void);
 // hand (possession 1), the option the attack type.
 void HeroStats_OnMeleeAttack(int slot, int attackType, int monsterGroup, int damageShown);
 // The weapon of the slot's attacks: the basic object type of the item in the weapon hand
-// (possession 1), HERO_STATS_FISTS when it is empty
+// (possession 1), HERO_STATS_UNARMED when it is empty
 int HeroStats_WeaponInHand(int slot);
 // The weapon key of an item: its basic object type (GetBasicObjectType), the same whatever state
 // the item is in (a lit or burnt-out torch, a compass facing anywhere, a charged or empty wand)
@@ -59,11 +74,19 @@ int HeroStats_WeaponOf(RN item);
 std::string HeroStats_WeaponNameOf(int weapon);
 // The name of an attack option (d.AttackNames), "Throw" for HERO_STATS_THROW_OPTION, "" when unknown
 std::string HeroStats_AttackOptionNameOf(int option);
+// The names of the game in play for the statistics pages: monsters as the dungeon names them
+// (GetMonsterDisplayName), weapons and attack options as above
+HeroStatsNames HeroStats_NamesOfTheGame(void);
+// _Attack carried out an action (after its filters). Actions that cannot hit (War Cry, Calm,
+// Spellshield, Light, Climb Down ...) count one use for the weapon in hand and the action; melee
+// blows and missiles count their tries elsewhere.
+void HeroStats_OnActionDone(int slot, int attackType);
 // The next missile launched is the champion's (one try for the weapon and option when it is
 // launched) or a monster's
 void HeroStats_ExpectHeroMissile(int slot, HeroDamageKind kind, int weapon, bool thrown, int option,
                                  uint32_t spell);
-void HeroStats_ExpectMonsterMissile(int monsterType);
+// missile: the RN of the missile (RNFireball ... RNPoisonCloud), kept as its kind
+void HeroStats_ExpectMonsterMissile(int monsterType, int missile);
 // After a call that may refuse to launch (CharacterThrowsSpell): an expectation it left is gone
 void HeroStats_DropExpectedMissile(void);
 // LaunchMissile has looked for a record: the missile takes the expectation (-1: no record, the

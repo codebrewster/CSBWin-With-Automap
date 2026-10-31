@@ -137,8 +137,12 @@ translates strings at display time (`TranslateWallLanguage`,
 
 ## Statistics.cpp — the monster info screen
 
-The in-game statistics screen: `Statistics` (`Statistics.cpp:94`) shows monster
-stats, with names resolved by `GetMonsterName` (`Statistics.cpp:48`).
+The in-game statistics screen: `Statistics` (`Statistics.cpp:120`) shows monster
+stats, with names resolved by `GetMonsterName` (`Statistics.cpp:104`): the dungeon's own
+name of the variant, else the type with its variant number. The Statistics window of the hero
+statistics ([statistics-manual.md](statistics-manual.md)) names monsters with
+`GetMonsterDisplayName` (`Statistics.cpp:112`): the dungeon's name, else
+the type's name with spaces and no variant number.
 
 ## ShotMissiles
 

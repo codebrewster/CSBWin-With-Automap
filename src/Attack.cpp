@@ -2175,6 +2175,7 @@ RESTARTABLE _Attack(const i32 initialChIdx, const ATTACKTYPE initialAttackType)
     CallAttackFilter(&filter, pParam, 1);
     break;
   }; //switch ()
+  HeroStats_OnActionDone(pParam->charIdx, pParam->attackType);
   CallAttackFilter(&filter, pParam, 2);
   if (pParam->disableTime != 0)
   {

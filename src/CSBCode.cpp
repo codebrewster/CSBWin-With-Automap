@@ -7982,10 +7982,12 @@ RESTARTABLE _TurnParty(const i32 direction)
   D7W = (I16)(cellFlags & 0xff);
   if (BITS5_15(cellFlags) == 3)
   {
+    HeroStats_OnPartyStepped();
     TraverseStairway(D7W & 4, true); //non-zero = down
   }
   else
   {
+    HeroStats_OnPartyTurned();
     PlaceOrRemoveObjectInRoom(
                       d.partyX,
                       d.partyY,
@@ -8230,6 +8232,7 @@ MOVEBUTN *MoveParty(const i32 button)
       fprintf(GETFILE(TraceFile),"%02x(%02x,%02x)\n",
              d.partyLevel,d.partyX,d.partyY);
     };
+    HeroStats_OnPartyStepped();
     TraverseStairway(cellFlagsFrom & 4, true);//non-zero = decrement level = UP
     if (TimerTraceActive)
     {
@@ -8283,6 +8286,7 @@ MOVEBUTN *MoveParty(const i32 button)
     if (   (rtTo == roomSTAIRS)
         || ((rtTo != roomSTONE) && (direction>3)))
     {
+      HeroStats_OnPartyStepped();
       if (direction <= 3)
       {
         //First, move party into stairwell
@@ -8347,6 +8351,7 @@ MOVEBUTN *MoveParty(const i32 button)
           direction = direction + (d.partyFacing + 2);
 //
 //
+          HeroStats_OnPartyBumped();
           LOCAL_8 = GetCharacterToDamage(
                        newX,
                        newY,
@@ -8396,6 +8401,7 @@ MOVEBUTN *MoveParty(const i32 button)
       else
       {
         i16 time2move;
+        HeroStats_OnPartyStepped();
         if (startingInStairwell)
         {
           MoveObject(RN(RNnul), -1, 0, newX, newY, NULL, NULL);

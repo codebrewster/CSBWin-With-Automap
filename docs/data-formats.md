@@ -74,12 +74,12 @@ version string at startup (`CSBlinux.cpp:1309`).
 The automap keeps its own state — the explored cells, the wall faces the 3D view has
 shown, the facts the party has learned, the floor items it has seen and how it last saw each cell — in a `.map` file alongside the save, not in
 the savegame itself. The glue is described in [automap.md](automap.md). Numbers are
-stored lowest byte first. Layout of version 12 (`AutoMapFile.h`):
+stored lowest byte first. Layout of version 15 (`AutoMapFile.h`):
 
 | Size | Content |
 |------|---------|
 | 4 bytes | `CSBM` |
-| 2 bytes | format version (12) |
+| 2 bytes | format version (15) |
 | 4 + 4 bytes | the two signature words of the saved game |
 | 2 bytes | number of levels |
 | per level | 1 byte width, 1 byte height, the explored bits (one per cell, row by row, lowest bit first), the seen-face bits (four per cell: bit `4 * (y * width + x) + side`, side 0 north, 1 east, 2 south, 3 west), the glimpsed-face bits (same layout: something seen on that face in the dark), the read-text bits (same layout: the wall text on that face read), the looked-into bits (same layout: the alcove in that face seen from in front, its contents drawn), the seen-floor bits (one per cell like the explored bits: the cell's floor picture noticed in the 3D view), then the same six sets for the rim, the ring of cells one step outside the level where the engine makes up rock: its cells in the order row above (corners included), row below, column left, column right, one explored bit, four bits for each face set and one seen-floor bit per cell |
@@ -95,6 +95,8 @@ stored lowest byte first. Layout of version 12 (`AutoMapFile.h`):
 | per link | 1 byte each source level, x, y, side (0 north to 3 west, `0xff` for a link from a floor tile), then target level, x, y (the target is on the source's level) |
 | 4 bytes | number of damaged monster groups |
 | per group | 4 bytes record, 2 bytes damage shown to each of the four members |
+| 4 bytes | length of the statistics block (version 13) |
+| block | 4 bytes length of the hero statistics (`HeroStats::Serialize`), those bytes, then the origins of missiles, clouds and potions (`HeroStatsOrigins::Serialize`); the tables inside are listed in the header comment of `AutoMapFile.h`. Version 14 adds the missile kind of a monster's missile to each harm record and the party's movement per level (steps, turns, teleports, ticks) at the end; version 15 adds the uses of actions that cannot hit to each attack record and ticks asleep, pit falls, pit climbs and wall bumps to the movement |
 
 A record fact has `0xff` for level, x and y; a cell fact has `0xffffffff` for the record.
 The record is `(dbNum << 16) | idx`. Items are stored in the order seen, looks by level, then y, then x, marks by level, y, x and links by level, y, x, side, then target y, x. Version 1 has neither
@@ -104,7 +106,9 @@ read), version 6 no looked-into bits (a seen face counts as looked into) and ver
 looks (the loader gives every explored cell the look it has now), version 8 no player notes,
 version 9 no damage, version 10 no rims (it kept a painted rim cell as the seen face of the
 floor beside it towards the rim; the loader turns those into explored rim cells) and version 11
-no seen-floor bits (the loader counts the floor of every explored cell as seen); all are still read. A mark or link outside the dungeon, a side other than 0-3 or `0xff`, an open byte other than 0 or 1, or a link target on another level makes the whole file be ignored.
+no seen-floor bits (the loader counts the floor of every explored cell as seen), version 12 no
+statistics (they start empty), version 13 no missile kinds and no movement and version 14 no
+action uses, sleep, pits or bumps; all are still read. A mark or link outside the dungeon, a side other than 0-3 or `0xff`, an open byte other than 0 or 1, or a link target on another level makes the whole file be ignored.
 
 ## Item and attack tables
 

@@ -18,6 +18,7 @@ be read, not to replace the code — every non-obvious claim points at a
 | [rendering.md](rendering.md) | Graphics decoding, the 3D viewport, screens, Dear ImGui, sound |
 | [platform.md](platform.md) | The platform mains, the UI layers, and the differences between Linux/macOS/Windows/Raspberry |
 | [automap-manual.md](automap-manual.md) | How to use the automap: controls, settings, tooltips, search, notes, testing aids |
+| [statistics-manual.md](statistics-manual.md) | How to use the Statistics window: pages, levels, champion pages, sorting, export as HTML, what is counted |
 | [automap.md](automap.md) | The `AutoMap*` feature: units, hooks, save/load, tests |
 | [data-formats.md](data-formats.md) | `dungeon.dat`, `graphics.dat`, savegames, `csb.cfg`, text/locale files, the decode tables |
 | [python-tools.md](python-tools.md) | The eight Python scripts, their origin, and the C++ they mirror |

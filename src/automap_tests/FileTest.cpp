@@ -22,7 +22,7 @@ static const size_t FIRST_LEVEL_WIDTH_OFFSET = 16;
 // A file with no damaged monster group ends in its count of 4 bytes
 static const size_t NO_DAMAGE_BYTES = 4;
 
-// What a version 13 file ends in when both statistics stores are empty: the block length, the
+// What a version 15 file ends in when both statistics stores are empty: the block length, the
 // length of the statistics, and their empty tables
 static std::string EmptyStatistics(void)
 {
@@ -49,7 +49,7 @@ static std::string WithoutStatistics(std::string bytes)
 static std::string Complete(const std::string &withoutStatistics)
 {
   std::string bytes = withoutStatistics + EmptyStatistics();
-  bytes[VERSION_OFFSET] = 13;
+  bytes[VERSION_OFFSET] = 15;
   return bytes;
 }
 
@@ -295,7 +295,7 @@ static void FileOfAnotherKindIsRejected(void)
 static void UnknownVersionIsRejected(void)
 {
   std::string bytes = WrittenFile();
-  bytes[VERSION_OFFSET] = 14;
+  bytes[VERSION_OFFSET] = 16;
   CheckRejected(bytes, AutoMapFileHasUnknownVersion);
 }
 
@@ -1182,6 +1182,10 @@ static HeroStats FilledStats(void)
   HeroStatsBlow friendly = HeroStatsBlow_Nobody(HeroBlowByChampion);
   friendly.champion = 9;
   stats.CreditHarm(3, 2, HeroHarmFriendlyFire, friendly, 8);
+  HeroStatsBlow fireball = HeroStatsBlow_Nobody(HeroBlowByMonster);
+  fireball.monsterType = 22;
+  fireball.spell = HERO_SPELL_MONSTER_MISSILE | 0x80;
+  stats.CreditHarm(9, 2, HeroHarmMonsterMissile, fireball, 17);
   stats.CreditHealing(3, 0, HeroHealPotion, 9, 30);
   stats.CreditHealing(9, 2, HeroHealRegeneration, HERO_STATS_NOBODY, 4);
   stats.CreditManaGained(9, 2, HeroManaPotion, 15);
@@ -1192,6 +1196,11 @@ static HeroStats FilledStats(void)
   death.by = bite;
   stats.CountDeath(death);
   stats.CountResurrection(3, 2);
+  stats.CountStep(0);
+  stats.CountStep(0);
+  stats.CountTurn(2);
+  stats.CountTeleport(2);
+  stats.CountTick(2, false);
   stats.CountPartyWipe();
   stats.CountReload();
   stats.CountReload();
@@ -1290,6 +1299,10 @@ static void StatisticsRoundTrip(void)
   CHECK(read.Deaths(3).size() == 1 && read.Deaths(3)[0].level == 2 && read.Deaths(3)[0].by.monsterType == 7);
   CHECK(read.Resurrections(3, 2) == 1);
   CHECK(read.PartyWipes() == 1 && read.Reloads() == 2);
+  CHECK(read.HarmRows(9, 2).size() == 1 && read.HarmRows(9, 2)[0].spell == (HERO_SPELL_MONSTER_MISSILE | 0x80));
+  HeroStatsMovement moved = read.Movement(HERO_STATS_WHOLE_RUN);
+  CHECK(moved.steps == 2 && moved.turns == 1 && moved.teleports == 1 && moved.ticks == 1);
+  CHECK(read.Movement(0).steps == 2 && read.Movement(0).turns == 0);
   HeroStatsBlow blow;
   CHECK(readOrigins.MissileOrigin(12, &blow) && SameBlow(blow, FilledOrigins().Missiles().begin()->second));
   CHECK(blow.thrown && blow.weapon == 40 && blow.option == HERO_STATS_THROW_OPTION);
@@ -1364,9 +1377,10 @@ static void ADamagedStatisticsBlockLeavesTheStoresUnchanged(void)
   HeroStatsOrigins none;
   std::vector<uint8_t> rawOrigins;
   none.Serialize(&rawOrigins);
-  // The harm source (4 bytes) sits 4 + 2 + 4 after the start of the harm record, which ends the
-  // statistics but for the empty healing, mana, spell, death and resurrection tables and the wipes and reloads
-  size_t source = bad.size() - rawOrigins.size() - (7 * 4) - (2 + 4 + 4 + 2 + 4 + 4) + 2 + 4;
+  // The harm source (4 bytes) sits 2 + 4 after the start of the harm record, which ends the
+  // statistics but for the empty healing, mana, spell, death and resurrection tables, the wipes
+  // and reloads and the empty movement table
+  size_t source = bad.size() - rawOrigins.size() - (8 * 4) - (2 + 4 + 4 + 2 + 4 + 4 + 4) + 2 + 4;
   bad[source] = 99;
   CheckStatisticsFileLeavesTheStores(bad);
 }

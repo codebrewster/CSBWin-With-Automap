@@ -71,6 +71,11 @@ static std::string CurrentDungeon(void)
   return dungeonName == NULL ? std::string() : std::string(dungeonName);
 }
 
+std::string HeroStats_DungeonInPlay(void)
+{
+  return CurrentDungeon();
+}
+
 std::vector<HeroStatsChampion> HeroStats_PartyNow(void)
 {
   std::vector<HeroStatsChampion> party;
@@ -191,6 +196,7 @@ static void MarkPartyLevelVisited(void)
 void HeroStats_OnPartyOnLevel(void)
 {
   MarkPartyLevelVisited();
+  store.CountTick(d.partyLevel, d.PartySleeping != 0);
 }
 
 // The level everything is counted at; being there visits it
@@ -198,6 +204,43 @@ static int PartyLevel(void)
 {
   MarkPartyLevelVisited();
   return d.partyLevel;
+}
+
+// Chaos Strikes Back starts on a screen of its own, which is no dungeon level
+static const int LEVEL_OF_THE_PRISON_SCREEN = 255;
+
+void HeroStats_OnPartyStepped(void)
+{
+  if (d.partyLevel == LEVEL_OF_THE_PRISON_SCREEN) return;
+  store.CountStep(PartyLevel());
+}
+
+void HeroStats_OnPartyTurned(void)
+{
+  if (d.partyLevel == LEVEL_OF_THE_PRISON_SCREEN) return;
+  store.CountTurn(PartyLevel());
+}
+
+void HeroStats_OnPartyTeleported(int level)
+{
+  if (d.partyLevel == LEVEL_OF_THE_PRISON_SCREEN) return;
+  store.MarkLevelVisited(level);
+  store.CountTeleport(level);
+}
+
+void HeroStats_OnPartyWentDownPit(int level)
+{
+  if (d.partyLevel == LEVEL_OF_THE_PRISON_SCREEN) return;
+  store.MarkLevelVisited(level);
+  // The rope's Climb Down sets it for the first pit only; the pits below are falls
+  if (d.SupressPitDamage != 0) store.CountPitClimb(level);
+  else store.CountPitFall(level);
+}
+
+void HeroStats_OnPartyBumped(void)
+{
+  if (d.partyLevel == LEVEL_OF_THE_PRISON_SCREEN) return;
+  store.CountBump(PartyLevel());
 }
 
 static HeroStatsBlow HeroBlow(int slot, HeroDamageKind kind, int weapon, bool thrown, int option,
@@ -239,9 +282,9 @@ static void CountMissileHit(int level, int missileIndex, const HeroStatsBlow &bl
 
 int HeroStats_WeaponInHand(int slot)
 {
-  if (!IsHero(slot)) return HERO_STATS_FISTS;
+  if (!IsHero(slot)) return HERO_STATS_UNARMED;
   RN inHand = d.hero[slot].Possession(1);
-  return inHand == RNnul ? HERO_STATS_FISTS : HeroStats_WeaponOf(inHand);
+  return inHand == RNnul ? HERO_STATS_UNARMED : HeroStats_WeaponOf(inHand);
 }
 
 // The basic type, not the name index: that one changes with a torch's flame, a compass's
@@ -268,6 +311,22 @@ std::string HeroStats_AttackOptionNameOf(int option)
   return std::string(at, strnlen(at, end - at));
 }
 
+// Statistics.cpp
+void GetMonsterDisplayName(int monsterType, int graphic, char *name);
+
+static std::string MonsterNameOf(int monsterType, int variant)
+{
+  char name[256] = "";
+  GetMonsterDisplayName(monsterType, variant, name);
+  return name;
+}
+
+HeroStatsNames HeroStats_NamesOfTheGame(void)
+{
+  HeroStatsNames names = {MonsterNameOf, HeroStats_WeaponNameOf, HeroStats_AttackOptionNameOf};
+  return names;
+}
+
 void HeroStats_OnMeleeAttack(int slot, int attackType, int monsterGroup, int damageShown)
 {
   if (!IsHero(slot) || monsterGroup == 0) return;
@@ -283,6 +342,30 @@ void HeroStats_OnMeleeAttack(int slot, int attackType, int monsterGroup, int dam
   SetLastBlow(blow);
 }
 
+// Melee blows count their tries in HeroStats_OnMeleeAttack, missiles when they are launched
+static bool ActionCanHit(int attackType)
+{
+  switch (attackType)
+  {
+  case atk_BASH: case atk_HACK: case atk_BERZERK: case atk_KICK: case atk_SWING: case atk_CHOP:
+  case atk_DISRUPT: case atk_JAB: case atk_PARRY: case atk_STAB2: case atk_STAB1: case atk_STUN:
+  case atk_THRUST: case atk_MELEE: case atk_SLASH: case atk_CLEAVE: case atk_PUNCH:
+  case atk_LIGHTNING: case atk_DISPELL: case atk_FIREBALL: case atk_SPIT: case atk_INVOKE:
+  case atk_SHOOT: case atk_THROW:
+    return true;
+  default:
+    return false;
+  }
+}
+
+void HeroStats_OnActionDone(int slot, int attackType)
+{
+  if (!IsHero(slot) || attackType < 0 || ActionCanHit(attackType)) return;
+  HeroStatsBlow blow = HeroBlow(slot, HeroDamageMelee, HeroStats_WeaponInHand(slot), false, attackType,
+                                HERO_STATS_NO_SPELL);
+  store.CountActionUse(PartyLevel(), blow);
+}
+
 void HeroStats_ExpectHeroMissile(int slot, HeroDamageKind kind, int weapon, bool thrown, int option,
                                  uint32_t spell)
 {
@@ -290,10 +373,11 @@ void HeroStats_ExpectHeroMissile(int slot, HeroDamageKind kind, int weapon, bool
   origins.ExpectMissile(HeroBlow(slot, kind, weapon, thrown, option, spell));
 }
 
-void HeroStats_ExpectMonsterMissile(int monsterType)
+void HeroStats_ExpectMonsterMissile(int monsterType, int missile)
 {
   HeroStatsBlow blow = HeroStatsBlow_Nobody(HeroBlowByMonster);
   blow.monsterType = monsterType;
+  blow.spell = HERO_SPELL_MONSTER_MISSILE | (uint32_t)(missile & 0xff);
   origins.ExpectMissile(blow);
 }
 

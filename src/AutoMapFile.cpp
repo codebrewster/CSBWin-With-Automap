@@ -7,7 +7,7 @@
 #include <vector>
 
 static const char FILE_TYPE_MARKER[4] = {'C', 'S', 'B', 'M'};
-static const uint32_t FORMAT_VERSION = 13;
+static const uint32_t FORMAT_VERSION = 15;
 static const uint32_t FIRST_VERSION_WITH_FACES = 2;
 static const uint32_t FIRST_VERSION_WITH_ITEMS = 3;
 static const uint32_t FIRST_VERSION_WITH_GLIMPSES = 4;
@@ -483,7 +483,8 @@ static AutoMapFileResult ReadDamage(std::istream &in, AutoMapMonsterDamage *dama
 
 // The length is not trusted for allocation: the block is taken off the stream in pieces, so a
 // damaged length just meets the end of the file
-static AutoMapFileResult ReadStatistics(std::istream &in, HeroStats *stats, HeroStatsOrigins *origins)
+static AutoMapFileResult ReadStatistics(std::istream &in, uint32_t version, HeroStats *stats,
+                                        HeroStatsOrigins *origins)
 {
   uint32_t blockLength;
   if (!ReadNumber(in, 4, &blockLength)) return AutoMapFileIsTruncated;
@@ -503,7 +504,7 @@ static AutoMapFileResult ReadStatistics(std::istream &in, HeroStats *stats, Hero
   if (statsLength > block.size() - 4) return AutoMapFileIsTruncated;
   const uint8_t *statsBytes = block.data() + 4;
   const uint8_t *originsBytes = statsBytes + statsLength;
-  if (!stats->Deserialize(statsBytes, statsLength)) return AutoMapFileIsTruncated;
+  if (!stats->Deserialize(statsBytes, statsLength, (int)version)) return AutoMapFileIsTruncated;
   if (!origins->Deserialize(originsBytes, block.size() - 4 - statsLength)) return AutoMapFileIsTruncated;
   return AutoMapFileRead;
 }
@@ -580,7 +581,7 @@ AutoMapFileResult AutoMapFile::Read(std::istream &in, AutoMapExplored *explored,
   HeroStatsOrigins readOrigins;
   if (version >= FIRST_VERSION_WITH_STATISTICS)
   {
-    result = ReadStatistics(in, &readStats, &readOrigins);
+    result = ReadStatistics(in, version, &readStats, &readOrigins);
     if (result != AutoMapFileRead) return result;
   }
   *explored = readCells;

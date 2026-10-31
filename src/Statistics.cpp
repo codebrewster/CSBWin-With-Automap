@@ -45,7 +45,18 @@ const char *monsterNames[27] =
 };
 
 
-void GetMonsterName(int monsterType, int graphic, char *name)
+// The monster names for the Statistics window, as a player reads them
+static const char *const monsterDisplayNames[NUM_MONSTER_TYPE] =
+{
+  "Scorpion", "Slime Devil", "Giggler", "Flying Eye", "Pain Rat", "Ruster", "Screamer",
+  "Rock Pile", "Rive", "Stone Golem", "Mummy", "Black Flame", "Skeleton", "Couatl", "Vexirk",
+  "Worm", "Trolin", "Wasp", "Deth Knight", "Zytaz", "Water Elemental", "Oitu", "Demon",
+  "Lord Chaos", "Dragon", "Lord Order", "Grey Lord"
+};
+
+// The dungeon's own name of the graphic variant of a monster type, from the expool database.
+// False when the dungeon names none for it.
+static bool FindCustomMonsterName(int monsterType, int graphic, char *name)
 {
   // See if name is in expool database.
   ui32 key, *pRecord;
@@ -83,12 +94,27 @@ void GetMonsterName(int monsterType, int graphic, char *name)
         //return CString(pText,col);
         memcpy(name, pText, col);
         name[col] = 0;
-        return;
+        return true;
       };
     };
   };
+  return false;
+}
+
+void GetMonsterName(int monsterType, int graphic, char *name)
+{
+  if (FindCustomMonsterName(monsterType, graphic, name)) return;
   sprintf(name, "%s(%d)", monsterNames[monsterType], graphic);
 };
+
+// The dungeon's name of the variant, else the type's name with no variant number: the variants
+// a dungeon does not name look alike to the player
+void GetMonsterDisplayName(int monsterType, int graphic, char *name)
+{
+  if (FindCustomMonsterName(monsterType, graphic, name)) return;
+  if (monsterType >= 0 && monsterType < NUM_MONSTER_TYPE) strcpy(name, monsterDisplayNames[monsterType]);
+  else sprintf(name, "Monster #%d", monsterType);
+}
 
 
 void Statistics(void)

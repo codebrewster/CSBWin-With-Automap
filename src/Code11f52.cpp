@@ -2994,7 +2994,11 @@ i16 MoveObject(const RN        object,
           if ((DB1A2->what() == 1) & (monsterPartyOther != MPO_monster)) break;
           if ((DB1A2->what() == 2) & (monsterPartyOther != MPO_party)) break;
         };
-        if (monsterPartyOther == MPO_party && DB1A2 != pretendTeleporter) AutoMap_OnPartyTeleported(curLevel, newX, newY);
+        if (monsterPartyOther == MPO_party && DB1A2 != pretendTeleporter)
+        {
+          AutoMap_OnPartyTeleported(curLevel, newX, newY);
+          HeroStats_OnPartyTeleported(curLevel);
+        };
         SET(D0B, newX == (DB1A2->destX()));
         if (D0B!=0)
         {
@@ -3108,6 +3112,7 @@ i16 MoveObject(const RN        object,
           fprintf(GETFILE(TraceFile),"Object %04x falls from %02x(%02x,%02x)",
                  object.ConvertToInteger(),curLevel,newX,newY);
           AutoMap_OnFellThroughPit(curLevel, newX, newY, objD7 == RNnul);
+          if (objD7 == RNnul) HeroStats_OnPartyWentDownPit(curLevel);
           curLevel = IncrementLevel(curLevel, 1, &newX, &newY);
           if (TimerTraceActive)
           fprintf(GETFILE(TraceFile),"to %02x(%02x,%02x)\n",
