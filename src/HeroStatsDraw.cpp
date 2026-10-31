@@ -322,9 +322,12 @@ static void DrawTabs(HeroStatsDrawState *state)
 static const Uint32 CACHE_LIFETIME = 500;
 static bool pageCached = false;
 
+static bool perLevelCached = false;
+
 void HeroStatsDraw_Forget(void)
 {
   pageCached = false;
+  perLevelCached = false;
 }
 
 static std::string ColumnsKey(const std::vector<HeroStatsColumn> &columns)
@@ -1306,12 +1309,191 @@ static void DrawTopicPage(HeroStatsDrawState *state, const PageData &data, const
   }
 }
 
+// ---------------------------------------------------------------------------------------------
+// Per level
+
+static const HeroStatsPerLevel &CachedPerLevel(const HeroStatsDrawState &state, bool grid, const HeroStats &stats,
+                                               const std::vector<HeroStatsColumn> &columns)
+{
+  static HeroStatsPerLevel data;
+  static std::string cachedKey;
+  static Uint32 cachedAt;
+  std::string key = ColumnsKey(columns) + "|" + std::to_string(state.who) + "|" + std::to_string(state.topic) + "|" +
+                    (grid ? "grid" + std::to_string(state.gridNumber[state.topic]) : std::string("totals")) + "|" +
+                    std::to_string(stats.VisitedLevels().size());
+  Uint32 now = SDL_GetTicks();
+  if (!perLevelCached || key != cachedKey || now - cachedAt >= CACHE_LIFETIME)
+  {
+    data = grid ? HeroStatsPages_PerLevelGrid(stats, columns, state.gridNumber[state.topic])
+                : HeroStatsPages_PerLevelTotals(stats, columns, state.who, state.topic);
+    cachedKey = key;
+    cachedAt = now;
+    perLevelCached = true;
+  }
+  return data;
+}
+
+// A label before a group of choices, on the choices' line
+static void ChoiceLabel(const char *label)
+{
+  ImGui::AlignTextToFramePadding();
+  ImGui::TextColored(Colour(FAINT_RGB), "%s", label);
+  ImGui::SameLine(0, 10);
+}
+
+// The Party's Show switch, and in Champions side by side the Number to show; true for the grid
+static bool DrawPerLevelChoices(HeroStatsDrawState *state)
+{
+  std::vector<HeroStatsNumber> numbers = HeroStatsCatalogue_GridNumbers(state->topic);
+  if (state->who != HERO_STATS_PARTY || numbers.empty()) return false;
+  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(1, 6));
+  ChoiceLabel("Show  ");
+  if (ChoiceButton("Party totals", !state->sideBySide)) state->sideBySide = false;
+  ImGui::SameLine();
+  if (ChoiceButton("Champions side by side", state->sideBySide)) state->sideBySide = true;
+  if (state->sideBySide)
+  {
+    if (std::find(numbers.begin(), numbers.end(), state->gridNumber[state->topic]) == numbers.end())
+      state->gridNumber[state->topic] = numbers[0];
+    ChoiceLabel("Number");
+    float left = ImGui::GetCursorPosX();
+    for (size_t n = 0; n < numbers.size(); n++)
+    {
+      const char *label = HeroStatsCatalogue_Info(numbers[n]).label;
+      if (n > 0)
+      {
+        ImGui::SameLine();
+        // A button that does not fit starts a new line under the first
+        if (ImGui::GetContentRegionAvail().x < ButtonWidth(label))
+        {
+          ImGui::NewLine();
+          ImGui::SetCursorPosX(left);
+        }
+      }
+      ImGui::PushID((int)n + 1000);
+      if (ChoiceButton(label, state->gridNumber[state->topic] == numbers[n])) state->gridNumber[state->topic] = numbers[n];
+      ImGui::PopID();
+    }
+  }
+  ImGui::PopStyleVar();
+  ImGui::Dummy(ImVec2(0, 4));
+  return state->sideBySide;
+}
+
+static void LevelCell(HeroStatsDrawState *state, int level)
+{
+  ImGui::TableSetColumnIndex(0);
+  ImGui::PushID(level);
+  bool isRun = level == HERO_STATS_WHOLE_RUN;
+  ImGui::PushStyleColor(ImGuiCol_Text, Colour(isRun ? WHITE_RGB : TEXT_RGB));
+  if (ImGui::Selectable(LevelLabel(level).c_str(), false, ImGuiSelectableFlags_SpanAllColumns))
+  {
+    state->perLevel = false;
+    state->level = level;
+  }
+  ImGui::PopStyleColor();
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Show %s on its own", LevelLabel(level).c_str());
+  ImGui::PopID();
+}
+
 static void DrawPerLevel(HeroStatsDrawState *state, const HeroStats &stats, const std::vector<HeroStatsColumn> &columns)
 {
-  (void)stats;
-  (void)columns;
-  ImGui::TextColored(Colour(DIM_RGB), "Per level");
-  (void)state;
+  bool grid = DrawPerLevelChoices(state);
+  const HeroStatsPerLevel &table = CachedPerLevel(*state, grid, stats, columns);
+  if (table.numbers.empty() || table.rows.empty()) return;
+  int count;
+  std::vector<int> headerColumns(1, -1);
+  if (grid) count = 1 + (int)columns.size() + 1 + (table.hasShare ? 1 : 0);
+  else count = 1 + (int)table.numbers.size() + (table.hasShare ? 1 : 0);
+  // The columns' widths first: a table wider than the page scrolls sideways with it
+  std::vector<std::string> labels;
+  std::vector<float> widths;
+  if (grid)
+  {
+    for (size_t c = 0; c < columns.size(); c++)
+    {
+      labels.push_back(columns[c].name);
+      widths.push_back(std::max(NUMBER_WIDTH, ImGui::CalcTextSize(columns[c].name.c_str()).x + 40));
+    }
+    labels.push_back("Party");
+    widths.push_back(NUMBER_WIDTH);
+    if (table.hasShare)
+    {
+      labels.push_back("Share");
+      widths.push_back(BAR_WIDTH);
+    }
+  }
+  else
+  {
+    for (size_t n = 0; n < table.numbers.size(); n++)
+    {
+      labels.push_back(HeroStatsCatalogue_Info(table.numbers[n]).label);
+      widths.push_back(std::max(NUMBER_WIDTH, ImGui::CalcTextSize(labels.back().c_str()).x + 26));
+    }
+    if (table.hasShare)
+    {
+      labels.push_back(std::string("Who: ") + HeroStatsCatalogue_Info(table.shareNumber).label);
+      widths.push_back(std::max(WHO_WIDTH, ImGui::CalcTextSize(labels.back().c_str()).x + 26));
+    }
+  }
+  const float LEVEL_WIDTH = 90;
+  float tableWidth = LEVEL_WIDTH + ImGui::GetStyle().CellPadding.x * 2 * count;
+  for (size_t i = 0; i < widths.size(); i++) tableWidth += widths[i];
+  ImGui::PushID(grid ? "grid" : "totals");
+  if (!ImGui::BeginTable("##perlevel", count, TABLE_FLAGS | ImGuiTableFlags_Sortable,
+                         ImVec2(std::max(tableWidth, ImGui::GetContentRegionAvail().x), 0)))
+  {
+    ImGui::PopID();
+    return;
+  }
+  ImGui::TableSetupColumn("Level", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_DefaultSort, LEVEL_WIDTH);
+  for (size_t i = 0; i < labels.size(); i++)
+  {
+    bool isBar = table.hasShare && i == labels.size() - 1;
+    if (isBar) BarColumn(labels[i].c_str(), widths[i]);
+    else NumberColumn(labels[i].c_str(), widths[i]);
+    if (grid && i < columns.size()) headerColumns.push_back((int)i);
+  }
+  HeaderRow(headerColumns, columns);
+  // The levels sort; the whole run stays last
+  std::vector<HeroStatsLevelRow> rows(table.rows.begin(), table.rows.end() - 1);
+  size_t valueCount = table.rows.back().values.size();
+  SortRows(&rows, CurrentSort(), [&](const HeroStatsLevelRow &a, const HeroStatsLevelRow &b, int column) {
+    if (column == 0) return Compare(a.level, b.level);
+    size_t value = std::min((size_t)column - 1, valueCount - 1);  // Share and Who sort by the last value
+    if (!grid && table.hasShare && (size_t)column > valueCount)
+    {
+      long long sa = 0, sb = 0;
+      for (size_t i = 0; i < a.share.size(); i++) sa += a.share[i];
+      for (size_t i = 0; i < b.share.size(); i++) sb += b.share[i];
+      return Compare((double)sa, (double)sb);
+    }
+    return Compare(a.values[value], b.values[value]);
+  });
+  rows.push_back(table.rows.back());
+  for (size_t r = 0; r < rows.size(); r++)
+  {
+    const HeroStatsLevelRow &row = rows[r];
+    bool isRun = row.level == HERO_STATS_WHOLE_RUN;
+    if (isRun) TotalRow();
+    else ImGui::TableNextRow();
+    LevelCell(state, row.level);
+    ImU32 rgb = isRun ? WHITE_RGB : TEXT_RGB;
+    for (size_t v = 0; v < row.values.size(); v++)
+    {
+      ImGui::TableSetColumnIndex((int)v + 1);
+      HeroStatsNumber number = grid ? table.numbers[0] : table.numbers[v];
+      bool dimmed = grid && v < columns.size() && columns[v].hasLeft;
+      CatalogueCell(number, row.values[v], dimmed ? DIM_RGB : rgb);
+    }
+    if (table.hasShare)
+    {
+      ImGui::TableSetColumnIndex((int)row.values.size() + 1);
+      ShareBar(row.share);
+    }
+  }
+  ImGui::EndTable();
+  ImGui::PopID();
 }
 
 static void DrawPage(HeroStatsDrawState *state, const HeroStats &stats, const std::vector<HeroStatsColumn> &columns)
