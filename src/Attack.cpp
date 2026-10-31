@@ -1994,6 +1994,7 @@ RESTARTABLE _Attack(const i32 initialChIdx, const ATTACKTYPE initialAttackType)
     pParam->attackY = d.partyY + d.DeltaY[d.partyFacing];
     pParam->dataType = ADT_Fusion;
     CallAttackFilter(&filter, pParam, 1);
+    HeroStats_OnActionDone(pParam->charIdx, pParam->attackType); // the winning Fuse never returns
     Fusion(_8_,pParam->attackX, pParam->attackY);
     break;
   case atk_HEAL: //PAF
@@ -2175,7 +2176,7 @@ RESTARTABLE _Attack(const i32 initialChIdx, const ATTACKTYPE initialAttackType)
     CallAttackFilter(&filter, pParam, 1);
     break;
   }; //switch ()
-  HeroStats_OnActionDone(pParam->charIdx, pParam->attackType);
+  if (pParam->attackType != atk_FUSE) HeroStats_OnActionDone(pParam->charIdx, pParam->attackType);
   CallAttackFilter(&filter, pParam, 2);
   if (pParam->disableTime != 0)
   {

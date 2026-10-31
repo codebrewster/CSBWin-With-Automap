@@ -79,7 +79,8 @@ std::string HeroStats_AttackOptionNameOf(int option);
 HeroStatsNames HeroStats_NamesOfTheGame(void);
 // _Attack carried out an action (after its filters). Actions that cannot hit (War Cry, Calm,
 // Spellshield, Light, Climb Down ...) count one use for the weapon in hand and the action; melee
-// blows and missiles count their tries elsewhere.
+// blows and missiles count their tries elsewhere. Fuse counts before Fusion: on Lord Chaos the
+// game ends inside it and never comes back.
 void HeroStats_OnActionDone(int slot, int attackType);
 // The next missile launched is the champion's (one try for the weapon and option when it is
 // launched) or a monster's
