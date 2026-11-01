@@ -865,6 +865,46 @@ static void ZoomKeepsTheSameSpotCentred(void)
   CHECK(closerStill.originY + 10.5f * closerStill.cellSize + closerStill.cellSize / 2.0f == 200.0f);
 }
 
+// The wheel zooms towards the pointer: the level point under it stays on the same pixel
+static void ZoomKeepsThePointUnderThePointerStill(void)
+{
+  AutoMapViewRequest request = RequestFor(640, 400);
+  request.zoomSteps = 4;
+  request.centerX = 16;
+  request.centerY = 10;
+  AutoMapView before = AutoMapScene_PlaceLevel(request);
+  int pointerX = 400, pointerY = 260;
+  float pointX = (float)(pointerX - before.originX) / before.cellSize;
+  float pointY = (float)(pointerY - before.originY) / before.cellSize;
+  request.zoomSteps = 8;
+  int newCellSize = AutoMapScene_PlaceLevel(request).cellSize;
+  request.centerX = AutoMapScene_CentreKeepingPointStill(16, pointX, before.cellSize, newCellSize);
+  request.centerY = AutoMapScene_CentreKeepingPointStill(10, pointY, before.cellSize, newCellSize);
+  AutoMapView after = AutoMapScene_PlaceLevel(request);
+  CHECK(after.cellSize == 60);
+  CHECK(std::fabs(after.originX + pointX * after.cellSize - pointerX) <= 1.0f);
+  CHECK(std::fabs(after.originY + pointY * after.cellSize - pointerY) <= 1.0f);
+  // Back out again: the same point returns under the pointer
+  request.zoomSteps = 4;
+  request.centerX = AutoMapScene_CentreKeepingPointStill(request.centerX, pointX, 60, 40);
+  request.centerY = AutoMapScene_CentreKeepingPointStill(request.centerY, pointY, 60, 40);
+  AutoMapView back = AutoMapScene_PlaceLevel(request);
+  CHECK(std::fabs(back.originX + pointX * back.cellSize - pointerX) <= 1.0f);
+  CHECK(std::fabs(back.originY + pointY * back.cellSize - pointerY) <= 1.0f);
+  // A pointer in the middle of the view zooms around the centre as before
+  CHECK(AutoMapScene_CentreKeepingPointStill(16, 16.5f, 40, 60) == 16.0f);
+  CHECK(AutoMapScene_CentreKeepingPointStill(16, 3.0f, 0, 60) == 16.0f);
+}
+
+static void OnlyTheFittingZoomShowsTheWholeLevel(void)
+{
+  AutoMapViewRequest request = RequestFor(640, 400);
+  CHECK(AutoMapScene_ShowsWholeLevel(request));
+  request.zoomSteps = 1;
+  CHECK(!AutoMapScene_ShowsWholeLevel(request));
+  CHECK(AutoMapScene_ShowsWholeLevel(RequestFor(0, 0)));
+}
+
 static void LabelStepKeepsNumbersApart(void)
 {
   CHECK(AutoMapScene_LabelStep(40, 24) == 1);
@@ -5205,6 +5245,8 @@ void TestAutoMapScene(void)
   AFractionalCentreMovesTheZoomedView();
   FarCentresStopAtTheEdgesOfTheLevel();
   ZoomKeepsTheSameSpotCentred();
+  ZoomKeepsThePointUnderThePointerStill();
+  OnlyTheFittingZoomShowsTheWholeLevel();
   LabelStepKeepsNumbersApart();
   VisibleRangeCoversTheCellsTouchingTheMap();
   DigitsAreThreeByFive();

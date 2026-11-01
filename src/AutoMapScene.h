@@ -1360,6 +1360,16 @@ int AutoMapScene_TextWidth(const char *text);
 // edge of the level. A fitting level ignores the pan offset.
 AutoMapView AutoMapScene_PlaceLevel(const AutoMapViewRequest &request);
 
+// True when the request's zoom shows the whole level on both axes, so that its centre
+// changes nothing on screen
+bool AutoMapScene_ShowsWholeLevel(const AutoMapViewRequest &request);
+
+// The view centre along one axis after a zoom step that keeps the level point under the
+// pointer where it is. The point is in cells from the level's edge (cell x covers x to
+// x + 1), the centres are in the request's cells (cell x centred is x).
+float AutoMapScene_CentreKeepingPointStill(float centreCell, float pointCell, int oldCellSize,
+                                           int newCellSize);
+
 // Debug placement (map_debug in csb.cfg): whether the party or a new monster may be put
 // on a cell of the snapshot. Only a cell the party could stand on takes either: no wall,
 // closed false wall, door that is not fully open (or broken), or rock around the level,

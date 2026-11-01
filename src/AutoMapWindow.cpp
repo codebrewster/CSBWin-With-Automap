@@ -119,6 +119,11 @@ static bool isShown = false;
 static bool isDirty = false;
 static bool drawListWasPainted = true;
 static bool pointerIsOverMap = false;
+// The last pointer pixel over the map window, for the wheel to zoom towards: wheel events of
+// older SDL versions carry no position of their own
+static bool pointerPixelKnown = false;
+static int pointerPixelX = 0;
+static int pointerPixelY = 0;
 static int pointerStateOfTheGame = SDL_ENABLE;
 static int zoomSteps = 0;
 // One bit per AutoMapShown; everything by default
@@ -441,6 +446,7 @@ void AutoMapWindow_Show(void)
 
 static void GiveThePointerBackToTheGame(void)
 {
+  pointerPixelKnown = false;
   if (!pointerIsOverMap) return;
   pointerIsOverMap = false;
   SDL_ShowCursor(pointerStateOfTheGame);
@@ -837,6 +843,7 @@ static void MapAreaSize(int *mapWidth, int *mapHeight)
 }
 
 static AutoMapView ViewOfShownLevel(void);
+static AutoMapViewRequest RequestOfShownLevel(void);
 
 // The exact view centre in cells, so that switching from the party to the pan — and any
 // later re-pan or zoom step — keeps the view still
@@ -946,6 +953,52 @@ static void EndMiddleDrag(void)
   }
 }
 
+// The wheel zooms towards the pointer: the spot under it stays where it is, so a zoom that
+// moves the view stops following the party, like a pan. While the whole level fits, the
+// centre changes nothing on screen and the view keeps following. Zoomed back out to the
+// whole level, the view follows the party again, as after a middle-click; a level the user
+// browsed to stays on screen, though, when the party is elsewhere.
+static void ZoomTowardsPointer(int notches)
+{
+  int newSteps = AutoMapScene_ClampZoomSteps(zoomSteps + (notches > 0 ? 1 : -1));
+  if (newSteps == zoomSteps) return;
+  AutoMapView before = ViewOfShownLevel();
+  zoomSteps = newSteps;
+  isDirty = true;
+  if (AutoMapScene_ShowsWholeLevel(RequestOfShownLevel()))
+  {
+    if (notches < 0 && !viewFollowsParty)
+    {
+      RecenterViewOnParty();
+      if (shownDrawList.partyIsOnShownLevel) AutoMap_FollowParty();
+    }
+    return;
+  }
+  int mapWidth = 0, mapHeight = 0;
+  MapAreaSize(&mapWidth, &mapHeight);
+  bool pointerOnMap = pointerPixelKnown && !middleDragging && pointerPixelX >= RULER &&
+                      pointerPixelY >= RULER && pointerPixelX < RULER + mapWidth &&
+                      pointerPixelY < RULER + mapHeight;
+  // Off the map (rulers, unknown position) the zoom stays on the centre, as before
+  if (!pointerOnMap) return;
+  AutoMapView after = ViewOfShownLevel();
+  if (before.cellSize <= 0 || after.cellSize <= 0) return;
+  // From the centre actually on screen: a frozen centre past the level's edge would jump
+  FreezeExactViewCenter(before);
+  float pointX = (float)(pointerPixelX - before.originX) / before.cellSize;
+  float pointY = (float)(pointerPixelY - before.originY) / before.cellSize;
+  viewCenterX = AutoMapScene_CentreKeepingPointStill(viewCenterX, pointX, before.cellSize,
+                                                     after.cellSize);
+  viewCenterY = AutoMapScene_CentreKeepingPointStill(viewCenterY, pointY, before.cellSize,
+                                                     after.cellSize);
+  if (viewFollowsParty)
+  {
+    viewFollowsParty = false;
+    // As for a pan: the level on screen stays while the view roams
+    if (shownDrawList.level != AUTOMAP_NO_LEVEL) AutoMap_ShowLevel(shownDrawList.level);
+  }
+}
+
 static void StepLevelCenteredOn(int delta, int cellX, int cellY)
 {
   if (shownDrawList.level == AUTOMAP_NO_LEVEL) return;
@@ -1023,6 +1076,18 @@ bool AutoMapWindow_HandlePointerEvent(const SDL_Event &event)
     printf("Automap gesture: down outside the map window\n");
   }
   if (!IsPointerEventOfMapWindow(event)) return false;
+  if (event.type == SDL_MOUSEMOTION && !middleDragging)
+  {
+    pointerPixelKnown = true;
+    pointerPixelX = event.motion.x;
+    pointerPixelY = event.motion.y;
+  }
+  else if (event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEBUTTONUP)
+  {
+    pointerPixelKnown = true;
+    pointerPixelX = event.button.x;
+    pointerPixelY = event.button.y;
+  }
   // A right-click ends link mode and opens no menu
   if (linkModeOn && event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_RIGHT)
   {
@@ -1134,8 +1199,7 @@ bool AutoMapWindow_HandlePointerEvent(const SDL_Event &event)
     }
     else
     {
-      zoomSteps = AutoMapScene_ClampZoomSteps(zoomSteps + (event.wheel.y > 0 ? 1 : -1));
-      isDirty = true;
+      ZoomTowardsPointer(event.wheel.y);
     }
   }
   else if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_MIDDLE)
@@ -2554,7 +2618,7 @@ static void DrawMonsters(const AutoMapView &view, const AutoMapDrawList &drawLis
   for (size_t i = 0; i < fromNorthToSouth.size(); i++) DrawMonster(view, fromNorthToSouth[i]);
 }
 
-static AutoMapView ViewOfShownLevel(void)
+static AutoMapViewRequest RequestOfShownLevel(void)
 {
   AutoMapViewRequest request;
   request.levelSize.width = shownDrawList.width;
@@ -2580,7 +2644,12 @@ static AutoMapView ViewOfShownLevel(void)
     request.centerX = viewCenterX;
     request.centerY = viewCenterY;
   }
-  AutoMapView view = AutoMapScene_PlaceLevel(request);
+  return request;
+}
+
+static AutoMapView ViewOfShownLevel(void)
+{
+  AutoMapView view = AutoMapScene_PlaceLevel(RequestOfShownLevel());
   view.originX += RULER;
   view.originY += RULER;
   return view;

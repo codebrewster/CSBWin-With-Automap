@@ -2279,6 +2279,25 @@ AutoMapView AutoMapScene_PlaceLevel(const AutoMapViewRequest &request)
   return view;
 }
 
+bool AutoMapScene_ShowsWholeLevel(const AutoMapViewRequest &request)
+{
+  AutoMapView view = AutoMapScene_PlaceLevel(request);
+  if (view.cellSize <= 0) return true;
+  return request.levelSize.width * view.cellSize <= request.windowWidth
+         && request.levelSize.height * view.cellSize <= request.windowHeight;
+}
+
+float AutoMapScene_CentreKeepingPointStill(float centreCell, float pointCell, int oldCellSize,
+                                           int newCellSize)
+{
+  if (oldCellSize <= 0 || newCellSize <= 0) return centreCell;
+  // The middle of the view lies half a cell past the centre cell's edge; the pointer's
+  // distance from it in pixels stays the same across the step
+  float middle = centreCell + 0.5f;
+  float middleAfter = pointCell - (pointCell - middle) * oldCellSize / newCellSize;
+  return middleAfter - 0.5f;
+}
+
 int AutoMapScene_LabelStep(int cellSize, int numberPixelWidth)
 {
   if (cellSize <= 0) return 1;
