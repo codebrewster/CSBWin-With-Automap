@@ -2616,7 +2616,7 @@ static void TeleporterLinesDescribeScopeDestinationAndTurn(void)
   std::vector<std::string> lines = AutoMapScene_TeleporterLines(drawList, 1, 1);
   CHECK(lines.size() == 3);
   CHECK(lines[0] == "TAKES: PARTY+OBJECTS");
-  CHECK(lines[1] == "DEST: L0 (2, 1)");
+  CHECK(lines[1] == "SENDS: L0 (2, 1)");
   CHECK(lines[2] == "TURN: RIGHT");
   CHECK(AutoMapScene_TeleporterLines(drawList, 2, 1).empty());
 }
@@ -2633,7 +2633,7 @@ static void TeleporterLinesDescribeAbsoluteFacing(void)
   std::vector<std::string> lines = AutoMapScene_TeleporterLines(drawList, 1, 1);
   CHECK(lines.size() == 3);
   CHECK(lines[0] == "TAKES: ANYTHING");
-  CHECK(lines[1] == "DEST: L0 (2, 1)");
+  CHECK(lines[1] == "SENDS: L0 (2, 1)");
   CHECK(lines[2] == "FACE W");
 }
 
@@ -2658,7 +2658,7 @@ static void DestinationPrintsGlobalCoordinates(void)
   std::vector<std::string> lines = AutoMapScene_TeleporterLines(drawList, 1, 1);
   CHECK(lines.size() == 3);
   CHECK(lines[0] == "TAKES: ANYTHING");
-  CHECK(lines[1] == "DEST: L4 (15, 10)");
+  CHECK(lines[1] == "SENDS: L4 (15, 10)");
   CHECK(lines[2] == "TURN: RIGHT");
 }
 
@@ -5231,8 +5231,32 @@ static void SwitchedFalseWallSaysSo(void)
   CHECK(!plain.empty() && plain[0] == "FALSE WALL");
 }
 
+// Hovering a teleporter's destination shows where the party would arrive from: the firing
+// teleporters of this level whose target the fog lets the map name
+static void TeleportsIntoACell(void)
+{
+  AutoMapLevelSnapshot corridor = CorridorWithTeleporter();
+  corridor.cells[0 * 4 + 2].kind = AutoMapCellTeleporter;
+  corridor.cells[0 * 4 + 2].hasTeleporterTarget = true;
+  corridor.cells[0 * 4 + 2].teleporterDestLevel = LEVEL;
+  corridor.cells[0 * 4 + 2].teleporterDestX = 2;
+  corridor.cells[0 * 4 + 2].teleporterDestY = 1;
+  AutoMapExplored explored = NothingExplored();
+  AutoMapVisibleCells visibleNow;
+  AutoMapDrawList drawList = AutoMapScene_BuildDrawList(corridor, NoFog(explored, visibleNow));
+  std::vector<AutoMapLink> into = AutoMapScene_TeleportsInto(drawList, 2, 1);
+  CHECK(into.size() == 2);
+  CHECK(into.size() == 2 && into[0].dstX == 2 && into[0].dstY == 1);
+  CHECK(AutoMapScene_TeleportsInto(drawList, 1, 1).empty());
+  // Under the fog with the destination unexplored, the map may not name where they lead
+  explored.Mark(AutoMapCell{LEVEL, 1, 1});
+  AutoMapDrawList fogged = AutoMapScene_BuildDrawList(corridor, FogOver(explored, visibleNow));
+  CHECK(AutoMapScene_TeleportsInto(fogged, 2, 1).empty());
+}
+
 void TestAutoMapScene(void)
 {
+  TeleportsIntoACell();
   SwitchedFalseWallSaysSo();
   MonsterNameLineNamesTheGroup();
   AsManyMonstersAsFitShareACell();

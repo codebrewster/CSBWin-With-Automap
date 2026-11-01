@@ -23,7 +23,9 @@ int AutoMapPaint_TextWidth(const std::string &text, int pixel);
 
 // A line stepped with a square brush: first a pass width + 2 wide in the rim colour (#0b0a08),
 // then width wide in colour. Dashed lines leave gaps of 4 * width.
-void AutoMapPaint_Line(float x0, float y0, float x1, float y1, SDL_Color colour, int width, bool dashed);
+// rim false: the colour pass only, for shapes made of many lines (arcs) whose rims are drawn first
+void AutoMapPaint_Line(float x0, float y0, float x1, float y1, SDL_Color colour, int width, bool dashed,
+                       bool rim = true);
 
 enum AutoMapHead
 {

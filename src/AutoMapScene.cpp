@@ -1856,13 +1856,30 @@ std::vector<std::string> AutoMapScene_TeleporterLines(const AutoMapDrawList &dra
   {
     char destination[64];
     std::snprintf(destination, sizeof(destination), "%sL%d (%d, %d)",
-                  dormant ? "WOULD SEND: " : "DEST: ", cell.teleporterDestLevel,
+                  dormant ? "WOULD SEND: " : "SENDS: ", cell.teleporterDestLevel,
                   cell.teleporterDestGlobalX, cell.teleporterDestGlobalY);
     lines.push_back(destination);
   }
   std::string facing = FacingLine(cell.teleporterRotation, cell.teleporterFacingMode, dormant);
   if (!facing.empty()) lines.push_back(facing);
   return lines;
+}
+
+std::vector<AutoMapLink> AutoMapScene_TeleportsInto(const AutoMapDrawList &drawList, int x, int y)
+{
+  std::vector<AutoMapLink> into;
+  for (size_t i = 0; i < drawList.cells.size(); i++)
+  {
+    const AutoMapShownCell &shown = drawList.cells[i];
+    const AutoMapCellRecord &cell = shown.cell;
+    bool fires = cell.kind == AutoMapCellTeleporter || cell.kind == AutoMapCellInvisibleTeleporter;
+    if (!fires || !cell.hasTeleporterTarget || !shown.teleporterTargetVisible) continue;
+    if (cell.teleporterDestLevel != drawList.level) continue;
+    if (cell.teleporterDestX != x || cell.teleporterDestY != y) continue;
+    if (shown.x == x && shown.y == y) continue;
+    into.push_back(AutoMapLink(shown.x, shown.y, x, y));
+  }
+  return into;
 }
 
 std::vector<std::string> AutoMapScene_PitLines(const AutoMapDrawList &drawList, int x, int y)

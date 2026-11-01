@@ -86,11 +86,15 @@ static void StepBrush(float x0, float y0, float x1, float y1, int brush, int wid
   }
 }
 
-void AutoMapPaint_Line(float x0, float y0, float x1, float y1, SDL_Color colour, int width, bool dashed)
+void AutoMapPaint_Line(float x0, float y0, float x1, float y1, SDL_Color colour, int width, bool dashed,
+                       bool rim)
 {
   if (painter == NULL || width <= 0) return;
-  UseColour(RIM);
-  StepBrush(x0, y0, x1, y1, width + 2, width, dashed);
+  if (rim)
+  {
+    UseColour(RIM);
+    StepBrush(x0, y0, x1, y1, width + 2, width, dashed);
+  }
   UseColour(colour);
   StepBrush(x0, y0, x1, y1, width, width, dashed);
 }

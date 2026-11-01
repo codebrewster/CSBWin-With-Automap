@@ -74,6 +74,7 @@ static const SDL_Color FALSE_WALL_EDGE = {0x8a, 0x6e, 0xa0, 0xff};
 static const SDL_Color FALSE_WALL_STRIPE = {0x66, 0x4e, 0x7a, 0xff};
 static const SDL_Color INVISIBLE_TELEPORTER = {0x8a, 0x8a, 0x9a, 0xff};
 static const SDL_Color DORMANT_TELEPORTER = {0x5a, 0x5a, 0x66, 0xff};
+static const SDL_Color DORMANT_TELEPORT_LINE = {0x5a, 0x8a, 0x94, 0xff};
 static const SDL_Color SPINNER = {0x6a, 0xd8, 0xe8, 0xff};
 static const SDL_Color DORMANT_SPINNER = {0x40, 0x6e, 0x76, 0xff};
 static const SDL_Color PAD = {0xc8, 0x9a, 0x4a, 0xff};
@@ -84,6 +85,8 @@ static const SDL_Color FACING_BADGE_FRAME = {0xe0, 0xb6, 0x4a, 0xff};
 static const SDL_Color TELEPORTER_BADGE_FRAME = {0x3f, 0x7d, 0x88, 0xff};
 static const SDL_Color BADGE_GLYPH = {0xd8, 0xcf, 0xbd, 0xff};
 static const SDL_Color GEN_TEXT = {0xff, 0x80, 0x80, 0xff};
+// What a dormant teleporter or spinner would do: muted, so it never reads as active
+static const SDL_Color DORMANT_TEXT = {0xa8, 0xb8, 0xbc, 0xff};
 // The game's pressure plate: what a pad without a floor picture of its own is drawn as, faint
 static const int PRESSURE_PLATE_PICTURE = 258;
 static const SDL_Color GENERATOR = {0xc0, 0x50, 0x50, 0xff};
@@ -1418,11 +1421,13 @@ static void DrawStairs(const SDL_Rect &cell, const AutoMapCellRecord &stairs)
   }
 }
 
+// A teleporter's field: a checkerboard of cyan pixels in a cyan frame, in the game's pixel style
 static void DrawTeleporter(const SDL_Rect &cell)
 {
   SDL_Rect haze = Inset(cell, 10);
-  Fill(haze, TELEPORTER_HAZE);
-  Outline(haze, TELEPORTER_EDGE);
+  AutoMapRect field = {haze.x, haze.y, haze.w, haze.h};
+  AutoMapPaint_Dither(field, SPINNER, 140, std::max(2, cell.w / 14));
+  Outline(haze, SPINNER);
 }
 
 static int NumberPixelWidth(int value);
@@ -1434,13 +1439,13 @@ static void DrawNumberCentred(int centreX, int y, int value);
 // the same plate over the arrow's source cell.
 static void DrawLevelPlate(const SDL_Rect &cell, int level)
 {
-  int plateW = NumberPixelWidth(level) + 8;
-  int plateH = 5 * DIGIT_SCALE + 8;
-  SDL_Rect plate = {cell.x + (cell.w - plateW) / 2, cell.y + (cell.h - plateH) / 2, plateW, plateH};
-  Fill(plate, BACKGROUND);
-  Outline(plate, SPINNER);
-  UseColour(SPINNER);
-  DrawNumberCentred(cell.x + cell.w / 2, plate.y + 4, level);
+  int pixel = AutoMapLayout_PlatePixel(cell.w);
+  std::string label = "L" + std::to_string(level);
+  int width = AutoMapPaint_TextWidth(label, pixel) + 4 * pixel;
+  int height = 9 * pixel;
+  AutoMapRect plate = {cell.x + (cell.w - width) / 2, cell.y + (cell.h - height) / 2, width, height};
+  AutoMapPaint_Plate(plate, SPINNER);
+  AutoMapPaint_Text(plate.x + 2 * pixel, plate.y + 2 * pixel, label, SPINNER, pixel);
 }
 
 static void DrawPitMarker(const SDL_Rect &cell)
@@ -1878,6 +1883,8 @@ static void DrawDashedRect(const SDL_Rect &area, const SDL_Color &colour)
 static void DrawInvisibleTeleporterMark(const SDL_Rect &cell)
 {
   SDL_Rect frame = Inset(cell, 10);
+  AutoMapRect field = {frame.x, frame.y, frame.w, frame.h};
+  AutoMapPaint_Dither(field, INVISIBLE_TELEPORTER, 56, std::max(2, cell.w / 14));
   DrawDashedRect(frame, INVISIBLE_TELEPORTER);
 }
 
@@ -1920,58 +1927,41 @@ static void DrawDormantTeleporterDot(const SDL_Rect &cell)
 // a tangential head (right runs clockwise, left counter-clockwise, around a
 // half circle). A straight spin keeps the facing: a gapped ring with a dot
 // and no head. Unknown rotations keep the old full ring with an east head.
-static void DrawSpinnerArc(float centreX, float centreY, float radius,
-                            float startAngle, float sweepAngle)
+// Spinners keep the map's glyphs (AutoMapScene_SpinnerGeometry): a quarter arc for right and left,
+// a half circle for around, a gapped ring with a dot for straight, and for a forced facing a small
+// ring with a spoke running out of it to a head outside. Lines and heads have a dark rim; heads are
+// large enough that their tip reads at any zoom.
+static void SpinnerArc(float centreX, float centreY, float radius, float startAngle, float sweepAngle,
+                       const SDL_Color &colour, int width)
 {
   static const float PI = 3.14159265f;
-  int segments = (int)ceilf(16.0f * fabsf(sweepAngle) / (2.0f * PI));
-  if (segments < 2) segments = 2;
-  float previousX = centreX + radius * cos(startAngle);
-  float previousY = centreY - radius * sin(startAngle);
-  for (int i = 1; i <= segments; i++)
+  int segments = std::max(2, (int)ceilf(24.0f * fabsf(sweepAngle) / (2.0f * PI)));
+  for (int pass = 0; pass < 2; pass++)
   {
-    float angle = startAngle + sweepAngle * i / segments;
-    float x = centreX + radius * cos(angle);
-    float y = centreY - radius * sin(angle);
-    SDL_RenderDrawLine(mapRenderer, (int)previousX, (int)previousY, (int)x, (int)y);
-    previousX = x;
-    previousY = y;
+    for (int i = 0; i < segments; i++)
+    {
+      float a0 = startAngle + sweepAngle * i / segments, a1 = startAngle + sweepAngle * (i + 1) / segments;
+      float x0 = centreX + radius * cos(a0), y0 = centreY - radius * sin(a0);
+      float x1 = centreX + radius * cos(a1), y1 = centreY - radius * sin(a1);
+      SDL_Color dark = {0x0b, 0x0a, 0x08, 0xff};
+      if (pass == 0) AutoMapPaint_Line(x0, y0, x1, y1, dark, width + 2, false, false);
+      else AutoMapPaint_Line(x0, y0, x1, y1, colour, width, false, false);
+    }
   }
 }
 
-static void DrawSpinnerTangentialHead(float headX, float headY, float headAngle,
-                                      float radius, bool clockwise,
-                                      const SDL_Color &colour)
+static void SpinnerHead(float tipX, float tipY, float alongX, float alongY, float length, float half,
+                        const SDL_Color &colour)
 {
-  // Along is the counter-clockwise tangent; clockwise heads run against it
-  float sign = clockwise ? -1.0f : 1.0f;
-  float alongX = sign * -sin(headAngle);
-  float alongY = sign * -cos(headAngle);
-  float outX = cos(headAngle);
-  float outY = -sin(headAngle);
-  FloatPoint tip = {headX + alongX * radius * 0.45f, headY + alongY * radius * 0.45f};
-  FloatPoint upper = {headX - alongX * radius * 0.15f + outX * radius * 0.30f,
-                     headY - alongY * radius * 0.15f + outY * radius * 0.30f};
-  FloatPoint lower = {headX - alongX * radius * 0.15f - outX * radius * 0.30f,
-                     headY - alongY * radius * 0.15f - outY * radius * 0.30f};
-  FillTriangle(tip, upper, lower, colour);
-}
-
-static void DrawSpinnerRadialHead(float centreX, float centreY,
-                                  float headX, float headY, float headAngle,
-                                  float radius, const SDL_Color &colour)
-{
-  SDL_RenderDrawLine(mapRenderer, (int)centreX, (int)centreY, (int)headX, (int)headY);
-  float outX = cos(headAngle);
-  float outY = -sin(headAngle);
-  float perpX = -sin(headAngle);
-  float perpY = -cos(headAngle);
-  FloatPoint tip = {headX + outX * radius * 0.45f, headY + outY * radius * 0.45f};
-  FloatPoint upper = {headX - outX * radius * 0.10f + perpX * radius * 0.30f,
-                     headY - outY * radius * 0.10f + perpY * radius * 0.30f};
-  FloatPoint lower = {headX - outX * radius * 0.10f - perpX * radius * 0.30f,
-                     headY - outY * radius * 0.10f - perpY * radius * 0.30f};
-  FillTriangle(tip, upper, lower, colour);
+  float acrossX = -alongY, acrossY = alongX;
+  float baseX = tipX - alongX * length, baseY = tipY - alongY * length;
+  SDL_Color dark = {0x0b, 0x0a, 0x08, 0xff};
+  float grow = 1.18f;
+  AutoMapPaint_Triangle(tipX + alongX * 2, tipY + alongY * 2, baseX - alongX + acrossX * half * grow,
+                        baseY - alongY + acrossY * half * grow, baseX - alongX - acrossX * half * grow,
+                        baseY - alongY - acrossY * half * grow, dark);
+  AutoMapPaint_Triangle(tipX, tipY, baseX + acrossX * half, baseY + acrossY * half, baseX - acrossX * half,
+                        baseY - acrossY * half, colour);
 }
 
 static void DrawSpinnerMark(const SDL_Rect &cell, int facing, int rotation,
@@ -1980,37 +1970,38 @@ static void DrawSpinnerMark(const SDL_Rect &cell, int facing, int rotation,
   static const float PI = 3.14159265f;
   float centreX = cell.x + cell.w / 2.0f;
   float centreY = cell.y + cell.h / 2.0f;
-  float radius = cell.w * 0.28f;
-  UseColour(colour);
+  float radius = cell.w * 0.24f;
+  int width = std::max(2, cell.w / 18);
   AutoMapSpinnerGeometry geometry = AutoMapScene_SpinnerGeometry(facing, rotation);
+  float headX = centreX + radius * cos(geometry.headAngle);
+  float headY = centreY - radius * sin(geometry.headAngle);
   switch (geometry.glyph)
   {
   case AutoMapSpinnerAbsolute:
   {
-    DrawSpinnerArc(centreX, centreY, radius, 0.0f, 2.0f * PI);
-    float headX = centreX + radius * cos(geometry.headAngle);
-    float headY = centreY - radius * sin(geometry.headAngle);
-    DrawSpinnerRadialHead(centreX, centreY, headX, headY, geometry.headAngle, radius, colour);
+    SpinnerArc(centreX, centreY, radius * 0.55f, 0.0f, 2.0f * PI, colour, width);
+    float outX = cos(geometry.headAngle), outY = -sin(geometry.headAngle);
+    AutoMapPaint_Line(centreX, centreY, headX, headY, colour, width, false);
+    SpinnerHead(headX + outX * radius * 0.8f, headY + outY * radius * 0.8f, outX, outY, radius * 0.85f,
+                radius * 0.48f, colour);
     break;
   }
   case AutoMapSpinnerRight:
   case AutoMapSpinnerLeft:
   case AutoMapSpinnerAround:
   {
-    DrawSpinnerArc(centreX, centreY, radius,
-                   geometry.startAngle, geometry.sweepAngle);
-    float headX = centreX + radius * cos(geometry.headAngle);
-    float headY = centreY - radius * sin(geometry.headAngle);
-    DrawSpinnerTangentialHead(headX, headY, geometry.headAngle, radius,
-                              geometry.sweepAngle < 0.0f, colour);
+    SpinnerArc(centreX, centreY, radius, geometry.startAngle, geometry.sweepAngle, colour, width);
+    float sign = geometry.sweepAngle < 0.0f ? -1.0f : 1.0f;
+    float alongX = sign * -sin(geometry.headAngle), alongY = sign * -cos(geometry.headAngle);
+    SpinnerHead(headX + alongX * radius * 0.75f, headY + alongY * radius * 0.75f, alongX, alongY,
+                radius * 0.95f, radius * 0.45f, colour);
     break;
   }
   case AutoMapSpinnerStraight:
   {
     // A gapped ring reads as "no turn" at any zoom: 60 degrees open at north
     static const float GAP = PI / 3.0f;
-    DrawSpinnerArc(centreX, centreY, radius, PI / 2.0f + GAP / 2.0f,
-                   2.0f * PI - GAP);
+    SpinnerArc(centreX, centreY, radius, PI / 2.0f + GAP / 2.0f, 2.0f * PI - GAP, colour, width);
     int size = std::max(2, cell.w / 12);
     SDL_Rect dot = {(int)(centreX - size / 2.0f), (int)(centreY - size / 2.0f), size, size};
     Fill(dot, colour);
@@ -2018,11 +2009,9 @@ static void DrawSpinnerMark(const SDL_Rect &cell, int facing, int rotation,
   }
   case AutoMapSpinnerUnknown:
   default:
-  {
-    DrawSpinnerArc(centreX, centreY, radius, 0.0f, 2.0f * PI);
-    DrawSpinnerTangentialHead(centreX + radius, centreY, 0.0f, radius, false, colour);
+    SpinnerArc(centreX, centreY, radius, 0.0f, 2.0f * PI, colour, width);
+    SpinnerHead(centreX + radius, centreY - radius * 0.75f, 0.0f, -1.0f, radius * 0.95f, radius * 0.45f, colour);
     break;
-  }
   }
 }
 
@@ -3155,36 +3144,69 @@ static void DrawSpotlight(const AutoMapView &view)
 // A firing teleporter points at its destination: a cyan arrow when the victim lands on
 // the shown level, the destination level's number (as in the title bar) when it lands
 // elsewhere. Spinners need none of this: their circular arrow is the self-target.
+// A teleport as a line: cyan from a firing teleporter to where it lands; dashed and dim from a
+// dormant one to where it would; the destination framed the same way
+static void DrawTeleportLine(const AutoMapView &view, const AutoMapLink &edge, bool dormant)
+{
+  if (collectingSpotlight)
+  {
+    MarkSpotlightCell(edge.srcX, edge.srcY);
+    MarkSpotlightCell(edge.dstX, edge.dstY);
+    spotlightLines.push_back(edge);
+    return;
+  }
+  const SDL_Color &colour = dormant ? DORMANT_TELEPORT_LINE : SPINNER;
+  int width = AutoMapLayout_LineWidth(view.cellSize);
+  float headSize = (float)AutoMapLayout_HeadSize(view.cellSize);
+  SDL_Rect src = CellArea(view, edge.srcX, edge.srcY);
+  SDL_Rect dst = CellArea(view, edge.dstX, edge.dstY);
+  AutoMapPointF from = {src.x + src.w / 2.0f - view.originX, src.y + src.h / 2.0f - view.originY};
+  AutoMapPointF end = AutoMapLayout_LineEnd(from, edge.dstX, edge.dstY, view.cellSize);
+  float fromX = from.x + view.originX, fromY = from.y + view.originY;
+  float tipX = end.x + view.originX, tipY = end.y + view.originY;
+  float angle = std::atan2(tipY - fromY, tipX - fromX);
+  AutoMapPaint_Line(fromX, fromY, tipX - std::cos(angle) * headSize * 0.8f, tipY - std::sin(angle) * headSize * 0.8f,
+                    colour, width, dormant);
+  AutoMapPaint_Head(tipX, tipY, angle, headSize, colour, dormant ? AutoMapHeadHollow : AutoMapHeadFilled);
+  if (dormant) DrawDashedRect(Inset(dst, 4), colour);
+  else
+  {
+    AutoMapRect frame = {dst.x + 2, dst.y + 2, dst.w - 4, dst.h - 4};
+    AutoMapPaint_Frame(frame, colour, AutoMapLayout_FaceLine(dst.w));
+  }
+}
+
+// Hovering a teleporter shows where it sends you on this level; hovering a cell teleporters land
+// on shows where you arrive from; a dormant one shows where it would send you. Another level's
+// destination is named by the plate on the cell and the tooltip.
 static void DrawTeleporterTarget(const AutoMapView &view)
 {
   const AutoMapShownCell *shown = ShownCellAt(shownDrawList, hoverX, hoverY);
-  if (!IsFiringTeleporterCell(shown)) return;
-  int dstLevel = shown->cell.teleporterDestLevel;
-  int dstX = shown->cell.teleporterDestX;
-  int dstY = shown->cell.teleporterDestY;
-  SDL_Rect src = CellArea(view, shown->x, shown->y);
-  if (dstLevel == shownDrawList.level)
+  if (shown == NULL) return;
+  const AutoMapCellRecord &cell = shown->cell;
+  bool sameLevel = cell.teleporterDestLevel == shownDrawList.level;
+  bool toItself = cell.teleporterDestX == hoverX && cell.teleporterDestY == hoverY;
+  if (IsFiringTeleporterCell(shown))
   {
-    SDL_Rect dst = CellArea(view, dstX, dstY);
-    if (dstX == shown->x && dstY == shown->y)
+    if (!sameLevel) return;
+    if (toItself)
     {
-      Outline(Inset(dst, 25), SPINNER);
+      if (!collectingSpotlight) Outline(Inset(CellArea(view, hoverX, hoverY), 25), SPINNER);
       return;
     }
-    FloatPoint from = {(float)src.x + src.w / 2.0f, (float)src.y + src.h / 2.0f};
-    FloatPoint to = {(float)dst.x + dst.w / 2.0f, (float)dst.y + dst.h / 2.0f};
-    float dx = to.x - from.x;
-    float dy = to.y - from.y;
-    float length = sqrt(dx * dx + dy * dy);
-    float headSize = std::max(6.0f, view.cellSize * 0.25f);
-    float backOff = headSize * 0.9f / length;
-    FloatPoint shaftEnd = {to.x - dx * backOff, to.y - dy * backOff};
-    DrawArrowShaft(from, shaftEnd, SPINNER);
-    DrawArrowHead(to, atan2(dx, -dy), headSize, SPINNER);
-    HighlightLinkedCell(view, dstX, dstY, SPINNER);
+    DrawTeleportLine(view, AutoMapLink(hoverX, hoverY, cell.teleporterDestX, cell.teleporterDestY), false);
     return;
   }
-  DrawLevelPlate(src, dstLevel);
+  if (cell.kind == AutoMapCellDormantTeleporter)
+  {
+    if (cell.hasTeleporterTarget && shown->teleporterTargetVisible && sameLevel && !toItself)
+    {
+      DrawTeleportLine(view, AutoMapLink(hoverX, hoverY, cell.teleporterDestX, cell.teleporterDestY), true);
+    }
+    return;
+  }
+  std::vector<AutoMapLink> into = AutoMapScene_TeleportsInto(shownDrawList, hoverX, hoverY);
+  for (size_t i = 0; i < into.size(); i++) DrawTeleportLine(view, into[i], false);
 }
 
 static int DigitAdvance(void)
@@ -3553,6 +3575,43 @@ static std::vector<std::string> BuildTooltipTextLines(
   return lines;
 }
 
+// Who a teleporter takes, in the tooltip: the words become the badge's glyphs. A glyph takes the
+// place of two characters, \x01 party, \x02 claw, \x03 box; the font draws nothing for them.
+static std::string WithBadgeGlyphs(const std::string &line)
+{
+  static const char *const PREFIXES[] = {"TAKES: ", "WOULD TAKE: "};
+  for (int p = 0; p < 2; p++)
+  {
+    std::string prefix = PREFIXES[p];
+    if (line.compare(0, prefix.size(), prefix) != 0) continue;
+    std::string what = line.substr(prefix.size());
+    if (what == "PARTY+OBJECTS") return prefix + "\x01\x01 PARTY \x03\x03 OBJECTS";
+    if (what == "OBJECTS") return prefix + "\x03\x03 OBJECTS";
+    if (what == "MONSTERS") return prefix + "\x02\x02 MONSTERS";
+  }
+  return line;
+}
+
+static void DrawBadgeGlyphsOfLine(int x, int y, const std::string &line)
+{
+  for (size_t i = 0; i + 1 < line.size(); i++)
+  {
+    char glyph = line[i];
+    if (glyph < 1 || glyph > 3 || line[i + 1] != glyph) continue;
+    int size = 7 * DIGIT_SCALE;
+    AutoMapRect box = {x + (int)i * 4 * DIGIT_SCALE, y - DIGIT_SCALE, size, size};
+    AutoMapPaint_Plate(box, BADGE_FRAME);
+    if (glyph == 1) AutoMapPaint_PartyArrow(box.x + size / 2.0f, box.y + size / 2.0f, size * 0.36f, 0, PARTY, false);
+    if (glyph == 2) AutoMapPaint_Claw(box, BADGE_GLYPH);
+    if (glyph == 3)
+    {
+      AutoMapRect square = {box.x + size / 4, box.y + size / 4, size / 2, size / 2};
+      AutoMapPaint_Frame(square, BADGE_GLYPH, 1);
+    }
+    i++;
+  }
+}
+
 static void DrawTileTooltip(const AutoMapView &view)
 {
   // Set again below once the footer is known; early returns must not leave a stale max
@@ -3617,6 +3676,7 @@ static void DrawTileTooltip(const AutoMapView &view)
   footerLines.insert(footerLines.end(), textLines.begin(), textLines.end());
   // The player's own notes come last: they are not what the map knows
   footerLines.insert(footerLines.end(), notes.begin(), notes.end());
+  for (size_t i = 0; i < footerLines.size(); i++) footerLines[i] = WithBadgeGlyphs(footerLines[i]);
   int footerTextH = 5 * DIGIT_SCALE;
   int footerLineGap = 4;
   int footerTextW = 0;
@@ -3776,7 +3836,10 @@ static void DrawTileTooltip(const AutoMapView &view)
     int lineY = y + iconH + (cells.empty() ? TOOLTIP_PAD : 0)
         + (int)i * (footerTextH + footerLineGap);
     bool isMonsterName = !monsterName.empty() && footerLines[i] == monsterName;
-    DrawLegendText(x + TOOLTIP_PAD, lineY, footerLines[i].c_str(), isMonsterName ? LINK_BADGE : WHITE);
+    bool isDormant = footerLines[i].compare(0, 6, "WOULD ") == 0 || footerLines[i].compare(0, 7, "DORMANT") == 0;
+    DrawLegendText(x + TOOLTIP_PAD, lineY, footerLines[i].c_str(),
+                   isMonsterName ? LINK_BADGE : (isDormant ? DORMANT_TEXT : WHITE));
+    DrawBadgeGlyphsOfLine(x + TOOLTIP_PAD, lineY, footerLines[i]);
   }
 }
 

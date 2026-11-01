@@ -605,7 +605,7 @@ static void InvisibleTeleporterIsFloorUntilUsed(void)
   AutoMapDrawList after = Build(snapshot, AutoMapSpoilersLearned, &knowledge);
   CHECK(FindCell(after, 1, 1)->cell.kind == AutoMapCellInvisibleTeleporter);
   std::vector<std::string> lines = AutoMapScene_TeleporterLines(after, 1, 1);
-  CHECK(HasLineStartingWith(lines, "DEST:"));
+  CHECK(HasLineStartingWith(lines, "SENDS:"));
   CHECK(!HasLineStartingWith(lines, "TAKES:"));
 }
 
@@ -617,7 +617,7 @@ static void VisibleTeleporterNamesNoDestinationUntilUsed(void)
   CHECK(FindCell(drawList, 1, 1)->cell.kind == AutoMapCellTeleporter);
   CHECK(!FindCell(drawList, 1, 1)->cell.hasTeleporterTarget);
   std::vector<std::string> lines = AutoMapScene_TeleporterLines(drawList, 1, 1);
-  CHECK(!HasLineStartingWith(lines, "DEST:"));
+  CHECK(!HasLineStartingWith(lines, "SENDS:"));
   CHECK(!HasLineStartingWith(lines, "TAKES:"));
 }
 

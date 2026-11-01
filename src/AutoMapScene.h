@@ -1295,6 +1295,10 @@ AutoMapSpinnerGeometry AutoMapScene_SpinnerGeometry(int spinnerFacing, int spinn
 std::vector<std::string> AutoMapScene_TeleporterLines(const AutoMapDrawList &drawList,
                                                        int x, int y);
 
+// The firing teleporters of the shown level that send what they take to (x, y), as links from the
+// teleporter to (x, y); only those whose target the fog lets the map name
+std::vector<AutoMapLink> AutoMapScene_TeleportsInto(const AutoMapDrawList &drawList, int x, int y);
+
 // Text line naming the state of every pit cell, so hovering always tells open
 // from closed: "PIT OPEN"/"PIT CLOSED", or "HIDDEN PIT OPEN"/"HIDDEN PIT
 // CLOSED" when the pit looks like floor in the 3D view (closed, or open with
