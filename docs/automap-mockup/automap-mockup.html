@@ -97,7 +97,11 @@ function refreshView() {
 }
 const C = (x, y) => grid[x + ',' + y];
 const isRock = c => c && c.k === 0;
-const nice = n => (n || '').replace(/([a-z])([A-Z])/g, '$1 $2').toUpperCase();
+// The names the player reads (GetMonsterDisplayName, Statistics.cpp), not the engine's internal
+// ones: the internal table has "25" for Lord Order and run-together words
+const INTERNAL = ['Scorpion', 'SlimeDevil', 'Giggler', 'FlyingEye', 'PainRat', 'Ruster', 'Screamer', 'RockPile', 'Rive', 'StoneGolem', 'Mummy', 'BlackFlame', 'Skeleton', 'Couatl', 'Vexirk', 'Worm', 'Trolin', 'Wasp', 'DethKnight', 'Zytaz', 'WaterElemental', 'Oitu', 'Demon', 'LordChaos', 'Dragon', '25', 'GreyLord'];
+const DISPLAY = ['Scorpion', 'Slime Devil', 'Giggler', 'Flying Eye', 'Pain Rat', 'Ruster', 'Screamer', 'Rock Pile', 'Rive', 'Stone Golem', 'Mummy', 'Black Flame', 'Skeleton', 'Couatl', 'Vexirk', 'Worm', 'Trolin', 'Wasp', 'Deth Knight', 'Zytaz', 'Water Elemental', 'Oitu', 'Demon', 'Lord Chaos', 'Dragon', 'Lord Order', 'Grey Lord'];
+const nice = n => { const i = INTERNAL.indexOf(n || ''); return (i >= 0 ? DISPLAY[i] : (n || '').replace(/([a-z])([A-Z])/g, '$1 $2')).toUpperCase(); };
 function party() {
   if (partyOverride && partyOverride.l === lvl) return partyOverride;
   return V.party[3] ? { x: V.party[0], y: V.party[1], f: V.party[2] } : null;
