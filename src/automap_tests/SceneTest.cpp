@@ -2,6 +2,7 @@
 #include "../AutoMapScene.h"
 
 #include <cmath>
+#include <set>
 #include <cstddef>
 
 static const int LEVEL = 0;
@@ -5336,8 +5337,88 @@ static void FontHasTheBarsMarks(void)
   CHECK(AutoMapScene_FontPixel('<', 2, 0) && !AutoMapScene_FontPixel('<', 2, 2));
 }
 
+static AutoMapLevelSnapshot CorridorWithTrolins(void)
+{
+  AutoMapLevelSnapshot corridor = Corridor();
+  AutoMapMonsterRecord group = MummyAt(2, 1);
+  group.memberCount = 3;
+  group.name = "Trolin";
+  corridor.monsters.push_back(group);
+  AutoMapFloorActuator generator = {1, 1, AutoMapActuatorGenerator};
+  generator.hasGeneratedMonster = true;
+  generator.generatedMonsterName = "Trolin";
+  corridor.actuators.push_back(generator);
+  return corridor;
+}
+
+// Monsters are found by name, generators by what they create; GEN lists every generator and
+// three letters of MONSTER every group
+static void SearchFindsMonstersAndGenerators(void)
+{
+  AutoMapExplored explored = NothingExplored();
+  AutoMapVisibleCells visibleNow;
+  AutoMapDrawList drawList = AutoMapScene_BuildDrawList(CorridorWithTrolins(), NoFog(explored, visibleNow));
+  std::vector<AutoMapSearchHit> trolins = AutoMapScene_SearchItems(drawList, "trolin", SearchItemName, NULL);
+  CHECK(trolins.size() == 2);
+  bool monster = false, generator = false;
+  for (size_t i = 0; i < trolins.size(); i++)
+  {
+    if (trolins[i].kind == AutoMapHitMonster && trolins[i].count == 3 && trolins[i].x == 2) monster = true;
+    if (trolins[i].kind == AutoMapHitGenerator && trolins[i].x == 1) generator = true;
+  }
+  CHECK(monster && generator);
+  std::vector<AutoMapSearchHit> gen = AutoMapScene_SearchItems(drawList, "GEN", SearchItemName, NULL);
+  CHECK(gen.size() == 1 && gen[0].kind == AutoMapHitGenerator && gen[0].name == "TROLIN");
+  CHECK(AutoMapScene_SearchItems(drawList, "generator", SearchItemName, NULL).size() == 1);
+  std::vector<AutoMapSearchHit> mon = AutoMapScene_SearchItems(drawList, "MON", SearchItemName, NULL);
+  CHECK(mon.size() == 1 && mon[0].kind == AutoMapHitMonster);
+  CHECK(AutoMapScene_SearchItems(drawList, "MO", SearchItemName, NULL).empty());
+}
+
+// Under the fog the search finds only what the map shows: nothing on cells never explored
+static void SearchKeepsTheFog(void)
+{
+  AutoMapExplored explored = NothingExplored();
+  AutoMapVisibleCells visibleNow;
+  AutoMapDrawList fogged = AutoMapScene_BuildDrawList(CorridorWithTrolins(), FogOver(explored, visibleNow));
+  CHECK(AutoMapScene_SearchItems(fogged, "GEN", SearchItemName, NULL).empty());
+  CHECK(AutoMapScene_SearchItems(fogged, "trolin", SearchItemName, NULL).empty());
+}
+
+static AutoMapSearchHit HitOn(int level, int x, int y)
+{
+  AutoMapSearchHit hit;
+  hit.level = level;
+  hit.x = x;
+  hit.y = y;
+  return hit;
+}
+
+// The results group by level, the shown level first, then the others in order; within a level in
+// reading order; a folded level keeps only its heading
+static void SearchRowsGroupByLevel(void)
+{
+  std::vector<AutoMapSearchHit> hits;
+  hits.push_back(HitOn(3, 5, 9));
+  hits.push_back(HitOn(1, 2, 2));
+  hits.push_back(HitOn(3, 7, 4));
+  std::set<int> folded;
+  std::vector<AutoMapSearchRow> rows = AutoMapScene_SearchRows(hits, 3, folded);
+  CHECK(rows.size() == 5);
+  CHECK(rows.size() == 5 && rows[0].heading && rows[0].level == 3 && rows[0].hits == 2);
+  CHECK(rows.size() == 5 && !rows[1].heading && hits[(size_t)rows[1].hit].y == 4);
+  CHECK(rows.size() == 5 && !rows[2].heading && hits[(size_t)rows[2].hit].y == 9);
+  CHECK(rows.size() == 5 && rows[3].heading && rows[3].level == 1 && rows[3].hits == 1);
+  folded.insert(1);
+  rows = AutoMapScene_SearchRows(hits, 3, folded);
+  CHECK(rows.size() == 4 && rows[3].heading && rows[3].level == 1);
+}
+
 void TestAutoMapScene(void)
 {
+  SearchFindsMonstersAndGenerators();
+  SearchKeepsTheFog();
+  SearchRowsGroupByLevel();
   FontHasTheBarsMarks();
   StairsLeadToTheMapAtTheNextDepth();
   StackNameLine();

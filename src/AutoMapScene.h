@@ -2,6 +2,7 @@
 #define AUTOMAPSCENE_H
 
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -1013,10 +1014,24 @@ typedef const char *(*AutoMapItemNameFn)(int nameIndex);
 // searching it never leaks unexplored cells: unexplored simply has no cell
 // to search. Monsters only ever reach the draw list on cells the party sees
 // right now, so carried hits vanish again once the carrier walks off.
+// What a search hit is, for its tag in the results
+enum AutoMapHitKind
+{
+  AutoMapHitItem,
+  AutoMapHitNeeds,
+  AutoMapHitCarried,
+  AutoMapHitChest,
+  AutoMapHitAlcove,
+  AutoMapHitFeature,
+  AutoMapHitMonster,
+  AutoMapHitGenerator
+};
+
 struct AutoMapSearchHit
 {
   AutoMapSearchHit(void) : level(AUTOMAP_NO_LEVEL), x(-1), y(-1), globalX(0), globalY(0),
-                           monsterCarried(false), isFood(false), wallFeature(AutoMapWallFeatureNone)
+                           monsterCarried(false), isFood(false), wallFeature(AutoMapWallFeatureNone),
+                           kind(AutoMapHitItem), count(1)
   {
   }
   int level;
@@ -1032,7 +1047,27 @@ struct AutoMapSearchHit
   bool isFood;
   // A wall face rather than an item: slot.side is the face, name the feature's
   AutoMapWallFeature wallFeature;
+  AutoMapHitKind kind;
+  // The stack, or the monster group's size
+  int count;
+  // The name of the group that carries a CARRIED item
+  std::string carriedBy;
+  // A monster group's or a generator's monster picture, for the results' icon
+  int monsterPicture = AUTOMAP_NO_PICTURE;
+  int monsterTransparentColour = 0;
 };
+
+// The rows of the search results: a heading per level (the shown level first, then the others in
+// order), each followed by its hits in reading order, unless the level is folded. hit indexes hits.
+struct AutoMapSearchRow
+{
+  bool heading;
+  int level;
+  int hits;
+  int hit;
+};
+std::vector<AutoMapSearchRow> AutoMapScene_SearchRows(const std::vector<AutoMapSearchHit> &hits, int shownLevel,
+                                                      const std::set<int> &folded);
 
 // The name a wall feature is searched and listed by: "WATER FOUNTAIN", "ALTAR OF VI", "" for none
 const char *AutoMapScene_WallFeatureName(AutoMapWallFeature feature);

@@ -2144,10 +2144,21 @@ const char *AutoMapScene_WallFeatureName(AutoMapWallFeature feature)
   }
 }
 
+// GEN, or a beginning of GENERATOR, lists every generator; three letters or more of MONSTER every
+// monster group
+static bool StartsWord(const std::string &word, const std::string &query, size_t shortest)
+{
+  std::string q = Lowered(Trimmed(query));
+  std::string w = Lowered(word);
+  return q.size() >= shortest && q.size() <= w.size() && w.compare(0, q.size(), q) == 0;
+}
+
 int AutoMapScene_SearchHitRank(const AutoMapSearchHit &hit, const std::string &query)
 {
   int rank = AutoMapScene_SearchRank(hit.name, query);
   if (hit.isFood) rank = BetterRank(rank, AutoMapScene_SearchRank(AUTOMAP_FOOD_WORD, query));
+  if (hit.kind == AutoMapHitGenerator && StartsWord("GENERATOR", query, 3)) rank = BetterRank(rank, 1);
+  if (hit.kind == AutoMapHitMonster && StartsWord("MONSTER", query, 3)) rank = BetterRank(rank, 1);
   return rank;
 }
 
@@ -2234,11 +2245,18 @@ std::vector<AutoMapSearchHit> AutoMapScene_SearchItems(const AutoMapDrawList &dr
       if (c >= itemCount)
       {
         hit.name = AutoMapScene_WallFeatureName(hit.wallFeature);
+        hit.kind = AutoMapHitFeature;
         if (AutoMapScene_SearchHitRank(hit, trimmed) < 0) continue;
         hits.push_back(hit);
         continue;
       }
       hit.name = RequiredObjectName(nameForIndex, hit.slot.item);
+      hit.count = hit.slot.count;
+      if (hit.monsterCarried) hit.kind = AutoMapHitCarried;
+      else if (hit.slot.required) hit.kind = AutoMapHitNeeds;
+      else if (hit.slot.isChest) hit.kind = AutoMapHitChest;
+      else if (hit.slot.side >= 0) hit.kind = AutoMapHitAlcove;
+      if (hit.monsterCarried) hit.carriedBy = AutoMapScene_MonsterNameLine(drawList, x, y);
       // An item of no known name is no food the player could tell either
       hit.isFood = isFood != NULL && hit.slot.item.nameIndex >= 0 && hit.name != ""
                    && hit.name != "(UNKNOWN)" && isFood(hit.slot.item.nameIndex);
@@ -2246,8 +2264,83 @@ std::vector<AutoMapSearchHit> AutoMapScene_SearchItems(const AutoMapDrawList &dr
       hits.push_back(hit);
     }
   }
+  // Monster groups the map shows, by their names; generators by what they create
+  for (size_t i = 0; i < drawList.monsters.size(); i++)
+  {
+    const AutoMapShownMonster &group = drawList.monsters[i];
+    AutoMapSearchHit hit;
+    hit.kind = AutoMapHitMonster;
+    hit.level = drawList.level;
+    hit.x = group.x;
+    hit.y = group.y;
+    AutoMapScene_GlobalPosition(drawList, group.x, group.y, &hit.globalX, &hit.globalY);
+    for (size_t c = 0; c < group.name.size(); c++) hit.name += (char)toupper((unsigned char)group.name[c]);
+    hit.count = group.memberCount;
+    hit.monsterPicture = group.memberPictures[0].picture;
+    hit.monsterTransparentColour = group.transparentColour;
+    if (AutoMapScene_SearchHitRank(hit, trimmed) < 0) continue;
+    hits.push_back(hit);
+  }
+  for (size_t i = 0; i < drawList.actuators.size(); i++)
+  {
+    const AutoMapFloorActuator &generator = drawList.actuators[i];
+    if (generator.kind != AutoMapActuatorGenerator || !generator.hasGeneratedMonster) continue;
+    AutoMapSearchHit hit;
+    hit.kind = AutoMapHitGenerator;
+    hit.level = drawList.level;
+    hit.x = generator.x;
+    hit.y = generator.y;
+    AutoMapScene_GlobalPosition(drawList, generator.x, generator.y, &hit.globalX, &hit.globalY);
+    for (size_t c = 0; c < generator.generatedMonsterName.size(); c++)
+    {
+      hit.name += (char)toupper((unsigned char)generator.generatedMonsterName[c]);
+    }
+    hit.monsterPicture = generator.generatedKind.frontPicture;
+    hit.monsterTransparentColour = generator.generatedKind.transparentColour;
+    if (AutoMapScene_SearchHitRank(hit, trimmed) < 0) continue;
+    bool sameCell = false;
+    for (size_t k = 0; k < hits.size() && !sameCell; k++)
+    {
+      sameCell = hits[k].kind == AutoMapHitGenerator && hits[k].x == hit.x && hits[k].y == hit.y;
+    }
+    if (!sameCell) hits.push_back(hit);
+  }
   AutoMapScene_SortSearchHits(&hits, trimmed);
   return hits;
+}
+
+std::vector<AutoMapSearchRow> AutoMapScene_SearchRows(const std::vector<AutoMapSearchHit> &hits, int shownLevel,
+                                                      const std::set<int> &folded)
+{
+  std::map<int, std::vector<int> > byLevel;
+  for (size_t i = 0; i < hits.size(); i++) byLevel[hits[i].level].push_back((int)i);
+  std::vector<int> order;
+  if (byLevel.count(shownLevel)) order.push_back(shownLevel);
+  for (std::map<int, std::vector<int> >::const_iterator at = byLevel.begin(); at != byLevel.end(); ++at)
+  {
+    if (at->first != shownLevel) order.push_back(at->first);
+  }
+  std::vector<AutoMapSearchRow> rows;
+  for (size_t o = 0; o < order.size(); o++)
+  {
+    std::vector<int> onLevel = byLevel[order[o]];
+    AutoMapSearchRow heading = {true, order[o], (int)onLevel.size(), -1};
+    rows.push_back(heading);
+    if (folded.count(order[o])) continue;
+    std::vector<std::pair<std::pair<int, int>, int> > reading;
+    for (size_t k = 0; k < onLevel.size(); k++)
+    {
+      const AutoMapSearchHit &hit = hits[(size_t)onLevel[k]];
+      reading.push_back(std::make_pair(std::make_pair(hit.y, hit.x), onLevel[k]));
+    }
+    std::stable_sort(reading.begin(), reading.end());
+    for (size_t k = 0; k < reading.size(); k++)
+    {
+      AutoMapSearchRow row = {false, order[o], 0, reading[k].second};
+      rows.push_back(row);
+    }
+  }
+  return rows;
 }
 
 bool AutoMapScene_DoorIsSealed(const AutoMapCellRecord &cell, bool isLinked)

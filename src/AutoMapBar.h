@@ -19,5 +19,7 @@ bool AutoMapBar_HandleWheel(int x, int y, int notches);
 bool AutoMapBar_HandleKey(int sym);
 bool AutoMapBar_PanelIsOpen(void);
 void AutoMapBar_ClosePanels(void);
+// Where the / button sits, in window pixels, for the search panel to open below it
+int AutoMapBar_SearchButtonX(void);
 
 #endif

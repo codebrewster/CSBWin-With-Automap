@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <set>
 #include <string>
 
 #include "AutoMapScene.h"
@@ -230,11 +231,40 @@ static bool searchOpen = false;
 static std::string searchQuery;
 static std::vector<AutoMapSearchHit> searchHits;
 static int searchSelected = 0;
+// searchSelected indexes searchHits; searchTop is the first row of the panel (headings count)
 static int searchTop = 0;
+static std::set<int> searchFolded;
 // SDL text input is one switch for the whole program, and the game's ImGui
 // dialogs (the Save As name) need it on, so the search box hands it back the
 // way it found it rather than switching it off.
 static bool searchStartedTextInput = false;
+static std::vector<AutoMapSearchRow> SearchRowsNow(void)
+{
+  return AutoMapScene_SearchRows(searchHits, shownDrawList.level, searchFolded);
+}
+
+static int RowOfSelectedHit(const std::vector<AutoMapSearchRow> &rows)
+{
+  for (size_t r = 0; r < rows.size(); r++)
+  {
+    if (!rows[r].heading && rows[r].hit == searchSelected) return (int)r;
+  }
+  return -1;
+}
+
+// Up and Down move through the hits in the order the panel lists them, past the headings
+static void SearchStep(int delta)
+{
+  std::vector<AutoMapSearchRow> rows = SearchRowsNow();
+  int at = RowOfSelectedHit(rows);
+  for (int r = at + delta; r >= 0 && r < (int)rows.size(); r += delta)
+  {
+    if (rows[(size_t)r].heading) continue;
+    searchSelected = rows[(size_t)r].hit;
+    return;
+  }
+}
+
 static void SearchGiveBackTextInput(void);
 static void SearchFullRefresh(void);
 static void SearchRefreshCurrentLevel(void);
@@ -577,7 +607,8 @@ static void SearchRefreshCurrentLevel(void)
   int selectedSide = -1;
   // The refresh runs with every new draw list: it must not undo the wheel, so it keeps the
   // selection in view only when the selection was in view
-  bool selectedWasShown = searchSelected >= searchTop && searchSelected < searchTop + SearchVisibleRows();
+  int selectedRow = RowOfSelectedHit(SearchRowsNow());
+  bool selectedWasShown = selectedRow >= searchTop && selectedRow < searchTop + SearchVisibleRows();
   if (!searchHits.empty() && searchSelected >= 0 && searchSelected < (int)searchHits.size())
   {
     const AutoMapSearchHit &old = searchHits[(size_t)searchSelected];
@@ -615,7 +646,7 @@ static void SearchRefreshCurrentLevel(void)
   }
   else
   {
-    int maxTop = (int)searchHits.size() - SearchVisibleRows();
+    int maxTop = (int)SearchRowsNow().size() - SearchVisibleRows();
     if (searchTop > maxTop) searchTop = maxTop;
     if (searchTop < 0) searchTop = 0;
   }
@@ -634,6 +665,7 @@ static void SearchOpenBox(void)
   searchOpen = true;
   searchQuery.clear();
   searchHits.clear();
+  searchFolded.clear();
   searchSelected = 0;
   searchTop = 0;
   searchStartedTextInput = !SDL_IsTextInputActive();
@@ -651,6 +683,9 @@ static void SearchCloseBox(void)
   SearchGiveBackTextInput();
   isDirty = true;
 }
+
+static AutoMapView ViewOfShownLevel(void);
+static SDL_Rect SearchPanelRect(void);
 
 static void SearchCenterOnSelected(void)
 {
@@ -670,15 +705,21 @@ static void SearchCenterOnSelected(void)
   viewFollowsParty = false;
   viewCenterX = (float)hit.x;
   viewCenterY = (float)hit.y;
+  // In the free part of the map below the panel, not under it
+  AutoMapView view = ViewOfShownLevel();
+  if (view.cellSize > 0) viewCenterY -= SearchPanelRect().h / 2.0f / view.cellSize;
   isDirty = true;
 }
 
 static void SearchEnsureSelectedVisible(void)
 {
   int rows = SearchVisibleRows();
-  if (searchSelected < searchTop) searchTop = searchSelected;
-  if (searchSelected >= searchTop + rows) searchTop = searchSelected - rows + 1;
-  int maxTop = (int)searchHits.size() - rows;
+  std::vector<AutoMapSearchRow> list = SearchRowsNow();
+  int selected = RowOfSelectedHit(list);
+  if (selected < 0) selected = 0;
+  if (selected < searchTop) searchTop = selected;
+  if (selected >= searchTop + rows) searchTop = selected - rows + 1;
+  int maxTop = (int)list.size() - rows;
   if (maxTop < 0) maxTop = 0;
   if (searchTop > maxTop) searchTop = maxTop;
   if (searchTop < 0) searchTop = 0;
@@ -758,7 +799,7 @@ bool AutoMapWindow_HandleKeyEvent(const SDL_Event &event)
   {
     if (!searchHits.empty())
     {
-      searchSelected = (searchSelected - 1 + (int)searchHits.size()) % (int)searchHits.size();
+      SearchStep(-1);
       SearchEnsureSelectedVisible();
       SearchCenterOnSelected();
     }
@@ -768,7 +809,7 @@ bool AutoMapWindow_HandleKeyEvent(const SDL_Event &event)
   {
     if (!searchHits.empty())
     {
-      searchSelected = (searchSelected + 1) % (int)searchHits.size();
+      SearchStep(1);
       SearchEnsureSelectedVisible();
       SearchCenterOnSelected();
     }
@@ -1167,10 +1208,21 @@ static bool HandleMapPointerEvent(const SDL_Event &event)
   {
     if (searchOpen)
     {
-      int hitIndex = -1;
-      if (SearchHitAtPixel(event.button.x, event.button.y, &hitIndex))
+      int rowIndex = -1;
+      if (SearchHitAtPixel(event.button.x, event.button.y, &rowIndex))
       {
-        searchSelected = hitIndex;
+        std::vector<AutoMapSearchRow> rows = SearchRowsNow();
+        const AutoMapSearchRow &row = rows[(size_t)rowIndex];
+        if (row.heading)
+        {
+          // A heading folds its level away, or unfolds it
+          if (searchFolded.count(row.level)) searchFolded.erase(row.level);
+          else searchFolded.insert(row.level);
+          SearchEnsureSelectedVisible();
+          isDirty = true;
+          return true;
+        }
+        searchSelected = row.hit;
         SearchCenterOnSelected();
         return true;
       }
@@ -1248,7 +1300,8 @@ static bool HandleMapPointerEvent(const SDL_Event &event)
     else if (searchOpen && PointInRect(hoverPixelX, hoverPixelY, SearchPanelRect()))
     {
       int rows = SearchVisibleRows();
-      int maxTop = (int)searchHits.size() > rows ? (int)searchHits.size() - rows : 0;
+      int total = (int)SearchRowsNow().size();
+      int maxTop = total > rows ? total - rows : 0;
       searchTop -= event.wheel.y;
       if (searchTop < 0) searchTop = 0;
       if (searchTop > maxTop) searchTop = maxTop;
@@ -3931,8 +3984,10 @@ static bool PointInRect(int x, int y, const SDL_Rect &area)
 }
 
 static const int SEARCH_QUERY_H = 20;
-static const int SEARCH_ROW_H = 16;
-static const int SEARCH_FOOTER_H = 16;
+static const int SEARCH_ROW_H = 20;
+static const int SEARCH_MOST_ROWS = 16;
+static const int SEARCH_PANEL_W = 440;
+static const SDL_Color SEARCH_TAG = {0x8f, 0x86, 0x76, 0xff};
 
 // How many result rows fit the window: the panel stays clear of the rulers
 static int SearchVisibleRows(void)
@@ -3941,13 +3996,11 @@ static int SearchVisibleRows(void)
   int windowWidth = 0, windowHeight = 0;
   OutputSizeBelowBar(&windowWidth, &windowHeight);
   (void)windowWidth;
-  int room = windowHeight - 60 - SEARCH_QUERY_H - 8 - SEARCH_FOOTER_H;
-  int rows = room / SEARCH_ROW_H;
-  if (rows < 4) rows = 4;
-  if (rows > 20) rows = 20;
-  return rows;
+  int rows = (windowHeight - 40 - SEARCH_QUERY_H) / SEARCH_ROW_H;
+  return std::max(4, std::min(SEARCH_MOST_ROWS, rows));
 }
 
+// Below the bar's / button, as wide as the results need, at most 440 pixels
 static SDL_Rect SearchPanelRect(void)
 {
   SDL_Rect empty = {0, 0, 0, 0};
@@ -3955,107 +4008,217 @@ static SDL_Rect SearchPanelRect(void)
   int windowWidth = 0, windowHeight = 0;
   OutputSizeBelowBar(&windowWidth, &windowHeight);
   (void)windowHeight;
-  int x = PanelLeft();
-  int w = std::min(460, windowWidth - x - 5);
+  int w = std::min(SEARCH_PANEL_W, windowWidth - 2 * RULER);
   if (w < 200) return empty;
-  int total = (int)searchHits.size();
-  int rows = std::min(SearchVisibleRows(), total);
-  bool needFooter = total > SearchVisibleRows() || (!searchQuery.empty() && total == 0);
-  if (!searchQuery.empty() && total == 0) rows = 1;
-  int h = SEARCH_QUERY_H + rows * SEARCH_ROW_H + 8 + (needFooter ? SEARCH_FOOTER_H : 0);
-  SDL_Rect plate = {x, 3, w, h};
+  int x = std::max(RULER, std::min(AutoMapBar_SearchButtonX() - w / 2, windowWidth - RULER - w));
+  int total = (int)SearchRowsNow().size();
+  int rows = std::max(1, std::min(SearchVisibleRows(), total));
+  int h = SEARCH_QUERY_H + rows * SEARCH_ROW_H + 8;
+  SDL_Rect plate = {x, 2, w, h};
   return plate;
 }
 
-static bool SearchHitAtPixel(int pixelX, int pixelY, int *hitIndex)
+// The row of the panel under a pixel: an index into SearchRowsNow()
+static bool SearchHitAtPixel(int pixelX, int pixelY, int *rowIndex)
 {
   if (!searchOpen) return false;
   SDL_Rect plate = SearchPanelRect();
   if (plate.w <= 0 || !PointInRect(pixelX, pixelY, plate)) return false;
   int row = (pixelY - plate.y - SEARCH_QUERY_H - 4) / SEARCH_ROW_H;
-  int total = (int)searchHits.size();
+  int total = (int)SearchRowsNow().size();
   int rows = std::min(SearchVisibleRows(), total);
-  if (row < 0 || row >= rows) return false;
+  if (pixelY < plate.y + SEARCH_QUERY_H + 4 || row < 0 || row >= rows) return false;
   int index = searchTop + row;
   if (index < 0 || index >= total) return false;
-  if (hitIndex != NULL) *hitIndex = index;
+  if (rowIndex != NULL) *rowIndex = index;
   return true;
 }
 
+static std::string WithoutGroupCount(const std::string &name)
+{
+  size_t at = name.rfind(" X");
+  if (at == std::string::npos || at + 2 >= name.size()) return name;
+  for (size_t i = at + 2; i < name.size(); i++)
+  {
+    if (name[i] < '0' || name[i] > '9') return name;
+  }
+  return name.substr(0, at);
+}
 
+// The tag at the right of a hit: what kind of find it is
+static std::string SearchTag(const AutoMapSearchHit &hit, SDL_Color *colour)
+{
+  *colour = SEARCH_TAG;
+  switch (hit.kind)
+  {
+  case AutoMapHitNeeds:
+    *colour = FACING_BADGE_FRAME;
+    if (hit.slot.side < 0) return hit.slot.carried ? "PAD, CARRIED" : "PAD NEEDS";
+    return "NEEDS";
+  case AutoMapHitCarried: return "CARRIED BY " + WithoutGroupCount(hit.carriedBy);
+  case AutoMapHitChest: return "CHEST";
+  case AutoMapHitAlcove: return "ALCOVE";
+  case AutoMapHitGenerator: *colour = GEN_TEXT; return "GENERATOR";
+  case AutoMapHitFeature:
+  {
+    char side = SideInitial(hit.slot.side);
+    return side ? std::string("(") + side + ")" : "";
+  }
+  default: return hit.count > 1 ? "X" + std::to_string(hit.count) : "";
+  }
+}
+
+static void DrawSearchIcon(const SDL_Rect &box, const AutoMapSearchHit &hit)
+{
+  if (hit.kind == AutoMapHitNeeds)
+  {
+    SDL_Rect frame = Inset(box, -6);
+    Fill(frame, BACKGROUND);
+    Outline(frame, FACING_BADGE_FRAME);
+  }
+  if (hit.kind == AutoMapHitMonster || hit.kind == AutoMapHitGenerator)
+  {
+    AutoMapSpriteRequest request = {hit.monsterPicture, hit.monsterTransparentColour};
+    const AutoMapSprite *sprite = hit.monsterPicture == AUTOMAP_NO_PICTURE ? NULL : sprites.Find(request);
+    if (sprite != NULL) DrawSprite(*sprite, FitInto(box, *sprite));
+    if (hit.kind == AutoMapHitGenerator)
+    {
+      AutoMapRect tag = {box.x + box.w - 9, box.y + box.h - 7, 10, 8};
+      AutoMapPaint_Plate(tag, GENERATOR);
+      AutoMapPaint_Text(tag.x + 3, tag.y + 1, "G", GEN_TEXT, 1);
+    }
+    return;
+  }
+  if (hit.kind == AutoMapHitFeature)
+  {
+    const AutoMapShownCell *shown = NULL;
+    for (size_t i = 0; i < shownDrawList.cells.size() && hit.level == shownDrawList.level; i++)
+    {
+      if (shownDrawList.cells[i].x == hit.x && shownDrawList.cells[i].y == hit.y) shown = &shownDrawList.cells[i];
+    }
+    if (shown != NULL && hit.slot.side >= 0)
+    {
+      const AutoMapSprite *sprite = SpriteOfTheGame(shown->cell.wallSides[hit.slot.side].picture);
+      if (sprite != NULL) DrawSprite(*sprite, FitInto(box, *sprite));
+    }
+    return;
+  }
+  DrawTooltipIcon(box, hit.slot.item);
+}
+
+// The results: a heading per level (the shown level first), then its hits in reading order with
+// the item's icon, the cell as the rulers number it, the name and a tag
 static void DrawSearchPanel(void)
 {
   if (!searchOpen) return;
   SDL_Rect plate = SearchPanelRect();
   if (plate.w <= 0) return;
   Fill(plate, BACKGROUND);
-  Outline(plate, WHITE);
-  char query[256];
-  std::snprintf(query, sizeof(query), "FIND %s_ (%d)", searchQuery.c_str(),
-                (int)searchHits.size());
-  DrawLegendText(plate.x + 6, plate.y + 4, query, WHITE);
-  int total = (int)searchHits.size();
-  int visible = SearchVisibleRows();
-  int rows = std::min(visible, total);
+  Outline(plate, LINK_BADGE);
+  std::vector<AutoMapSearchRow> rows = SearchRowsNow();
+  DrawLegendText(plate.x + 8, plate.y + 6, ("FIND " + searchQuery + "_").c_str(), WHITE);
+  int levels = 0;
+  for (size_t r = 0; r < rows.size(); r++) levels += rows[r].heading ? 1 : 0;
+  if (!searchHits.empty())
+  {
+    std::string info = std::to_string(searchHits.size()) + " ON " + std::to_string(levels)
+                       + (levels > 1 ? " LEVELS" : " LEVEL");
+    DrawLegendText(plate.x + plate.w - 12 - AutoMapPaint_TextWidth(info, DIGIT_SCALE), plate.y + 6, info.c_str(),
+                   RULER_TEXT);
+  }
+  SDL_Rect line = {plate.x + 4, plate.y + SEARCH_QUERY_H, plate.w - 8, 1};
+  Fill(line, FLOOR_EDGE);
   int y = plate.y + SEARCH_QUERY_H + 4;
-  for (int row = 0; row < rows; row++)
+  if (!searchQuery.empty() && searchHits.empty()) DrawLegendText(plate.x + 8, y + 4, "NOTHING SEEN MATCHES", RULER_TEXT);
+  if (searchQuery.empty()) DrawLegendText(plate.x + 8, y + 4, "TYPE A NAME: ITEM, MONSTER, GEN", FLAVOR_TICK);
+  int visible = SearchVisibleRows();
+  int coordsW = AutoMapPaint_TextWidth("(00,00)", DIGIT_SCALE);
+  for (int r = searchTop; r < (int)rows.size() && r < searchTop + visible; r++)
   {
-    int i = searchTop + row;
-    if (i < 0 || i >= total) break;
-    const AutoMapSearchHit &hit = searchHits[(size_t)i];
-    // Global ruler coordinates of the hit's own level, not the shown one
-    char coords[64];
-    std::snprintf(coords, sizeof(coords), "L%d (%d,%d)", hit.level, hit.globalX, hit.globalY);
-    std::string line = std::string(coords) + " " + hit.name;
-    if (hit.wallFeature != AutoMapWallFeatureNone)
+    const AutoMapSearchRow &row = rows[(size_t)r];
+    SDL_Rect band = {plate.x + 4, y, plate.w - 16, SEARCH_ROW_H};
+    if (row.heading)
     {
-      char side[5] = {' ', '(', SideInitial(hit.slot.side), ')', '\0'};
-      if (side[2] != '\0') line += side;
-    }
-    else if (hit.slot.required) line += " NEEDS";
-    else if (hit.monsterCarried) line += " CARRIED";
-    else if (hit.slot.isChest) line += " CHEST";
-    else if (hit.slot.side >= 0) line += " ALCOVE";
-    if (i == searchSelected)
-    {
-      SDL_Rect rowRect = {plate.x + 1, y - 2, plate.w - 2, SEARCH_ROW_H};
-      Fill(rowRect, RULER_BACKGROUND);
-    }
-    DrawLegendText(plate.x + 6, y, line.c_str(),
-                   i == searchSelected ? LINK_BADGE : RULER_TEXT);
-    y += SEARCH_ROW_H;
-  }
-  if (!searchQuery.empty() && total == 0)
-  {
-    DrawLegendText(plate.x + 6, y, "NOTHING SEEN MATCHES", RULER_TEXT);
-  }
-  else if (total > visible)
-  {
-    char range[64];
-    int last = searchTop + rows;
-    if (last > total) last = total;
-    std::snprintf(range, sizeof(range), "SHOWING %d-%d OF %d, WHEEL SCROLLS", searchTop + 1,
-                  last, total);
-    DrawLegendText(plate.x + 6, y, range, RULER_TEXT);
-  }
-}
-
-static void DrawSearchMarkers(const AutoMapView &view)
-{
-  for (size_t i = 0; i < searchHits.size(); i++)
-  {
-    // Only the shown level is on screen; other levels wait for their switch
-    if (searchHits[i].level != shownDrawList.level) continue;
-    SDL_Rect cell = CellArea(view, searchHits[i].x, searchHits[i].y);
-    if ((int)i == searchSelected)
-    {
-      Outline(cell, WHITE);
-      Outline(Inset(cell, 8), ITEM_MARKER);
+      SDL_Rect strip = {band.x, band.y + 1, band.w, band.h - 2};
+      Fill(strip, RULER_BACKGROUND);
+      std::string name = (searchFolded.count(row.level) ? "+ L" : "- L") + std::to_string(row.level);
+      DrawLegendText(band.x + 6, y + 5, name.c_str(), LINK_BADGE);
+      std::string count = std::to_string(row.hits) + (row.hits > 1 ? " HITS" : " HIT");
+      DrawLegendText(band.x + 6 + AutoMapPaint_TextWidth("- L000", DIGIT_SCALE) + 10, y + 5, count.c_str(), RULER_TEXT);
+      int right = band.x + band.w - 4;
+      if (row.level == shownDrawList.level)
+      {
+        right -= AutoMapPaint_TextWidth("SHOWN", DIGIT_SCALE);
+        DrawLegendText(right, y + 5, "SHOWN", RULER_TEXT);
+      }
+      if (row.level == AutoMap_PartyLevel()) AutoMapPaint_PartyArrow(right - 12, y + SEARCH_ROW_H / 2.0f, 5, 1, PARTY, false);
     }
     else
     {
-      Outline(Inset(cell, 12), ITEM_MARKER);
+      const AutoMapSearchHit &hit = searchHits[(size_t)row.hit];
+      bool selected = row.hit == searchSelected;
+      if (selected) Fill(band, LINK_BADGE);
+      SDL_Rect icon = {band.x + 18, y + 2, 16, 16};
+      DrawSearchIcon(icon, hit);
+      SDL_Color dark = {0x1a, 0x16, 0x0f, 0xff};
+      std::string at = "(" + std::to_string(hit.globalX) + "," + std::to_string(hit.globalY) + ")";
+      DrawLegendText(band.x + 42, y + 5, at.c_str(), selected ? dark : RULER_TEXT);
+      DrawLegendText(band.x + 42 + coordsW + 10, y + 5, hit.name.c_str(), selected ? dark : WHITE);
+      SDL_Color tagColour;
+      std::string tag = SearchTag(hit, &tagColour);
+      if (!tag.empty())
+      {
+        DrawLegendText(band.x + band.w - 4 - AutoMapPaint_TextWidth(tag, DIGIT_SCALE), y + 5, tag.c_str(),
+                       selected ? dark : tagColour);
+      }
     }
+    y += SEARCH_ROW_H;
+  }
+  if ((int)rows.size() > visible)
+  {
+    int track = plate.h - SEARCH_QUERY_H - 8;
+    int thumb = std::max(14, track * visible / (int)rows.size());
+    int thumbY = plate.y + SEARCH_QUERY_H + 4 + (track - thumb) * searchTop / std::max(1, (int)rows.size() - visible);
+    SDL_Rect rail = {plate.x + plate.w - 8, plate.y + SEARCH_QUERY_H + 4, 4, track};
+    SDL_Rect knob = {rail.x, thumbY, 4, thumb};
+    Fill(rail, RULER_BACKGROUND);
+    Fill(knob, RULER_TEXT);
+  }
+}
+
+// Every hit on the shown level gets a pixel frame, the selected one a light one; with nothing
+// hovered the map outside the hits dims, as for links
+static void DrawSearchMarkers(const AutoMapView &view)
+{
+  if (!searchOpen || searchQuery.empty() || collectingSpotlight) return;
+  bool selectedHere = searchSelected >= 0 && searchSelected < (int)searchHits.size()
+                      && searchHits[(size_t)searchSelected].level == shownDrawList.level;
+  if (selectedHere && !hoverValid)
+  {
+    std::vector<SDL_Rect> dim;
+    for (size_t i = 0; i < shownDrawList.cells.size(); i++)
+    {
+      const AutoMapShownCell &shown = shownDrawList.cells[i];
+      bool hit = false;
+      for (size_t k = 0; k < searchHits.size() && !hit; k++)
+      {
+        hit = searchHits[k].level == shownDrawList.level && searchHits[k].x == shown.x && searchHits[k].y == shown.y;
+      }
+      if (!hit) dim.push_back(CellArea(view, shown.x, shown.y));
+    }
+    SDL_SetRenderDrawColor(mapRenderer, 8, 7, 5, 140);
+    if (!dim.empty()) SDL_RenderFillRects(mapRenderer, dim.data(), (int)dim.size());
+  }
+  int thickness = AutoMapLayout_FaceLine(view.cellSize);
+  for (size_t i = 0; i < searchHits.size(); i++)
+  {
+    if (searchHits[i].level != shownDrawList.level) continue;
+    SDL_Rect cell = CellArea(view, searchHits[i].x, searchHits[i].y);
+    AutoMapRect rim = {cell.x + 1, cell.y + 1, cell.w - 2, cell.h - 2};
+    AutoMapRect frame = {cell.x + 2, cell.y + 2, cell.w - 4, cell.h - 4};
+    SDL_Color dark = {0x0b, 0x0a, 0x08, 0xff};
+    AutoMapPaint_Frame(rim, dark, thickness + 2);
+    AutoMapPaint_Frame(frame, (int)i == searchSelected ? KNOWN_SWITCH_LINE : LINK_GOLD, thickness);
   }
 }
 

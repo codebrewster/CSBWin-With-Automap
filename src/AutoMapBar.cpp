@@ -61,6 +61,7 @@ static bool levelListOpen = false;
 static int levelListTop = 0;
 static std::string typedLevel;
 static int levelButtonX = 0;
+static int searchButtonX = 0;
 static const int LEVEL_ROWS = 12;
 static int barScroll = 0;
 static std::vector<AutoMapRect> itemRects;
@@ -128,6 +129,7 @@ void AutoMapBar_Draw(int width)
     const AutoMapRect &r = itemRects[i];
     if (items[i].action == ActionShow) showButtonX = r.x;
     if (items[i].action == ActionLevelList) levelButtonX = r.x;
+    if (items[i].action == ActionSearch) searchButtonX = r.x + r.w / 2;
     if (items[i].action == ActionNone)
     {
       AutoMapPaint_Text(r.x, r.y + 2 * PIXEL, shown[i], CAPTION_TEXT, PIXEL);
@@ -477,4 +479,9 @@ bool AutoMapBar_HandleKey(int sym)
     return true;
   }
   return true;
+}
+
+int AutoMapBar_SearchButtonX(void)
+{
+  return searchButtonX;
 }
