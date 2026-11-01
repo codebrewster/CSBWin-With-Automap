@@ -25,4 +25,9 @@ void AutoMapWindow_TooltipFor(const AutoMapDrawList &list, int x, int y, bool fu
                               std::vector<std::string> *lines,
                               std::vector<AutoMapTooltipEntry> *icons);
 
+// Draws list as the map window would, at a fixed cellSize centred on (cellX, cellY), with that cell
+// hovered (and Shift held when shift), into a BMP of width x height; false when it fails
+bool AutoMapWindow_RenderToFile(const AutoMapDrawList &list, int width, int height, int cellSize,
+                                int cellX, int cellY, bool shift, const char *path);
+
 #endif

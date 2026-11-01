@@ -167,6 +167,10 @@ static const int DIGIT_SCALE = 2;
 // the drag started and the view stops following the party until a middle-click without a
 // drag recentres it. Fractions keep re-pans continuous and zooming centred on the same spot.
 static bool viewFollowsParty = true;
+// Set only while AutoMapWindow_RenderToFile draws: a fixed cell size centred on the hovered cell,
+// and Shift as if held
+static int renderCellSize = 0;
+static bool renderShift = false;
 static float viewCenterX = 0;
 // The centre for a level asked for but not on screen yet (Page Down, a search hit elsewhere)
 static AutoMapPendingCentre pendingCentre = AutoMapScene_NoPendingCentre();
@@ -2651,6 +2655,14 @@ static AutoMapViewRequest RequestOfShownLevel(void)
 
 static AutoMapView ViewOfShownLevel(void)
 {
+  if (renderCellSize > 0)
+  {
+    int mapWidth = 0, mapHeight = 0;
+    MapAreaSize(&mapWidth, &mapHeight);
+    AutoMapView fixed = {renderCellSize, RULER + mapWidth / 2 - (hoverX * renderCellSize + renderCellSize / 2),
+                         RULER + mapHeight / 2 - (hoverY * renderCellSize + renderCellSize / 2)};
+    return fixed;
+  }
   AutoMapView view = AutoMapScene_PlaceLevel(RequestOfShownLevel());
   view.originX += RULER;
   view.originY += RULER;
@@ -3542,7 +3554,7 @@ static void DrawTileTooltip(const AutoMapView &view)
   std::vector<std::string> relay = AutoMapScene_RelayLines(shownDrawList, hoverX, hoverY);
   // Shift unfolds the compact press lines into the full chain; the tooltip redraws every
   // frame, so no event handler is needed.
-  bool fullChain = (SDL_GetModState() & KMOD_SHIFT) != 0;
+  bool fullChain = renderShift || (SDL_GetModState() & KMOD_SHIFT) != 0;
   if (!fullChain) tooltipScrollLines = 0;
   std::vector<std::string> press = AutoMapScene_PressLines(
       shownDrawList, AutoMapScene_PressEffects(shownDrawList, hoverX, hoverY), fullChain);
@@ -5516,12 +5528,17 @@ static bool RenderStaticCache(const AutoMapView &view)
     staticSerial = drawListSerial;
     staticCellSize = view.cellSize;
     if (staticCache == NULL) return false;
+    // Blended, so the cells the list leaves out show the background behind the copy
+    SDL_SetTextureBlendMode(staticCache, SDL_BLENDMODE_BLEND);
     if (SDL_SetRenderTarget(mapRenderer, staticCache) < 0)
     {
       SDL_DestroyTexture(staticCache);
       staticCache = NULL;
       return false;
     }
+    // A new texture holds whatever its memory held: cells the list leaves out must stay see-through
+    SDL_SetRenderDrawColor(mapRenderer, 0, 0, 0, 0);
+    SDL_RenderClear(mapRenderer);
     AutoMapView cacheView = {view.cellSize, 0, 0};
     for (size_t i = 0; i < shownDrawList.cells.size(); i++)
     {
@@ -5701,4 +5718,46 @@ void AutoMapWindow_TooltipFor(const AutoMapDrawList &list, int x, int y, bool fu
     }
   }
   shownDrawList = saved;
+}
+
+// The map window as it would look, drawn off screen into a picture: no window needed, so the
+// look can be checked without playing (AutoMapExport.cpp, CSB_MAP_RENDER)
+bool AutoMapWindow_RenderToFile(const AutoMapDrawList &list, int width, int height, int cellSize,
+                                int cellX, int cellY, bool shift, const char *path)
+{
+  SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_RGBA32);
+  if (surface == NULL) return false;
+  SDL_Renderer *renderer = SDL_CreateSoftwareRenderer(surface);
+  if (renderer == NULL)
+  {
+    SDL_FreeSurface(surface);
+    return false;
+  }
+  SDL_Renderer *windowRenderer = mapRenderer;
+  mapRenderer = renderer;
+  SDL_SetRenderDrawBlendMode(mapRenderer, SDL_BLENDMODE_BLEND);
+  sprites.UseRenderer(mapRenderer);
+  if (staticCache != NULL) SDL_DestroyTexture(staticCache);
+  staticCache = NULL;
+  AutoMapWindow_ShowDrawList(list);
+  hoverValid = true;
+  hoverX = cellX;
+  hoverY = cellY;
+  renderCellSize = cellSize;
+  renderShift = shift;
+  UseColour(BACKGROUND);
+  SDL_RenderClear(mapRenderer);
+  DrawLevel();
+  SDL_RenderPresent(mapRenderer);
+  bool saved = SDL_SaveBMP(surface, path) == 0;
+  renderCellSize = 0;
+  renderShift = false;
+  ClearHover();
+  if (staticCache != NULL) SDL_DestroyTexture(staticCache);
+  staticCache = NULL;
+  sprites.UseRenderer(windowRenderer);
+  mapRenderer = windowRenderer;
+  SDL_DestroyRenderer(renderer);
+  SDL_FreeSurface(surface);
+  return saved;
 }

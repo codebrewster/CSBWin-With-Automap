@@ -25,7 +25,21 @@
 
 bool AutoMapExport_IsRequested(void)
 {
-  return getenv("CSB_MAP_EXPORT") != NULL;
+  return getenv("CSB_MAP_EXPORT") != NULL || getenv("CSB_MAP_RENDER") != NULL;
+}
+
+// The draw list the map window would get for level at a vision (0 fog, 1 explored live, 2 whole
+// level) and a spoiler level of the scene (0 All, 1 Learned, 2 Seen)
+static AutoMapDrawList DrawListOf(AutoMapRecorder &recorder, int partyLevel, const AutoMapLevelSnapshot &s,
+                                  int vision, int spoil)
+{
+  static const AutoMapVisibleCells nothingVisibleNow;
+  static const std::vector<AutoMapRecordId> noMonstersSeenNow;
+  const AutoMapVisibleCells *visibleNow = s.level == partyLevel ? &recorder.VisibleNow() : &nothingVisibleNow;
+  const std::vector<AutoMapRecordId> *seenNow = s.level == partyLevel ? &recorder.MonstersSeenNow() : &noMonstersSeenNow;
+  AutoMapFog fog = {vision != 2, &recorder.Explored(), visibleNow, vision == 2, (AutoMapSpoilerLevel)spoil, &recorder.Knowledge(),
+                    &recorder.Items(), seenNow, &recorder.Cells(), &recorder.Notes(), &recorder.Damage(), vision == 1};
+  return AutoMapScene_BuildDrawList(s, fog);
 }
 
 static std::string JsonText(const std::string &s)
@@ -293,7 +307,7 @@ static int LevelIsVisited(AutoMapRecorder &recorder, int level)
   return 0;
 }
 
-void AutoMapExport_Run(const char *dir, AutoMapRecorder &recorder, int partyLevel)
+static void Export(const char *dir, AutoMapRecorder &recorder, int partyLevel)
 {
   ExportPictures sp;
   sp.dir = dir;
@@ -315,16 +329,10 @@ void AutoMapExport_Run(const char *dir, AutoMapRecorder &recorder, int partyLeve
     for (size_t i = 0; i < types.size(); i++) fprintf(idx, "%s%s", i ? "," : "", JsonText(types[i].name).c_str());
     fprintf(idx, "]}");
     AutoMapScene_RememberExploredLooks(s, recorder.Explored(), &recorder.Cells());
-    static const AutoMapVisibleCells nothingVisibleNow;
-    static const std::vector<AutoMapRecordId> noMonstersSeenNow;
-    const AutoMapVisibleCells *visibleNow = level == partyLevel ? &recorder.VisibleNow() : &nothingVisibleNow;
-    const std::vector<AutoMapRecordId> *seenNow = level == partyLevel ? &recorder.MonstersSeenNow() : &noMonstersSeenNow;
     for (int vision = 0; vision < 3; vision++)
       for (int spoil = 0; spoil < 3; spoil++)
       {
-        AutoMapFog fog = {vision != 2, &recorder.Explored(), visibleNow, vision == 2, (AutoMapSpoilerLevel)spoil, &recorder.Knowledge(),
-                          &recorder.Items(), seenNow, &recorder.Cells(), &recorder.Notes(), &recorder.Damage(), vision == 1};
-        AutoMapDrawList list = AutoMapScene_BuildDrawList(s, fog);
+        AutoMapDrawList list = DrawListOf(recorder, partyLevel, s, vision, spoil);
         sprintf(path, "%s/L%d_v%d_s%d.json", dir, level, vision, spoil);
         FILE *f = fopen(path, "w");
         WriteDrawList(f, sp, list, s, types);
@@ -336,4 +344,33 @@ void AutoMapExport_Run(const char *dir, AutoMapRecorder &recorder, int partyLeve
   for (size_t i = 0; i < champions.size(); i++) fprintf(idx, "%s[%s,%d,%d,%d,%d]", i ? "," : "", JsonText(champions[i].name).c_str(), champions[i].level[0], champions[i].level[1], champions[i].level[2], champions[i].level[3]);
   fprintf(idx, "]}\n");
   fclose(idx);
+}
+
+// CSB_MAP_RENDER="<out.bmp>,<level>,<vision 0..2>,<spoilers as in csb.cfg: 0 seen, 1 learned, 2 all>,
+// <cell size>,<x>,<y>[,shift]": the map window as it would look with the cell (x, y) of the level
+// (draw-list coordinates, as the mockup's hh) hovered, 1200 x 900 pixels
+static void Render(const char *spec, AutoMapRecorder &recorder, int partyLevel)
+{
+  char out[512] = "";
+  int level = 0, vision = 0, spoilers = 2, cellSize = 40, x = 0, y = 0;
+  char shift[16] = "";
+  int fields = sscanf(spec, "%511[^,],%d,%d,%d,%d,%d,%d,%15s", out, &level, &vision, &spoilers, &cellSize, &x, &y, shift);
+  if (fields < 7)
+  {
+    printf("CSB_MAP_RENDER: expected <out.bmp>,<level>,<vision>,<spoilers>,<cell>,<x>,<y>[,shift]\n");
+    return;
+  }
+  AutoMapLevelSnapshot s = AutoMapLevelReader_ReadLevel(level);
+  AutoMapSprites spritesForSchemes;
+  spritesForSchemes.UseColourSchemes(s.paletteScheme9, s.paletteScheme10);
+  AutoMapScene_RememberExploredLooks(s, recorder.Explored(), &recorder.Cells());
+  AutoMapDrawList list = DrawListOf(recorder, partyLevel, s, vision, 2 - spoilers);
+  bool rendered = AutoMapWindow_RenderToFile(list, 1200, 900, cellSize, x, y, fields == 8, out);
+  printf("CSB_MAP_RENDER: %s %s\n", out, rendered ? "written" : "failed");
+}
+
+void AutoMapExport_Run(AutoMapRecorder &recorder, int partyLevel)
+{
+  if (getenv("CSB_MAP_EXPORT") != NULL) Export(getenv("CSB_MAP_EXPORT"), recorder, partyLevel);
+  if (getenv("CSB_MAP_RENDER") != NULL) Render(getenv("CSB_MAP_RENDER"), recorder, partyLevel);
 }

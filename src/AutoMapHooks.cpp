@@ -1565,7 +1565,7 @@ static void RunVisibilityTest(void)
   // The mockup export reuses the visibility test's way of loading a save without a window
   if (AutoMapExport_IsRequested())
   {
-    AutoMapExport_Run(getenv("CSB_MAP_EXPORT"), recorder, d.partyLevel);
+    AutoMapExport_Run(recorder, d.partyLevel);
     exit(0);
   }
   int passed = 0;

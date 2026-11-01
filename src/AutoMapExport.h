@@ -8,8 +8,10 @@
 class AutoMapRecorder;
 
 bool AutoMapExport_IsRequested(void);
-// Writes index.json, one draw list per level, vision and spoiler level (L<level>_v<vision>_s<spoilers>.json)
-// and the game's pictures (.bmp) into dir
-void AutoMapExport_Run(const char *dir, AutoMapRecorder &recorder, int partyLevel);
+// CSB_MAP_EXPORT=<dir>: writes index.json, one draw list per level, vision and spoiler level
+// (L<level>_v<vision>_s<spoilers>.json) and the game's pictures (.bmp) into dir.
+// CSB_MAP_RENDER=<out.bmp>,<level>,<vision>,<spoilers>,<cell>,<x>,<y>[,shift]: the map window as it
+// would look, drawn off screen into out.bmp (see AutoMapExport.cpp)
+void AutoMapExport_Run(AutoMapRecorder &recorder, int partyLevel);
 
 #endif
