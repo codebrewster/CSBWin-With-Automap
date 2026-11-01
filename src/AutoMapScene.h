@@ -50,7 +50,6 @@ const int AUTOMAP_NO_PICTURE = -1;
 const int AUTOMAP_NO_LEVEL = -1;
 const int AUTOMAP_LARGEST_GROUP = 4;
 const int AUTOMAP_MOST_ITEMS_SHOWN = 3;
-const int AUTOMAP_MOST_ZOOM_STEPS = 12;
 // The colour schemes ReadGraphicsForLevel starts from before the monster types of the
 // level replace them
 extern const int AUTOMAP_DEFAULT_SCHEME9;
@@ -1364,7 +1363,10 @@ struct AutoMapView
   int originY;
 };
 
-int AutoMapScene_ClampZoomSteps(int zoomSteps);
+// Step 0 shows the whole level; each step grows the cells by about 15 %, until a cell is a third of
+// the view's shorter side (at least 96 pixels): the most steps for this window and level
+int AutoMapScene_MostZoomSteps(const AutoMapViewRequest &request);
+int AutoMapScene_ClampZoomSteps(int zoomSteps, const AutoMapViewRequest &request);
 
 // Every how many cells a ruler shows a number, so that neighbouring numbers never touch:
 // the smallest step whose cells are at least as wide as one number

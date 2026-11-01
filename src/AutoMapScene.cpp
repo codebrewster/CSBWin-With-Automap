@@ -11,7 +11,11 @@
 #include <cstdio>
 #include <set>
 
-static const int ZOOM_STEPS_PER_FITTING_SIZE = 4;
+// Each wheel notch grows the cells by about this much; at least a pixel, so no notch is lost
+static const double ZOOM_FACTOR_PER_STEP = 1.15;
+// Zooming in stops once a cell is a third of the view's shorter side, and never below this
+static const int SMALLEST_DEEPEST_CELL = 96;
+static const int MOST_STEPS_EVER = 200;
 
 static AutoMapWallSide PlainWallSide(void)
 {
@@ -2273,10 +2277,6 @@ int AutoMapScene_PredictDoorState(AutoMapDoorState current, AutoMapSignal signal
   return predicted;
 }
 
-int AutoMapScene_ClampZoomSteps(int zoomSteps)
-{
-  return std::max(0, std::min(zoomSteps, AUTOMAP_MOST_ZOOM_STEPS));
-}
 
 static int LargestCellSizeShowingTheWholeLevel(const AutoMapViewRequest &request)
 {
@@ -2309,14 +2309,37 @@ static int OriginAlong(const ViewAxis &axis, int cellSize)
   return std::max(originShowingLastCell, std::min(originCentred, 0));
 }
 
+static int CellSizeAtStep(int fittingCellSize, int zoomSteps)
+{
+  int grown = (int)std::lround(fittingCellSize * std::pow(ZOOM_FACTOR_PER_STEP, zoomSteps));
+  return std::max(grown, fittingCellSize + zoomSteps);
+}
+
+int AutoMapScene_MostZoomSteps(const AutoMapViewRequest &request)
+{
+  int fittingCellSize = LargestCellSizeShowingTheWholeLevel(request);
+  if (fittingCellSize <= 0) return 0;
+  int deepest = std::max(SMALLEST_DEEPEST_CELL, std::min(request.windowWidth, request.windowHeight) / 3);
+  for (int steps = 0; steps < MOST_STEPS_EVER; steps++)
+  {
+    if (CellSizeAtStep(fittingCellSize, steps) >= deepest) return steps;
+  }
+  return MOST_STEPS_EVER;
+}
+
+int AutoMapScene_ClampZoomSteps(int zoomSteps, const AutoMapViewRequest &request)
+{
+  return std::max(0, std::min(zoomSteps, AutoMapScene_MostZoomSteps(request)));
+}
+
 AutoMapView AutoMapScene_PlaceLevel(const AutoMapViewRequest &request)
 {
-  int zoomSteps = AutoMapScene_ClampZoomSteps(request.zoomSteps);
+  int zoomSteps = AutoMapScene_ClampZoomSteps(request.zoomSteps, request);
   int fittingCellSize = LargestCellSizeShowingTheWholeLevel(request);
   ViewAxis horizontal = {request.windowWidth, request.levelSize.width, request.centerX};
   ViewAxis vertical = {request.windowHeight, request.levelSize.height, request.centerY};
   AutoMapView view;
-  view.cellSize = fittingCellSize * (ZOOM_STEPS_PER_FITTING_SIZE + zoomSteps) / ZOOM_STEPS_PER_FITTING_SIZE;
+  view.cellSize = fittingCellSize > 0 ? CellSizeAtStep(fittingCellSize, zoomSteps) : 0;
   view.originX = OriginAlong(horizontal, view.cellSize);
   view.originY = OriginAlong(vertical, view.cellSize);
   return view;

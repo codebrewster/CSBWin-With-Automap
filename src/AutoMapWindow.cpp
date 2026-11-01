@@ -951,6 +951,47 @@ static void DragMiddle(int deltaX, int deltaY)
   isDirty = true;
 }
 
+// Left-drag pans like a web map; the cursor stays visible, no relative mode
+static bool leftDragging = false;
+static bool leftDragMoved = false;
+static int leftDragDistance = 0;
+
+static void StartLeftDrag(void)
+{
+  if (middleDragging) return;
+  leftDragging = true;
+  leftDragMoved = false;
+  leftDragDistance = 0;
+  SDL_CaptureMouse(SDL_TRUE);
+}
+
+static void DragLeft(int deltaX, int deltaY)
+{
+  if (!leftDragging) return;
+  AutoMapView view = ViewOfShownLevel();
+  if (view.cellSize <= 0) return;
+  leftDragDistance += (deltaX < 0 ? -deltaX : deltaX) + (deltaY < 0 ? -deltaY : deltaY);
+  if (!leftDragMoved && leftDragDistance < DRAG_START_DISTANCE) return;
+  if (!leftDragMoved)
+  {
+    leftDragMoved = true;
+    ClearHover();
+    FreezeExactViewCenter(view);
+    viewFollowsParty = false;
+    if (shownDrawList.level != AUTOMAP_NO_LEVEL) AutoMap_ShowLevel(shownDrawList.level);
+  }
+  viewCenterX -= (float)deltaX / view.cellSize;
+  viewCenterY -= (float)deltaY / view.cellSize;
+  isDirty = true;
+}
+
+static void EndLeftDrag(void)
+{
+  if (!leftDragging) return;
+  leftDragging = false;
+  SDL_CaptureMouse(SDL_FALSE);
+}
+
 static void EndMiddleDrag(void)
 {
   if (!middleDragging) return;
@@ -971,7 +1012,7 @@ static void EndMiddleDrag(void)
 // browsed to stays on screen, though, when the party is elsewhere.
 static void ZoomTowardsPointer(int notches)
 {
-  int newSteps = AutoMapScene_ClampZoomSteps(zoomSteps + (notches > 0 ? 1 : -1));
+  int newSteps = AutoMapScene_ClampZoomSteps(zoomSteps + (notches > 0 ? 1 : -1), RequestOfShownLevel());
   if (newSteps == zoomSteps) return;
   AutoMapView before = ViewOfShownLevel();
   zoomSteps = newSteps;
@@ -1148,7 +1189,20 @@ bool AutoMapWindow_HandlePointerEvent(const SDL_Event &event)
       // Skip pages the current spoiler level leaves empty; page 0 closes the legend
       while (legendPage != 0 && !LegendPageHasRows(legendPage)) legendPage = (legendPage + 1) % 7;
       isDirty = true;
+      return true;
     }
+    // On the map itself the left button pans, as on a web map; a press that hardly moves is a click
+    StartLeftDrag();
+    return true;
+  }
+  if (event.type == SDL_MOUSEBUTTONUP && event.button.button == SDL_BUTTON_LEFT)
+  {
+    EndLeftDrag();
+    return true;
+  }
+  if (event.type == SDL_MOUSEMOTION && leftDragging)
+  {
+    DragLeft(event.motion.xrel, event.motion.yrel);
     return true;
   }
   if (event.type == SDL_MOUSEBUTTONDOWN
