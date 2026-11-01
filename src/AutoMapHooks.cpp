@@ -913,6 +913,7 @@ static void LearnWatchedLinks(void)
 }
 
 static void CarryOutDebugRequest(void);
+static void RebuildShownLevel(void);
 
 static bool ViewOfThePartyIsHidden(void)
 {
@@ -939,7 +940,22 @@ void AutoMap_OnEngineTick(void)
   recorder.SeeCellLooks();
   LearnFalseWallsOfThisTick();
   LearnWatchedLinks();
-  // The level is only read on a tick: a window opened while the game is frozen must not show
+  RebuildShownLevel();
+}
+
+// The frozen game runs no tick, but the map's own controls still change what it shows: another
+// level, the vision, the spoilers, a forgotten level, a note. The main loop calls this while the
+// clock stands still, at the same settled point the tick would run, and the map rebuilds as it
+// does on a tick. Nothing in the dungeon moves meanwhile, so a rebuild reads what the party left.
+void AutoMap_OnClockStopped(void)
+{
+  if (!PartyLevelIsLoaded() || d.newPartyLevel != -1) return;
+  RebuildShownLevel();
+}
+
+static void RebuildShownLevel(void)
+{
+  // The level is only read in the main loop: a window opened while it waits must not show
   // what the level looked like when it was hidden.
   if (!AutoMapWindow_IsShown())
   {

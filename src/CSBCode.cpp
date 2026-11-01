@@ -786,6 +786,7 @@ tag0007c8:
       };
     } while (intResult & 1);
     if (DiskMenuNeeded) DisplayDiskMenu(_9_);
+    if (d.ClockRunning == 0) AutoMap_OnClockStopped(); // Game frozen
     if (d.clockTick    == 0) WaitForButtonFlash(); // If any active
     if (d.clockTick    == 0) goto tag0007b4; // Usually 0
     if (d.ClockRunning == 0) goto tag0007b4; // Usually 1

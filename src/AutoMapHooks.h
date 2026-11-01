@@ -106,6 +106,9 @@ void AutoMap_OnPortraitViewed(int x, int y, int side);
 void AutoMap_OnScrollRead(int scroll);
 // Once per tick of the main game loop, whether or not the 3D view was drawn
 void AutoMap_OnEngineTick(void);
+// The main loop while the game is frozen (no tick runs): the map shows the changes of its own
+// controls, such as another level, at once
+void AutoMap_OnClockStopped(void);
 // A dungeon is ready to play: a new game or a saved one
 void AutoMap_OnDungeonLoaded(void);
 // File > Reset (and the loads that go through it): the run is over, so the map forgets it at
