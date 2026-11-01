@@ -3586,6 +3586,8 @@ static void DrawTileTooltip(const AutoMapView &view)
     std::snprintf(pos, sizeof(pos), "POS: L%d (%d, %d)", shownDrawList.level, gx, gy);
     footerLines.push_back(pos);
   }
+  std::string monsterName = AutoMapScene_MonsterNameLine(shownDrawList, hoverX, hoverY);
+  if (!monsterName.empty() && Shows(AutoMapShowMonsters)) footerLines.push_back(monsterName);
   footerLines.insert(footerLines.end(), hpLines.begin(), hpLines.end());
   std::vector<std::string> nameLines =
       BuildTooltipNameLines(cells, maxW - 2 * TOOLTIP_PAD);
@@ -3755,7 +3757,8 @@ static void DrawTileTooltip(const AutoMapView &view)
   {
     int lineY = y + iconH + (cells.empty() ? TOOLTIP_PAD : 0)
         + (int)i * (footerTextH + footerLineGap);
-    DrawLegendText(x + TOOLTIP_PAD, lineY, footerLines[i].c_str(), WHITE);
+    bool isMonsterName = !monsterName.empty() && footerLines[i] == monsterName;
+    DrawLegendText(x + TOOLTIP_PAD, lineY, footerLines[i].c_str(), isMonsterName ? LINK_BADGE : WHITE);
   }
 }
 
@@ -5687,6 +5690,8 @@ void AutoMapWindow_TooltipFor(const AutoMapDrawList &list, int x, int y, bool fu
     char pos[64];
     std::snprintf(pos, sizeof(pos), "POS: L%d (%d, %d)", shownDrawList.level, gx, gy);
     lines->push_back(pos);
+    std::string monsterName = AutoMapScene_MonsterNameLine(shownDrawList, x, y);
+    if (!monsterName.empty()) lines->push_back(monsterName);
     lines->insert(lines->end(), hpLines.begin(), hpLines.end());
     std::vector<std::string> names = BuildTooltipNameLines(cells, 100000);
     lines->insert(lines->end(), names.begin(), names.end());

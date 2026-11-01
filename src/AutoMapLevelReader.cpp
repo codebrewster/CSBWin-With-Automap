@@ -556,27 +556,13 @@ static AutoMapMonsterKind KindOf(DB4 *group)
 // type CreateMonster uses. Spent generators (and anything unresolvable) keep the flag off.
 static const int GENERATOR_MONSTER_TYPES = 27;
 
-// Statistics.cpp: honours custom dungeon names from the expool, falls back to
-// "Name(graphic)". Declared here so the reader can resolve the display name;
-// the scene only carries the resulting string.
-void GetMonsterName(int monsterType, int graphic, char *name);
+// The name a player reads: a custom dungeon's own, else "Lord Order", "Rock Pile" (Statistics.cpp)
+void GetMonsterDisplayName(int monsterType, int graphic, char *name);
 
-// The default "Name(graphic)" suffix carries no meaning on the map (the
-// variant is already drawn); custom dungeon names come without one and are
-// kept whole.
-static std::string StripGraphicSuffix(const char *raw)
+static std::string DisplayNameOf(int monsterType, int graphic)
 {
-  std::string name = raw == NULL ? "" : raw;
-  while (!name.empty() && name[name.size() - 1] == ' ') name.erase(name.size() - 1);
-  if (name.empty() || name[name.size() - 1] != ')') return name;
-  size_t open = name.rfind('(');
-  if (open == std::string::npos || open + 1 >= name.size() - 1) return name;
-  for (size_t i = open + 1; i < name.size() - 1; i++)
-  {
-    if (name[i] < '0' || name[i] > '9') return name;
-  }
-  name.erase(open);
-  while (!name.empty() && name[name.size() - 1] == ' ') name.erase(name.size() - 1);
+  char name[256] = "";
+  GetMonsterDisplayName(monsterType, graphic, name);
   return name;
 }
 
@@ -587,9 +573,7 @@ static void ResolveGeneratedMonster(DB3 *actuator, AutoMapFloorActuator *pad, in
   if (monsterType < 0 || monsterType >= GENERATOR_MONSTER_TYPES) return;
   pad->hasGeneratedMonster = true;
   pad->generatedKind = KindOfType(monsterType);
-  char raw[80];
-  GetMonsterName(monsterType, (actuator->value() >> 5) & 3, raw);
-  pad->generatedMonsterName = StripGraphicSuffix(raw);
+  pad->generatedMonsterName = DisplayNameOf(monsterType, (actuator->value() >> 5) & 3);
   // How many units one firing creates (Timer.cpp): the delay, unless bit 3
   // asks for 1..(delay & 7) at random. Shown only when exact and above one.
   int delay = actuator->delay();
@@ -844,6 +828,7 @@ static void ReadMonster(RN monster, int x, int y, AutoMapLevelSnapshot *snapshot
   record.x = x;
   record.y = y;
   record.kind = KindOf(group);
+  record.name = DisplayNameOf(group->monsterType(), group->alternateGraphics());
   record.record = RecordIdOf(monster);
   record.memberCount = group->numMonM1() + 1;
   for (int member = 0; member < AUTOMAP_LARGEST_GROUP; member++)
@@ -1573,11 +1558,9 @@ std::vector<AutoMapMonsterChoice> AutoMapLevelReader_MonsterTypesOfLevel(int lev
   {
     int monsterType = (ui8)list[i];
     if (monsterType >= GENERATOR_MONSTER_TYPES) continue;
-    char raw[80];
-    GetMonsterName(monsterType, 0, raw);
     AutoMapMonsterChoice choice;
     choice.type = monsterType;
-    choice.name = StripGraphicSuffix(raw);
+    choice.name = DisplayNameOf(monsterType, 0);
     choice.horizontalSize = d.MonsterDescriptor[monsterType].horizontalSize();
     choices.push_back(choice);
   }

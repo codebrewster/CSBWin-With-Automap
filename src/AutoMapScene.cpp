@@ -5,6 +5,7 @@
 #include "AutoMapPlayerNotes.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
@@ -718,6 +719,7 @@ static AutoMapShownMonster ShowMonster(const AutoMapMonsterRecord &monster,
   shown.x = monster.x;
   shown.y = monster.y;
   shown.transparentColour = monster.kind.transparentColour;
+  shown.name = monster.name;
   shown.memberCount = std::min(monster.memberCount, AUTOMAP_LARGEST_GROUP);
   for (int member = 0; member < AUTOMAP_LARGEST_GROUP; member++)
   {
@@ -1297,6 +1299,20 @@ std::vector<AutoMapItemStack> AutoMapScene_MonsterPossessions(const AutoMapDrawL
     }
   }
   return AutoMapScene_GroupItems(items);
+}
+
+std::string AutoMapScene_MonsterNameLine(const AutoMapDrawList &drawList, int x, int y)
+{
+  for (size_t i = 0; i < drawList.monsters.size(); i++)
+  {
+    const AutoMapShownMonster &monster = drawList.monsters[i];
+    if (monster.x != x || monster.y != y || monster.name.empty()) continue;
+    std::string line;
+    for (size_t c = 0; c < monster.name.size(); c++) line += (char)toupper((unsigned char)monster.name[c]);
+    if (monster.memberCount > 1) line += " X" + std::to_string(monster.memberCount);
+    return line;
+  }
+  return "";
 }
 
 std::vector<std::string> AutoMapScene_MonsterHealthLines(const AutoMapDrawList &drawList, int x, int y)

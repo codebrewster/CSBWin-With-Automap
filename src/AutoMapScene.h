@@ -390,6 +390,8 @@ struct AutoMapMonsterRecord
   std::vector<AutoMapItem> chanceResiduePictures;
   // The group's record, which the 3D view's measurement names it by
   AutoMapRecordId record = AUTOMAP_NO_RECORD;
+  // The name the player reads ("Lord Order", "Rock Pile"), a custom dungeon's own first
+  std::string name;
 };
 
 // A projectile in flight: the item is what the 3D view draws, so thrown stones and
@@ -698,6 +700,7 @@ struct AutoMapShownMonster
   // Death-residue preview, copied through like possessions.
   std::vector<AutoMapItem> residuePictures;
   std::vector<AutoMapItem> chanceResiduePictures;
+  std::string name;
 };
 
 struct AutoMapShownMissile
@@ -965,6 +968,10 @@ std::vector<AutoMapItemStack> AutoMapScene_MonsterPossessions(const AutoMapDrawL
 // "DMG 17" per member with damage, none for a member not hit yet. Fog-safe like everything else
 // here.
 std::vector<std::string> AutoMapScene_MonsterHealthLines(const AutoMapDrawList &drawList, int x, int y);
+
+// The group shown on (x, y) as the tooltip names it: "TROLIN X4", "WATER ELEMENTAL"; empty when the
+// map shows no group there
+std::string AutoMapScene_MonsterNameLine(const AutoMapDrawList &drawList, int x, int y);
 
 // Grouped death-residue preview of the monster groups on a cell: guaranteed
 // drops vs 50%-chance drops. Same fog rule as possessions.

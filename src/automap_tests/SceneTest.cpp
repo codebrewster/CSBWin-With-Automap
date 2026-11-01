@@ -5188,8 +5188,31 @@ static void NewerRequestReplacesThePendingCentre(void)
   CHECK(x == 3.0f && y == 4.0f);
 }
 
+// The tooltip names the group under the pointer the way the player reads it, with its size
+static void MonsterNameLineNamesTheGroup(void)
+{
+  AutoMapLevelSnapshot corridor = Corridor();
+  AutoMapMonsterRecord group = MummyAt(2, 1);
+  group.memberCount = 4;
+  group.name = "Trolin";
+  AutoMapMonsterRecord elemental = MummyAt(1, 1);
+  elemental.name = "Water Elemental";
+  corridor.monsters.push_back(group);
+  corridor.monsters.push_back(elemental);
+  AutoMapExplored explored = NothingExplored();
+  AutoMapVisibleCells visibleNow;
+  AutoMapDrawList drawList = AutoMapScene_BuildDrawList(corridor, NoFog(explored, visibleNow));
+  CHECK(AutoMapScene_MonsterNameLine(drawList, 2, 1) == "TROLIN X4");
+  CHECK(AutoMapScene_MonsterNameLine(drawList, 1, 1) == "WATER ELEMENTAL");
+  CHECK(AutoMapScene_MonsterNameLine(drawList, 0, 0) == "");
+  // Under the fog a group the party does not see right now is not on the map, so not named
+  AutoMapDrawList fogged = AutoMapScene_BuildDrawList(corridor, FogOver(explored, visibleNow));
+  CHECK(AutoMapScene_MonsterNameLine(fogged, 2, 1) == "");
+}
+
 void TestAutoMapScene(void)
 {
+  MonsterNameLineNamesTheGroup();
   AsManyMonstersAsFitShareACell();
   AQuarterCellMonsterCanTakeAnyQuadrantOrTheCentre();
   AHalfCellMonsterFillsTheHalfItIsSpawnedIn();
