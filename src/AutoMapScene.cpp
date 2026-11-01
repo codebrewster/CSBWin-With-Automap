@@ -2464,6 +2464,9 @@ static bool PunctuationPixel(char mark, int row, int col)
   case '%': rows[0] = 0x5; rows[1] = 0x1; rows[2] = 0x2; rows[3] = 0x4; rows[4] = 0x5; break;
   case '\'': rows[0] = 0x2; rows[1] = 0x2; rows[2] = 0x0; rows[3] = 0x0; rows[4] = 0x0; break;
   case '>': rows[0] = 0x4; rows[1] = 0x2; rows[2] = 0x1; rows[3] = 0x2; rows[4] = 0x4; break;
+  case '<': rows[0] = 0x1; rows[1] = 0x2; rows[2] = 0x4; rows[3] = 0x2; rows[4] = 0x1; break;
+  // The bar's dropdown mark: a small arrow pointing down
+  case '~': rows[0] = 0x0; rows[1] = 0x0; rows[2] = 0x7; rows[3] = 0x2; rows[4] = 0x0; break;
   default: return false;
   }
   if (row < 0 || row > 4 || col < 0 || col > 2) return false;

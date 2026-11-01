@@ -5321,8 +5321,24 @@ static void StackNameLine(void)
   CHECK(AutoMapScene_StackLine("DAGGER", 1) == "DAGGER");
 }
 
+// The bar's arrows and its dropdown mark are in the map's 3x5 font
+static void FontHasTheBarsMarks(void)
+{
+  bool anyLess = false, anyTilde = false;
+  for (int row = 0; row < 5; row++)
+    for (int col = 0; col < 3; col++)
+    {
+      anyLess = anyLess || AutoMapScene_FontPixel('<', row, col);
+      anyTilde = anyTilde || AutoMapScene_FontPixel('~', row, col);
+    }
+  CHECK(anyLess);
+  CHECK(anyTilde);
+  CHECK(AutoMapScene_FontPixel('<', 2, 0) && !AutoMapScene_FontPixel('<', 2, 2));
+}
+
 void TestAutoMapScene(void)
 {
+  FontHasTheBarsMarks();
   StairsLeadToTheMapAtTheNextDepth();
   StackNameLine();
   TeleportsIntoACell();

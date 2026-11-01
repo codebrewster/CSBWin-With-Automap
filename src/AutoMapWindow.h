@@ -67,4 +67,14 @@ bool AutoMapWindow_HandleLevelKey(SDL_Keycode sym);
 // The game hides the system pointer because it draws its own; over the map there is none
 bool AutoMapWindow_PointerIsOverMap(void);
 
+// What the bar above the map (AutoMapBar.cpp) asks and does
+bool AutoMapWindow_SearchIsOpen(void);
+void AutoMapWindow_ToggleSearch(void);
+bool AutoMapWindow_DebugPanelIsOpen(void);
+void AutoMapWindow_ToggleDebugPanel(void);
+// One level down (delta 1) or up (-1), centred on the middle of the view, as Page Down/Up
+void AutoMapWindow_StepLevel(int delta);
+// Back to the party's level, centred on the party, following it
+void AutoMapWindow_FollowParty(void);
+
 #endif

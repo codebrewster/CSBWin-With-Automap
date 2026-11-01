@@ -147,8 +147,43 @@ static void TooltipGridHasTwoRowsOfSix(void)
   CHECK(none.tiles == 0 && none.columns == 0 && none.rows == 0 && none.plusMore == 0);
 }
 
+static std::vector<std::string> BarLabels(void)
+{
+  const char *labels[] = {"<", "L10 ~", ">", "|FOLLOW", "|#VISION", "FOG", "EXPLORED", "ALL", "TINT",
+                          "|#SPOILERS", "SEEN", "LEARNED", "ALL", "|SHOW", "|/", "?", "+"};
+  return std::vector<std::string>(labels, labels + sizeof(labels) / sizeof(labels[0]));
+}
+
+static bool PackedInOrderWithoutOverlap(const std::vector<AutoMapRect> &rects)
+{
+  for (size_t i = 1; i < rects.size(); i++)
+  {
+    if (rects[i].x < rects[i - 1].x + rects[i - 1].w) return false;
+    if (AutoMapLayout_Overlap(rects[i], rects[i - 1])) return false;
+  }
+  return true;
+}
+
+// The bar never drops an item: a narrow window shortens the long labels first, then the bar
+// reaches past the window and scrolls
+static void BarFitsNarrowWindow(void)
+{
+  std::vector<std::string> shown;
+  std::vector<AutoMapRect> wide = AutoMapLayout_PackBar(BarLabels(), 1200, 2, &shown);
+  CHECK(wide.size() == BarLabels().size() && shown.size() == wide.size());
+  CHECK(PackedInOrderWithoutOverlap(wide));
+  CHECK(shown[6] == "EXPLORED" && shown[4] == "VISION" && shown[3] == "FOLLOW");
+  CHECK(wide.back().x + wide.back().w <= 1200);
+  std::vector<AutoMapRect> narrow = AutoMapLayout_PackBar(BarLabels(), 300, 2, &shown);
+  CHECK(narrow.size() == BarLabels().size() && shown.size() == narrow.size());
+  CHECK(PackedInOrderWithoutOverlap(narrow));
+  CHECK(shown[6] == "EXPL" && shown[11] == "LRND" && shown[3] == "FOL");
+  CHECK(narrow.back().x + narrow.back().w < wide.back().x + wide.back().w);
+}
+
 void TestAutoMapLayout(void)
 {
+  BarFitsNarrowWindow();
   TooltipGridHasTwoRowsOfSix();
   LineStopsAtTheTargetEdge();
   TooltipOpensAwayFromTheLines();

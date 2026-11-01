@@ -8,6 +8,7 @@
 #include <string>
 
 #include "AutoMapScene.h"
+#include "AutoMapBar.h"
 #include "AutoMapLayout.h"
 #include "AutoMapPaint.h"
 #include "AutoMapSprites.h"
@@ -146,6 +147,9 @@ static bool pointerIsOverMap = false;
 static bool pointerPixelKnown = false;
 static int pointerPixelX = 0;
 static int pointerPixelY = 0;
+// The pointer in window pixels, for the bar: wheel events carry no position
+static int barPointerX = 0;
+static int barPointerY = 0;
 static int pointerStateOfTheGame = SDL_ENABLE;
 static int zoomSteps = 0;
 // One bit per AutoMapShown; everything by default
@@ -218,10 +222,6 @@ static int hoverPixelX = 0;
 static int hoverPixelY = 0;
 static void ClearHover(void);
 // Legend overlay state and geometry, drawn with the legend below.
-static int legendPage = 0;
-static SDL_Rect LegendButtonRect(void);
-static SDL_Rect LegendPanelRect(void);
-static bool LegendPageHasRows(int page);
 static bool PointInRect(int x, int y, const SDL_Rect &area);
 // Item search state: the query the player typed, the hits across all levels
 // (already fog-filtered, so unexplored never matches), the selected hit and
@@ -235,7 +235,6 @@ static int searchTop = 0;
 // dialogs (the Save As name) need it on, so the search box hands it back the
 // way it found it rather than switching it off.
 static bool searchStartedTextInput = false;
-static SDL_Rect SearchButtonRect(void);
 static void SearchGiveBackTextInput(void);
 static void SearchFullRefresh(void);
 static void SearchRefreshCurrentLevel(void);
@@ -539,22 +538,12 @@ void AutoMapWindow_ShowDrawList(const AutoMapDrawList &drawList)
 // ---------------------------------------------------------------------------------------------
 // Item search
 
-static SDL_Rect SearchButtonRect(void)
-{
-  SDL_Rect button = {30, 3, 24, 24};
-  return button;
-}
 
-static SDL_Rect LevelButtonRect(void)
-{
-  SDL_Rect button = {57, 3, 24, 24};
-  return button;
-}
 
-// The search and level panels start right of the last button
+// The search and level panels open at the top left of the map, under the bar
 static int PanelLeft(void)
 {
-  return debugMenuOn ? 84 : 57;
+  return RULER + 4;
 }
 
 static void SearchFullRefresh(void)
@@ -641,7 +630,6 @@ static void SearchGiveBackTextInput(void)
 
 static void SearchOpenBox(void)
 {
-  legendPage = 0;
   LevelPanelClose();
   searchOpen = true;
   searchQuery.clear();
@@ -708,6 +696,12 @@ static bool SearchHitAtPixel(int pixelX, int pixelY, int *hitIndex);
 
 bool AutoMapWindow_HandleKeyEvent(const SDL_Event &event)
 {
+  if (event.type == SDL_KEYDOWN && KeyWindowOf(event) != 0 && BelongsToMapWindow(KeyWindowOf(event))
+      && AutoMapBar_HandleKey(event.key.keysym.sym))
+  {
+    isDirty = true;
+    return true;
+  }
   if (event.type != SDL_KEYDOWN && event.type != SDL_TEXTINPUT) return false;
   if (!isShown || !BelongsToMapWindow(KeyWindowOf(event))) return false;
   if (event.type == SDL_TEXTINPUT)
@@ -845,10 +839,31 @@ void AutoMapWindow_RecenterView(void)
   RecenterViewOnParty();
 }
 
+// The map draws below the bar, in a viewport whose top left is (0, 0): its size, and switching to it
+static void OutputSizeBelowBar(int *width, int *height)
+{
+  SDL_GetRendererOutputSize(mapRenderer, width, height);
+  *height -= AutoMapBar_Height();
+}
+
+static void UseMapViewport(void)
+{
+  int width = 0, height = 0;
+  SDL_GetRendererOutputSize(mapRenderer, &width, &height);
+  SDL_Rect below = {0, AutoMapBar_Height(), width, height - AutoMapBar_Height()};
+  SDL_RenderSetViewport(mapRenderer, &below);
+}
+
+static void UseWholeWindow(void)
+{
+  SDL_RenderSetViewport(mapRenderer, NULL);
+}
+
+
 static void MapAreaSize(int *mapWidth, int *mapHeight)
 {
   int windowWidth = 0, windowHeight = 0;
-  if (mapRenderer != NULL) SDL_GetRendererOutputSize(mapRenderer, &windowWidth, &windowHeight);
+  if (mapRenderer != NULL) OutputSizeBelowBar(&windowWidth, &windowHeight);
   *mapWidth = windowWidth - 2 * RULER;
   *mapHeight = windowHeight - 2 * RULER;
 }
@@ -1113,7 +1128,7 @@ static bool DebugMenuHandlePointerEvent(const SDL_Event &event);
 static void LinkModeClickAt(int pixelX, int pixelY);
 static bool LevelPanelHandlePointerEvent(const SDL_Event &event);
 
-bool AutoMapWindow_HandlePointerEvent(const SDL_Event &event)
+static bool HandleMapPointerEvent(const SDL_Event &event)
 {
   // A release outside the map ends the drag silently and belongs to the game
   if (event.type == SDL_MOUSEBUTTONUP && event.button.button == SDL_BUTTON_MIDDLE &&
@@ -1150,12 +1165,6 @@ bool AutoMapWindow_HandlePointerEvent(const SDL_Event &event)
   if (LevelPanelHandlePointerEvent(event)) return true;
   if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT)
   {
-    if (PointInRect(event.button.x, event.button.y, SearchButtonRect()))
-    {
-      if (searchOpen) SearchCloseBox();
-      else SearchOpenBox();
-      return true;
-    }
     if (searchOpen)
     {
       int hitIndex = -1;
@@ -1168,27 +1177,10 @@ bool AutoMapWindow_HandlePointerEvent(const SDL_Event &event)
       // A click into the open panel but off any hit stays in the panel
       if (PointInRect(event.button.x, event.button.y, SearchPanelRect())) return true;
     }
-    // The legend ? button and the open panel share one behaviour: advance the page.
-    bool onButton = PointInRect(event.button.x, event.button.y, LegendButtonRect());
-    bool onPanel = legendPage != 0
-                   && PointInRect(event.button.x, event.button.y, LegendPanelRect());
-    // In link mode a click on the map picks a target; the buttons and panels keep theirs
-    if (linkModeOn && !onButton && !onPanel)
+    // In link mode a click on the map picks a target
+    if (linkModeOn)
     {
       LinkModeClickAt(event.button.x, event.button.y);
-      return true;
-    }
-    if (onButton || onPanel)
-    {
-      if (legendPage == 0)
-      {
-        if (searchOpen) SearchCloseBox();
-        LevelPanelClose();
-      }
-      legendPage = (legendPage + 1) % 7;
-      // Skip pages the current spoiler level leaves empty; page 0 closes the legend
-      while (legendPage != 0 && !LegendPageHasRows(legendPage)) legendPage = (legendPage + 1) % 7;
-      isDirty = true;
       return true;
     }
     // On the map itself the left button pans, as on a web map; a press that hardly moves is a click
@@ -1284,6 +1276,46 @@ bool AutoMapWindow_HandlePointerEvent(const SDL_Event &event)
     UpdateHoverFromPixel(event.motion.x, event.motion.y);
   }
   return true;
+}
+
+// The bar takes presses and the wheel above the map, and its open panels take the next press;
+// everything else reaches the map shifted into the map's own coordinates, below the bar
+bool AutoMapWindow_HandlePointerEvent(const SDL_Event &event)
+{
+  int bar = AutoMapBar_Height();
+  bool onMapWindow = IsPointerEventOfMapWindow(event) && mapRenderer != NULL;
+  if (onMapWindow && !middleDragging && !leftDragging)
+  {
+    int width = 0, height = 0;
+    SDL_GetRendererOutputSize(mapRenderer, &width, &height);
+    if (event.type == SDL_MOUSEMOTION)
+    {
+      barPointerX = event.motion.x;
+      barPointerY = event.motion.y;
+    }
+    if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT
+        && AutoMapBar_HandlePress(event.button.x, event.button.y, width))
+    {
+      isDirty = true;
+      return true;
+    }
+    if (event.type == SDL_MOUSEWHEEL && event.wheel.y != 0
+        && AutoMapBar_HandleWheel(barPointerX, barPointerY, event.wheel.y))
+    {
+      isDirty = true;
+      return true;
+    }
+    if (event.type == SDL_MOUSEMOTION && event.motion.y < bar)
+    {
+      if (hoverValid) isDirty = true;
+      ClearHover();
+      return true;
+    }
+  }
+  SDL_Event shifted = event;
+  if (event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEBUTTONUP) shifted.button.y -= bar;
+  if (event.type == SDL_MOUSEMOTION) shifted.motion.y -= bar;
+  return HandleMapPointerEvent(shifted);
 }
 
 bool AutoMapWindow_PointerIsOverMap(void)
@@ -1641,34 +1673,8 @@ static bool HasFeature(const AutoMapWallSide &side)
       || side.portrait != AUTOMAP_NO_PICTURE;
 }
 
-static SDL_Rect HalfTowards(const SDL_Rect &cell, int side)
-{
-  SDL_Rect half = cell;
-  if (side == AutoMapNorth || side == AutoMapSouth) half.h = cell.h / 2;
-  if (side == AutoMapEast || side == AutoMapWest) half.w = cell.w / 2;
-  if (side == AutoMapSouth) half.y = cell.y + cell.h - half.h;
-  if (side == AutoMapEast) half.x = cell.x + cell.w - half.w;
-  return half;
-}
 
-static int StripThickness(const SDL_Rect &cell)
-{
-  return std::max(2, cell.w / 15);
-}
 
-static SDL_Rect StripAlong(const SDL_Rect &cell, int side)
-{
-  int thickness = StripThickness(cell);
-  SDL_Rect strip = {cell.x + thickness, cell.y, cell.w - 2 * thickness, thickness};
-  if (side == AutoMapSouth) strip.y = cell.y + cell.h - thickness;
-  if (side == AutoMapEast || side == AutoMapWest)
-  {
-    SDL_Rect upright = {cell.x, cell.y + thickness, thickness, cell.h - 2 * thickness};
-    if (side == AutoMapEast) upright.x = cell.x + cell.w - thickness;
-    strip = upright;
-  }
-  return strip;
-}
 
 // Writing has no picture of its own: a few lines stand for the text. The glyph lives in a
 // square centred on its area so every side reads the same: halves towards north/south are
@@ -1682,19 +1688,6 @@ static SDL_Rect WritingSquare(const SDL_Rect &area)
   return square;
 }
 
-// Where a decoration, a portrait or writing sits on its wall: a square half the cell wide, against
-// the face it hangs on and just inside that face's strip. The stone around it still reads as wall,
-// and on a pillar the square shows which face carries the decoration.
-static SDL_Rect FeatureSquare(const SDL_Rect &cell, int side)
-{
-  SDL_Rect square = WritingSquare(HalfTowards(cell, side));
-  int strip = StripThickness(cell);
-  if (side == AutoMapNorth) square.y += strip;
-  if (side == AutoMapSouth) square.y -= strip;
-  if (side == AutoMapEast) square.x -= strip;
-  if (side == AutoMapWest) square.x += strip;
-  return square;
-}
 
 static void DrawWriting(const SDL_Rect &area)
 {
@@ -2240,22 +2233,7 @@ static void DrawClouds(const SDL_Rect &cell, const AutoMapShownCell &shown,
   }
 }
 
-static void DrawOperatorDot(int centreX, int centreY, int size)
-{
-  SDL_Rect dot = {centreX - size / 2, centreY - size / 2, size, size};
-  Fill(dot, WHITE);
-}
 
-// A small triangle in annotation white: the party echo for party-operated pads,
-// pointing the required facing for directed ones (north when unknown or plain)
-static void DrawOperatorTriangle(const SDL_Rect &box, AutoMapDirection facing)
-{
-  static const FloatPoint TIP = {1.00f, 0.50f};
-  static const FloatPoint UPPER_CORNER = {0.30f, 0.10f};
-  static const FloatPoint LOWER_CORNER = {0.30f, 0.90f};
-  FillTriangle(TurnedPointInCell(box, TIP, facing), TurnedPointInCell(box, UPPER_CORNER, facing),
-               TurnedPointInCell(box, LOWER_CORNER, facing), WHITE);
-}
 
 // The fallback when a required object type resolves to no sprite: a keyhole where the
 // miniature would sit. An unmarked pad would read as "anything goes", which is wrong.
@@ -2282,14 +2260,6 @@ static void DrawKeyholeMark(const SDL_Rect &box)
   Fill(slot, WHITE);
 }
 
-// Objects-only teleporters take anything inanimate: a hollow square, the last glyph of
-// the operator vocabulary (triangle = party, dots = monsters, plain = anything)
-static void DrawOperatorHollowSquare(const SDL_Rect &box)
-{
-  SDL_Rect square = Inset(box, 22);
-  if (square.w < 2 || square.h < 2) return;
-  Outline(square, WHITE);
-}
 
 // The "who sets it off" badge, lower left: a dark plate with one square per kind of trigger. The
 // party is its own red arrow (turned the required way on a facing pad), monsters are claw marks,
@@ -2856,92 +2826,12 @@ static FloatPoint LinkEndpoint(const AutoMapView &view, int x, int y, bool isWal
   return edge;
 }
 
-static void DrawArrowShaft(FloatPoint from, FloatPoint to, const SDL_Color &colour = LINK_BADGE)
-{
-  // Keep the shaft visible when zoomed in without burying neighbouring cells
-  UseColour(colour);
-  SDL_RenderDrawLine(mapRenderer, (int)from.x, (int)from.y, (int)to.x, (int)to.y);
-}
 
-// A one-shot link reads as fragile: same shaft, broken. The pattern scales with the shaft:
-// a short hop gets a single central break (fixed dashes would vanish into one blob),
-// a long arrow gets a few long dashes with wide gaps (fixed dashes would buzz).
-static void DrawDashedShaft(FloatPoint from, FloatPoint to, const SDL_Color &colour = LINK_BADGE)
-{
-  float dx = to.x - from.x;
-  float dy = to.y - from.y;
-  float length = sqrt(dx * dx + dy * dy);
-  if (length < 1.0f) return;
-  int gaps = std::max(1, std::min((int)(length / 18.0f), 4));
-  float gap = std::max(3.0f, std::min(length * 0.12f, 7.0f));
-  float dash = (length - gaps * gap) / (gaps + 1);
-  UseColour(colour);
-  for (int i = 0; i <= gaps; i++)
-  {
-    float fromT = (i * (dash + gap)) / length;
-    float toT = std::min((i * (dash + gap) + dash) / length, 1.0f);
-    SDL_RenderDrawLine(mapRenderer, (int)(from.x + dx * fromT), (int)(from.y + dy * fromT),
-                       (int)(from.x + dx * toT), (int)(from.y + dy * toT));
-  }
-}
 
-struct ArrowHeadPoints
-{
-  FloatPoint nose;
-  FloatPoint upper;
-  FloatPoint lower;
-};
 
-static ArrowHeadPoints HeadPoints(FloatPoint tip, float angle, float size)
-{
-  float acrossX = -sin(angle);
-  float acrossY = -cos(angle);
-  float alongX = cos(angle);
-  float alongY = -sin(angle);
-  ArrowHeadPoints head;
-  head.nose = {tip.x, tip.y};
-  head.upper = {tip.x - alongX * size * 0.6f + acrossX * size * 0.35f,
-                tip.y - alongY * size * 0.6f + acrossY * size * 0.35f};
-  head.lower = {tip.x - alongX * size * 0.6f - acrossX * size * 0.35f,
-                tip.y - alongY * size * 0.6f - acrossY * size * 0.35f};
-  return head;
-}
 
-// SET: a decisive filled head. CLEAR: the same head hollowed out
-static void DrawArrowHead(FloatPoint tip, float angle, float size,
-                          const SDL_Color &colour = LINK_BADGE)
-{
-  ArrowHeadPoints head = HeadPoints(tip, angle, size);
-  FillTriangle(head.nose, head.upper, head.lower, colour);
-}
 
-static void DrawHollowArrowHead(FloatPoint tip, float angle, float size,
-                                  const SDL_Color &colour = LINK_BADGE)
-{
-  ArrowHeadPoints head = HeadPoints(tip, angle, size);
-  UseColour(colour);
-  SDL_RenderDrawLine(mapRenderer, (int)head.nose.x, (int)head.nose.y, (int)head.upper.x,
-                     (int)head.upper.y);
-  SDL_RenderDrawLine(mapRenderer, (int)head.upper.x, (int)head.upper.y, (int)head.lower.x,
-                     (int)head.lower.y);
-  SDL_RenderDrawLine(mapRenderer, (int)head.lower.x, (int)head.lower.y, (int)head.nose.x,
-                     (int)head.nose.y);
-}
 
-// CONSTPRESSURE holds its level instead of edging once: a crossbar mid-shaft
-static void DrawPressureTick(FloatPoint from, FloatPoint to, const SDL_Color &colour = LINK_BADGE)
-{
-  float dx = to.x - from.x;
-  float dy = to.y - from.y;
-  float length = sqrt(dx * dx + dy * dy);
-  if (length < 1.0f) return;
-  float tickHalf = std::max(3.0f, length * 0.08f);
-  FloatPoint middle = {from.x + dx / 2.0f, from.y + dy / 2.0f};
-  FloatPoint upper = {middle.x - dy / length * tickHalf, middle.y + dx / length * tickHalf};
-  FloatPoint lower = {middle.x + dy / length * tickHalf, middle.y - dx / length * tickHalf};
-  UseColour(colour);
-  SDL_RenderDrawLine(mapRenderer, (int)upper.x, (int)upper.y, (int)lower.x, (int)lower.y);
-}
 
 // While hovering, the map dims everywhere but the cells the lines run between (the spotlight).
 // DrawDynamicLayer runs the hover drawing twice: first only to collect those cells and lines,
@@ -3717,7 +3607,7 @@ static void DrawTileTooltip(const AutoMapView &view)
     return;
   }
   int windowWidth = 0, windowHeight = 0;
-  SDL_GetRendererOutputSize(mapRenderer, &windowWidth, &windowHeight);
+  OutputSizeBelowBar(&windowWidth, &windowHeight);
   int maxW = windowWidth - 2 * RULER - 16;
   int maxH = windowHeight - 2 * RULER - 16;
   if (maxW < 60) maxW = 60;
@@ -4027,8 +3917,7 @@ static void DrawRulers(const AutoMapView &view, int windowWidth, int windowHeigh
 }
 
 // ---------------------------------------------------------------------------------------------
-// Legend: what the map shows, in the same ruler-digit look. No text backend needed.
-// Page 0 is off; click the ? button (or the open panel) to cycle ground -> things -> off.
+// Text in the map's 3x5 font
 
 static void DrawLegendText(int x, int y, const char *text, const SDL_Color &colour)
 {
@@ -4036,706 +3925,9 @@ static void DrawLegendText(int x, int y, const char *text, const SDL_Color &colo
   AutoMapPaint_Text(x, y, text, colour, DIGIT_SCALE);
 }
 
-enum LegendSwatch
-{
-  SW_WALL,
-  SW_FLOOR,
-  SW_PIT,
-  SW_HIDDEN_PIT_OPEN,
-  SW_HIDDEN_PIT_CLOSED,
-  SW_STAIR_UP,
-  SW_STAIR_DOWN,
-  SW_DOOR,
-  SW_SEALED_DOOR,
-  SW_TELEPORTER,
-  SW_FALSEWALL,
-  SW_SPINNER,
-  SW_DORMANT_SPINNER,
-  SW_PARTY,
-  SW_MONSTER,
-  SW_ITEM,
-  SW_MORE,
-  SW_MISSILE,
-  SW_CLOUD,
-  SW_PAD,
-  SW_GENERATOR,
-  SW_LINK,
-  SW_COUNT,
-  SW_INSIDE,
-  SW_MAYBE,
-  // Legend-only glyphs: the swatches below reuse the real map draw routines
-  // (Task 2 WYSIWYG). Operator/scope triangles reuse DrawOperatorTriangle etc.
-  // enlarged to the swatch: on the map they sit in the bottom-left corner.
-  SW_DESTROYED_DOOR,
-  SW_OPEN_FALSEWALL,
-  SW_FLOOR_PICTURE,
-  SW_INVISIBLE_TELEPORTER,
-  SW_DORMANT_TELEPORTER,
-  SW_WALL_FEATURE,
-  SW_WALL_WRITING,
-  SW_WALL_FLAVOUR,
-  SW_WALL_HIDDEN,
-  SW_WALL_NOSPRITE,
-  SW_WALL_LOCK,
-  SW_WALL_STOCKED,
-  SW_BREAK_AXE,
-  SW_BREAK_FIRE,
-  SW_BREAK_BOTH,
-  SW_PAD_DORMANT,
-  SW_PAD_ANYTHING,
-  SW_PAD_PARTY,
-  SW_PAD_FACE_N,
-  SW_PAD_FACE_E,
-  SW_PAD_FACE_S,
-  SW_PAD_FACE_W,
-  SW_PAD_PARTY_OR_MONSTER,
-  SW_PAD_MONSTER,
-  SW_PAD_OBJECT,
-  SW_PAD_CARRIED,
-  SW_GENERATOR_SPENT,
-  SW_COG,
-  SW_SCOPE_ANYTHING,
-  SW_SCOPE_PARTY,
-  SW_SCOPE_MONSTER,
-  SW_SCOPE_OBJECT,
-  SW_SPIN_ABSOLUTE,
-  SW_SPIN_RIGHT,
-  SW_SPIN_LEFT,
-  SW_SPIN_AROUND,
-  SW_SPIN_STRAIGHT,
-  SW_LEVEL_PLATE,
-  SW_LINK_SET,
-  SW_LINK_ONCE,
-  SW_LINK_CLEAR,
-  SW_LINK_TOGGLE,
-  SW_LINK_PRESSURE,
-  SW_LINK_SELF,
-  SW_LINK_GHOST,
-  // Text-lines glyph for the hover-footer reminder rows on THINGS.
-  SW_HOVER_TEXT
-};
-
-struct LegendRow
-{
-  LegendSwatch swatch;
-  const char *label;
-};
-
-static const LegendRow LEGEND_GROUND[] = {
-  {SW_WALL, "WALL"},
-  {SW_FLOOR, "FLOOR"},
-  {SW_PIT, "PIT"},
-  {SW_HIDDEN_PIT_OPEN, "HIDDEN PIT OPEN"},
-  {SW_HIDDEN_PIT_CLOSED, "HIDDEN PIT CLOSED"},
-  {SW_STAIR_UP, "STAIRS UP"},
-  {SW_STAIR_DOWN, "STAIRS DOWN"},
-  {SW_DOOR, "DOOR"},
-  {SW_SEALED_DOOR, "SEALED DOOR"},
-  {SW_DESTROYED_DOOR, "DESTROYED DOOR"},
-  {SW_FALSEWALL, "FALSE WALL"},
-  {SW_OPEN_FALSEWALL, "OPEN FALSE WALL"},
-  {SW_FLOOR_PICTURE, "FLOOR PICTURE"},
-};
-
-static const LegendRow LEGEND_WALLS[] = {
-  {SW_WALL_FEATURE, "FEATURE"},
-  {SW_WALL_NOSPRITE, "NO PICTURE"},
-  {SW_WALL_WRITING, "WRITING"},
-  {SW_WALL_FLAVOUR, "FLAVOUR TICK"},
-  {SW_WALL_HIDDEN, "HIDDEN SWITCH"},
-  {SW_WALL_LOCK, "NEEDS KEY"},
-  {SW_WALL_STOCKED, "ALCOVE GOODS"},
-  {SW_BREAK_AXE, "AXE"},
-  {SW_BREAK_FIRE, "FIREBALL"},
-  {SW_BREAK_BOTH, "AXE+FIRE"},
-};
-
-static const LegendRow LEGEND_PADS[] = {
-  {SW_PAD, "PAD"},
-  {SW_PAD_DORMANT, "DORMANT PAD"},
-  {SW_PAD_ANYTHING, "FIRES ANYTHING"},
-  {SW_PAD_PARTY, "PARTY"},
-  {SW_PAD_FACE_N, "FACES N"},
-  {SW_PAD_FACE_E, "FACES E"},
-  {SW_PAD_FACE_S, "FACES S"},
-  {SW_PAD_FACE_W, "FACES W"},
-  {SW_PAD_PARTY_OR_MONSTER, "PARTY OR MONSTER"},
-  {SW_PAD_MONSTER, "MONSTER"},
-  {SW_PAD_OBJECT, "NEEDS ON PAD"},
-  {SW_PAD_CARRIED, "NEEDS CARRIED"},
-  {SW_GENERATOR, "GENERATOR"},
-  {SW_GENERATOR_SPENT, "SPENT GENERATOR"},
-  {SW_COG, "COUNTER/DSA"},
-};
-
-static const LegendRow LEGEND_TELEPORT[] = {
-  {SW_TELEPORTER, "TELEPORTER"},
-  {SW_INVISIBLE_TELEPORTER, "INVISIBLE"},
-  {SW_DORMANT_TELEPORTER, "DORMANT"},
-  {SW_SCOPE_ANYTHING, "TAKES ANYTHING"},
-  {SW_SCOPE_PARTY, "TAKES PARTY"},
-  {SW_SCOPE_MONSTER, "TAKES MONSTERS"},
-  {SW_SCOPE_OBJECT, "TAKES OBJECTS ONLY"},
-  {SW_SPINNER, "SPINNER"},
-  {SW_DORMANT_SPINNER, "DORMANT SPINNER"},
-  {SW_SPIN_ABSOLUTE, "SPIN FACE"},
-  {SW_SPIN_RIGHT, "SPIN RIGHT"},
-  {SW_SPIN_LEFT, "SPIN LEFT"},
-  {SW_SPIN_AROUND, "SPIN AROUND"},
-  {SW_SPIN_STRAIGHT, "SPIN STRAIGHT"},
-  {SW_LEVEL_PLATE, "LEVEL PLATE"},
-};
-
-static const LegendRow LEGEND_LINKS[] = {
-  {SW_LINK, "LINKED"},
-  {SW_LINK_SET, "SET HOVER"},
-  {SW_LINK_ONCE, "ONCE ONLY HOVER"},
-  {SW_LINK_CLEAR, "CLEAR HOVER"},
-  {SW_LINK_TOGGLE, "TOGGLE HOVER"},
-  {SW_LINK_PRESSURE, "PRESSURE HOVER"},
-  {SW_LINK_SELF, "SELF RING"},
-  {SW_LINK_GHOST, "DOOR GHOST"},
-};
-
-static const LegendRow LEGEND_THINGS[] = {
-  {SW_PARTY, "PARTY"},
-  {SW_MONSTER, "MONSTER"},
-  {SW_ITEM, "ITEM"},
-  {SW_MORE, "MORE ITEMS"},
-  {SW_MISSILE, "MISSILE"},
-  {SW_CLOUD, "CLOUD"},
-  {SW_COUNT, "COUNT 2"},
-  {SW_INSIDE, "INSIDE"},
-  {SW_MAYBE, "MAY DROP"},
-  {SW_HOVER_TEXT, "HOVER: TRIGGER TAKES"},
-  {SW_HOVER_TEXT, "HOVER: SPIN TARGET"},
-};
-
-// The lowest spoiler level that can draw the swatch, as the highest AutoMapSpoilerLevel
-// value it is still shown at. AutoMapSpoilersAll is 0, so "lower" levels show more:
-// 0 only at all, 1 from learned on, 2 at every level
-static int LegendRowLastLevel(LegendSwatch swatch)
-{
-  switch (swatch)
-  {
-  case SW_COG:
-  case SW_PAD_DORMANT:
-  case SW_GENERATOR_SPENT:
-  case SW_WALL_FLAVOUR:
-  case SW_SEALED_DOOR:
-  case SW_BREAK_AXE:
-  case SW_BREAK_FIRE:
-  case SW_BREAK_BOTH:
-  case SW_DORMANT_TELEPORTER:
-  case SW_DORMANT_SPINNER:
-  case SW_PAD_PARTY:
-  case SW_PAD_FACE_N:
-  case SW_PAD_FACE_E:
-  case SW_PAD_FACE_S:
-  case SW_PAD_FACE_W:
-  case SW_PAD_PARTY_OR_MONSTER:
-  case SW_PAD_MONSTER:
-  case SW_PAD_OBJECT:
-  case SW_PAD_CARRIED:
-  case SW_SCOPE_ANYTHING:
-  case SW_SCOPE_PARTY:
-  case SW_SCOPE_MONSTER:
-  case SW_SCOPE_OBJECT:
-  case SW_LINK_SET:
-  case SW_LINK_ONCE:
-  case SW_LINK_CLEAR:
-  case SW_LINK_TOGGLE:
-  case SW_LINK_PRESSURE:
-  case SW_LINK_GHOST:
-    return AutoMapSpoilersAll;
-  case SW_PAD:
-  case SW_GENERATOR:
-  case SW_WALL_HIDDEN:
-  case SW_FALSEWALL:
-  case SW_OPEN_FALSEWALL:
-  case SW_HIDDEN_PIT_OPEN:
-  case SW_HIDDEN_PIT_CLOSED:
-  case SW_INVISIBLE_TELEPORTER:
-  case SW_SPINNER:
-  case SW_LINK:
-  case SW_LINK_SELF:
-  case SW_PAD_ANYTHING:
-  case SW_SPIN_ABSOLUTE:
-  case SW_SPIN_RIGHT:
-  case SW_SPIN_LEFT:
-  case SW_SPIN_AROUND:
-  case SW_SPIN_STRAIGHT:
-  case SW_WALL_LOCK:
-    return AutoMapSpoilersLearned;
-  default:
-    return AutoMapSpoilersSeen;
-  }
-}
-
-// The rows of the current page that the shown draw list can draw
-static const LegendRow *LegendRows(int *count)
-{
-  const LegendRow *table;
-  int tableCount;
-  switch (legendPage)
-  {
-  case 1:
-    table = LEGEND_GROUND;
-    tableCount = (int)(sizeof(LEGEND_GROUND) / sizeof(LEGEND_GROUND[0]));
-    break;
-  case 2:
-    table = LEGEND_WALLS;
-    tableCount = (int)(sizeof(LEGEND_WALLS) / sizeof(LEGEND_WALLS[0]));
-    break;
-  case 3:
-    table = LEGEND_PADS;
-    tableCount = (int)(sizeof(LEGEND_PADS) / sizeof(LEGEND_PADS[0]));
-    break;
-  case 4:
-    table = LEGEND_TELEPORT;
-    tableCount = (int)(sizeof(LEGEND_TELEPORT) / sizeof(LEGEND_TELEPORT[0]));
-    break;
-  case 5:
-    table = LEGEND_LINKS;
-    tableCount = (int)(sizeof(LEGEND_LINKS) / sizeof(LEGEND_LINKS[0]));
-    break;
-  default:
-    table = LEGEND_THINGS;
-    tableCount = (int)(sizeof(LEGEND_THINGS) / sizeof(LEGEND_THINGS[0]));
-    break;
-  }
-  static std::vector<LegendRow> shownRows;
-  shownRows.clear();
-  for (int i = 0; i < tableCount; i++)
-  {
-    if ((int)shownDrawList.spoilers <= LegendRowLastLevel(table[i].swatch))
-      shownRows.push_back(table[i]);
-  }
-  *count = (int)shownRows.size();
-  return shownRows.empty() ? table : &shownRows[0];
-}
-
-static bool LegendPageHasRows(int page)
-{
-  int shownPage = legendPage;
-  legendPage = page;
-  int count = 0;
-  LegendRows(&count);
-  legendPage = shownPage;
-  return count > 0;
-}
-
-static const char *LegendTitle(void)
-{
-  switch (legendPage)
-  {
-  case 1: return "GROUND 1/6";
-  case 2: return "WALLS 2/6";
-  case 3: return "PADS 3/6";
-  case 4: return "TELEPORT 4/6";
-  case 5: return "LINKS 5/6 HOVER";
-  default: return "THINGS 6/6";
-  }
-}
-
-static const int LEGEND_SWATCH_W = 24;
-static const int LEGEND_SWATCH_H = 14;
-static const int LEGEND_ROW_H = 20;
-// Glyph rows (operators, scopes, spinners, links, diamonds) need a near-square
-// swatch to read: taller row, taller box, same left edge so text stays aligned.
-static const int LEGEND_TALL_ROW_H = 30;
-static const int LEGEND_TALL_SWATCH_H = 22;
-
-static bool LegendRowIsTall(LegendSwatch swatch)
-{
-  switch (swatch)
-  {
-  case SW_WALL_HIDDEN:
-  case SW_PAD_PARTY:
-  case SW_PAD_FACE_N:
-  case SW_PAD_FACE_E:
-  case SW_PAD_FACE_S:
-  case SW_PAD_FACE_W:
-  case SW_PAD_PARTY_OR_MONSTER:
-  case SW_PAD_MONSTER:
-  case SW_PAD_OBJECT:
-  case SW_PAD_CARRIED:
-  case SW_GENERATOR:
-  case SW_GENERATOR_SPENT:
-  case SW_COG:
-  case SW_SCOPE_PARTY:
-  case SW_SCOPE_MONSTER:
-  case SW_SCOPE_OBJECT:
-  case SW_SPINNER:
-  case SW_DORMANT_SPINNER:
-  case SW_SPIN_ABSOLUTE:
-  case SW_SPIN_RIGHT:
-  case SW_SPIN_LEFT:
-  case SW_SPIN_AROUND:
-  case SW_SPIN_STRAIGHT:
-  case SW_LEVEL_PLATE:
-  case SW_LINK_SET:
-  case SW_LINK_ONCE:
-  case SW_LINK_CLEAR:
-  case SW_LINK_TOGGLE:
-  case SW_LINK_PRESSURE:
-  case SW_LINK_SELF:
-  case SW_LINK_GHOST:
-  case SW_HOVER_TEXT:
-    return true;
-  default:
-    return false;
-  }
-}
-
-static int LegendRowH(LegendSwatch swatch)
-{
-  return LegendRowIsTall(swatch) ? LEGEND_TALL_ROW_H : LEGEND_ROW_H;
-}
-
-static int LegendSwatchH(LegendSwatch swatch)
-{
-  return LegendRowIsTall(swatch) ? LEGEND_TALL_SWATCH_H : LEGEND_SWATCH_H;
-}
-static const int LEGEND_PAD = 8;
-static const int LEGEND_TEXT_GAP = 8;
-
-static SDL_Rect LegendPanelRect(void)
-{
-  int windowWidth = 0, windowHeight = 0;
-  SDL_GetRendererOutputSize(mapRenderer, &windowWidth, &windowHeight);
-  int count = 0;
-  const LegendRow *rows = LegendRows(&count);
-  int textW = AutoMapScene_TextWidth(LegendTitle());
-  for (int i = 0; i < count; i++)
-  {
-    int rowW = AutoMapScene_TextWidth(rows[i].label);
-    if (rowW > textW) textW = rowW;
-  }
-  int w = LEGEND_PAD * 2 + LEGEND_SWATCH_W + LEGEND_TEXT_GAP + textW * DIGIT_SCALE;
-  int h = LEGEND_PAD * 2 + 5 * DIGIT_SCALE + 4;
-  for (int i = 0; i < count; i++) h += LegendRowH(rows[i].swatch);
-  int x = RULER + 6;
-  int y = RULER + 6;
-  if (x + w > windowWidth - RULER) x = windowWidth - RULER - w;
-  if (y + h > windowHeight - RULER) y = windowHeight - RULER - h;
-  if (x < 0) x = 0;
-  if (y < 0) y = 0;
-  SDL_Rect plate = {x, y, w, h};
-  return plate;
-}
-
-static SDL_Rect LegendButtonRect(void)
-{
-  SDL_Rect button = {3, 3, 24, 24};
-  return button;
-}
-
 static bool PointInRect(int x, int y, const SDL_Rect &area)
 {
   return x >= area.x && x < area.x + area.w && y >= area.y && y < area.y + area.h;
-}
-
-// A hover link shortened into the swatch: the same shaft/head/tick primitives
-// as the map arrows, eastward with room for the head.
-static void DrawLegendLinkShaft(const SDL_Rect &box, bool dashed, int headMode, bool withTick)
-{
-  float midY = box.y + box.h / 2.0f;
-  FloatPoint from = {(float)(box.x + 2), midY};
-  FloatPoint tip = {(float)(box.x + box.w - 2), midY};
-  float headSize = 7.0f;
-  FloatPoint shaftEnd = {tip.x - headSize * 0.9f, midY};
-  if (dashed) DrawDashedShaft(from, shaftEnd);
-  else DrawArrowShaft(from, shaftEnd);
-  static const float EAST = 1.57079633f;
-  if (headMode == 1) DrawHollowArrowHead(tip, EAST, headSize);
-  else DrawArrowHead(tip, EAST, headSize);
-  if (headMode == 2) DrawArrowHead(from, EAST + 3.14159265f, headSize * 0.7f);
-  if (withTick) DrawPressureTick(from, shaftEnd);
-}
-
-static void DrawLegendSwatch(const SDL_Rect &box, LegendSwatch swatch)
-{
-  switch (swatch)
-  {
-  case SW_WALL:
-    Fill(box, WALL);
-    Outline(box, WALL_EDGE);
-    break;
-  case SW_FLOOR:
-    Fill(box, FLOOR);
-    Outline(box, FLOOR_EDGE);
-    break;
-  case SW_PIT:
-    Fill(box, PIT_MARKER);
-    Outline(box, PIT_MARKER_EDGE);
-    break;
-  case SW_HIDDEN_PIT_OPEN:
-  {
-    DrawFloor(box);
-    Fill(Inset(box, 25), PIT_MARKER);
-    DrawHiddenPitMark(box);
-    int dot = std::max(2, box.w / 12);
-    SDL_Rect centre = {box.x + (box.w - dot) / 2, box.y + (box.h - dot) / 2, dot, dot};
-    Fill(centre, PIT_MARKER_EDGE);
-    break;
-  }
-  case SW_HIDDEN_PIT_CLOSED:
-    DrawFloor(box);
-    DrawHiddenPitMark(box);
-    break;
-  case SW_STAIR_UP:
-  case SW_STAIR_DOWN:
-  {
-    AutoMapCellRecord stairs;
-    stairs.runsNorthSouth = true;
-    stairs.stairsLeadUp = swatch == SW_STAIR_UP;
-    DrawStairs(box, stairs);
-    break;
-  }
-  case SW_DOOR:
-  {
-    DrawFloor(box);
-    SDL_Rect firstLeaf, secondLeaf;
-    DoorLeafRects(box, true, AutoMapDoorOpen, &firstLeaf, &secondLeaf);
-    Fill(firstLeaf, DOOR);
-    Fill(secondLeaf, DOOR);
-    break;
-  }
-  case SW_SEALED_DOOR:
-  {
-    DrawFloor(box);
-    SDL_Rect firstLeaf, secondLeaf;
-    DoorLeafRects(box, true, AutoMapDoorOpen, &firstLeaf, &secondLeaf);
-    Fill(firstLeaf, SEALED_DOOR);
-    Fill(secondLeaf, SEALED_DOOR);
-    break;
-  }
-  case SW_TELEPORTER: DrawTeleporter(box); break;
-  case SW_FALSEWALL:
-    Fill(box, FALSE_WALL);
-    Outline(box, FALSE_WALL_EDGE);
-    break;
-  case SW_SPINNER: DrawSpinnerMark(box, AutoMapNorth, AutoMapNorth); break;
-  case SW_DORMANT_SPINNER:
-    DrawSpinnerMark(box, AutoMapNorth, AutoMapNorth, DORMANT_SPINNER);
-    break;
-  case SW_PARTY:
-  {
-    FloatPoint tip = {(float)(box.x + box.w), (float)(box.y + box.h / 2)};
-    FloatPoint upper = {(float)box.x, (float)box.y};
-    FloatPoint lower = {(float)box.x, (float)(box.y + box.h)};
-    FillTriangle(tip, upper, lower, PARTY);
-    break;
-  }
-  case SW_MONSTER: Fill(box, MONSTER_MARKER); break;
-  case SW_ITEM: Fill(box, ITEM_MARKER); break;
-  case SW_MORE: DrawMoreItemsMark(box); break;
-  case SW_MISSILE: Fill(box, MISSILE_MARKER); break;
-  case SW_CLOUD:
-    Fill(box, CLOUD_HAZE);
-    Outline(box, CLOUD_EDGE);
-    break;
-  // SW_PAD and SW_GENERATOR are drawn by the WYSIWYG cases below.
-  case SW_LINK: Outline(Inset(box, 8), LINK_BADGE); break;
-  case SW_COUNT:
-    Fill(box, BACKGROUND);
-    Outline(box, ITEM_MARKER);
-    UseColour(ITEM_MARKER);
-    DrawNumberCentred(box.x + box.w / 2, box.y + (box.h - 5 * DIGIT_SCALE) / 2, 2);
-    break;
-  case SW_INSIDE:
-  {
-    Fill(box, BACKGROUND);
-    Outline(box, ITEM_MARKER);
-    SDL_Rect inner = Inset(box, 22);
-    Fill(inner, ITEM_MARKER);
-    break;
-  }
-  case SW_MAYBE:
-  {
-    Fill(box, BACKGROUND);
-    SDL_Rect inner = Inset(box, 22);
-    Fill(inner, ITEM_MARKER);
-    break;
-  }
-  // WYSIWYG swatches: the real map primitives on an enlarged box. Pad and
-  // teleporter operators sit bottom-left on the map; here they fill the swatch
-  // so the direction reads at legend size.
-  case SW_DESTROYED_DOOR:
-  {
-    DrawFloor(box);
-    SDL_Rect firstLeaf, secondLeaf;
-    DoorLeafRects(box, true, AutoMapDoorOpen, &firstLeaf, &secondLeaf);
-    Fill(firstLeaf, DESTROYED_DOOR);
-    Fill(secondLeaf, DESTROYED_DOOR);
-    break;
-  }
-  case SW_OPEN_FALSEWALL:
-    DrawFloor(box);
-    DrawDashedRect(box, FALSE_WALL_EDGE);
-    break;
-  case SW_FLOOR_PICTURE:
-    DrawFloor(box);
-    Fill(Inset(box, 20), FLOOR_FEATURE_MARKER);
-    break;
-  case SW_INVISIBLE_TELEPORTER:
-    DrawFloor(box);
-    DrawDashedRect(Inset(box, 10), INVISIBLE_TELEPORTER);
-    break;
-  case SW_DORMANT_TELEPORTER:
-  {
-    DrawFloor(box);
-    DrawDashedRect(Inset(box, 10), DORMANT_TELEPORTER);
-    int dot = std::max(2, box.w / 12);
-    SDL_Rect centre = {box.x + (box.w - dot) / 2, box.y + (box.h - dot) / 2, dot, dot};
-    Fill(centre, DORMANT_TELEPORTER);
-    break;
-  }
-  case SW_WALL_FEATURE:
-  case SW_WALL_NOSPRITE:
-  case SW_WALL_WRITING:
-  {
-    // Drawn like the map draws them: small on the north face beside its strip, big across the
-    // whole cell
-    bool isBig = false;
-    SDL_Rect area = isBig ? box : FeatureSquare(box, AutoMapNorth);
-    Fill(box, WALL);
-    Fill(Inset(area, 6), WALL_FEATURE_BACKDROP);
-    if (swatch == SW_WALL_FEATURE) Fill(Inset(area, 30), WALL_SIDE_LINE);
-    if (swatch == SW_WALL_NOSPRITE) Fill(Inset(area, 30), WALL_FEATURE_MARKER);
-    if (swatch == SW_WALL_WRITING) DrawWriting(area);
-    Fill(StripAlong(box, AutoMapNorth), swatch == SW_WALL_WRITING ? FLAVOR_TICK : WALL_SIDE_LINE);
-    break;
-  }
-  case SW_WALL_FLAVOUR:
-    Fill(box, WALL);
-    Fill(StripAlong(box, AutoMapNorth), FLAVOR_TICK);
-    break;
-  case SW_WALL_HIDDEN:
-    // Full-cell dash and diamond: on the map they keep to the side's half.
-    Fill(box, WALL);
-    DrawDashedRect(Inset(box, 18), WALL_SIDE_LINE);
-    DrawHollowDiamond(box, HIDDEN_SWITCH);
-    break;
-  case SW_WALL_LOCK:
-    Fill(box, WALL);
-    DrawSideRing(box.x + box.w / 2, box.y + 4, 5, LINK_BADGE);
-    break;
-  case SW_WALL_STOCKED:
-    Fill(box, WALL);
-    DrawSideDot(box.x + box.w / 2, box.y + 4, 5, ITEM_MARKER);
-    break;
-  case SW_BREAK_AXE:
-  {
-    DrawFloor(box);
-    int side = std::min(box.w, box.h);
-    SDL_Rect mark = {box.x + (box.w - side) / 2, box.y + (box.h - side) / 2, side, side};
-    DrawBreakAxeMark(mark);
-    break;
-  }
-  case SW_BREAK_FIRE:
-    DrawFloor(box);
-    DrawHollowCircle(box.x + box.w / 2.0f, box.y + box.h / 2.0f,
-                     std::min(box.w, box.h) / 2.0f - 1.0f);
-    break;
-  case SW_BREAK_BOTH:
-  {
-    DrawFloor(box);
-    int side = std::min(box.w / 2, box.h);
-    SDL_Rect axeBox = {box.x + 1, box.y + (box.h - side) / 2, side, side};
-    DrawBreakAxeMark(axeBox);
-    DrawHollowCircle(box.x + box.w * 3.0f / 4.0f, box.y + box.h / 2.0f,
-                     std::min(box.w / 2, box.h) / 2.0f - 1.0f);
-    break;
-  }
-  case SW_PAD: DrawPadMark(box, AutoMapFloorActuator(0, 0, AutoMapActuatorPad)); break;
-  case SW_PAD_DORMANT:
-    DrawPadMark(box, AutoMapFloorActuator(0, 0, AutoMapActuatorDormantPad));
-    break;
-  case SW_PAD_ANYTHING: DrawPadMark(box, AutoMapFloorActuator(0, 0, AutoMapActuatorPad)); break;
-  case SW_PAD_PARTY: DrawOperatorTriangle(Inset(box, 15), AutoMapNorth); break;
-  case SW_PAD_FACE_N: DrawOperatorTriangle(Inset(box, 15), AutoMapNorth); break;
-  case SW_PAD_FACE_E: DrawOperatorTriangle(Inset(box, 15), AutoMapEast); break;
-  case SW_PAD_FACE_S: DrawOperatorTriangle(Inset(box, 15), AutoMapSouth); break;
-  case SW_PAD_FACE_W: DrawOperatorTriangle(Inset(box, 15), AutoMapWest); break;
-  case SW_PAD_PARTY_OR_MONSTER:
-  {
-    SDL_Rect triBox = {box.x + 2, box.y + 2, box.w * 55 / 100, box.h - 4};
-    DrawOperatorTriangle(triBox, AutoMapNorth);
-    DrawOperatorDot(box.x + box.w - 5, box.y + box.h / 2, 4);
-    break;
-  }
-  case SW_PAD_MONSTER:
-    DrawOperatorDot(box.x + box.w * 30 / 100, box.y + box.h / 2, 4);
-    DrawOperatorDot(box.x + box.w * 70 / 100, box.y + box.h / 2, 4);
-    break;
-  case SW_PAD_OBJECT: DrawKeyholeMark(Inset(box, 15)); break;
-  case SW_PAD_CARRIED:
-  {
-    SDL_Rect upper = {box.x + 4, box.y + 1, box.w - 8, box.h - 8};
-    DrawKeyholeMark(upper);
-    DrawOperatorDot(box.x + box.w / 2, box.y + box.h - 3, 3);
-    break;
-  }
-  case SW_GENERATOR: DrawGeneratorMark(box, false); break;
-  case SW_GENERATOR_SPENT: DrawGeneratorMark(box, true); break;
-  case SW_COG: DrawCogMark(box); break;
-  case SW_SCOPE_ANYTHING: DrawTeleporter(box); break;
-  case SW_SCOPE_PARTY:
-    DrawTeleporter(box);
-    DrawOperatorTriangle(Inset(box, 20), AutoMapNorth);
-    break;
-  case SW_SCOPE_MONSTER:
-    DrawTeleporter(box);
-    DrawOperatorDot(box.x + box.w * 30 / 100, box.y + box.h / 2, 4);
-    DrawOperatorDot(box.x + box.w * 70 / 100, box.y + box.h / 2, 4);
-    break;
-  case SW_SCOPE_OBJECT:
-    DrawTeleporter(box);
-    DrawOperatorHollowSquare(box);
-    break;
-  case SW_SPIN_ABSOLUTE: DrawSpinnerMark(box, AutoMapNorth, AutoMapNorth); break;
-  case SW_SPIN_RIGHT: DrawSpinnerMark(box, -1, 1); break;
-  case SW_SPIN_LEFT: DrawSpinnerMark(box, -1, 3); break;
-  case SW_SPIN_AROUND: DrawSpinnerMark(box, -1, 2); break;
-  case SW_SPIN_STRAIGHT: DrawSpinnerMark(box, -1, 0); break;
-  case SW_LEVEL_PLATE: DrawLevelPlate(box, 2); break;
-  case SW_LINK_SET: DrawLegendLinkShaft(box, false, 0, false); break;
-  case SW_LINK_ONCE: DrawLegendLinkShaft(box, true, 0, false); break;
-  case SW_LINK_CLEAR: DrawLegendLinkShaft(box, false, 1, false); break;
-  case SW_LINK_TOGGLE: DrawLegendLinkShaft(box, false, 2, false); break;
-  case SW_LINK_PRESSURE: DrawLegendLinkShaft(box, false, 0, true); break;
-  case SW_LINK_SELF: Outline(Inset(box, 25), LINK_BADGE); break;
-  case SW_LINK_GHOST:
-  {
-    DrawFloor(box);
-    SDL_Rect firstLeaf, secondLeaf;
-    DoorLeafRects(box, true, AutoMapDoorOpen, &firstLeaf, &secondLeaf);
-    Fill(firstLeaf, LINK_GHOST);
-    Fill(secondLeaf, LINK_GHOST);
-    Outline(firstLeaf, LINK_BADGE);
-    Outline(secondLeaf, LINK_BADGE);
-    break;
-  }
-  case SW_HOVER_TEXT:
-    // The hover footer's text lines, same 3-line glyph as wall writing.
-    Fill(box, BACKGROUND);
-    DrawWriting(box);
-    break;
-  }
-}
-
-static void DrawLegendButton(void)
-{
-  SDL_Rect button = LegendButtonRect();
-  Fill(button, RULER_BACKGROUND);
-  UseColour(legendPage == 0 ? WHITE : LINK_BADGE);
-  SDL_RenderDrawRect(mapRenderer, &button);
-  const char *mark = "?";
-  int w = AutoMapScene_TextWidth(mark) * DIGIT_SCALE;
-  DrawLegendText(button.x + (button.w - w) / 2, button.y + (button.h - 5 * DIGIT_SCALE) / 2,
-                 mark, legendPage == 0 ? WHITE : LINK_BADGE);
 }
 
 static const int SEARCH_QUERY_H = 20;
@@ -4743,13 +3935,11 @@ static const int SEARCH_ROW_H = 16;
 static const int SEARCH_FOOTER_H = 16;
 
 // How many result rows fit the window: the panel stays clear of the rulers
-// and always reserves its footer line, so every hit is reachable by scrolling
-// instead of hiding past the eighth.
 static int SearchVisibleRows(void)
 {
   if (mapRenderer == NULL) return 8;
   int windowWidth = 0, windowHeight = 0;
-  SDL_GetRendererOutputSize(mapRenderer, &windowWidth, &windowHeight);
+  OutputSizeBelowBar(&windowWidth, &windowHeight);
   (void)windowWidth;
   int room = windowHeight - 60 - SEARCH_QUERY_H - 8 - SEARCH_FOOTER_H;
   int rows = room / SEARCH_ROW_H;
@@ -4763,7 +3953,7 @@ static SDL_Rect SearchPanelRect(void)
   SDL_Rect empty = {0, 0, 0, 0};
   if (!searchOpen || mapRenderer == NULL) return empty;
   int windowWidth = 0, windowHeight = 0;
-  SDL_GetRendererOutputSize(mapRenderer, &windowWidth, &windowHeight);
+  OutputSizeBelowBar(&windowWidth, &windowHeight);
   (void)windowHeight;
   int x = PanelLeft();
   int w = std::min(460, windowWidth - x - 5);
@@ -4792,17 +3982,6 @@ static bool SearchHitAtPixel(int pixelX, int pixelY, int *hitIndex)
   return true;
 }
 
-static void DrawSearchButton(void)
-{
-  SDL_Rect button = SearchButtonRect();
-  Fill(button, RULER_BACKGROUND);
-  UseColour(searchOpen ? LINK_BADGE : WHITE);
-  SDL_RenderDrawRect(mapRenderer, &button);
-  const char *mark = "/";
-  int w = AutoMapScene_TextWidth(mark) * DIGIT_SCALE;
-  DrawLegendText(button.x + (button.w - w) / 2, button.y + (button.h - 5 * DIGIT_SCALE) / 2,
-                 mark, searchOpen ? LINK_BADGE : WHITE);
-}
 
 static void DrawSearchPanel(void)
 {
@@ -5058,7 +4237,7 @@ static SDL_Rect DebugMenuRect(void)
                     widest * DIGIT_SCALE + 2 * DEBUG_MENU_PAD,
                     (int)(debugMenuRows.size() + 1) * DEBUG_MENU_ROW_H + DEBUG_MENU_PAD};
   int windowWidth = 0, windowHeight = 0;
-  if (mapRenderer != NULL) SDL_GetRendererOutputSize(mapRenderer, &windowWidth, &windowHeight);
+  if (mapRenderer != NULL) OutputSizeBelowBar(&windowWidth, &windowHeight);
   if (plate.x + plate.w > windowWidth) plate.x = std::max(0, windowWidth - plate.w);
   if (plate.y + plate.h > windowHeight) plate.y = std::max(0, windowHeight - plate.h);
   return plate;
@@ -5283,7 +4462,7 @@ static void DrawLinkModeHint(void)
 {
   if (!linkModeOn) return;
   int windowWidth = 0, windowHeight = 0;
-  SDL_GetRendererOutputSize(mapRenderer, &windowWidth, &windowHeight);
+  OutputSizeBelowBar(&windowWidth, &windowHeight);
   int width = AutoMapScene_TextWidth(LINK_MODE_HINT) * DIGIT_SCALE;
   SDL_Rect plate = {std::max(RULER, (windowWidth - width) / 2 - 4), RULER + 4, width + 8,
                     5 * DIGIT_SCALE + 8};
@@ -5309,7 +4488,6 @@ static void LevelPanelClose(void)
 
 static void LevelPanelOpen(void)
 {
-  legendPage = 0;
   if (searchOpen) SearchCloseBox();
   levelPanelOpen = true;
   isDirty = true;
@@ -5518,13 +4696,6 @@ static void CarryOutPanelClick(const std::vector<AutoMapChampionLevels> &champio
 static bool LevelPanelHandlePointerEvent(const SDL_Event &event)
 {
   if (!debugMenuOn) return false;
-  if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT
-      && PointInRect(event.button.x, event.button.y, LevelButtonRect()))
-  {
-    if (levelPanelOpen) LevelPanelClose();
-    else LevelPanelOpen();
-    return true;
-  }
   if (!levelPanelOpen) return false;
   std::vector<AutoMapChampionLevels> champions = AutoMap_ChampionLevels();
   if (event.type == SDL_MOUSEMOTION)
@@ -5553,18 +4724,6 @@ static bool LevelPanelHandlePointerEvent(const SDL_Event &event)
   return false;
 }
 
-static void DrawLevelButton(void)
-{
-  if (!debugMenuOn) return;
-  SDL_Rect button = LevelButtonRect();
-  Fill(button, RULER_BACKGROUND);
-  UseColour(levelPanelOpen ? LINK_BADGE : WHITE);
-  SDL_RenderDrawRect(mapRenderer, &button);
-  const char *mark = "+";
-  int w = AutoMapScene_TextWidth(mark) * DIGIT_SCALE;
-  DrawLegendText(button.x + (button.w - w) / 2, button.y + (button.h - 5 * DIGIT_SCALE) / 2,
-                 mark, levelPanelOpen ? LINK_BADGE : WHITE);
-}
 
 // One cell of the panel: a hovered cell gets the ruler backdrop and the badge colour
 static void DrawPanelCell(int cellX, int y, int cellW, const char *label, bool isHovered,
@@ -5632,28 +4791,6 @@ static void DrawLevelPanel(void)
   DrawToolRow(MeasureRow(champions), MEASURE_ROW_NAME, MeasureCells(), -1, nameX, cellsX, y);
 }
 
-static void DrawLegend(void)
-{
-  if (legendPage == 0) return;
-  SDL_Rect plate = LegendPanelRect();
-  Fill(plate, BACKGROUND);
-  Outline(plate, WHITE);
-  int count = 0;
-  const LegendRow *rows = LegendRows(&count);
-  int textX = plate.x + LEGEND_PAD + LEGEND_SWATCH_W + LEGEND_TEXT_GAP;
-  DrawLegendText(textX, plate.y + LEGEND_PAD, LegendTitle(), WHITE);
-  int y = plate.y + LEGEND_PAD + 5 * DIGIT_SCALE + 4;
-  for (int i = 0; i < count; i++)
-  {
-    int rowH = LegendRowH(rows[i].swatch);
-    int swatchH = LegendSwatchH(rows[i].swatch);
-    SDL_Rect box = {plate.x + LEGEND_PAD, y + (rowH - swatchH) / 2,
-                    LEGEND_SWATCH_W, swatchH};
-    DrawLegendSwatch(box, rows[i].swatch);
-    DrawLegendText(textX, y + (rowH - 5 * DIGIT_SCALE) / 2, rows[i].label, RULER_TEXT);
-    y += rowH;
-  }
-}
 
 // Renders the unmoving layer into the cache texture when the draw list or the zoom
 // changed. False when the renderer cannot hold a target: the caller draws directly.
@@ -5689,6 +4826,7 @@ static bool RenderStaticCache(const AutoMapView &view)
     DrawGlimpses(cacheView, shownDrawList);
     DrawPlayerNotes(cacheView, shownDrawList);
     SDL_SetRenderTarget(mapRenderer, NULL);
+    UseMapViewport();
     staticRenders++;
   }
   else
@@ -5740,7 +4878,7 @@ static void DrawLevel(void)
   AutoMapView view = ViewOfShownLevel();
   if (view.cellSize == 0) return;
   int windowWidth = 0, windowHeight = 0;
-  SDL_GetRendererOutputSize(mapRenderer, &windowWidth, &windowHeight);
+  OutputSizeBelowBar(&windowWidth, &windowHeight);
   int mapWidth = windowWidth - 2 * RULER;
   int mapHeight = windowHeight - 2 * RULER;
   // The zoomed level reaches past the map area: keep it off the rulers
@@ -5763,14 +4901,25 @@ static void DrawLevel(void)
   DrawDynamicLayer(view);
   SDL_RenderSetClipRect(mapRenderer, NULL);
   DrawRulers(view, windowWidth, windowHeight);
-  DrawLegendButton();
-  DrawSearchButton();
-  DrawLevelButton();
   DrawLinkModeHint();
-  DrawLegend();
   DrawSearchPanel();
   DrawLevelPanel();
   DrawDebugMenu();
+}
+
+// The bar on top, the map in its viewport below it, the bar's panels over everything
+static void PaintWindow(void)
+{
+  int width = 0, height = 0;
+  SDL_GetRendererOutputSize(mapRenderer, &width, &height);
+  UseWholeWindow();
+  UseColour(BACKGROUND);
+  SDL_RenderClear(mapRenderer);
+  AutoMapBar_Draw(width);
+  UseMapViewport();
+  if (shownDrawList.level != AUTOMAP_NO_LEVEL) DrawLevel();
+  UseWholeWindow();
+  AutoMapBar_DrawPanels(width, height);
 }
 
 void AutoMapWindow_PaintIfDirty(void)
@@ -5794,9 +4943,7 @@ void AutoMapWindow_PaintIfDirty(void)
   if (!isShown || !isDirty) return;
   if (SDL_GetTicks() - lastPaint < SMALLEST_REPAINT_GAP) return;
   Uint64 paintStart = SDL_GetPerformanceCounter();
-  UseColour(BACKGROUND);
-  SDL_RenderClear(mapRenderer);
-  if (shownDrawList.level != AUTOMAP_NO_LEVEL) DrawLevel();
+  PaintWindow();
   SDL_RenderPresent(mapRenderer);
   isDirty = false;
   drawListWasPainted = true;
@@ -5900,9 +5047,7 @@ bool AutoMapWindow_RenderToFile(const AutoMapDrawList &list, int width, int heig
   AutoMapView view = ViewOfShownLevel();
   hoverPixelX = view.originX + cellX * cellSize + cellSize / 2;
   hoverPixelY = view.originY + cellY * cellSize + cellSize / 2;
-  UseColour(BACKGROUND);
-  SDL_RenderClear(mapRenderer);
-  DrawLevel();
+  PaintWindow();
   SDL_RenderPresent(mapRenderer);
   bool saved = SDL_SaveBMP(surface, path) == 0;
   renderCellSize = 0;
@@ -5916,4 +5061,43 @@ bool AutoMapWindow_RenderToFile(const AutoMapDrawList &list, int width, int heig
   SDL_DestroyRenderer(renderer);
   SDL_FreeSurface(surface);
   return saved;
+}
+
+// ---------------------------------------------------------------------------------------------
+// What the bar above the map asks and does (AutoMapBar.cpp)
+
+bool AutoMapWindow_SearchIsOpen(void)
+{
+  return searchOpen;
+}
+
+void AutoMapWindow_ToggleSearch(void)
+{
+  if (searchOpen) SearchCloseBox();
+  else SearchOpenBox();
+  isDirty = true;
+}
+
+bool AutoMapWindow_DebugPanelIsOpen(void)
+{
+  return levelPanelOpen;
+}
+
+void AutoMapWindow_ToggleDebugPanel(void)
+{
+  if (!debugMenuOn) return;
+  if (levelPanelOpen) LevelPanelClose();
+  else LevelPanelOpen();
+  isDirty = true;
+}
+
+void AutoMapWindow_StepLevel(int delta)
+{
+  AutoMapWindow_HandleLevelKey(delta > 0 ? SDLK_PAGEDOWN : SDLK_PAGEUP);
+}
+
+void AutoMapWindow_FollowParty(void)
+{
+  RecenterViewOnParty();
+  AutoMap_FollowParty();
 }
