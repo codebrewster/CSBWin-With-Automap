@@ -201,10 +201,11 @@ function draw() {
 // ============================================================================================
 function resize() { const top = document.getElementById('wrap').offsetTop; cv.width = Math.max(400, window.innerWidth - 34); cv.height = Math.max(300, window.innerHeight - top - 26 - 14); tbar.width = cv.width; tbar.height = 26; }
 // zoom in until about three cells span the shorter side of the map area
-function maxCs() { return Math.max(96, Math.min(cv.width - 2 * RUL, cv.height - 2 * RUL) / 3); }
-function minCs() { return Math.min((cv.width - 2 * RUL) / W, (cv.height - 2 * RUL) / H); }
-function fitLevel() { cs = minCs(); panX = ((cv.width - 2 * RUL) - W * cs) / 2; panY = ((cv.height - 2 * RUL) - H * cs) / 2; }
-function centreOn(x, y) { let top = RUL; if (panelRects.search) top = panelRects.search[1] + panelRects.search[3]; panX = (cv.width - 2 * RUL) / 2 - (x + .5) * cs; panY = ((top + cv.height - RUL) / 2 - RUL) - (y + .5) * cs; }
+// cells are always a whole number of pixels: fractional sizes leave gaps and push patterns past their frames
+function maxCs() { return Math.floor(Math.max(96, Math.min(cv.width - 2 * RUL, cv.height - 2 * RUL) / 3)); }
+function minCs() { return Math.max(1, Math.floor(Math.min((cv.width - 2 * RUL) / W, (cv.height - 2 * RUL) / H))); }
+function fitLevel() { cs = minCs(); panX = Math.round(((cv.width - 2 * RUL) - W * cs) / 2); panY = Math.round(((cv.height - 2 * RUL) - H * cs) / 2); }
+function centreOn(x, y) { let top = RUL; if (panelRects.search) top = panelRects.search[1] + panelRects.search[3]; panX = Math.round((cv.width - 2 * RUL) / 2 - (x + .5) * cs); panY = Math.round(((top + cv.height - RUL) / 2 - RUL) - (y + .5) * cs); }
 function centreOnParty() { const p = party(); if (p && cs > minCs() + .01) centreOn(p.x, p.y); }
 function cellAt(mx, my) { const x = Math.floor((mx - RUL - panX) / cs), y = Math.floor((my - RUL - panY) / cs); return (x >= 0 && x < W && y >= 0 && y < H && mx > RUL && my > RUL && mx < cv.width - RUL && my < cv.height - RUL) ? { x, y } : null; }
 
@@ -246,8 +247,8 @@ cv.addEventListener('wheel', e => {
   if (levelOpen && inRect(mx, my, panelRects.levels)) { levelScroll = Math.max(0, Math.min(DATA.index.levels.length - ROWS_SHOWN, levelScroll + d * 3)); draw(); return; }
   if (searchOpen && inRect(mx, my, panelRects.search)) { sTop = Math.max(0, Math.min(Math.max(0, sRows.length - S_ROWS), sTop + d * 3)); draw(); return; }
   if (e.shiftKey) { tipScroll = Math.max(0, tipScroll + d); draw(); return; }
-  const old = cs; cs = Math.min(maxCs(), cs * (d < 0 ? 1.15 : 1 / 1.15)); if (cs <= minCs() + .01) { fitLevel(); draw(); return; }
-  const ax = mx - RUL, ay = my - RUL; panX = ax - (ax - panX) * cs / old; panY = ay - (ay - panY) * cs / old; draw();
+  const old = cs; let next = Math.round(cs * (d < 0 ? 1.15 : 1 / 1.15)); if (next === cs) next += d < 0 ? 1 : -1; cs = Math.min(maxCs(), next); if (cs <= minCs()) { fitLevel(); draw(); return; }
+  const ax = mx - RUL, ay = my - RUL; panX = Math.round(ax - (ax - panX) * cs / old); panY = Math.round(ay - (ay - panY) * cs / old); draw();
 }, { passive: false });
 tbar.addEventListener('mousedown', e => { for (const [x, w, act] of barHits) if (e.offsetX >= x && e.offsetX < x + w && e.offsetY >= 4 && e.offsetY < 22) { act(); draw(); return; } });
 window.addEventListener('keydown', e => {
@@ -273,7 +274,7 @@ setInterval(() => { if (searchOpen) draw(); }, 500);
   if (q.get('v')) vision = +q.get('v'); if (q.get('s')) spoil = +q.get('s'); if (q.get('debug')) { debugOn = q.get('debug') !== '0'; document.getElementById('debug').checked = debugOn; }
   await loadSave(sv);
   if (q.get('L')) { setLevel(+q.get('L')); follow = false; fitLevel(); }
-  if (q.get('cs')) { cs = Math.min(maxCs(), Math.max(minCs(), +q.get('cs'))); if (cs <= minCs() + .01) fitLevel(); }
+  if (q.get('cs')) { cs = Math.round(Math.min(maxCs(), Math.max(minCs(), +q.get('cs')))); if (cs <= minCs()) fitLevel(); }
   if (q.get('hh')) { const [a, b] = q.get('hh').split(',').map(Number); hover = { x: a, y: b }; centreOn(a, b); }
   if (q.get('find')) { openSearch(); query = q.get('find').toUpperCase(); rebuild(false); }
   if (q.get('shift')) shiftHeld = true;
