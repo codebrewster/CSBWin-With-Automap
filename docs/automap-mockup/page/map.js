@@ -364,7 +364,15 @@ function presentLine(s) {
 function tooltipLines() {
   const h = V.hover[hover.x + ',' + hover.y]; const lines = [];
   const raw = h && h.tip ? ((shiftHeld && h.tipFull) ? h.tipFull : h.tip) : [];
-  raw.forEach((s, i) => { lines.push(presentLine(s)); if (i === 0) { const m = monAt[hover.x + ',' + hover.y]; if (m && SHOW.MONSTERS && m.name) lines.push('#' + nice(m.name) + (m.m.length > 1 ? ' X' + m.m.length : '')); } });
+  // The game's tooltip names the group right after POS (gold); older exports lacked it, so the page adds it then
+  const m = monAt[hover.x + ',' + hover.y];
+  const nameLine = m && m.name ? nice(m.name) + (m.m.length > 1 ? ' X' + m.m.length : '') : '';
+  const hasName = nameLine && raw.length > 1 && raw[1].toUpperCase() === (m.name.toUpperCase() + (m.m.length > 1 ? ' X' + m.m.length : ''));
+  raw.forEach((s, i) => {
+    if (i === 1 && hasName) { if (SHOW.MONSTERS) lines.push('#' + nameLine); return; }
+    lines.push(presentLine(s));
+    if (i === 0 && !hasName && nameLine && SHOW.MONSTERS) lines.push('#' + nameLine);
+  });
   const key = hover.x + ',' + hover.y, N = noteOf();
   if (key in N.pits) lines.push(N.pits[key] ? 'YOUR MARK: HIDDEN PIT OPEN' : 'YOUR MARK: HIDDEN PIT CLOSED');
   N.links.filter(l => l[0] === hover.x && l[1] === hover.y).forEach(l => lines.push(`YOUR LINK TO (${l[2] + OX}, ${l[3] + OY})`));

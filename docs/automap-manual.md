@@ -16,7 +16,7 @@ How to use the automap while you play. For how it is built, see
 - [Tooltips](#tooltips)
 - [Tracing switches and pads](#tracing-switches-and-pads)
 - [Searching](#searching)
-- [The legend](#the-legend)
+- [Controls help](#controls-help)
 - [Your own notes](#your-own-notes)
 - [Saving](#saving)
 - [Settings in csb.cfg](#settings-in-csbcfg)
@@ -24,62 +24,79 @@ How to use the automap while you play. For how it is built, see
 
 ## Opening the map
 
-In the menu bar at the top of the game window, choose **Misc → Map → Window**. The map opens in a second
-window that you can move and resize, and it updates while you play. If the
-window was open when you left the game, it opens again the next time, at the
-same place and size.
+In the menu bar at the top of the game window, choose **Misc → Map → Window**. The map opens in a
+second window that you can move and resize, and it updates while you play. If the window was open
+when you left the game, it opens again the next time, at the same place and size.
 
-The **Misc → Map** menu also holds the display settings:
-
-| Menu entry | What it does |
-|---|---|
-| **Window** | Shows or hides the map window |
-| **Show level → Follow party** | The map shows the level the party is on (the default) |
-| **Show level → Level n** | Locks the map to one level, wherever the party goes |
-| **Vision** | Fog of war, Explored, live, or Whole level; see below |
-| **Spoilers** | Seen, Learned or All; see below |
-| **Highlight explored** | In Whole level vision, tints the cells the party has explored |
+Every other map setting is on the bar at the top of the map window; see
+[The window](#the-window).
 
 ## The window
 
-- The level is drawn with the game's own floor, wall, door, decoration, item
-  and creature pictures, not with abstract tiles.
-- The party is the red arrow, pointing the way it faces. Small white
-  triangles show the way monsters face.
-- **Rulers** run along all four edges and show the dungeon's coordinates. The
-  row and column of the cell under the pointer are marked in yellow, so a
-  position such as `L4 (12, 3)` is easy to read off.
-- The buttons in the top-left corner are **?** for the legend and **/** for
-  the search. With debug mode on, a third button, **+**, opens the testing
-  aids.
+- The level is drawn with the game's own floor, wall, door, decoration, item and creature
+  pictures, not with abstract tiles. The map's own marks (badges, plates, lines) are pixel shapes
+  and the game's 3×5 font.
+- The party is the red arrow, pointing the way it faces. Small white triangles show the way
+  monsters face.
+- **Rulers** run along all four edges and show the dungeon's coordinates. The row and column of
+  the cell under the pointer are marked in yellow, so a position such as `L4 (12, 3)` is easy to
+  read off.
 - The window title names the level shown, for example `Map: Level 7`.
+
+### The bar
+
+A strip above the map holds every map setting:
+
+| Button | What it does |
+|---|---|
+| **<** and **>** | One level up or down |
+| **L7 ▾** | Opens the level list; see below |
+| **FOLLOW** | On while the map follows the party's level; click to follow again |
+| **VISION** FOG, EXPLORED, ALL | Fog of war, Explored live, or Whole level; see [Vision and spoilers](#vision-and-spoilers) |
+| **TINT** | Only with VISION ALL: tints the cells the party has explored |
+| **SPOILERS** SEEN, LEARNED, ALL | How much the map tells |
+| **SHOW** | Kinds of things to draw; reads `SHOW: 3 HIDDEN` while any are off |
+| **/** | The search |
+| **?** | The controls help |
+| **+** | The testing aids, only with `map_debug = 1` |
+
+In a narrow window the long labels shorten (`EXPL`, `LRND`); if the bar still does not fit, the
+wheel over it scrolls it.
+
+### The level list
+
+Click the level on the bar for a list of every level. The shown level is gold, the party's level
+has the red arrow, and levels the party has not visited yet are grey and say `NOT VISITED`. While
+a search is open, each level shows its number of hits. The wheel scrolls the list, typing a number
+jumps to that level and **Enter** shows it, a click on a row shows that level, and **Escape** or a
+click outside closes the list.
 
 ## Moving around
 
 | Input | What it does |
 |---|---|
-| Mouse wheel | Zooms in and out |
-| Middle-drag | Pans the view; the map stops following the party |
+| Left-drag | Pans the view; the map stops following the party |
+| Mouse wheel | Zooms towards the pointer, from the whole level down to about three cells across |
 | Middle-click | Centres the view on the party again and follows it |
+| Middle-drag | Pans too |
 | Mouse side buttons | Back goes down a level, forward goes up, centred on the tile under the pointer |
 | Page Down / Page Up | Goes down / up a level over the middle of the view |
 | Ctrl+Page Down / Ctrl+Page Up | The same from the game window, where the plain keys pick up items in the default `csb.cfg` |
-| **Misc → Map → Show level** | Picks a level, or follows the party again |
 
-The side buttons are the quickest way to follow stairs and pits between
-levels. They are the "back" and "forward" buttons of most five-button mice.
+Zoomed out to the whole level, the view follows the party again. The side buttons are the quickest
+way to follow stairs and pits between levels.
 
 ## Vision and spoilers
 
-Two independent settings decide how much the map shows. **Vision** decides
-*where* the map draws; **Spoilers** decides *how much it tells* about what it
-draws.
+Two independent settings on the bar decide how much the map shows. **Vision**
+decides *where* the map draws; **Spoilers** decides *how much it tells* about
+what it draws.
 
 | Vision | What is drawn |
 |---|---|
 | **Fog of war** (default) | Only the cells the party has explored. Monsters, missiles and spell clouds show only while the party can see them |
 | **Explored, live** | The explored cells, with monsters and moving things shown live on all of them |
-| **Whole level** | The whole level, explored or not. **Highlight explored** tints the explored part |
+| **Whole level** | The whole level, explored or not. **TINT** tints the explored part |
 
 | Spoilers | What the map tells |
 |---|---|
@@ -109,21 +126,26 @@ game does:
 
 ### What the map draws
 
-**Misc → Map → Show** switches kinds of things on and off: weapons, armour,
-potions, scrolls, chests, food, keys, other items, monsters, wall decorations, wall
-writing and floor decorations. **Show all** and **Hide all** set them all at
-once. Hiding an item kind also hides it in alcoves and on altars. Floor
-decorations are the dressing only (grates, moss, flame pits, cracks,
-puddles): pressure pads and pits always show. Hidden things still turn up in
-the search and in the tooltip.
+**SHOW** on the bar switches kinds of things on and off: weapons, armour, potions, scrolls,
+chests, food, keys, other items, monsters, wall decorations, wall writing and floor decorations.
+**SHOW ALL** and **HIDE ALL** set them all at once. Hiding an item kind also hides it in alcoves and
+on altars. Floor decorations are the dressing only (grates, moss, flame pits, cracks, puddles):
+pressure pads and pits always show. Hidden things still turn up in the search and in the tooltip.
 
-**Misc → Map → Small wall decorations** (on by default) draws a wall
-decoration as a small square against the face it hangs on, with a strip along
-that face, so the stone around it still reads as wall and on a pillar you can
-tell which face carries it. The strip is bright for a switch the map knows
-about and quiet for everything else. Switched off, a lone decoration fills its
-wall square, the larger picture of earlier versions, and keeps the strip on its
-face. The choice holds at every spoiler level.
+**Wall decorations** sit in a square against the face they hang on, with a short line on that face:
+bright for a switch the map knows about, dark brown for anything else. On a pillar, decorations on
+neighbouring faces move apart so they never overlap. What lies in an alcove shows as a small icon
+in the lower right of its square, the key a lock wants in the lower left in a gold frame.
+
+**Pads** are the game's own plate picture; a pad without one (a hidden pad) is the plate drawn
+faint with a dotted edge. A small dark badge in the lower left says who sets it off: the party's red
+arrow (turned the way the party must face, gold frame), claw marks for monsters, the item's own
+icon, or arrow and icon when the party must carry the item. Teleporters use the same badge for who
+they take, with a box for objects. A generator shows its monster faded with a `GEN` badge.
+
+**Stairs** carry a plate with an arrow and the level they lead to. A **teleporter** is a cyan
+checkerboard; one to another level shows that level's number. A pile of more than three items shows
+its count in the upper right.
 
 ## What the map remembers
 
@@ -182,16 +204,19 @@ and turn the wheel to scroll it.
 
 ## Tracing switches and pads
 
-Hover a switch, lever or pad to see what it is linked to. At **Learned** the
-map draws the links the party has seen work, with an open arrowhead: the party
-saw the target change, not which signal did it.
+Hover a switch, lever or pad to see what it is linked to. Its lines start at one point (the
+switch's face or the pad's centre) and run as thick pixel lines to where they enter their targets,
+while the rest of the map dims. At **Learned** the map draws the links the party has seen work, with
+an open arrowhead: the party saw the target change, not which signal did it. Hovering a cell that
+something acts on, such as a door or a generator, draws the lines from every switch and pad linked
+to it.
 
-![Hovering a floor actuator: the link the map learned by watching it](images/automap-links.png)
+Hovering a teleporter draws a cyan line to where it sends you; hovering a cell teleporters land on
+draws the lines from them; a dormant teleporter shows a dashed dim line to where it would send you.
 
-At spoiler level **All** the map follows the whole chain. Hovering a switch or
-pad walks its signal through relays, counters, gates and DSAs to the doors,
-pits and walls at the end, through explored cells only. The tooltip then has
-two parts:
+At spoiler level **All** the map follows the whole chain. Hovering a switch or pad walks its signal
+through relays, counters, gates and DSAs to the doors, pits and walls at the end, through explored
+cells only. The tooltip then has two parts:
 
 - **THIS PRESS** lists what the next press reaches first, for example
   `L11 (47, 27) COUNTER A 3->2`.
@@ -199,45 +224,43 @@ two parts:
   `FALSE WALL L11 (47, 26) OPENS IN 2 MORE`, `1 BIT OFF` or
   `BLOCKED: COUNTER AT 0`.
 
-On the map each goal gets a ring and a badge: `NOW`, `2 MORE`, `1 BIT OFF`,
-`NEEDS OTHERS`, `BLOCKED`, `HOLD`, `DSA` or `DONE`. Goals that happen now, soon
-or already are yellow; those that wait on something else are orange. Hovering
-a relay draws what feeds it in blue and what it feeds in yellow.
+On the map each goal gets a frame and a badge: `NOW`, `2 MORE`, `1 BIT OFF`, `NEEDS OTHERS`,
+`BLOCKED`, `HOLD`, `DSA` or `DONE`. Goals that happen now, soon or already are gold; those that wait
+on something else are orange. Hovering a relay draws what feeds it in blue and what it feeds in gold.
 
-Hold **Shift** to see the whole relay tree, indented by depth, with delays and
-gate modes.
+Hold **Shift** to see the whole relay tree, indented by depth, with delays and gate modes.
 
 ![Hovering a pad at spoiler level All: two more presses open the false wall](images/automap-press.png)
 
 ## Searching
 
-Press **/** or **Ctrl+F**, or click the **/** button, and type part of a
-name. The search covers every level and finds items:
+Press **/** or **Ctrl+F**, or click **/** on the bar, and type part of a name. The search covers
+every level and finds:
 
-- on the floor, in a chest or in an alcove;
-- that a pad or lock `NEEDS`;
-- `CARRIED` by a monster (at spoiler level All only).
+- items on the floor, in a chest or in an alcove;
+- items a pad or lock `NEEDS`;
+- items `CARRIED` by a monster (at spoiler level All only);
+- monster groups by name, and generators by what they create;
+- water fountains and the Altar of Vi.
 
-`FOOD` finds everything edible. Water fountains and the Altar of Vi are found
-as wall features by name.
+`FOOD` finds everything edible, `GEN` every generator, and `MON` every monster group.
 
-A hit reads like `L9 (12,21) KEY OF B NEEDS`. **Up** and **Down** step through
-the hits and jump the map to each, **Enter** centres the selected hit, a click
-on a hit jumps to it, and **Escape** closes the search. The wheel scrolls a
-long list.
+The results are grouped under a heading per level, the shown level first; a click on a heading
+folds it away. Each hit shows its icon, the cell as the rulers number it, its name and a tag: `X3`,
+`ALCOVE`, `CHEST`, `CARRIED BY …`, `NEEDS`, `PAD NEEDS` or `GENERATOR`. **Up** and **Down** step
+through the hits and jump the map to each, **Enter** centres the selected hit, a click on a hit
+jumps to it, and **Escape** closes the search. The wheel scrolls a long list. On the map every hit
+of the shown level gets a gold frame, the selected one a light frame.
 
-The search follows the same spoiler rules as the map: nothing in an unopened
-chest and nothing beyond the explored cells is found.
+The search follows the same spoiler and fog rules as the map: nothing in an unopened chest and
+nothing beyond the explored cells is found.
 
 ![Searching for KEY OF B: hits on two levels, including the locks that need it](images/automap-search.png)
 
-## The legend
+## Controls help
 
-Click **?** to open the legend: every kind of mark the map draws, with its
-meaning, in six pages: **GROUND**, **WALLS**, **PADS**, **TELEPORT**,
-**LINKS** and **THINGS**. Each click on **?** or on the legend shows the next
-page, and after the last it closes. The legend lists only what the current
-spoiler level can draw and skips pages that would be empty.
+Click **?** on the bar for one page of the mouse buttons and keys. Any click or **Escape** closes it.
+Everything else the map draws is explained by hovering it: the tooltip names it.
 
 ## Your own notes
 
@@ -275,7 +298,6 @@ most of them for you; only `map_debug` needs editing by hand.
 | `map_follow` | `1` follows the party's level | `1` |
 | `map_level` | The level shown when not following the party | `0` |
 | `map_highlight` | `1` tints the explored cells in whole level vision | `0` |
-| `map_small_decorations` | `1` small wall decorations by their face, `0` big tiles | `1` |
 | `map_hide` | What **Show** leaves out, one bit each: 1 scrolls, 2 chests, 4 potions, 8 weapons, 16 armour, 32 other items, 64 monsters, 128 wall decorations, 256 wall writing, 512 floor decorations, 1024 food, 2048 keys | `0` |
 | `map_debug` | `1` turns on the testing aids below | `0` |
 
@@ -286,11 +308,11 @@ testing the automap. They are also handy for trying out a custom dungeon
 without a drawer full of saved games.
 
 - Right-click any tile for **TELEPORT HERE**, and one **SPAWN** row per monster
-  type the level allows. A spawn asks how many, up to as many as fit on the
+  type the level allows; they head the menu, your notes follow below them. A spawn asks how many, up to as many as fit on the
   tile, then the spot or quadrant, then the facing or any. Both work only on a
   cell the party could stand on; otherwise the title names the reason and the
   rows are greyed out.
-- The **+** button beside **?** and **/** opens a panel with a row per champion
+- The **+** button on the bar opens a panel with a row per champion
   and their `FIG`, `NIN`, `PRI` and `WIZ` levels. A click gives exactly one
   level in that skill. It is greyed out for a dead champion, a sleeping party
   or the level cap.

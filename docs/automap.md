@@ -22,7 +22,8 @@ the engine or SDL. The `src/makefile` makes the split explicit: the units in
 | `AutoMapLinkWatch` | Learns which cells a fired actuator changes by watching them; also learns false walls seen opening or closing (`AutoMapLinkWatch.h:15`) |
 | `AutoMapSight` | The line-of-sight rule over the cells the 3D view paints (`AutoMapSight.h`) |
 | `AutoMapFile` | The `.map` file: loading/saving explored cells, seen faces and learned facts, keyed by the save signature (`AutoMapFile.h:41`) |
-| `AutoMapScene` | The drawing *rules*: turns plain level records into a draw list, tooltip slots, trigger text (`AutoMapScene.h`) |
+| `AutoMapScene` | The drawing *rules*: turns plain level records into a draw list, tooltip slots, trigger text, search hits and rows, the zoom steps (`AutoMapScene.h`) |
+| `AutoMapLayout` | The window's geometry and drawing decisions: wall slots, the who-badge of pads and teleporters, where a line ends, the tooltip's side and icon grid, the bar's packing, the level list (`AutoMapLayout.h`) |
 
 `ShotMissiles` is tested alongside them (it also needs neither the engine nor SDL).
 
@@ -34,9 +35,25 @@ the engine or SDL. The `src/makefile` makes the split explicit: the units in
 | `AutoMapRecorder` | Keeps what the party has seen, sees now and has learned, fed by the 3D view and the hooks (`AutoMapRecorder.h`) |
 | `AutoMapHooks` | The functions the engine and platform layer call (declare-only header, safe after `CSB.h`) |
 | `AutoMapSprites` | Decodes the game pictures into SDL textures for the window |
+| `AutoMapExport` | `CSB_MAP_EXPORT` and `CSB_MAP_RENDER`, run with `--visibility-test`: writes what the map shows for the reference mockup, or draws the window off screen into a picture |
 
 **The window itself:** `AutoMapWindow.cpp` — the SDL window, painting, input,
-the legend, and the `csb.cfg` settings.
+the tooltip, the search panel and the `csb.cfg` settings. `AutoMapBar.cpp` draws the bar above the
+map with its SHOW dropdown, controls help and level list; the map below it draws in an SDL viewport,
+and pointer events reach it shifted by the bar's height. `AutoMapPaint.cpp` draws the map's own marks
+in one pixel style: lines with a dark rim, arrowheads, plates, badges and the 3×5 text, all on whole
+pixels.
+
+**Checking the look without playing:** in a game folder with a save,
+
+```sh
+printf 'save <save>\nat L0 (4,12) facing S light 0\n' > case.txt
+CSB_MAP_RENDER=out.bmp,<level>,<vision 0..2>,<spoilers 0 seen..2 all>,<cell>,<x>,<y>[,shift] \
+  <repo>/src/csb --visibility-test case.txt
+```
+
+draws the window as it would look with cell (x, y) hovered. `CSB_MAP_EXPORT=<dir>` writes the data
+of the reference mockup in `docs/automap-mockup/` (steps in its `pack-data.py`).
 
 ## How it flows
 

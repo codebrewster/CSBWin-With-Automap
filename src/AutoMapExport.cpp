@@ -133,20 +133,6 @@ static void WriteGoals(const std::vector<AutoMapEffect> &effects, std::ostringst
   }
 }
 
-static std::string MonsterNameAt(const AutoMapLevelSnapshot &s, const std::vector<AutoMapMonsterChoice> &types, int x, int y)
-{
-  for (size_t i = 0; i < s.monsters.size(); i++)
-  {
-    if (s.monsters[i].x != x || s.monsters[i].y != y) continue;
-    for (size_t t = 0; t < types.size(); t++)
-    {
-      MONSTERDESC *md = &d.MonsterDescriptor[types[t].type];
-      ITEM12 *pics = &d.Item6414[md->uByte0];
-      if (446 + pics->ITEM12_word0 == s.monsters[i].kind.frontPicture) return types[t].name;
-    }
-  }
-  return "";
-}
 
 static void WriteDrawList(FILE *f, ExportPictures &sp, const AutoMapDrawList &l, const AutoMapLevelSnapshot &snap,
                           const std::vector<AutoMapMonsterChoice> &types)
@@ -214,7 +200,7 @@ static void WriteDrawList(FILE *f, ExportPictures &sp, const AutoMapDrawList &l,
   {
     const AutoMapShownMonster &m = l.monsters[i];
     std::ostringstream o;
-    o << "{\"x\":" << m.x << ",\"y\":" << m.y << ",\"name\":" << JsonText(MonsterNameAt(snap, types, m.x, m.y)) << ",\"m\":[";
+    o << "{\"x\":" << m.x << ",\"y\":" << m.y << ",\"name\":" << JsonText(m.name) << ",\"m\":[";
     for (int k = 0; k < m.memberCount; k++)
       o << (k ? "," : "") << "[" << JsonText(sp.Plain(m.memberPictures[k].picture, m.transparentColour)) << "," << m.memberPictures[k].isMirrored << "," << (int)m.memberFacings[k] << "]";
     o << "]}";

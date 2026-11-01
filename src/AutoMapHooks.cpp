@@ -1565,6 +1565,10 @@ static void RunVisibilityTest(void)
   // The mockup export reuses the visibility test's way of loading a save without a window
   if (AutoMapExport_IsRequested())
   {
+#ifndef MINGW
+    // The export and the render take longer than a visibility case: no time limit
+    alarm(0);
+#endif
     AutoMapExport_Run(recorder, d.partyLevel);
     exit(0);
   }
