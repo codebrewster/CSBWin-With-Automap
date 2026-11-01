@@ -55,4 +55,8 @@ private:
   std::map<long long, AutoMapSprite> m_spritesByRequest;
 };
 
+// Writes one picture, as the request would draw it, to a 32-bit BMP with alpha; false when it
+// cannot be decoded or written
+bool AutoMapSprites_SaveBmp(const AutoMapSpriteRequest &request, const char *path);
+
 #endif

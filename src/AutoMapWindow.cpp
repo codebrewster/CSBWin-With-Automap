@@ -10,6 +10,7 @@
 #include "AutoMapScene.h"
 #include "AutoMapSprites.h"
 #include "AutoMapWindow.h"
+#include "AutoMapWindowTooltip.h"
 // Function declarations only, free of engine structures
 #include "AutoMapHooks.h"
 // Item names for the tooltip footer; the scene carries only the type id
@@ -5649,4 +5650,55 @@ void AutoMapWindow_PaintIfDirty(void)
       staticBlits = 0;
     }
   }
+}
+
+// The tooltip of a cell as DrawTileTooltip builds it, for the export (AutoMapWindowTooltip.h)
+void AutoMapWindow_TooltipFor(const AutoMapDrawList &list, int x, int y, bool fullChain,
+                                std::vector<std::string> *lines, std::vector<AutoMapTooltipEntry> *out)
+{
+  AutoMapDrawList saved = shownDrawList;
+  shownDrawList = list;
+  std::vector<TooltipCell> cells = FlattenTooltipSlots(BuildTooltipSlots(x, y));
+  std::vector<std::string> hpLines = BuildTooltipHealthLines(x, y);
+  std::vector<std::string> scrolls = AutoMapScene_ScrollTexts(shownDrawList, x, y);
+  std::vector<AutoMapWallText> walls = AutoMapScene_WallTexts(shownDrawList, x, y);
+  std::vector<std::string> triggers =
+      AutoMapScene_TriggerLines(shownDrawList, x, y, AutoMapLevelReader_ItemName);
+  std::vector<std::string> teleporter = AutoMapScene_TeleporterLines(shownDrawList, x, y);
+  std::vector<std::string> pit = AutoMapScene_PitLines(shownDrawList, x, y);
+  std::vector<std::string> relay = AutoMapScene_RelayLines(shownDrawList, x, y);
+  std::vector<std::string> press = AutoMapScene_PressLines(
+      shownDrawList, AutoMapScene_PressEffects(shownDrawList, x, y), fullChain);
+  std::vector<std::string> relayHover = AutoMapScene_RelayHoverLines(shownDrawList, x, y, fullChain);
+  std::vector<std::string> notes = AutoMapScene_PlayerNoteLines(shownDrawList, x, y);
+  bool any = !(cells.empty() && hpLines.empty() && scrolls.empty() && walls.empty() && triggers.empty()
+               && teleporter.empty() && pit.empty() && relay.empty() && press.empty()
+               && relayHover.empty() && notes.empty());
+  if (any)
+  {
+    int gx = 0, gy = 0;
+    AutoMapScene_GlobalPosition(shownDrawList, x, y, &gx, &gy);
+    char pos[64];
+    std::snprintf(pos, sizeof(pos), "POS: L%d (%d, %d)", shownDrawList.level, gx, gy);
+    lines->push_back(pos);
+    lines->insert(lines->end(), hpLines.begin(), hpLines.end());
+    std::vector<std::string> names = BuildTooltipNameLines(cells, 100000);
+    lines->insert(lines->end(), names.begin(), names.end());
+    lines->insert(lines->end(), triggers.begin(), triggers.end());
+    lines->insert(lines->end(), teleporter.begin(), teleporter.end());
+    lines->insert(lines->end(), pit.begin(), pit.end());
+    lines->insert(lines->end(), relay.begin(), relay.end());
+    lines->insert(lines->end(), press.begin(), press.end());
+    lines->insert(lines->end(), relayHover.begin(), relayHover.end());
+    std::vector<std::string> texts = BuildTooltipTextLines(scrolls, walls, 100000);
+    lines->insert(lines->end(), texts.begin(), texts.end());
+    lines->insert(lines->end(), notes.begin(), notes.end());
+    for (size_t i = 0; i < cells.size(); i++)
+    {
+      AutoMapTooltipEntry c = {cells[i].item, cells[i].count, cells[i].nested, cells[i].predicted,
+                        cells[i].required, cells[i].carried, cells[i].side};
+      out->push_back(c);
+    }
+  }
+  shownDrawList = saved;
 }

@@ -2,21 +2,21 @@
 """Build automap-mockup.html from the page sources and the map data.
 
 The page is page/head.html, page/map.js and page/ui.js. The data is what the real map code shows
-for one or more saves, exported by export.patch: per save, index.json and one draw list per
-level, vision and spoiler level (L<level>_v<vision>_s<spoilers>.json; vision 0 fog, 1 explored
-live, 2 whole level; spoilers 0 All, 1 Learned, 2 Seen), with every cell's tooltip and links,
-plus the game's pictures as .bmp.
+for one or more saves, written by the game itself (src/AutoMapExport.cpp): per save, index.json
+and one draw list per level, vision and spoiler level (L<level>_v<vision>_s<spoilers>.json;
+vision 0 fog, 1 explored live, 2 whole level; spoilers 0 All, 1 Learned, 2 Seen), with every
+cell's tooltip and links, plus the game's pictures as .bmp.
 
 Change only the drawing (page/*), keep the data:
     python3 -I pack-data.py
 New data (another save, a custom dungeon, or after the map code changed):
-1. git worktree add <scratch> HEAD; cd <scratch>; git apply docs/automap-mockup/export.patch;
-   cd src; make RELEASE=1
+1. Build the game: cd src && make RELEASE=1
 2. In a game folder (dungeon.dat, graphics.dat, the save and its .map), per save:
-     printf 'save <save>\\nat L0 (4,12) facing S light 0\\n' > case.txt
-     CSB_MAP_EXPORT=<outdir>/<save> <scratch>/src/csb --visibility-test case.txt
+     printf 'save <save>\nat L0 (4,12) facing S light 0\n' > case.txt
+     CSB_MAP_EXPORT=<outdir>/<save> <repo>/src/csb --visibility-test case.txt
    It loads the save without a window, writes the export and exits.
-3. cd <outdir>/<save>; mkdir -p png; for f in *.bmp; do convert "$f" "png/${f%.bmp}.png"; done
+3. cd <outdir>/<save>; mkdir -p png; for f in *.bmp; do convert "$f" -strip "png/${f%.bmp}.png"; done
+   (-strip leaves out the time ImageMagick writes, so the same pictures give the same page)
 4. python3 -I pack-data.py <outdir>/<save> [<outdir>/<save2> ...]
    The save buttons in page/head.html name the saves in this order.
 

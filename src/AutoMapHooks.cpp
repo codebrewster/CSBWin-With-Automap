@@ -16,6 +16,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #endif
+#include "AutoMapExport.h"
 #include "AutoMapFile.h"
 #include "AutoMapItemMemory.h"
 #include "AutoMapKnowledge.h"
@@ -1561,6 +1562,12 @@ static void DrawVisibilityCase(const AutoMapVisibilityCase &visibilityCase, int 
 
 static void RunVisibilityTest(void)
 {
+  // The mockup export reuses the visibility test's way of loading a save without a window
+  if (AutoMapExport_IsRequested())
+  {
+    AutoMapExport_Run(getenv("CSB_MAP_EXPORT"), recorder, d.partyLevel);
+    exit(0);
+  }
   int passed = 0;
   int total = 0;
   int levelCount = (int)AutoMapLevelReader_DungeonLevelSizes().size();

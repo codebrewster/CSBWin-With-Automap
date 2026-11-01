@@ -238,3 +238,25 @@ void AutoMapSprites::ForgetAll(void)
   }
   m_spritesByRequest.clear();
 }
+
+// One picture as a 32-bit BMP with alpha, for the export (AutoMapExport.cpp)
+bool AutoMapSprites_SaveBmp(const AutoMapSpriteRequest &request, const char *path)
+{
+  PlanarPicture picture;
+  if (!DecodePicture(request.picture, &picture)) return false;
+  std::vector<Uint8> pixels = ToRgba(picture, request);
+  int x0 = 0, y0 = 0, w = picture.width, h = picture.height;
+  if (request.hasTile)
+  {
+    x0 = request.tileX; y0 = request.tileY; w = request.tileW; h = request.tileH;
+    if (x0 + w > picture.width || y0 + h > picture.height) return false;
+  }
+  std::vector<Uint8> cut((size_t)w * h * 4);
+  for (int y = 0; y < h; y++)
+    memcpy(&cut[(size_t)y * w * 4], &pixels[((size_t)(y + y0) * picture.width + x0) * 4], (size_t)w * 4);
+  SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormatFrom(cut.data(), w, h, 32, w * 4, SDL_PIXELFORMAT_RGBA32);
+  if (surface == NULL) return false;
+  bool ok = SDL_SaveBMP(surface, path) == 0;
+  SDL_FreeSurface(surface);
+  return ok;
+}

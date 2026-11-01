@@ -80,7 +80,7 @@ OBJS=	DSA.o       data.o         Code11f52.o  Graphics.o  Magic.o          \
 AUTOMAP_TESTED = AutoMapExplored.o AutoMapKnowledge.o AutoMapSight.o AutoMapFile.o AutoMapScene.o AutoMapPress.o AutoMapLinkWatch.o AutoMapDrawTally.o AutoMapItemMemory.o AutoMapCellMemory.o AutoMapPlayerNotes.o AutoMapMonsterDamage.o AutoMapVisibilityCases.o
 AUTOMAP_TESTS = automap_tests/TestMain.o automap_tests/ExploredTest.o automap_tests/KnowledgeTest.o automap_tests/SightTest.o automap_tests/FileTest.o automap_tests/SceneTest.o automap_tests/SpoilerTest.o automap_tests/LinkWatchTest.o automap_tests/DrawTallyTest.o automap_tests/ItemMemoryTest.o automap_tests/CellMemoryTest.o automap_tests/PlayerNotesTest.o automap_tests/MonsterDamageTest.o automap_tests/VisionTest.o automap_tests/VisibilityCasesTest.o
 OBJS += $(AUTOMAP_TESTED)
-OBJS += AutoMapWindow.o AutoMapHooks.o AutoMapRecorder.o AutoMapLevelReader.o AutoMapSprites.o AutoMapMeasure.o
+OBJS += AutoMapWindow.o AutoMapHooks.o AutoMapRecorder.o AutoMapLevelReader.o AutoMapSprites.o AutoMapMeasure.o AutoMapExport.o
 
 # The missiles shot with a launcher. This unit needs neither the engine nor SDL either, so
 # "make test" runs its tests together with those of the automap.
