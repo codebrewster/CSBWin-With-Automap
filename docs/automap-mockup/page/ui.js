@@ -138,7 +138,9 @@ function openMenu(mx, my, cx, cy) {
   if (key in N.pits) rows.push({ label: 'REMOVE MARK', act: () => delete N.pits[key] });
   if (N.links.some(l => (l[0] === cx && l[1] === cy) || (l[2] === cx && l[3] === cy))) rows.push({ label: 'REMOVE LINKS', act: () => N.links = N.links.filter(l => !((l[0] === cx && l[1] === cy) || (l[2] === cx && l[3] === cy))) });
   if (debugOn) {
-    const stand = c && c.k !== 0 && c.k !== 6; const why = stand ? '' : 'NOT A FLOOR'; if (rows.length) rows.push(null);
+    // any tile of the level, explored or not: what lies there comes from the whole level
+    const whole = DATA.views[`L${lvl}_v2_s0`].cells.find(o => o.x === cx && o.y === cy);
+    const stand = whole && whole.k !== 0 && whole.k !== 6; const why = stand ? '' : 'NOT A FLOOR'; if (rows.length) rows.push(null);
     rows.push({ label: 'TELEPORT HERE', grey: !stand, act: () => { partyOverride = { l: lvl, x: cx, y: cy, f: 2 }; } });
     DATA.index.levels[lvl].types.forEach(t => rows.push({ label: 'SPAWN ' + nice(t), grey: !stand, act: () => spawnSteps(nice(t), mx, my, cx, cy) }));
     if (why) rows.unshift({ label: why, title: true });
@@ -153,7 +155,7 @@ function spawnSteps(name, mx, my, cx, cy) {
 }
 function drawMenu() {
   panelRects.menu = null; if (!menu) return; const p = 2, rh = 16; const rows = menu.rows; const w = Math.max(textW(menu.title, p), ...rows.filter(Boolean).map(r => textW(r.label, p))) + 20; const h = 26 + rows.reduce((n, r) => n + (r ? rh : 6), 0) + 4;
-  const x = Math.round(Math.min(menu.x, cv.width - w - 4)), y = Math.round(Math.min(menu.y, cv.height - h - 4)); plate(x, y, w, h); text(g, x + 8, y + 7, menu.title, '#ffcc33', p); rect(x + 4, y + 21, w - 8, 1, '#3a362f');
+  const x = Math.round(Math.max(4, Math.min(menu.x, cv.width - w - 4))), y = Math.round(Math.max(4, Math.min(menu.y, cv.height - h - 4))); plate(x, y, w, h); text(g, x + 8, y + 7, menu.title, '#ffcc33', p); rect(x + 4, y + 21, w - 8, 1, '#3a362f');
   let yy = y + 25; const hits = [];
   for (const r of rows) { if (!r) { rect(x + 6, yy + 2, w - 12, 1, '#3a362f'); yy += 6; continue; } if (r.hov) rect(x + 3, yy, w - 6, rh, '#2c2822'); text(g, x + 8, yy + 3, r.label, r.title ? '#ff8a2b' : r.grey ? '#5a554c' : '#fff', p); hits.push([x, yy, w, rh, r]); yy += rh; }
   panelRects.menu = [x, y, w, h, hits];
@@ -211,7 +213,7 @@ cv.addEventListener('mousedown', e => {
   const mx = e.offsetX, my = e.offsetY;
   if (e.button === 1) { e.preventDefault(); follow = true; setLevel(DATA.index.partyLevel); centreOnParty(); draw(); return; }
   if (e.button === 3 || e.button === 4) { e.preventDefault(); stepLevel(e.button === 3 ? 1 : -1); draw(); return; }
-  if (e.button === 2) { if (linkMode) { linkMode = null; draw(); return; } const c = cellAt(mx, my); closePanels(); if (c && V.cells.some(o => o.x === c.x && o.y === c.y)) openMenu(mx, my, c.x, c.y); draw(); return; }
+  if (e.button === 2) { if (linkMode) { linkMode = null; draw(); return; } const c = cellAt(mx, my); closePanels(); if (c && (debugOn || V.cells.some(o => o.x === c.x && o.y === c.y))) openMenu(mx, my, c.x, c.y); draw(); return; }
   if (e.button !== 0) return;
   if (menu) { menuClick(mx, my); draw(); return; }
   if (helpOpen) { helpOpen = false; draw(); return; }
@@ -264,7 +266,7 @@ setInterval(() => { if (searchOpen) draw(); }, 500);
   resize();
   const q = new URLSearchParams(location.search);
   const sv = +(q.get('save') || 0); document.querySelectorAll('#g-save button').forEach(b => b.classList.toggle('on', +b.dataset.v === sv));
-  if (q.get('v')) vision = +q.get('v'); if (q.get('s')) spoil = +q.get('s'); if (q.get('debug')) { debugOn = true; document.getElementById('debug').checked = true; }
+  if (q.get('v')) vision = +q.get('v'); if (q.get('s')) spoil = +q.get('s'); if (q.get('debug')) { debugOn = q.get('debug') !== '0'; document.getElementById('debug').checked = debugOn; }
   await loadSave(sv);
   if (q.get('L')) { setLevel(+q.get('L')); follow = false; fitLevel(); }
   if (q.get('cs')) { cs = Math.min(maxCs(), Math.max(minCs(), +q.get('cs'))); if (cs <= minCs() + .01) fitLevel(); }

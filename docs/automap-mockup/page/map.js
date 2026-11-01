@@ -6,7 +6,7 @@ const SAVE_NAMES = Object.keys(MAPDATA.saves);
 const SAVES = {};            // unpacked saves
 let DATA = null;             // the shown save: {index, views}
 let saveNo = 0, lvl = 0, vision = 0, spoil = 1 /* 0 All, 1 Learned, 2 Seen */, tint = true;
-let follow = true, cs = 36, panX = 0, panY = 0, hover = null, shiftHeld = false, debugOn = false;
+let follow = true, cs = 36, panX = 0, panY = 0, hover = null, shiftHeld = false, debugOn = true;
 let V = null, grid = {}, actsAt = {}, monAt = {}, W = 0, H = 0, OX = 0, OY = 0;
 let tipScroll = 0;
 const SHOW = {};
