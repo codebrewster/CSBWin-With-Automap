@@ -3,7 +3,7 @@
 
 // AutoMapPaint : the map's own marks in one pixel style: lines with a dark rim, arrowheads,
 // plates, the party arrow, claw marks, checkerboards and the 3x5 text. Everything lands on whole
-// pixels. Declarations only (SDL and the layout rectangle), so it can be included after CSB.h.
+// pixels. It includes AutoMapLayout.h, which carries structures: include it before CSB.h.
 #include <SDL.h>
 #include <string>
 #include "AutoMapLayout.h"

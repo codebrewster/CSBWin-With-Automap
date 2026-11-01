@@ -78,6 +78,14 @@ static const SDL_Color SPINNER = {0x6a, 0xd8, 0xe8, 0xff};
 static const SDL_Color DORMANT_SPINNER = {0x40, 0x6e, 0x76, 0xff};
 static const SDL_Color PAD = {0xc8, 0x9a, 0x4a, 0xff};
 static const SDL_Color PAD_DORMANT = {0x8a, 0x84, 0x7a, 0xff};
+// The "who sets it off" badge of pads and teleporters
+static const SDL_Color BADGE_FRAME = {0x6b, 0x62, 0x55, 0xff};
+static const SDL_Color FACING_BADGE_FRAME = {0xe0, 0xb6, 0x4a, 0xff};
+static const SDL_Color TELEPORTER_BADGE_FRAME = {0x3f, 0x7d, 0x88, 0xff};
+static const SDL_Color BADGE_GLYPH = {0xd8, 0xcf, 0xbd, 0xff};
+static const SDL_Color GEN_TEXT = {0xff, 0x80, 0x80, 0xff};
+// The game's pressure plate: what a pad without a floor picture of its own is drawn as, faint
+static const int PRESSURE_PLATE_PICTURE = 258;
 static const SDL_Color GENERATOR = {0xc0, 0x50, 0x50, 0xff};
 static const SDL_Color GENERATOR_SPENT = {0x8a, 0x5a, 0x5a, 0xff};
 static const SDL_Color COG = {0x9a, 0x94, 0x88, 0xff};
@@ -2193,58 +2201,6 @@ static void DrawKeyholeMark(const SDL_Rect &box)
   Fill(slot, WHITE);
 }
 
-// Who operates the pad, bottom-left so the more-items mark (top-right) and the link badge
-// (bottom-right) keep their corners. Triangles echo the party arrow, dots the monsters;
-// anything-operated pads stay unmarked and quiet.
-static void DrawPadOperatorMark(const SDL_Rect &cell, const AutoMapFloorActuator &pad)
-{
-  SDL_Rect corner = {cell.x + cell.w * 8 / 100, cell.y + cell.h * 58 / 100,
-                     cell.w * 30 / 100, cell.h * 34 / 100};
-  int dotSize = std::max(2, cell.w / 14);
-  switch (pad.op)
-  {
-  case AutoMapPadPartyOrMonster:
-  {
-    SDL_Rect triangleHalf = {corner.x, corner.y, corner.w * 60 / 100, corner.h};
-    DrawOperatorTriangle(triangleHalf, AutoMapNorth);
-    int dotX = corner.x + corner.w * 80 / 100;
-    DrawOperatorDot(dotX, corner.y + corner.h / 2, dotSize);
-    break;
-  }
-  case AutoMapPadParty: DrawOperatorTriangle(corner, AutoMapNorth); break;
-  case AutoMapPadPartyFacing:
-  {
-    AutoMapDirection facing = AutoMapNorth;
-    if (pad.requiredFacing >= AutoMapNorth && pad.requiredFacing <= AutoMapWest)
-    {
-      facing = (AutoMapDirection)pad.requiredFacing;
-    }
-    DrawOperatorTriangle(corner, facing);
-    break;
-  }
-  case AutoMapPadMonster:
-    DrawOperatorDot(corner.x + corner.w * 25 / 100, corner.y + corner.h / 2, dotSize);
-    DrawOperatorDot(corner.x + corner.w * 75 / 100, corner.y + corner.h / 2, dotSize);
-    break;
-  case AutoMapPadObject:
-  case AutoMapPadPossession:
-  {
-    SDL_Rect miniature = Inset(cell, 30);
-    if (pad.object.worldPicture == AUTOMAP_NO_PICTURE) DrawKeyholeMark(miniature);
-    else DrawTooltipIcon(miniature, pad.object);
-    // Held, not placed: the centered miniature plus a dot beneath it
-    if (pad.op == AutoMapPadPossession)
-    {
-      int dotX = miniature.x + miniature.w / 2;
-      int dotY = miniature.y + miniature.h + dotSize / 2 + 1;
-      if (dotY < cell.y + cell.h - 1) DrawOperatorDot(dotX, dotY, dotSize);
-    }
-    break;
-  }
-  default: break;
-  }
-}
-
 // Objects-only teleporters take anything inanimate: a hollow square, the last glyph of
 // the operator vocabulary (triangle = party, dots = monsters, plain = anything)
 static void DrawOperatorHollowSquare(const SDL_Rect &box)
@@ -2254,28 +2210,69 @@ static void DrawOperatorHollowSquare(const SDL_Rect &box)
   Outline(square, WHITE);
 }
 
-// Who a firing teleporter takes, bottom-left like the pad marks and in the same glyphs.
-// Dormant teleporters, spinners and plain floors carry no scope and stay unmarked.
-static void DrawTeleporterScopeMark(const SDL_Rect &cell, const AutoMapCellRecord &record)
+// The "who sets it off" badge, lower left: a dark plate with one square per kind of trigger. The
+// party is its own red arrow (turned the required way on a facing pad), monsters are claw marks,
+// an item is its own inventory icon, a box stands for objects. Too small cells draw none.
+static void DrawBadge(const SDL_Rect &cell, const AutoMapBadge &badge, const AutoMapItem *item,
+                      const SDL_Color &frame)
 {
-  if (record.teleporterScope < 0 || record.teleporterScope > 3) return;
-  if (record.teleporterScope == 3) return;
-  SDL_Rect corner = {cell.x + cell.w * 8 / 100, cell.y + cell.h * 58 / 100,
-                     cell.w * 30 / 100, cell.h * 34 / 100};
-  int dotSize = std::max(2, cell.w / 14);
-  switch (record.teleporterScope)
+  int size = AutoMapLayout_BadgeSize(cell.w);
+  if (size <= 0 || badge.glyphs.empty()) return;
+  int textPixel = std::max(1, size / 9);
+  int width = 2;
+  for (size_t i = 0; i < badge.glyphs.size(); i++)
   {
-  case 2: DrawOperatorTriangle(corner, AutoMapNorth); break;
-  case 1:
-    DrawOperatorDot(corner.x + corner.w * 25 / 100, corner.y + corner.h / 2, dotSize);
-    DrawOperatorDot(corner.x + corner.w * 75 / 100, corner.y + corner.h / 2, dotSize);
-    break;
-  case 0: DrawOperatorHollowSquare(corner); break;
-  default: break;
+    width += badge.glyphs[i] == AutoMapGlyphGen ? AutoMapPaint_TextWidth("GEN", textPixel) + 4 : size;
+  }
+  int margin = std::max(2, cell.w * 6 / 100);
+  AutoMapRect plate = {cell.x + margin, cell.y + cell.h - size - 2 - margin, width, size + 2};
+  AutoMapPaint_Plate(plate, frame);
+  int x = plate.x + 1;
+  int y = plate.y + 1;
+  for (size_t i = 0; i < badge.glyphs.size(); i++)
+  {
+    AutoMapRect box = {x, y, size, size};
+    switch (badge.glyphs[i])
+    {
+    case AutoMapGlyphParty:
+      AutoMapPaint_PartyArrow(x + size / 2.0f, y + size / 2.0f, size * 0.36f, badge.facing, PARTY, false);
+      break;
+    case AutoMapGlyphClaw: AutoMapPaint_Claw(box, BADGE_GLYPH); break;
+    case AutoMapGlyphBox:
+    {
+      AutoMapRect square = {x + size * 22 / 100, y + size * 22 / 100, size * 56 / 100, size * 56 / 100};
+      AutoMapPaint_Frame(square, BADGE_GLYPH, std::max(1, size / 10));
+      break;
+    }
+    case AutoMapGlyphItem:
+    {
+      SDL_Rect area = {x, y, size, size};
+      if (item == NULL || item->worldPicture == AUTOMAP_NO_PICTURE) DrawKeyholeMark(Inset(area, 10));
+      else DrawTooltipIcon(area, *item);
+      break;
+    }
+    case AutoMapGlyphGen:
+    {
+      int w = AutoMapPaint_TextWidth("GEN", textPixel);
+      AutoMapPaint_Text(x + 2, y + (size - 5 * textPixel) / 2, "GEN", GEN_TEXT, textPixel);
+      x += w + 4;
+      continue;
+    }
+    }
+    x += size;
   }
 }
 
-static void DrawPadMark(const SDL_Rect &cell, const AutoMapFloorActuator &pad)
+// Who a firing teleporter takes, in the pads' badge. Dormant teleporters, spinners and plain floors
+// carry no scope and stay unmarked.
+static void DrawTeleporterScopeMark(const SDL_Rect &cell, const AutoMapCellRecord &record)
+{
+  DrawBadge(cell, AutoMapLayout_TeleporterBadge(record.teleporterScope), NULL, TELEPORTER_BADGE_FRAME);
+}
+
+// The game's own floor picture is the pad. A pad that has none (a hidden one) gets the game's
+// pressure plate drawn faint with a dotted rim; a dormant pad keeps its dashed plate.
+static void DrawPadMark(const SDL_Rect &cell, const AutoMapFloorActuator &pad, bool hasFloorPicture = false)
 {
   SDL_Rect plate = Inset(cell, 22);
   if (pad.kind == AutoMapActuatorDormantPad)
@@ -2283,11 +2280,19 @@ static void DrawPadMark(const SDL_Rect &cell, const AutoMapFloorActuator &pad)
     DrawDashedRect(plate, PAD_DORMANT);
     return;
   }
-  Outline(plate, PAD);
-  UseColour(PAD);
-  SDL_RenderDrawLine(mapRenderer, plate.x, plate.y + plate.h / 2, plate.x + plate.w,
-                     plate.y + plate.h / 2);
-  DrawPadOperatorMark(cell, pad);
+  if (!hasFloorPicture)
+  {
+    const AutoMapSprite *sprite = SpriteOfTheGame(PRESSURE_PLATE_PICTURE);
+    if (sprite != NULL)
+    {
+      SDL_SetTextureAlphaMod(sprite->texture, 90);
+      DrawSprite(*sprite, FitInto(Inset(cell, 8), *sprite));
+      SDL_SetTextureAlphaMod(sprite->texture, 255);
+    }
+    DrawDashedRect(Inset(cell, 14), PAD);
+  }
+  AutoMapBadge badge = AutoMapLayout_PadBadge(pad.op, pad.requiredFacing);
+  DrawBadge(cell, badge, &pad.object, badge.gold ? FACING_BADGE_FRAME : BADGE_FRAME);
 }
 
 static void DrawGeneratorMark(const SDL_Rect &cell, bool spent)
@@ -2340,12 +2345,24 @@ static void DrawCogMark(const SDL_Rect &cell)
 // generators fall back to the bare diamond.
 static void DrawGeneratedMonster(const SDL_Rect &cell, const AutoMapFloorActuator &pad)
 {
-  if (!pad.hasGeneratedMonster) return;
-  AutoMapSpriteRequest request = {pad.generatedKind.frontPicture,
-                                  pad.generatedKind.transparentColour};
-  const AutoMapSprite *sprite = sprites.Find(request);
-  if (sprite == NULL) return;
-  DrawSprite(*sprite, FitInto(Inset(cell, 30), *sprite));
+  if (pad.hasGeneratedMonster)
+  {
+    AutoMapSpriteRequest request = {pad.generatedKind.frontPicture, pad.generatedKind.transparentColour};
+    const AutoMapSprite *sprite = sprites.Find(request);
+    if (sprite != NULL)
+    {
+      SDL_SetTextureAlphaMod(sprite->texture, 115);
+      DrawSprite(*sprite, FitInto(Inset(cell, 8), *sprite));
+      SDL_SetTextureAlphaMod(sprite->texture, 255);
+    }
+    else DrawGeneratorMark(cell, false);
+  }
+  else DrawGeneratorMark(cell, false);
+  AutoMapBadge badge;
+  badge.glyphs.push_back(AutoMapGlyphGen);
+  badge.facing = 0;
+  badge.gold = false;
+  DrawBadge(cell, badge, NULL, GENERATOR);
 }
 
 static void DrawFloorActuators(const SDL_Rect &cell, const AutoMapShownCell &shown,
@@ -2357,11 +2374,10 @@ static void DrawFloorActuators(const SDL_Rect &cell, const AutoMapShownCell &sho
     switch (drawList.actuators[i].kind)
     {
     case AutoMapActuatorPad:
-    case AutoMapActuatorDormantPad: DrawPadMark(cell, drawList.actuators[i]); break;
-    case AutoMapActuatorGenerator:
-      DrawGeneratorMark(cell, false);
-      DrawGeneratedMonster(cell, drawList.actuators[i]);
+    case AutoMapActuatorDormantPad:
+      DrawPadMark(cell, drawList.actuators[i], shown.cell.floorPicture != AUTOMAP_NO_PICTURE);
       break;
+    case AutoMapActuatorGenerator: DrawGeneratedMonster(cell, drawList.actuators[i]); break;
     case AutoMapActuatorSpentGenerator: DrawGeneratorMark(cell, true); break;
     case AutoMapActuatorCog: DrawCogMark(cell); break;
     }

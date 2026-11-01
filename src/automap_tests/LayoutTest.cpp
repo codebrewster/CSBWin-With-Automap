@@ -80,8 +80,39 @@ static void LoneSlotIsBig(void)
   CHECK(onEast.x == 100 - 7 - 56 && onEast.y == 22);
 }
 
+static bool GlyphsAre(const AutoMapBadge &badge, int count, AutoMapBadgeGlyph first, AutoMapBadgeGlyph second)
+{
+  if ((int)badge.glyphs.size() != count) return false;
+  if (count >= 1 && badge.glyphs[0] != first) return false;
+  if (count >= 2 && badge.glyphs[1] != second) return false;
+  return true;
+}
+
+// Pads and teleporters tell who sets them off with the same few glyphs
+static void BadgesSpeakOneVocabulary(void)
+{
+  CHECK(GlyphsAre(AutoMapLayout_PadBadge(AutoMapPadPartyOrMonster, -1), 2, AutoMapGlyphParty, AutoMapGlyphClaw));
+  AutoMapBadge party = AutoMapLayout_PadBadge(AutoMapPadParty, -1);
+  CHECK(GlyphsAre(party, 1, AutoMapGlyphParty, AutoMapGlyphParty));
+  CHECK(party.facing == 0 && !party.gold);
+  AutoMapBadge facing = AutoMapLayout_PadBadge(AutoMapPadPartyFacing, 2);
+  CHECK(GlyphsAre(facing, 1, AutoMapGlyphParty, AutoMapGlyphParty));
+  CHECK(facing.facing == 2 && facing.gold);
+  CHECK(AutoMapLayout_PadBadge(AutoMapPadPartyFacing, 9).facing == 0);
+  CHECK(GlyphsAre(AutoMapLayout_PadBadge(AutoMapPadMonster, -1), 1, AutoMapGlyphClaw, AutoMapGlyphClaw));
+  CHECK(GlyphsAre(AutoMapLayout_PadBadge(AutoMapPadObject, -1), 1, AutoMapGlyphItem, AutoMapGlyphItem));
+  CHECK(GlyphsAre(AutoMapLayout_PadBadge(AutoMapPadPossession, -1), 2, AutoMapGlyphParty, AutoMapGlyphItem));
+  CHECK(AutoMapLayout_PadBadge(AutoMapPadAnything, -1).glyphs.empty());
+  CHECK(GlyphsAre(AutoMapLayout_TeleporterBadge(0), 1, AutoMapGlyphBox, AutoMapGlyphBox));
+  CHECK(GlyphsAre(AutoMapLayout_TeleporterBadge(1), 1, AutoMapGlyphClaw, AutoMapGlyphClaw));
+  CHECK(GlyphsAre(AutoMapLayout_TeleporterBadge(2), 2, AutoMapGlyphParty, AutoMapGlyphBox));
+  CHECK(AutoMapLayout_TeleporterBadge(3).glyphs.empty());
+  CHECK(AutoMapLayout_TeleporterBadge(7).glyphs.empty());
+}
+
 void TestAutoMapLayout(void)
 {
+  BadgesSpeakOneVocabulary();
   SlotsNeverOverlap();
   LoneSlotIsBig();
   LayoutAtTinyCells();

@@ -3,7 +3,10 @@
 
 // AutoMapLayout : the map window's geometry and drawing decisions, free of SDL and of the engine,
 // so "make test" can check them: sizes that grow with the cell, wall slots, badges, line ends,
-// the tooltip's side and grid, the bar and the level list.
+// the tooltip's side and grid, the bar and the level list. It carries structures: include it
+// before CSB.h, which leaves #pragma pack(1) switched on.
+#include <vector>
+#include "AutoMapScene.h"
 
 // A rectangle in pixels; empty when w or h is not positive
 struct AutoMapRect
@@ -37,5 +40,28 @@ AutoMapRect AutoMapLayout_WallSlot(const bool decorated[4], int side, int cellSi
 AutoMapRect AutoMapLayout_SlotCorner(const AutoMapRect &slot, bool right);
 // The thickness of the line along a decorated face, also the slot's inset from the face
 int AutoMapLayout_FaceLine(int cellSize);
+
+// The marks of the "who sets it off" badge of pads and teleporters
+enum AutoMapBadgeGlyph
+{
+  AutoMapGlyphParty,
+  AutoMapGlyphClaw,
+  AutoMapGlyphBox,
+  AutoMapGlyphItem,
+  AutoMapGlyphGen
+};
+
+struct AutoMapBadge
+{
+  std::vector<AutoMapBadgeGlyph> glyphs;
+  // Where the party arrow points, 0 north .. 3 west
+  int facing;
+  // A facing pad: the badge's frame is gold
+  bool gold;
+};
+
+AutoMapBadge AutoMapLayout_PadBadge(AutoMapPadOperator op, int requiredFacing);
+// Scope as the engine keeps it: 0 objects, 1 monsters, 2 party and objects, 3 anything
+AutoMapBadge AutoMapLayout_TeleporterBadge(int scope);
 
 #endif

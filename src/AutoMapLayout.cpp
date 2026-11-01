@@ -75,3 +75,50 @@ AutoMapRect AutoMapLayout_SlotCorner(const AutoMapRect &slot, bool right)
   AutoMapRect corner = {right ? slot.x + slot.w - size : slot.x, slot.y + slot.h - size, size, size};
   return corner;
 }
+
+static AutoMapBadge Badge(void)
+{
+  AutoMapBadge badge;
+  badge.facing = 0;
+  badge.gold = false;
+  return badge;
+}
+
+AutoMapBadge AutoMapLayout_PadBadge(AutoMapPadOperator op, int requiredFacing)
+{
+  AutoMapBadge badge = Badge();
+  switch (op)
+  {
+  case AutoMapPadPartyOrMonster:
+    badge.glyphs.push_back(AutoMapGlyphParty);
+    badge.glyphs.push_back(AutoMapGlyphClaw);
+    break;
+  case AutoMapPadParty: badge.glyphs.push_back(AutoMapGlyphParty); break;
+  case AutoMapPadPartyFacing:
+    badge.glyphs.push_back(AutoMapGlyphParty);
+    badge.facing = requiredFacing >= 0 && requiredFacing <= 3 ? requiredFacing : 0;
+    badge.gold = true;
+    break;
+  case AutoMapPadMonster: badge.glyphs.push_back(AutoMapGlyphClaw); break;
+  case AutoMapPadObject: badge.glyphs.push_back(AutoMapGlyphItem); break;
+  case AutoMapPadPossession:
+    badge.glyphs.push_back(AutoMapGlyphParty);
+    badge.glyphs.push_back(AutoMapGlyphItem);
+    break;
+  default: break;
+  }
+  return badge;
+}
+
+AutoMapBadge AutoMapLayout_TeleporterBadge(int scope)
+{
+  AutoMapBadge badge = Badge();
+  if (scope == 0) badge.glyphs.push_back(AutoMapGlyphBox);
+  if (scope == 1) badge.glyphs.push_back(AutoMapGlyphClaw);
+  if (scope == 2)
+  {
+    badge.glyphs.push_back(AutoMapGlyphParty);
+    badge.glyphs.push_back(AutoMapGlyphBox);
+  }
+  return badge;
+}
