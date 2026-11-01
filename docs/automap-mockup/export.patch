@@ -1,0 +1,200 @@
+diff --git a/src/AutoMapHooks.cpp b/src/AutoMapHooks.cpp
+index 9714b74..2efe2cd 100644
+--- a/src/AutoMapHooks.cpp
++++ b/src/AutoMapHooks.cpp
+@@ -3,6 +3,9 @@
+ 
+ // Before CSB.h, which leaves #pragma pack(1) switched on
+ #include <algorithm>
++#include <set>
++#include <sstream>
++#include "AutoMapSprites.h"
+ #include <cctype>
+ #include <cstdio>
+ #include <cstring>
+@@ -1559,8 +1562,155 @@ static void DrawVisibilityCase(const AutoMapVisibilityCase &visibilityCase, int
+   DrawViewport(d.partyFacing, d.partyX, d.partyY);
+ }
+ 
++// ---- SPIKE: map export for mockups ----
++#pragma pack(push)
++#pragma pack()
++bool AutoMapSprites_SaveBmp(const AutoMapSpriteRequest &request, const char *path);
++
++static std::string JsonText(const std::string &s)
++{
++  std::string out = "\"";
++  for (size_t i = 0; i < s.size(); i++)
++  {
++    unsigned char c = s[i];
++    if (c == '"' || c == '\\') { out += '\\'; out += c; }
++    else if (c < 32) { char buf[8]; sprintf(buf, "\\u%04x", c); out += buf; }
++    else if (c < 128) out += c;
++  }
++  return out + "\"";
++}
++
++struct SpikeSprites
++{
++  std::string dir;
++  int level;
++  std::set<std::string> done;
++  std::string Save(const AutoMapSpriteRequest &r)
++  {
++    char name[128];
++    if (r.hasTile) sprintf(name, "L%d_p%d_t%d_x%d_y%d%s.bmp", level, r.picture, r.transparentColour, r.tileX, r.tileY, r.portraitPalette ? "_pp" : "");
++    else sprintf(name, "L%d_p%d_t%d.bmp", level, r.picture, r.transparentColour);
++    std::string n = name;
++    if (done.count(n)) return n;
++    done.insert(n);
++    if (!AutoMapSprites_SaveBmp(r, (dir + "/" + n).c_str())) return "";
++    return n;
++  }
++  std::string Plain(int picture, int tc) { if (picture < 0) return ""; AutoMapSpriteRequest r = {picture, tc, false, 0, 0, 0, 0, false}; return Save(r); }
++  std::string Icon(const AutoMapItem &item)
++  {
++    if (!item.hasIcon) return "";
++    AutoMapSpriteRequest r = {item.iconGraphic, -1, true, (item.iconTile & 15) * 16, (item.iconTile >> 4) * 16, 16, 16, true};
++    return Save(r);
++  }
++  std::string Portrait(int p)
++  {
++    if (p < 0 || p >= 24) return "";
++    AutoMapSpriteRequest r = {26, 1, true, (p & 7) * 32, (p >> 3) * 29, 32, 29, false};
++    return Save(r);
++  }
++};
++
++static std::string ItemJson(SpikeSprites &sp, const AutoMapItem &item)
++{
++  std::ostringstream o;
++  const char *name = item.nameIndex >= 0 ? AutoMapLevelReader_ItemName(item.nameIndex) : NULL;
++  o << "{\"world\":" << JsonText(sp.Plain(item.worldPicture, 10)) << ",\"icon\":" << JsonText(sp.Icon(item))
++    << ",\"name\":" << JsonText(name ? name : "") << "}";
++  return o.str();
++}
++
++static void SpikeExport(const char *dir)
++{
++  SpikeSprites sp;
++  sp.dir = dir;
++  AutoMapSprites spritesForSchemes;
++  int levelCount = (int)AutoMapLevelReader_DungeonLevelSizes().size();
++  for (int level = 0; level < levelCount; level++)
++  {
++    AutoMapLevelSnapshot s = AutoMapLevelReader_ReadLevel(level);
++    spritesForSchemes.UseColourSchemes(s.paletteScheme9, s.paletteScheme10);
++    sp.level = level;
++    std::vector<AutoMapMonsterChoice> types = AutoMapLevelReader_MonsterTypesOfLevel(level);
++    char path[512];
++    sprintf(path, "%s/level%d.json", dir, level);
++    FILE *f = fopen(path, "w");
++    fprintf(f, "{\"level\":%d,\"width\":%d,\"height\":%d,\"offsetX\":%d,\"offsetY\":%d,\"monsterTypes\":[", level, s.width, s.height, s.offsetX, s.offsetY);
++    for (size_t i = 0; i < types.size(); i++) { MONSTERDESC *md = &d.MonsterDescriptor[types[i].type]; ITEM12 *pics = &d.Item6414[md->uByte0]; int fp = 446 + pics->ITEM12_word0;
++      fprintf(f, "%s{\"type\":%d,\"name\":%s,\"frontPicture\":%d,\"front\":%s}", i ? "," : "", types[i].type, JsonText(types[i].name).c_str(), fp, JsonText(sp.Plain(fp, pics->uByte10 & 15)).c_str()); }
++    fprintf(f, "],\n\"cells\":[\n");
++    for (int y = 0; y < s.height; y++)
++      for (int x = 0; x < s.width; x++)
++      {
++        const AutoMapCellRecord &c = s.cells[(size_t)y * s.width + x];
++        std::ostringstream o;
++        o << "{\"x\":" << x << ",\"y\":" << y << ",\"kind\":" << (int)c.kind << ",\"out\":" << (c.isOutsideLevel ? 1 : 0)
++          << ",\"floor\":" << JsonText(sp.Plain(c.floorPicture, 10)) << ",\"floorPicture\":" << c.floorPicture
++          << ",\"door\":" << (int)c.doorState << ",\"ns\":" << (c.runsNorthSouth ? 1 : 0) << ",\"up\":" << (c.stairsLeadUp ? 1 : 0)
++          << ",\"pitHidden\":" << c.pitIsHidden << ",\"pitOpen\":" << c.pitIsOpen
++          << ",\"tele\":[" << c.teleporterDestLevel << "," << c.teleporterDestX << "," << c.teleporterDestY << "," << c.teleporterScope << "," << c.teleporterRotation << "," << c.teleporterFacingMode << "," << c.hasTeleporterTarget << "," << c.teleporterDestGlobalX << "," << c.teleporterDestGlobalY << "]"
++          << ",\"spinner\":[" << c.spinnerFacing << "," << c.spinnerRotation << "]"
++          << ",\"sides\":[";
++        for (int side = 0; side < 4; side++)
++        {
++          const AutoMapWallSide &w = c.wallSides[side];
++          o << (side ? "," : "") << "{\"pic\":" << JsonText(sp.Plain(w.picture, 10)) << ",\"picture\":" << w.picture
++            << ",\"writing\":" << w.hasWriting << ",\"functional\":" << w.functional << ",\"hidden\":" << w.hidden
++            << ",\"alcove\":" << w.isAlcove << ",\"portrait\":" << JsonText(sp.Portrait(w.portrait))
++            << ",\"text\":" << JsonText(w.text) << ",\"feature\":" << (int)w.feature << "}";
++        }
++        o << "],\"items\":[";
++        for (size_t i = 0; i < c.itemPictures.size(); i++) o << (i ? "," : "") << ItemJson(sp, c.itemPictures[i]);
++        o << "],\"alcove\":[";
++        for (size_t i = 0; i < c.alcoveContents.size(); i++) o << (i ? "," : "") << "{\"side\":" << c.alcoveContents[i].side << ",\"item\":" << ItemJson(sp, c.alcoveContents[i].item) << "}";
++        o << "],\"locks\":[";
++        for (size_t i = 0; i < c.wallLocks.size(); i++) o << (i ? "," : "") << "{\"side\":" << c.wallLocks[i].side << ",\"required\":" << c.wallLocks[i].required << ",\"item\":" << ItemJson(sp, c.wallLocks[i].object) << "}";
++        o << "],\"relays\":" << c.wallRelays.size() << "}";
++        fprintf(f, "%s%s\n", (x || y) ? "," : "", o.str().c_str());
++      }
++    fprintf(f, "],\n\"monsters\":[\n");
++    for (size_t i = 0; i < s.monsters.size(); i++)
++    {
++      const AutoMapMonsterRecord &m = s.monsters[i];
++      std::ostringstream o;
++      o << "{\"x\":" << m.x << ",\"y\":" << m.y << ",\"count\":" << m.memberCount << ",\"members\":[";
++      for (int k = 0; k < m.memberCount; k++)
++      {
++        AutoMapMonsterPicture pic = AutoMapScene_ChooseMonsterPicture(m.kind, m.memberFacings[k]);
++        o << (k ? "," : "") << "{\"pic\":" << JsonText(sp.Plain(pic.picture, m.kind.transparentColour)) << ",\"mirror\":" << pic.isMirrored << ",\"facing\":" << (int)m.memberFacings[k]
++          << ",\"hp\":" << (k < (int)m.memberHealth.size() ? m.memberHealth[k] : -1) << "}";
++      }
++      o << "],\"front\":" << JsonText(sp.Plain(m.kind.frontPicture, m.kind.transparentColour)) << ",\"frontPicture\":" << m.kind.frontPicture << "}";
++      fprintf(f, "%s%s\n", i ? "," : "", o.str().c_str());
++    }
++    fprintf(f, "],\n\"actuators\":[\n");
++    for (size_t i = 0; i < s.actuators.size(); i++)
++    {
++      const AutoMapFloorActuator &a = s.actuators[i];
++      std::ostringstream o;
++      o << "{\"x\":" << a.x << ",\"y\":" << a.y << ",\"kind\":" << (int)a.kind << ",\"op\":" << (int)a.op << ",\"facing\":" << a.requiredFacing
++        << ",\"object\":" << ItemJson(sp, a.object) << ",\"gen\":" << JsonText(a.generatedMonsterName)
++        << ",\"genPic\":" << JsonText(a.hasGeneratedMonster ? sp.Plain(a.generatedKind.frontPicture, a.generatedKind.transparentColour) : "") << "}";
++      fprintf(f, "%s%s\n", i ? "," : "", o.str().c_str());
++    }
++    fprintf(f, "],\n\"links\":[\n");
++    for (size_t i = 0; i < s.links.size(); i++)
++    {
++      const AutoMapLink &l = s.links[i];
++      fprintf(f, "%s{\"sx\":%d,\"sy\":%d,\"dx\":%d,\"dy\":%d,\"wall\":%d,\"side\":%d,\"signal\":%d,\"once\":%d,\"delay\":%d,\"counter\":%d}\n", i ? "," : "",
++              l.srcX, l.srcY, l.dstX, l.dstY, l.srcIsWall, l.srcSide, (int)l.signal, l.onceOnly, l.delay, l.fromCounter);
++    }
++    fprintf(f, "],\"party\":[%d,%d,%d,%d]}\n", s.party.x, s.party.y, (int)s.party.facing, s.partyIsOnShownLevel);
++    fclose(f);
++    printf("export: level %d %dx%d, %zu links\n", level, s.width, s.height, s.links.size());
++  }
++}
++#pragma pack(pop)
++// ---- end SPIKE ----
++
+ static void RunVisibilityTest(void)
+ {
++  if (getenv("CSB_MAP_EXPORT")) { SpikeExport(getenv("CSB_MAP_EXPORT")); exit(0); }
+   int passed = 0;
+   int total = 0;
+   int levelCount = (int)AutoMapLevelReader_DungeonLevelSizes().size();
+diff --git a/src/AutoMapSprites.cpp b/src/AutoMapSprites.cpp
+index 16c2564..e7aed23 100644
+--- a/src/AutoMapSprites.cpp
++++ b/src/AutoMapSprites.cpp
+@@ -238,3 +238,25 @@ void AutoMapSprites::ForgetAll(void)
+   }
+   m_spritesByRequest.clear();
+ }
++
++// SPIKE: write one picture as a 32-bit BMP with alpha
++bool AutoMapSprites_SaveBmp(const AutoMapSpriteRequest &request, const char *path)
++{
++  PlanarPicture picture;
++  if (!DecodePicture(request.picture, &picture)) return false;
++  std::vector<Uint8> pixels = ToRgba(picture, request);
++  int x0 = 0, y0 = 0, w = picture.width, h = picture.height;
++  if (request.hasTile)
++  {
++    x0 = request.tileX; y0 = request.tileY; w = request.tileW; h = request.tileH;
++    if (x0 + w > picture.width || y0 + h > picture.height) return false;
++  }
++  std::vector<Uint8> cut((size_t)w * h * 4);
++  for (int y = 0; y < h; y++)
++    memcpy(&cut[(size_t)y * w * 4], &pixels[((size_t)(y + y0) * picture.width + x0) * 4], (size_t)w * 4);
++  SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormatFrom(cut.data(), w, h, 32, w * 4, SDL_PIXELFORMAT_RGBA32);
++  if (surface == NULL) return false;
++  bool ok = SDL_SaveBMP(surface, path) == 0;
++  SDL_FreeSurface(surface);
++  return ok;
++}
