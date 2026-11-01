@@ -8,6 +8,7 @@
 #include <string>
 
 #include "AutoMapScene.h"
+#include "AutoMapPaint.h"
 #include "AutoMapSprites.h"
 #include "AutoMapWindow.h"
 #include "AutoMapWindowTooltip.h"
@@ -421,6 +422,7 @@ static bool CreateMapWindow(void)
   SDL_SetWindowMinimumSize(mapWindow, SMALLEST_SIZE, SMALLEST_SIZE);
   SDL_SetRenderDrawBlendMode(mapRenderer, SDL_BLENDMODE_BLEND);
   sprites.UseRenderer(mapRenderer);
+  AutoMapPaint_Use(mapRenderer);
   if (MapTimingOn())
   {
     SDL_RendererInfo info;
@@ -3878,20 +3880,7 @@ static void DrawRulers(const AutoMapView &view, int windowWidth, int windowHeigh
 static void DrawLegendText(int x, int y, const char *text, const SDL_Color &colour)
 {
   if (text == NULL) return;
-  UseColour(colour);
-  for (int i = 0; text[i] != '\0'; i++)
-  {
-    for (int row = 0; row < 5; row++)
-    {
-      for (int col = 0; col < 3; col++)
-      {
-        if (!AutoMapScene_FontPixel(text[i], row, col)) continue;
-        SDL_Rect pixel = {x + (i * 4 + col) * DIGIT_SCALE, y + row * DIGIT_SCALE,
-                          DIGIT_SCALE, DIGIT_SCALE};
-        SDL_RenderFillRect(mapRenderer, &pixel);
-      }
-    }
-  }
+  AutoMapPaint_Text(x, y, text, colour, DIGIT_SCALE);
 }
 
 enum LegendSwatch
@@ -5737,6 +5726,7 @@ bool AutoMapWindow_RenderToFile(const AutoMapDrawList &list, int width, int heig
   mapRenderer = renderer;
   SDL_SetRenderDrawBlendMode(mapRenderer, SDL_BLENDMODE_BLEND);
   sprites.UseRenderer(mapRenderer);
+  AutoMapPaint_Use(mapRenderer);
   if (staticCache != NULL) SDL_DestroyTexture(staticCache);
   staticCache = NULL;
   AutoMapWindow_ShowDrawList(list);
@@ -5756,6 +5746,7 @@ bool AutoMapWindow_RenderToFile(const AutoMapDrawList &list, int width, int heig
   if (staticCache != NULL) SDL_DestroyTexture(staticCache);
   staticCache = NULL;
   sprites.UseRenderer(windowRenderer);
+  AutoMapPaint_Use(windowRenderer);
   mapRenderer = windowRenderer;
   SDL_DestroyRenderer(renderer);
   SDL_FreeSurface(surface);

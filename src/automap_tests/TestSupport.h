@@ -29,6 +29,7 @@ void TestAutoMapPlayerNotes(void);
 void TestAutoMapMonsterDamage(void);
 void TestAutoMapVision(void);
 void TestAutoMapVisibilityCases(void);
+void TestAutoMapLayout(void);
 void TestShotMissiles(void);
 void TestHeroStats(void);
 void TestHeroStatsOrigins(void);

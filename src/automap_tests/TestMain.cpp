@@ -19,6 +19,7 @@ int main(void)
   TestAutoMapMonsterDamage();
   TestAutoMapVision();
   TestAutoMapVisibilityCases();
+  TestAutoMapLayout();
   TestShotMissiles();
   TestHeroStats();
   TestHeroStatsOrigins();
