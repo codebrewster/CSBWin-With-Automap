@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Automap mockup</title>
+<style>
+  :root{--bg:#15130f;--fg:#cfc6b4;--muted:#9a917f;--line:#2c2822;--gold:#e0b64a}
+  body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.45 system-ui,sans-serif}
+  header{padding:10px 16px;border-bottom:1px solid var(--line)}
+  h2{margin:0 0 4px;font-size:16px;color:#eee3c8}
+  .sub{color:var(--muted);margin:0;max-width:1200px}
+  .sub b{color:#ffcc33}
+  .bar{display:flex;flex-wrap:wrap;gap:14px;padding:8px 16px;align-items:center;border-bottom:1px solid var(--line)}
+  .grp{display:flex;border:1px solid #4a443a;border-radius:4px;overflow:hidden}
+  .grp span{padding:3px 9px;color:#8f8676;font-size:12px;background:#1d1a16}
+  .grp button{background:#26221c;color:var(--fg);border:0;border-left:1px solid #4a443a;padding:4px 10px;cursor:pointer;font-size:12px}
+  .grp button.on{background:var(--gold);color:#1a160f;font-weight:600}
+  label{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center}
+  #wrap{margin:10px 16px}
+  canvas{display:block;image-rendering:pixelated;background:#0c0b09}
+  #c{cursor:grab} #c.drag{cursor:grabbing}
+  #status{color:var(--muted);font-size:12px}
+</style></head><body>
+<header>
+  <h2>Automap redesign: reference mockup</h2>
+  <p class="sub">Drawn from what the <b>real map code</b> shows for two real saves: the draw lists at every vision and spoiler level, the tooltips as the game builds them, the press chains, the fog from the saves' <code>.map</code> files, and the game's own pictures. Only the drawing is the mockup. Design: <code>docs/superpowers/specs/2026-11-01-automap-look-and-controls-design.md</code> (local).<br>
+  <b>Mouse:</b> left-drag pans, the wheel zooms (no further out than the whole level), middle-click centres on the party, right-click opens your notes (and the debug rows), Shift shows the whole press chain at ALL, Shift+wheel scrolls a long tooltip, the side buttons or Page Up/Down change level. <b>Keys:</b> / or Ctrl+F searches, Escape closes.<br>
+  <b>Places:</b> before the win, L11 has press chains with goal badges, L4 teleporters, L2 and L7 spinners; mid game shows fog and levels not visited yet. Add <code>?save=1&amp;L=4&amp;v=2&amp;s=0&amp;cs=48&amp;hh=x,y</code> to the address for a fixed view.</p>
+</header>
+<div class="bar">
+  <div class="grp" id="g-save"><span>Save</span><button data-v="0" class="on">Before the win</button><button data-v="1">Mid game, level 3</button></div>
+  <label><input type="checkbox" id="debug"> map_debug = 1</label>
+  <span id="status">loading…</span>
+</div>
+<div id="wrap"><canvas id="tb"></canvas><canvas id="c"></canvas></div>
