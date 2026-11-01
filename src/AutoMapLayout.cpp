@@ -122,3 +122,29 @@ AutoMapBadge AutoMapLayout_TeleporterBadge(int scope)
   }
   return badge;
 }
+
+AutoMapPointF AutoMapLayout_LineEnd(AutoMapPointF from, int targetX, int targetY, int cellSize)
+{
+  float centreX = targetX * cellSize + cellSize / 2.0f;
+  float centreY = targetY * cellSize + cellSize / 2.0f;
+  float half = cellSize / 2.0f - cellSize * 0.18f;
+  float dx = from.x - centreX;
+  float dy = from.y - centreY;
+  float reach = 1.0f;
+  if (std::fabs(dx) > 0.0f) reach = std::min(reach, half / std::fabs(dx));
+  if (std::fabs(dy) > 0.0f) reach = std::min(reach, half / std::fabs(dy));
+  AutoMapPointF end = {centreX + dx * reach, centreY + dy * reach};
+  return end;
+}
+
+int AutoMapLayout_TooltipSide(int hoverX, int hoverY, const std::vector<AutoMapLink> &lines)
+{
+  int sumX = 0;
+  int sumY = 0;
+  for (size_t i = 0; i < lines.size(); i++)
+  {
+    sumX += lines[i].dstX + lines[i].srcX - 2 * hoverX;
+    sumY += lines[i].dstY + lines[i].srcY - 2 * hoverY;
+  }
+  return (sumX > 0 ? AUTOMAP_TOOLTIP_LEFT : 0) | (sumY > 0 ? AUTOMAP_TOOLTIP_UP : 0);
+}

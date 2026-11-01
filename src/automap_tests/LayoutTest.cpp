@@ -110,8 +110,34 @@ static void BadgesSpeakOneVocabulary(void)
   CHECK(AutoMapLayout_TeleporterBadge(7).glyphs.empty());
 }
 
+// A line ends where it enters the target cell, inset a little, not at its centre
+static void LineStopsAtTheTargetEdge(void)
+{
+  AutoMapPointF from = {20.0f, 20.0f};
+  AutoMapPointF end = AutoMapLayout_LineEnd(from, 3, 0, 40);
+  CHECK(end.x > 127.1f && end.x < 127.3f);
+  CHECK(end.y > 19.9f && end.y < 20.1f);
+  AutoMapPointF diagonal = AutoMapLayout_LineEnd(from, 2, 2, 40);
+  CHECK(diagonal.x > 87.1f && diagonal.x < 87.3f && diagonal.y > 87.1f && diagonal.y < 87.3f);
+}
+
+// The tooltip opens on the side away from the lines' other ends
+static void TooltipOpensAwayFromTheLines(void)
+{
+  std::vector<AutoMapLink> lines;
+  CHECK(AutoMapLayout_TooltipSide(5, 5, lines) == 0);
+  lines.push_back(AutoMapLink(5, 5, 9, 5));
+  lines.push_back(AutoMapLink(5, 5, 6, 8));
+  CHECK(AutoMapLayout_TooltipSide(5, 5, lines) == (AUTOMAP_TOOLTIP_LEFT | AUTOMAP_TOOLTIP_UP));
+  std::vector<AutoMapLink> incoming;
+  incoming.push_back(AutoMapLink(1, 5, 5, 5));
+  CHECK(AutoMapLayout_TooltipSide(5, 5, incoming) == 0);
+}
+
 void TestAutoMapLayout(void)
 {
+  LineStopsAtTheTargetEdge();
+  TooltipOpensAwayFromTheLines();
   BadgesSpeakOneVocabulary();
   SlotsNeverOverlap();
   LoneSlotIsBig();

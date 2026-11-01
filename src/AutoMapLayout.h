@@ -64,4 +64,21 @@ AutoMapBadge AutoMapLayout_PadBadge(AutoMapPadOperator op, int requiredFacing);
 // Scope as the engine keeps it: 0 objects, 1 monsters, 2 party and objects, 3 anything
 AutoMapBadge AutoMapLayout_TeleporterBadge(int scope);
 
+struct AutoMapPointF
+{
+  float x;
+  float y;
+};
+
+// Where a line from `from` (pixels, the level's top left at 0, 0) enters cell (targetX, targetY),
+// inset 18 % of the cell: lines end at their target's edge, not its centre
+AutoMapPointF AutoMapLayout_LineEnd(AutoMapPointF from, int targetX, int targetY, int cellSize);
+
+// Which way the tooltip of the hovered cell opens so it covers none of the lines drawn from or to
+// it: the bits are set when most of the lines' other ends lie east (open to the left) or south
+// (open upwards) of it
+const int AUTOMAP_TOOLTIP_LEFT = 1;
+const int AUTOMAP_TOOLTIP_UP = 2;
+int AutoMapLayout_TooltipSide(int hoverX, int hoverY, const std::vector<AutoMapLink> &lines);
+
 #endif

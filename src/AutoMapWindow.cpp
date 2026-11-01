@@ -90,6 +90,8 @@ static const SDL_Color GENERATOR = {0xc0, 0x50, 0x50, 0xff};
 static const SDL_Color GENERATOR_SPENT = {0x8a, 0x5a, 0x5a, 0xff};
 static const SDL_Color COG = {0x9a, 0x94, 0x88, 0xff};
 static const SDL_Color LINK_BADGE = {0xff, 0xc8, 0x3a, 0xff};
+// The lines from a switch or pad to what it operates
+static const SDL_Color LINK_GOLD = {0xff, 0xcc, 0x33, 0xff};
 // Feeders of a hovered relay, and goals that still wait on something
 static const SDL_Color LINK_INCOMING = {0x4a, 0x9e, 0xff, 0xff};
 static const SDL_Color LINK_WARNING = {0xff, 0x6a, 0x2b, 0xff};
@@ -2834,19 +2836,6 @@ static void DrawArrowHead(FloatPoint tip, float angle, float size,
   FillTriangle(head.nose, head.upper, head.lower, colour);
 }
 
-// A learned link: the party saw the target change, not which signal did it. Two strokes
-// with no base, so it reads as neither SET nor CLEAR
-static void DrawOpenArrowHead(FloatPoint tip, float angle, float size,
-                              const SDL_Color &colour = LINK_BADGE)
-{
-  ArrowHeadPoints head = HeadPoints(tip, angle, size);
-  UseColour(colour);
-  SDL_RenderDrawLine(mapRenderer, (int)head.nose.x, (int)head.nose.y, (int)head.upper.x,
-                     (int)head.upper.y);
-  SDL_RenderDrawLine(mapRenderer, (int)head.nose.x, (int)head.nose.y, (int)head.lower.x,
-                     (int)head.lower.y);
-}
-
 static void DrawHollowArrowHead(FloatPoint tip, float angle, float size,
                                   const SDL_Color &colour = LINK_BADGE)
 {
@@ -2875,60 +2864,91 @@ static void DrawPressureTick(FloatPoint from, FloatPoint to, const SDL_Color &co
   SDL_RenderDrawLine(mapRenderer, (int)upper.x, (int)upper.y, (int)lower.x, (int)lower.y);
 }
 
-// isPlayerLink: the player's own link, which claims no signal at any spoiler level
-static void DrawLinkEdge(const AutoMapView &view, const AutoMapLink &edge, float lateralOffset,
-                         const SDL_Color &colour = LINK_BADGE, bool isPlayerLink = false)
+// While hovering, the map dims everywhere but the cells the lines run between (the spotlight).
+// DrawDynamicLayer runs the hover drawing twice: first only to collect those cells and lines,
+// then, after the dimming, to draw.
+static bool collectingSpotlight = false;
+static std::vector<AutoMapCell> spotlightCells;
+static std::vector<AutoMapLink> spotlightLines;
+
+static void MarkSpotlightCell(int x, int y)
 {
-  FloatPoint from = LinkEndpoint(view, edge.srcX, edge.srcY, edge.srcIsWall, edge.srcSide);
-  FloatPoint to = LinkEndpoint(view, edge.dstX, edge.dstY, false, -1);
-  float dx = to.x - from.x;
-  float dy = to.y - from.y;
-  float length = sqrt(dx * dx + dy * dy);
-  if (length < 1.0f)
+  if (!collectingSpotlight) return;
+  AutoMapCell cell = {shownDrawList.level, x, y};
+  spotlightCells.push_back(cell);
+}
+
+static SDL_Color Sdl(const SDL_Color &colour)
+{
+  return colour;
+}
+
+// One link as a pixel line with a dark rim from the switch's face (or the pad's centre) to where
+// it enters its target, with a head that tells the signal at All: SET filled, CLEAR hollow,
+// TOGGLE heads at both ends, HOLD a crossbar, once-only dashed. A learned link and the player's
+// own claim no signal: an open head. isPlayerLink: the player's own link.
+static void DrawLinkEdge(const AutoMapView &view, const AutoMapLink &edge,
+                         const SDL_Color &colour = LINK_GOLD, bool isPlayerLink = false)
+{
+  if (collectingSpotlight)
   {
-    // Self-link: a ring instead of a zero-length line, dashed when one-shot
+    MarkSpotlightCell(edge.srcX, edge.srcY);
+    MarkSpotlightCell(edge.dstX, edge.dstY);
+    spotlightLines.push_back(edge);
+    return;
+  }
+  int width = AutoMapLayout_LineWidth(view.cellSize);
+  float headSize = (float)AutoMapLayout_HeadSize(view.cellSize);
+  FloatPoint from = LinkEndpoint(view, edge.srcX, edge.srcY, edge.srcIsWall, edge.srcSide);
+  if (edge.srcX == edge.dstX && edge.srcY == edge.dstY && !edge.srcIsWall)
+  {
+    // Self-link: a square ring, dashed when one-shot
     SDL_Rect cell = CellArea(view, edge.dstX, edge.dstY);
     if (edge.onceOnly) DrawDashedRect(Inset(cell, 25), colour);
-    else Outline(Inset(cell, 25), colour);
+    else
+    {
+      AutoMapRect ring = {cell.x + cell.w / 4, cell.y + cell.h / 4, cell.w / 2, cell.h / 2};
+      AutoMapPaint_Frame(ring, colour, 2);
+    }
     return;
   }
-  // Spread parallel edges sharing one target so N sources stay countable
-  float perpX = -dy / length;
-  float perpY = dx / length;
-  from.x += perpX * lateralOffset;
-  from.y += perpY * lateralOffset;
-  to.x += perpX * lateralOffset;
-  to.y += perpY * lateralOffset;
-  // Stop the shaft short so the head stays inside the target cell
-  float headSize = std::max(6.0f, view.cellSize * 0.25f);
-  float backOff = headSize * 0.9f / length;
-  FloatPoint tip = {to.x, to.y};
-  FloatPoint shaftEnd = {to.x - dx * backOff, to.y - dy * backOff};
-  if (edge.onceOnly) DrawDashedShaft(from, shaftEnd, colour);
-  else DrawArrowShaft(from, shaftEnd, colour);
-  float angle = atan2(dx, -dy);
-  // Below All a link is a learned one, built with default fields: its signal claims nothing.
-  // Neither does a player link, which is only the player's guess.
+  AutoMapPointF local = {from.x - view.originX, from.y - view.originY};
+  AutoMapPointF end = AutoMapLayout_LineEnd(local, edge.dstX, edge.dstY, view.cellSize);
+  float tipX = end.x + view.originX, tipY = end.y + view.originY;
+  float angle = std::atan2(tipY - from.y, tipX - from.x);
+  float shaftX = tipX - std::cos(angle) * headSize * 0.8f, shaftY = tipY - std::sin(angle) * headSize * 0.8f;
+  AutoMapPaint_Line(from.x, from.y, shaftX, shaftY, Sdl(colour), width, edge.onceOnly);
   if (isPlayerLink || shownDrawList.spoilers != AutoMapSpoilersAll)
   {
-    DrawArrowShaft(shaftEnd, tip, colour);
-    DrawOpenArrowHead(tip, angle, headSize, colour);
+    AutoMapPaint_Head(tipX, tipY, angle, headSize, Sdl(colour), AutoMapHeadOpen);
     return;
   }
-  switch (edge.signal)
+  AutoMapPaint_Head(tipX, tipY, angle, headSize, Sdl(colour),
+                    edge.signal == AutoMapSignalClear ? AutoMapHeadHollow : AutoMapHeadFilled);
+  if (edge.signal == AutoMapSignalToggle)
   {
-  case AutoMapSignalClear: DrawHollowArrowHead(tip, angle, headSize, colour); break;
-  case AutoMapSignalToggle:
-    // Flips either way: a head on each end
-    DrawArrowHead(tip, angle, headSize, colour);
-    DrawArrowHead(from, angle + 3.14159265f, headSize * 0.7f, colour);
-    break;
-  case AutoMapSignalPressure:
-    DrawArrowHead(tip, angle, headSize, colour);
-    DrawPressureTick(from, shaftEnd, colour);
-    break;
-  default: DrawArrowHead(tip, angle, headSize, colour); break;
+    AutoMapPaint_Head(from.x, from.y, angle + 3.14159265f, headSize * 0.7f, Sdl(colour), AutoMapHeadFilled);
   }
+  if (edge.signal == AutoMapSignalPressure)
+  {
+    float midX = (from.x + tipX) / 2, midY = (from.y + tipY) / 2;
+    float across = std::max(4.0f, view.cellSize * 0.14f);
+    AutoMapPaint_Line(midX - std::sin(angle) * across, midY + std::cos(angle) * across,
+                      midX + std::sin(angle) * across, midY - std::cos(angle) * across, Sdl(colour), width, false);
+  }
+}
+
+// Where the lines of a source start: a gold square with a dark rim
+static void DrawSourceNode(const AutoMapView &view, const AutoMapLink &edge, const SDL_Color &colour)
+{
+  if (collectingSpotlight) return;
+  int width = AutoMapLayout_LineWidth(view.cellSize);
+  FloatPoint at = LinkEndpoint(view, edge.srcX, edge.srcY, edge.srcIsWall, edge.srcSide);
+  AutoMapRect rim = {(int)at.x - width * 3 / 2 - 1, (int)at.y - width * 3 / 2 - 1, width * 3 + 2, width * 3 + 2};
+  AutoMapRect node = {rim.x + 1, rim.y + 1, width * 3, width * 3};
+  SDL_Color dark = {0x0b, 0x0a, 0x08, 0xff};
+  AutoMapPaint_Fill(rim, dark);
+  AutoMapPaint_Fill(node, colour);
 }
 
 static void HighlightLinkedCell(const AutoMapView &view, int x, int y,
@@ -2956,6 +2976,7 @@ static const SDL_Color LINK_GHOST = {0xff, 0xc8, 0x3a, 140};
 
 static void DrawDoorPreview(const AutoMapView &view, const AutoMapLink &edge)
 {
+  if (collectingSpotlight) return;
   const AutoMapShownCell *shown = ShownCellAt(shownDrawList, edge.dstX, edge.dstY);
   if (shown == NULL || shown->cell.kind != AutoMapCellDoor) return;
   int predicted = AutoMapScene_PredictDoorState(shown->cell.doorState, edge.signal);
@@ -2983,59 +3004,37 @@ static bool IsFiringTeleporterCell(const AutoMapShownCell *shown)
       && shown->teleporterTargetVisible;
 }
 
-// Spread parallel edges sideways so N of them stay countable
-static float ParallelOffset(const AutoMapView &view, int index, int count)
+// Lines between the same two cells draw once: SET plus a delayed SET is one line, the tooltip
+// lists both. Every source gets its node.
+static bool SameCells(const AutoMapLink &a, const AutoMapLink &b)
 {
-  return ((float)index - (float)(count - 1) / 2.0f) * std::max(2.0f, view.cellSize * 0.08f);
+  return a.srcX == b.srcX && a.srcY == b.srcY && a.dstX == b.dstX && a.dstY == b.dstY
+      && a.srcIsWall == b.srcIsWall && a.srcSide == b.srcSide;
 }
 
-static const std::vector<AutoMapLink> NO_EDGES;
-
-// How many of the first `before` edges run between the same two cells as edge
-static int EdgesBetweenTheSameCells(const std::vector<AutoMapLink> &edges, const AutoMapLink &edge,
-                                    size_t before)
-{
-  int count = 0;
-  for (size_t j = 0; j < before && j < edges.size(); j++)
-  {
-    if (edges[j].srcX != edge.srcX || edges[j].srcY != edge.srcY
-        || edges[j].dstX != edge.dstX || edges[j].dstY != edge.dstY) continue;
-    count++;
-  }
-  return count;
-}
-
-// Edges between the same two cells are spread with ParallelOffset; a lone edge stays centred.
-// The player's links between the same cells take their places after these (DrawPlayerEdgeGroups).
 static void DrawEdgeGroups(const AutoMapView &view, const std::vector<AutoMapLink> &edges,
-                           const SDL_Color &colour,
-                           const std::vector<AutoMapLink> &playerEdges = NO_EDGES)
+                           const SDL_Color &colour, bool isPlayerLink = false)
 {
   for (size_t i = 0; i < edges.size(); i++)
   {
-    int index = EdgesBetweenTheSameCells(edges, edges[i], i);
-    int count = EdgesBetweenTheSameCells(edges, edges[i], edges.size())
-              + EdgesBetweenTheSameCells(playerEdges, edges[i], playerEdges.size());
-    DrawLinkEdge(view, edges[i], ParallelOffset(view, index, count), colour);
+    bool drawn = false;
+    for (size_t j = 0; j < i && !drawn; j++) drawn = SameCells(edges[i], edges[j]);
+    if (!drawn) DrawLinkEdge(view, edges[i], colour, isPlayerLink);
   }
-}
-
-// The player's links on hover, in the player colour, each beside the learned edges between the
-// same two cells, so a guess that names a learned link shows both
-static void DrawPlayerEdgeGroups(const AutoMapView &view, const std::vector<AutoMapLink> &playerEdges,
-                                 const std::vector<AutoMapLink> &learnedEdges)
-{
-  for (size_t i = 0; i < playerEdges.size(); i++)
+  for (size_t i = 0; i < edges.size(); i++)
   {
-    int learned = EdgesBetweenTheSameCells(learnedEdges, playerEdges[i], learnedEdges.size());
-    int index = learned + EdgesBetweenTheSameCells(playerEdges, playerEdges[i], i);
-    int count = learned + EdgesBetweenTheSameCells(playerEdges, playerEdges[i], playerEdges.size());
-    DrawLinkEdge(view, playerEdges[i], ParallelOffset(view, index, count), PLAYER_NOTE, true);
+    bool sameSource = false;
+    for (size_t j = 0; j < i && !sameSource; j++)
+    {
+      sameSource = edges[i].srcX == edges[j].srcX && edges[i].srcY == edges[j].srcY
+          && edges[i].srcIsWall == edges[j].srcIsWall && edges[i].srcSide == edges[j].srcSide;
+    }
+    if (!sameSource) DrawSourceNode(view, edges[i], colour);
   }
 }
 
 // The player's links of the hovered cell: the ones it starts, else the ones that end on it
-static std::vector<AutoMapLink> PlayerLinksAtHover(bool *forward)
+static std::vector<AutoMapLink> PlayerLinksAtHover(void)
 {
   std::vector<AutoMapLink> outgoing;
   std::vector<AutoMapLink> incoming;
@@ -3045,19 +3044,7 @@ static std::vector<AutoMapLink> PlayerLinksAtHover(bool *forward)
     if (link.srcX == hoverX && link.srcY == hoverY) outgoing.push_back(link);
     else if (link.dstX == hoverX && link.dstY == hoverY) incoming.push_back(link);
   }
-  *forward = !outgoing.empty();
-  return *forward ? outgoing : incoming;
-}
-
-static void HighlightPlayerLinkEnds(const AutoMapView &view, const std::vector<AutoMapLink> &edges,
-                                    bool forward)
-{
-  for (size_t i = 0; i < edges.size(); i++)
-  {
-    int otherX = forward ? edges[i].dstX : edges[i].srcX;
-    int otherY = forward ? edges[i].dstY : edges[i].srcY;
-    HighlightLinkedCell(view, otherX, otherY, PLAYER_NOTE);
-  }
+  return !outgoing.empty() ? outgoing : incoming;
 }
 
 // Goals behind a press, depth first: the cells that get a badge. Relays in between get none.
@@ -3071,31 +3058,37 @@ static void CollectChainGoals(const std::vector<AutoMapEffect> &effects,
   }
 }
 
-// A goal's ring and badge. Yellow for what happens now or is done; the warning colour for
-// what still waits on something, so a blocked door never reads like an open one.
+// A goal's frame and badge. Gold for what happens now or is done; the warning colour for what
+// still waits on something, so a blocked door never reads like an open one.
 static void DrawGoalBadge(const AutoMapView &view, const AutoMapEffect &goal)
 {
   std::string badge = AutoMapScene_GoalBadge(goal.distance);
   if (badge.empty()) return;
+  if (collectingSpotlight)
+  {
+    MarkSpotlightCell(goal.x, goal.y);
+    return;
+  }
   AutoMapGoalStatus status = goal.distance.status;
   bool good = status == AutoMapGoalOnThisPress || status == AutoMapGoalMore
            || status == AutoMapGoalAlreadyDone;
-  const SDL_Color &colour = good ? LINK_BADGE : LINK_WARNING;
+  const SDL_Color &colour = good ? LINK_GOLD : LINK_WARNING;
   SDL_Rect cell = CellArea(view, goal.x, goal.y);
-  HighlightLinkedCell(view, goal.x, goal.y, colour);
-  int width = AutoMapScene_TextWidth(badge.c_str()) * DIGIT_SCALE;
-  SDL_Rect plate = {cell.x + (cell.w - width) / 2 - 2, cell.y + (cell.h - 5 * DIGIT_SCALE) / 2 - 2,
-                    width + 4, 5 * DIGIT_SCALE + 4};
-  Fill(plate, BACKGROUND);
-  Outline(plate, colour);
-  DrawLegendText(plate.x + 2, plate.y + 2, badge.c_str(), colour);
+  AutoMapRect ring = {cell.x + 2, cell.y + 2, cell.w - 4, cell.h - 4};
+  AutoMapPaint_Frame(ring, colour, AutoMapLayout_FaceLine(cell.w));
+  int width = AutoMapPaint_TextWidth(badge, DIGIT_SCALE);
+  AutoMapRect plate = {cell.x + (cell.w - width) / 2 - 3, cell.y + (cell.h - 5 * DIGIT_SCALE) / 2 - 3,
+                       width + 6, 5 * DIGIT_SCALE + 6};
+  AutoMapPaint_Plate(plate, colour);
+  AutoMapPaint_Text(plate.x + 3, plate.y + 3, badge, colour, DIGIT_SCALE);
 }
 
-// At All a press lights its whole chain (every link down to the goals, a badge on each
-// goal), and a relay shows its feeders in blue beside what it feeds. False when the
-// hovered cell has neither, so the plain arrows run as they always did.
-static bool DrawChainArrows(const AutoMapView &view, const std::vector<AutoMapLink> &playerEdges,
-                            bool playerForward)
+static void DrawTeleporterTarget(const AutoMapView &view);
+
+// At All a press lights its whole chain (every link down to the goals, a badge on each goal), and
+// a relay shows its feeders in blue beside what it feeds. False when the hovered cell has neither,
+// so the plain links run as they always did.
+static bool DrawChainArrows(const AutoMapView &view, const std::vector<AutoMapLink> &playerEdges)
 {
   std::vector<AutoMapPressSource> sources = AutoMapScene_PressEffects(shownDrawList, hoverX, hoverY);
   bool relayCell = !AutoMapScene_RelayHoverLines(shownDrawList, hoverX, hoverY, false).empty();
@@ -3106,21 +3099,9 @@ static bool DrawChainArrows(const AutoMapView &view, const std::vector<AutoMapLi
   if (relayCell) feeders = AutoMapScene_LinksTo(shownDrawList, hoverX, hoverY);
   if (chain.empty()) chain = direct;
   if (chain.empty() && feeders.empty()) return false;
-  HighlightLinkedCell(view, hoverX, hoverY);
-  for (size_t i = 0; i < feeders.size(); i++)
-  {
-    HighlightLinkedCell(view, feeders[i].srcX, feeders[i].srcY, LINK_INCOMING);
-  }
-  DrawEdgeGroups(view, feeders, LINK_INCOMING, playerEdges);
-  for (size_t i = 0; i < chain.size(); i++)
-  {
-    HighlightLinkedCell(view, chain[i].dstX, chain[i].dstY);
-  }
-  DrawEdgeGroups(view, chain, LINK_BADGE, playerEdges);
-  std::vector<AutoMapLink> learned = feeders;
-  learned.insert(learned.end(), chain.begin(), chain.end());
-  HighlightPlayerLinkEnds(view, playerEdges, playerForward);
-  DrawPlayerEdgeGroups(view, playerEdges, learned);
+  DrawEdgeGroups(view, feeders, LINK_INCOMING);
+  DrawEdgeGroups(view, chain, LINK_GOLD);
+  DrawEdgeGroups(view, playerEdges, PLAYER_NOTE, true);
   // Door previews stay forward-only, and for the direct targets
   for (size_t i = 0; i < direct.size(); i++) DrawDoorPreview(view, direct[i]);
   std::vector<const AutoMapEffect *> goals;
@@ -3134,47 +3115,41 @@ static void DrawLinkArrows(const AutoMapView &view)
 {
   if (!hoverValid) return;
   // The player's links draw beside the learned ones at every spoiler level, All included
-  bool playerForward = true;
-  std::vector<AutoMapLink> playerEdges = PlayerLinksAtHover(&playerForward);
-  if (shownDrawList.spoilers == AutoMapSpoilersAll
-      && DrawChainArrows(view, playerEdges, playerForward)) return;
+  std::vector<AutoMapLink> playerEdges = PlayerLinksAtHover();
+  if (shownDrawList.spoilers == AutoMapSpoilersAll && DrawChainArrows(view, playerEdges)) return;
   std::vector<AutoMapLink> outgoing = AutoMapScene_LinksFrom(shownDrawList, hoverX, hoverY);
   std::vector<AutoMapLink> incoming = AutoMapScene_LinksTo(shownDrawList, hoverX, hoverY);
-  std::vector<AutoMapLink> edges;
-  if (!outgoing.empty()) edges = outgoing;
-  else if (!incoming.empty()) edges = incoming;
-  const AutoMapShownCell *hovered = ShownCellAt(shownDrawList, hoverX, hoverY);
-  bool teleporter = IsFiringTeleporterCell(hovered);
-  if (edges.empty() && !teleporter && playerEdges.empty()) return;
-  bool hasLearned = !edges.empty() || teleporter;
-  HighlightLinkedCell(view, hoverX, hoverY, hasLearned ? LINK_BADGE : PLAYER_NOTE);
-  bool forward = !outgoing.empty();
-  // One fan for both, the player's links last; with no player link it is the learned fan alone
-  int fan = (int)(edges.size() + playerEdges.size());
-  for (size_t i = 0; i < edges.size(); i++)
+  std::vector<AutoMapLink> edges = !outgoing.empty() ? outgoing : incoming;
+  DrawEdgeGroups(view, edges, LINK_GOLD);
+  DrawEdgeGroups(view, playerEdges, PLAYER_NOTE, true);
+  // Reverse hover shows every source but predicts nothing: with possibly conflicting signals the
+  // effect is ambiguous by definition. A learned link has default fields: no preview below All.
+  if (!outgoing.empty() && shownDrawList.spoilers == AutoMapSpoilersAll)
   {
-    DrawLinkEdge(view, edges[i], ParallelOffset(view, (int)i, fan));
-    int otherX = forward ? edges[i].dstX : edges[i].srcX;
-    int otherY = forward ? edges[i].dstY : edges[i].srcY;
-    HighlightLinkedCell(view, otherX, otherY);
-  }
-  HighlightPlayerLinkEnds(view, playerEdges, playerForward);
-  for (size_t i = 0; i < playerEdges.size(); i++)
-  {
-    DrawLinkEdge(view, playerEdges[i], ParallelOffset(view, (int)(edges.size() + i), fan),
-                 PLAYER_NOTE, true);
-  }
-  // Reverse hover shows every source but predicts nothing: with possibly conflicting
-  // signals the effect is ambiguous by definition
-  if (forward)
-  {
-    // A learned link has default fields: the preview would claim a door opens
-    if (shownDrawList.spoilers == AutoMapSpoilersAll)
-    {
-      for (size_t i = 0; i < edges.size(); i++) DrawDoorPreview(view, edges[i]);
-    }
+    for (size_t i = 0; i < edges.size(); i++) DrawDoorPreview(view, edges[i]);
   }
   DrawTeleporterTarget(view);
+}
+
+// The spotlight: every shown cell not in the collected set dims
+static void DrawSpotlight(const AutoMapView &view)
+{
+  if (spotlightCells.empty()) return;
+  AutoMapCell hovered = {shownDrawList.level, hoverX, hoverY};
+  spotlightCells.push_back(hovered);
+  std::vector<SDL_Rect> dim;
+  for (size_t i = 0; i < shownDrawList.cells.size(); i++)
+  {
+    const AutoMapShownCell &shown = shownDrawList.cells[i];
+    bool lit = false;
+    for (size_t k = 0; k < spotlightCells.size() && !lit; k++)
+    {
+      lit = spotlightCells[k].x == shown.x && spotlightCells[k].y == shown.y;
+    }
+    if (!lit) dim.push_back(CellArea(view, shown.x, shown.y));
+  }
+  SDL_SetRenderDrawColor(mapRenderer, 8, 7, 5, 158);
+  if (!dim.empty()) SDL_RenderFillRects(mapRenderer, dim.data(), (int)dim.size());
 }
 
 // A firing teleporter points at its destination: a cyan arrow when the victim lands on
@@ -3756,8 +3731,12 @@ static void DrawTileTooltip(const AutoMapView &view)
   }
   int plateH = iconH + footerH;
   if (plateW < 60) plateW = 60;
-  int x = hoverPixelX + TOOLTIP_CURSOR_GAP;
-  int y = hoverPixelY + TOOLTIP_CURSOR_GAP;
+  // Away from the lines, so it covers none of them
+  int side = AutoMapLayout_TooltipSide(hoverX, hoverY, spotlightLines);
+  int x = (side & AUTOMAP_TOOLTIP_LEFT) ? hoverPixelX - TOOLTIP_CURSOR_GAP - plateW : hoverPixelX + TOOLTIP_CURSOR_GAP;
+  int y = (side & AUTOMAP_TOOLTIP_UP) ? hoverPixelY - TOOLTIP_CURSOR_GAP - plateH : hoverPixelY + TOOLTIP_CURSOR_GAP;
+  if (x < RULER) x = hoverPixelX + TOOLTIP_CURSOR_GAP;
+  if (y < RULER) y = hoverPixelY + TOOLTIP_CURSOR_GAP;
   if (x + plateW > windowWidth - RULER) x = hoverPixelX - TOOLTIP_CURSOR_GAP - plateW;
   if (y + plateH > windowHeight - RULER) y = hoverPixelY - TOOLTIP_CURSOR_GAP - plateH;
   if (x < RULER) x = RULER;
@@ -5613,6 +5592,12 @@ static void DrawDynamicLayer(const AutoMapView &view)
   if (shownDrawList.partyIsOnShownLevel) DrawParty(view, shownDrawList.party);
   if (Shows(AutoMapShowMonsters)) DrawMonsters(view, shownDrawList);
   DrawSearchMarkers(view);
+  spotlightCells.clear();
+  spotlightLines.clear();
+  collectingSpotlight = true;
+  DrawLinkArrows(view);
+  collectingSpotlight = false;
+  DrawSpotlight(view);
   DrawLinkArrows(view);
   DrawLinkModeHighlights(view);
   DrawTileTooltip(view);
@@ -5779,6 +5764,10 @@ bool AutoMapWindow_RenderToFile(const AutoMapDrawList &list, int width, int heig
   hoverY = cellY;
   renderCellSize = cellSize;
   renderShift = shift;
+  // The pointer rests on the middle of the hovered cell
+  AutoMapView view = ViewOfShownLevel();
+  hoverPixelX = view.originX + cellX * cellSize + cellSize / 2;
+  hoverPixelY = view.originY + cellY * cellSize + cellSize / 2;
   UseColour(BACKGROUND);
   SDL_RenderClear(mapRenderer);
   DrawLevel();
