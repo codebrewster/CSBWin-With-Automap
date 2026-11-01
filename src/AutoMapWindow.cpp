@@ -2548,11 +2548,10 @@ static void DrawFacingMarks(const AutoMapView &view, const AutoMapShownMonster &
   for (int member = 0; member < monster.memberCount; member++) DrawFacingMark(cell, monster.memberFacings[member]);
 }
 
-static float FigureScale(int memberCount)
-{
-  if (memberCount == 1) return 1.0f;
-  return memberCount == 2 ? 0.62f : 0.5f;
-}
+// Every figure is drawn at the same zoom, alone or in a group of four: the pictures already
+// differ in size the way the 3D view shows them, so a golem stays bigger than a screamer
+// without a lone unit being blown up to fill its cell
+static const float FIGURE_SCALE = 0.5f;
 
 struct FigurePlace
 {
@@ -2561,13 +2560,14 @@ struct FigurePlace
   float scale;
 };
 
-// The figures of a group stand side by side on the lower edge of their cell
+// The figures of a group stand side by side just below the middle of their cell, where the
+// engine stands a lone monster and the map draws a floor picture (a fire pit, say)
 static FigurePlace PlaceOfFigure(const SDL_Rect &cell, int memberCount, int member)
 {
   FigurePlace place;
   place.centreX = cell.x + cell.w * (2 * member + 1) / (2 * memberCount);
-  place.feetY = cell.y + cell.h * 92 / 100;
-  place.scale = FigureScale(memberCount) * cell.w / MONSTER_PIXELS_PER_CELL;
+  place.feetY = cell.y + cell.h * 62 / 100;
+  place.scale = FIGURE_SCALE * cell.w / MONSTER_PIXELS_PER_CELL;
   return place;
 }
 
@@ -2578,7 +2578,7 @@ static void DrawFigureMarker(const FigurePlace &place)
   Fill(marker, MONSTER_MARKER);
 }
 
-// A figure is a little taller than its cell and reaches into the cell above
+// A tall figure can reach into the cell above
 static void DrawFigure(const FigurePlace &place, const AutoMapSprite &sprite, bool isMirrored)
 {
   int width = (int)(sprite.width * place.scale);
@@ -2614,8 +2614,9 @@ static void DrawMonsters(const AutoMapView &view, const AutoMapDrawList &drawLis
 {
   std::vector<AutoMapShownMonster> fromNorthToSouth = drawList.monsters;
   std::stable_sort(fromNorthToSouth.begin(), fromNorthToSouth.end(), StandsFurtherNorth);
-  for (size_t i = 0; i < fromNorthToSouth.size(); i++) DrawFacingMarks(view, fromNorthToSouth[i]);
   for (size_t i = 0; i < fromNorthToSouth.size(); i++) DrawMonster(view, fromNorthToSouth[i]);
+  // Over the figures, so a tall one does not hide the mark at the north edge of its cell
+  for (size_t i = 0; i < fromNorthToSouth.size(); i++) DrawFacingMarks(view, fromNorthToSouth[i]);
 }
 
 static AutoMapViewRequest RequestOfShownLevel(void)
