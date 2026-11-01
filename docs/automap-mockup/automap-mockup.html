@@ -574,18 +574,22 @@ const NESW = 'NESW';
 function nearestSide(mx, my, x0, y0) { const ox = mx - px(x0) - cs / 2, oy = my - py(y0) - cs / 2; return Math.abs(ox) > Math.abs(oy) ? (ox > 0 ? 1 : 3) : (oy > 0 ? 2 : 0); }
 function openMenu(mx, my, cx, cy) {
   const c = C(cx, cy); const rows = []; const key = cx + ',' + cy, N = noteOf();
-  if (c && c.k === 1) { rows.push({ label: 'HIDDEN PIT (OPEN)', act: () => N.pits[key] = 1 }); rows.push({ label: 'HIDDEN PIT (CLOSED)', act: () => N.pits[key] = 0 }); }
-  if (c && (c.k === 1 || c.k === 0)) { const side = c.k === 0 ? nearestSide(mx, my, cx, cy) : -1; rows.push({ label: 'LINK FROM HERE' + (side >= 0 ? ' (' + NESW[side] + ')' : ''), act: () => linkMode = { x: cx, y: cy, side } }); }
-  if (key in N.pits) rows.push({ label: 'REMOVE MARK', act: () => delete N.pits[key] });
-  if (N.links.some(l => (l[0] === cx && l[1] === cy) || (l[2] === cx && l[3] === cy))) rows.push({ label: 'REMOVE LINKS', act: () => N.links = N.links.filter(l => !((l[0] === cx && l[1] === cy) || (l[2] === cx && l[3] === cy))) });
+  // the testing aids first, then the player's own notes
   if (debugOn) {
     // any tile of the level, explored or not: what lies there comes from the whole level
     const whole = DATA.views[`L${lvl}_v2_s0`].cells.find(o => o.x === cx && o.y === cy);
-    const stand = whole && whole.k !== 0 && whole.k !== 6; const why = stand ? '' : 'NOT A FLOOR'; if (rows.length) rows.push(null);
+    const stand = whole && whole.k !== 0 && whole.k !== 6;
+    if (!stand) rows.push({ label: 'NOT A FLOOR', title: true });
     rows.push({ label: 'TELEPORT HERE', grey: !stand, act: () => { partyOverride = { l: lvl, x: cx, y: cy, f: 2 }; } });
     DATA.index.levels[lvl].types.forEach(t => rows.push({ label: 'SPAWN ' + nice(t), grey: !stand, act: () => spawnSteps(nice(t), mx, my, cx, cy) }));
-    if (why) rows.unshift({ label: why, title: true });
   }
+  const notesRows = [];
+  if (c && c.k === 1) { notesRows.push({ label: 'HIDDEN PIT (OPEN)', act: () => N.pits[key] = 1 }); notesRows.push({ label: 'HIDDEN PIT (CLOSED)', act: () => N.pits[key] = 0 }); }
+  if (c && (c.k === 1 || c.k === 0)) { const side = c.k === 0 ? nearestSide(mx, my, cx, cy) : -1; notesRows.push({ label: 'LINK FROM HERE' + (side >= 0 ? ' (' + NESW[side] + ')' : ''), act: () => linkMode = { x: cx, y: cy, side } }); }
+  if (key in N.pits) notesRows.push({ label: 'REMOVE MARK', act: () => delete N.pits[key] });
+  if (N.links.some(l => (l[0] === cx && l[1] === cy) || (l[2] === cx && l[3] === cy))) notesRows.push({ label: 'REMOVE LINKS', act: () => N.links = N.links.filter(l => !((l[0] === cx && l[1] === cy) || (l[2] === cx && l[3] === cy))) });
+  if (rows.length && notesRows.length) rows.push(null);
+  rows.push(...notesRows);
   if (!rows.length) return;
   menu = { x: mx, y: my, title: `L${lvl} (${cx + OX}, ${cy + OY})`, rows };
 }
