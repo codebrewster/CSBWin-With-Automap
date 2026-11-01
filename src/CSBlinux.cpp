@@ -2491,77 +2491,7 @@ void post_render() {
 		    if (AutoMapWindow_IsShown()) AutoMapWindow_Hide();
 		    else AutoMapWindow_Show();
 		}
-		if (ImGui::BeginMenu(_("Show level"))) {
-		    if (ImGui::MenuItem(_("Follow party"), NULL, AutoMap_FollowsParty()))
-			AutoMap_FollowParty();
-		    ImGui::Separator();
-		    int levelCount = AutoMap_LevelCount();
-		    int shownLevel = AutoMap_ShownLevel();
-		    for (int level = 0; level < levelCount; level++) {
-			char label[32];
-			snprintf(label, sizeof(label), "Level %d", level);
-			bool selected = !AutoMap_FollowsParty() && shownLevel == level;
-			if (ImGui::MenuItem(label, NULL, selected))
-			    AutoMap_ShowLevel(level);
-		    }
-		    if (levelCount == 0) {
-			char none[] = "Level 0";
-			ImGui::MenuItem(none, NULL, false, false);
-		    }
-		    ImGui::EndMenu();
-		}
-		ImGui::Separator();
-		if (ImGui::BeginMenu(_("Vision"))) {
-		    int vision = AutoMap_Vision();
-		    if (ImGui::MenuItem(_("Fog of war"), NULL, vision == 0))
-			AutoMap_SetVision(0);
-		    if (ImGui::MenuItem(_("Explored, live"), NULL, vision == 1))
-			AutoMap_SetVision(1);
-		    if (ImGui::MenuItem(_("Whole level"), NULL, vision == 2))
-			AutoMap_SetVision(2);
-		    ImGui::EndMenu();
-		}
-		if (ImGui::BeginMenu(_("Spoilers"))) {
-		    int spoilerLevel = AutoMap_SpoilerLevel();
-		    if (ImGui::MenuItem(_("Seen"), NULL, spoilerLevel == 0))
-			AutoMap_SetSpoilerLevel(0);
-		    if (ImGui::MenuItem(_("Learned"), NULL, spoilerLevel == 1))
-			AutoMap_SetSpoilerLevel(1);
-		    if (ImGui::MenuItem(_("All"), NULL, spoilerLevel == 2))
-			AutoMap_SetSpoilerLevel(2);
-		    ImGui::EndMenu();
-		}
-		if (ImGui::MenuItem(_("Highlight explored"), NULL, AutoMap_ExploredIsHighlighted(), AutoMap_Vision() == 2))
-		    AutoMap_SetExploredHighlight(!AutoMap_ExploredIsHighlighted());
-		if (ImGui::BeginMenu(_("Show"))) {
-		    struct { AutoMapShown what; const char *label; bool separatorAfter; } rows[] = {
-			{AutoMapShowWeapons, _("Weapons"), false},
-			{AutoMapShowArmour, _("Armour"), false},
-			{AutoMapShowPotions, _("Potions"), false},
-			{AutoMapShowScrolls, _("Scrolls"), false},
-			{AutoMapShowChests, _("Chests"), false},
-			{AutoMapShowFood, _("Food"), false},
-			{AutoMapShowKeys, _("Keys"), false},
-			{AutoMapShowOtherItems, _("Other items"), true},
-			{AutoMapShowMonsters, _("Monsters"), true},
-			{AutoMapShowWallDecorations, _("Wall decorations"), false},
-			{AutoMapShowWallWriting, _("Wall writing"), false},
-			{AutoMapShowFloorDecorations, _("Floor decorations"), false},
-		    };
-		    size_t rowCount = sizeof(rows) / sizeof(rows[0]);
-		    if (ImGui::MenuItem(_("Show all")))
-			for (size_t i = 0; i < rowCount; i++) AutoMapWindow_SetShows(rows[i].what, true);
-		    if (ImGui::MenuItem(_("Hide all")))
-			for (size_t i = 0; i < rowCount; i++) AutoMapWindow_SetShows(rows[i].what, false);
-		    ImGui::Separator();
-		    for (size_t i = 0; i < rowCount; i++) {
-			bool shown = AutoMapWindow_Shows(rows[i].what);
-			if (ImGui::MenuItem(rows[i].label, NULL, shown))
-			    AutoMapWindow_SetShows(rows[i].what, !shown);
-			if (rows[i].separatorAfter) ImGui::Separator();
-		    }
-		    ImGui::EndMenu();
-		}
+		// Every other map setting lives on the bar in the map window
 		ImGui::EndMenu();
 	    }
 	    if (ImGui::BeginMenu(_("Statistics"))) {
