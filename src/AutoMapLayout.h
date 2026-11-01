@@ -26,4 +26,16 @@ int AutoMapLayout_LineWidth(int cellSize);
 // Arrowheads of links and teleport lines
 int AutoMapLayout_HeadSize(int cellSize);
 
+// The square a decoration, writing or portrait takes on face side (0 north .. 3 west) of a wall
+// cell, relative to the cell's top left: flush against the face, inset by the face line. 56 % of
+// the cell for a face of its own, 44 % slid away from the shared corner when one neighbouring face
+// is decorated too, and a third of the room inside the faces when both neighbours are; never deeper
+// than half that room when the opposite face is decorated. Decorated slots never overlap.
+AutoMapRect AutoMapLayout_WallSlot(const bool decorated[4], int side, int cellSize);
+// The corner of a slot for a small item icon: lower right (right) for what lies in an alcove,
+// lower left for the key a lock wants; half the slot, at least 8 pixels, never past the slot
+AutoMapRect AutoMapLayout_SlotCorner(const AutoMapRect &slot, bool right);
+// The thickness of the line along a decorated face, also the slot's inset from the face
+int AutoMapLayout_FaceLine(int cellSize);
+
 #endif

@@ -8,6 +8,7 @@
 #include <string>
 
 #include "AutoMapScene.h"
+#include "AutoMapLayout.h"
 #include "AutoMapPaint.h"
 #include "AutoMapSprites.h"
 #include "AutoMapWindow.h"
@@ -57,6 +58,10 @@ static const SDL_Color WALL_FEATURE_BACKDROP = {0x3a, 0x2f, 0x27, 0xff};
 static const SDL_Color WALL_FEATURE_MARKER = {0xff, 0x8a, 0x2b, 0xff};
 static const SDL_Color WALL_SIDE_LINE = {0xe8, 0xe2, 0xd2, 0xff};
 static const SDL_Color FLAVOR_TICK = {0x5a, 0x56, 0x4e, 0xff};
+// The line along a decorated face: bright for a switch the party knows about, dark brown for
+// everything else, so it stands out from the stone either way
+static const SDL_Color KNOWN_SWITCH_LINE = {0xff, 0xf6, 0xdc, 0xff};
+static const SDL_Color DECORATION_LINE = {0x3b, 0x31, 0x28, 0xff};
 static const SDL_Color HIDDEN_SWITCH = {0xff, 0x8a, 0x2b, 0xff};
 static const SDL_Color ITEM_MARKER = {0xf2, 0xd5, 0x44, 0xff};
 static const SDL_Color MONSTER_MARKER = {0xc0, 0x50, 0x50, 0xff};
@@ -131,7 +136,6 @@ static int zoomSteps = 0;
 // One bit per AutoMapShown; everything by default
 static unsigned shownThings = (1u << AUTOMAP_SHOWN_COUNT) - 1;
 // Wall decorations in a square by their face (true) or as big tiles across the wall (false)
-static bool smallWallDecorations = true;
 
 // Set map_timing = 1 in the settings and the map reports its renderer, paint times,
 // rebuild counts and cache use to the terminal. Off by default, costs nothing. The flag
@@ -302,7 +306,6 @@ void AutoMapWindow_ReadSettings(void)
   // The hidden things are kept, so that whatever a later version adds starts out shown
   unsigned everything = (1u << AUTOMAP_SHOWN_COUNT) - 1;
   shownThings = everything & ~(unsigned)csb_get_config_int(SETTINGS_SECTION, "map_hide", 0);
-  smallWallDecorations = csb_get_config_int(SETTINGS_SECTION, "map_small_decorations", 1) != 0;
 }
 
 static void RememberPlacement(void)
@@ -322,7 +325,6 @@ void AutoMapWindow_WriteSettings(void)
   csb_set_config_int(SETTINGS_SECTION, "map_height", placement.height);
   unsigned everything = (1u << AUTOMAP_SHOWN_COUNT) - 1;
   csb_set_config_int(SETTINGS_SECTION, "map_hide", (int)(everything & ~shownThings));
-  csb_set_config_int(SETTINGS_SECTION, "map_small_decorations", smallWallDecorations ? 1 : 0);
 }
 
 static bool Shows(AutoMapShown what)
@@ -355,19 +357,6 @@ static unsigned ShownItemKinds(void)
     if (Shows(ShownEntryOfItemKind((AutoMapItemKind)kind))) kinds |= 1u << kind;
   }
   return kinds;
-}
-
-bool AutoMapWindow_SmallWallDecorations(void)
-{
-  return smallWallDecorations;
-}
-
-void AutoMapWindow_SetSmallWallDecorations(bool isSmall)
-{
-  smallWallDecorations = isSmall;
-  // The static layer is cached per draw list: a new serial paints it again
-  drawListSerial++;
-  isDirty = true;
 }
 
 bool AutoMapWindow_Shows(AutoMapShown what)
@@ -1614,23 +1603,6 @@ static SDL_Rect FeatureSquare(const SDL_Rect &cell, int side)
   return square;
 }
 
-static int CountFeatures(const AutoMapCellRecord &wall)
-{
-  int count = 0;
-  for (int side = 0; side < AUTOMAP_SIDE_COUNT; side++) count += HasFeature(wall.wallSides[side]) ? 1 : 0;
-  return count;
-}
-
-// Small decorations keep to their square by the face, so the stone around them still reads as
-// wall. Big ones take the tile: a wall with one feature shows it across the whole cell, with
-// several each gets the half on its own side (the player's choice, Misc > Map).
-static SDL_Rect FeatureArea(const SDL_Rect &cell, const AutoMapCellRecord &wall, int side,
-                            bool allowWholeCell)
-{
-  if (smallWallDecorations) return FeatureSquare(cell, side);
-  return CountFeatures(wall) == 1 && allowWholeCell ? cell : HalfTowards(cell, side);
-}
-
 static void DrawWriting(const SDL_Rect &area)
 {
   SDL_Rect text = Inset(WritingSquare(area), 25);
@@ -1657,106 +1629,74 @@ static void DrawHollowDiamond(const SDL_Rect &area, const SDL_Color &colour)
   SDL_RenderDrawLine(mapRenderer, centreX - radius, centreY, centreX, centreY - radius);
 }
 
-// Machinery the 3D view hides: a dashed frame and a hollow marker on the side's half,
-// compact always so the wall itself stays visible
-static void DrawHiddenSwitchMark(const SDL_Rect &cell, int side)
+// The faces that carry something to draw: they share the cell's room (AutoMapLayout_WallSlot)
+static void DecoratedFaces(const AutoMapCellRecord &wall, bool decorated[AUTOMAP_SIDE_COUNT])
 {
-  SDL_Rect area = HalfTowards(cell, side);
-  DrawDashedRect(Inset(area, 18), WALL_SIDE_LINE);
-  DrawHollowDiamond(area, HIDDEN_SWITCH);
+  for (int side = 0; side < AUTOMAP_SIDE_COUNT; side++)
+  {
+    decorated[side] = HasFeature(wall.wallSides[side]) || wall.wallSides[side].hidden;
+  }
 }
 
-static void DrawWallSide(const SDL_Rect &cell, const AutoMapCellRecord &wall, int side,
-                         bool allowWholeCell)
+static SDL_Rect SlotOf(const SDL_Rect &cell, const bool decorated[AUTOMAP_SIDE_COUNT], int side)
 {
-  const AutoMapWallSide &wallSide = wall.wallSides[side];
-  bool drawsPicture = Shows(AutoMapShowWallDecorations)
-      && (wallSide.picture != AUTOMAP_NO_PICTURE || wallSide.portrait != AUTOMAP_NO_PICTURE);
-  bool drawsWriting = Shows(AutoMapShowWallWriting) && wallSide.hasWriting;
-  if (wallSide.hidden)
-  {
-    DrawHiddenSwitchMark(cell, side);
-    if (drawsPicture && wallSide.portrait != AUTOMAP_NO_PICTURE)
-    {
-      DrawPortrait(HalfTowards(cell, side), wallSide.portrait);
-    }
-    if (drawsWriting) DrawWriting(HalfTowards(cell, side));
-    return;
-  }
-  if (!HasFeature(wallSide)) return;
-  // Below all, the fog filter clears `functional` for sides whose switch the party has not
-  // found out about; the picture still shows, so it is drawn like any other decoration
-  bool plainDecoration = !wallSide.functional && shownDrawList.spoilers != AutoMapSpoilersAll;
-  if (!wallSide.functional && !plainDecoration)
-  {
-    if (!drawsPicture && !drawsWriting) return;
-    // Random dressing: a quiet tick where a switch would strip the wall
-    Fill(StripAlong(cell, side), FLAVOR_TICK);
-    if (drawsWriting) DrawWriting(FeatureArea(cell, wall, side, false));
-    return;
-  }
-  if (!drawsPicture && !drawsWriting)
-  {
-    // A known switch keeps its strip with its picture hidden
-    if (!plainDecoration) Fill(StripAlong(cell, side), WALL_SIDE_LINE);
-    return;
-  }
-  SDL_Rect area = FeatureArea(cell, wall, side, allowWholeCell);
-  Fill(Inset(area, 6), WALL_FEATURE_BACKDROP);
-  if (drawsPicture)
-  {
-    const AutoMapSprite *sprite = SpriteOfTheGame(wallSide.picture);
-    bool pictureIsMissing = sprite == NULL && wallSide.picture != AUTOMAP_NO_PICTURE;
-    if (sprite != NULL) DrawSprite(*sprite, FitInto(Inset(area, 8), *sprite));
-    if (pictureIsMissing) Fill(Inset(area, 30), WALL_FEATURE_MARKER);
-    if (wallSide.portrait != AUTOMAP_NO_PICTURE) DrawPortrait(area, wallSide.portrait);
-  }
-  if (drawsWriting) DrawWriting(area);
-  // The strip marks the face, also beside a big tile: on a pillar it tells which face carries
-  // the decoration. Only a switch the party knows about gets the bright one.
-  Fill(StripAlong(cell, side), plainDecoration ? FLAVOR_TICK : WALL_SIDE_LINE);
+  AutoMapRect slot = AutoMapLayout_WallSlot(decorated, side, cell.w);
+  SDL_Rect area = {cell.x + slot.x, cell.y + slot.y, slot.w, slot.h};
+  return area;
 }
 
-// Faint always-show markers for the machinery the hover tooltip details: a hollow
-// gold ring on sides with a lock requirement, a filled item-yellow dot on sides
-// holding alcove goods. The two yellows are close, so shape tells them apart: an
-// alcove that wants an item and holds one shows a ring and a dot, never two squares. Dots sit on the side's edge midpoint, clear of every corner
-// badge (link badge, break marks, more-items). Only functional (visible) wall
-// sides mark; doors mark every surviving lock side, as doors carry no side
-// graphics to gate on. Drawn in the static layer, fog-filtered like the tooltip.
-// A dark rim around the dot keeps it readable on bright wall sprites at low zoom,
-// where the bare yellow would drown in the picture behind it.
-static void DrawSideDot(int centreX, int centreY, int size, const SDL_Color &colour)
+// The line along the face, as long as the slot: bright for a switch the party knows about
+static void DrawFaceLine(const SDL_Rect &cell, const SDL_Rect &slot, int side, const SDL_Color &colour)
 {
-  SDL_Rect rim = {centreX - size / 2 - 1, centreY - size / 2 - 1, size + 2, size + 2};
-  Fill(rim, BACKGROUND);
-  SDL_Rect dot = {centreX - size / 2, centreY - size / 2, size, size};
-  Fill(dot, colour);
+  int thickness = AutoMapLayout_FaceLine(cell.w);
+  SDL_Rect line = {slot.x, cell.y, slot.w, thickness};
+  if (side == AutoMapSouth) line.y = cell.y + cell.h - thickness;
+  if (side == AutoMapEast || side == AutoMapWest)
+  {
+    SDL_Rect upright = {side == AutoMapEast ? cell.x + cell.w - thickness : cell.x, slot.y, thickness, slot.h};
+    line = upright;
+  }
+  Fill(line, colour);
 }
 
-// The lock mark: the dot's rim and size, hollow, its frame thick enough to read at low zoom
-static void DrawSideRing(int centreX, int centreY, int size, const SDL_Color &colour)
+// Machinery the 3D view hides: a dashed frame and a hollow diamond in the slot, and an orange
+// face line
+static void DrawHiddenSwitchMark(const SDL_Rect &cell, const SDL_Rect &slot, int side)
 {
-  DrawSideDot(centreX, centreY, size, colour);
-  int frame = std::max(1, size / 4);
-  if (size - 2 * frame < 1) return;
-  SDL_Rect hole = {centreX - size / 2 + frame, centreY - size / 2 + frame, size - 2 * frame,
-                   size - 2 * frame};
-  Fill(hole, BACKGROUND);
+  DrawDashedRect(slot, WALL_SIDE_LINE);
+  DrawHollowDiamond(slot, HIDDEN_SWITCH);
+  DrawFaceLine(cell, slot, side, HIDDEN_SWITCH);
 }
 
-static void DrawWallMarkers(const SDL_Rect &cell, const AutoMapCellRecord &record)
+static void DrawTooltipIcon(const SDL_Rect &slot, const AutoMapItem &item);
+
+// What a face holds and wants, in the corners of its slot: the first item in the alcove (lower
+// right) and the key its lock takes (lower left, gold frame; empty while the key is unknown).
+// Only faces the party knows the machinery of, as the tooltip; doors keep their dots.
+struct FaceGoods
+{
+  bool stocked;
+  AutoMapItem stock;
+  bool locked;
+  AutoMapItem key;
+};
+
+static void GoodsOfFaces(const AutoMapCellRecord &record, FaceGoods goods[AUTOMAP_SIDE_COUNT])
 {
   bool isDoor = record.kind == AutoMapCellDoor;
-  if (!isDoor && record.kind != AutoMapCellWall && record.kind != AutoMapCellFalseWall) return;
-  bool locked[AUTOMAP_SIDE_COUNT] = {false, false, false, false};
-  bool stocked[AUTOMAP_SIDE_COUNT] = {false, false, false, false};
+  for (int side = 0; side < AUTOMAP_SIDE_COUNT; side++)
+  {
+    goods[side].stocked = false;
+    goods[side].locked = false;
+  }
   for (size_t i = 0; i < record.wallLocks.size(); i++)
   {
     const AutoMapWallLock &lock = record.wallLocks[i];
     if (!lock.required || lock.side < 0 || lock.side >= AUTOMAP_SIDE_COUNT) continue;
     if (!isDoor && !record.wallSides[lock.side].functional) continue;
-    locked[lock.side] = true;
+    if (goods[lock.side].locked) continue;
+    goods[lock.side].locked = true;
+    goods[lock.side].key = lock.object;
   }
   for (size_t i = 0; i < record.alcoveContents.size(); i++)
   {
@@ -1768,35 +1708,118 @@ static void DrawWallMarkers(const SDL_Rect &cell, const AutoMapCellRecord &recor
     if (!isDoor && !record.wallSides[entry.side].functional
         && (shownDrawList.spoilers == AutoMapSpoilersAll || !record.wallSides[entry.side].isAlcove))
       continue;
-    stocked[entry.side] = true;
+    if (goods[entry.side].stocked) continue;
+    goods[entry.side].stocked = true;
+    goods[entry.side].stock = entry.item;
   }
+}
+
+static void DrawSlotCorner(const SDL_Rect &slot, bool right, const AutoMapItem *item, bool goldFrame)
+{
+  AutoMapRect slotRect = {slot.x, slot.y, slot.w, slot.h};
+  AutoMapRect corner = AutoMapLayout_SlotCorner(slotRect, right);
+  SDL_Rect area = {corner.x, corner.y, corner.w, corner.h};
+  Fill(area, BACKGROUND);
+  if (goldFrame) Outline(area, LINK_BADGE);
+  if (item != NULL && item->worldPicture != AUTOMAP_NO_PICTURE) DrawTooltipIcon(area, *item);
+}
+
+static void DrawWallSide(const SDL_Rect &cell, const AutoMapCellRecord &wall, int side,
+                         const bool decorated[AUTOMAP_SIDE_COUNT], const FaceGoods &goods)
+{
+  const AutoMapWallSide &wallSide = wall.wallSides[side];
+  if (!decorated[side]) return;
+  SDL_Rect slot = SlotOf(cell, decorated, side);
+  bool drawsPicture = Shows(AutoMapShowWallDecorations)
+      && (wallSide.picture != AUTOMAP_NO_PICTURE || wallSide.portrait != AUTOMAP_NO_PICTURE);
+  bool drawsWriting = Shows(AutoMapShowWallWriting) && wallSide.hasWriting;
+  if (wallSide.hidden)
+  {
+    DrawHiddenSwitchMark(cell, slot, side);
+    if (drawsPicture && wallSide.portrait != AUTOMAP_NO_PICTURE) DrawPortrait(slot, wallSide.portrait);
+    if (drawsWriting) DrawWriting(slot);
+    return;
+  }
+  // Below All the fog filter clears `functional` for switches the party has not found out about:
+  // those read like any decoration
+  const SDL_Color &faceColour = wallSide.functional ? KNOWN_SWITCH_LINE : DECORATION_LINE;
+  if (!drawsPicture && !drawsWriting)
+  {
+    // A known switch keeps its line with its picture hidden
+    if (wallSide.functional) DrawFaceLine(cell, slot, side, KNOWN_SWITCH_LINE);
+    return;
+  }
+  if (drawsPicture)
+  {
+    const AutoMapSprite *sprite = SpriteOfTheGame(wallSide.picture);
+    bool pictureIsMissing = sprite == NULL && wallSide.picture != AUTOMAP_NO_PICTURE;
+    if (sprite != NULL) DrawSprite(*sprite, FitInto(Inset(slot, 4), *sprite));
+    if (pictureIsMissing) Fill(Inset(slot, 30), WALL_FEATURE_MARKER);
+    if (wallSide.portrait != AUTOMAP_NO_PICTURE) DrawPortrait(slot, wallSide.portrait);
+  }
+  if (drawsWriting) DrawWriting(slot);
+  DrawFaceLine(cell, slot, side, faceColour);
+  if (goods.stocked) DrawSlotCorner(slot, true, &goods.stock, false);
+  if (goods.locked) DrawSlotCorner(slot, false, &goods.key, true);
+}
+
+static void DrawWallFaces(const SDL_Rect &cell, const AutoMapCellRecord &wall)
+{
+  bool decorated[AUTOMAP_SIDE_COUNT];
+  DecoratedFaces(wall, decorated);
+  FaceGoods goods[AUTOMAP_SIDE_COUNT];
+  GoodsOfFaces(wall, goods);
+  for (int side = 0; side < AUTOMAP_SIDE_COUNT; side++)
+  {
+    DrawWallSide(cell, wall, side, decorated, goods[side]);
+    // A lock or goods on a face without a picture still show, in a slot of their own
+    if (decorated[side] || (!goods[side].locked && !goods[side].stocked)) continue;
+    if (!wall.wallSides[side].functional && !wall.wallSides[side].isAlcove) continue;
+    bool alone[AUTOMAP_SIDE_COUNT] = {false, false, false, false};
+    alone[side] = true;
+    SDL_Rect slot = SlotOf(cell, alone, side);
+    if (goods[side].stocked) DrawSlotCorner(slot, true, &goods[side].stock, false);
+    if (goods[side].locked) DrawSlotCorner(slot, false, &goods[side].key, true);
+  }
+}
+
+// Doors carry no faces to hang icons on: a gold ring by a side whose lock is known, an item-yellow
+// dot by one holding goods. A dark rim keeps both readable on the door's brown.
+static void DrawSideDot(int centreX, int centreY, int size, const SDL_Color &colour)
+{
+  SDL_Rect rim = {centreX - size / 2 - 1, centreY - size / 2 - 1, size + 2, size + 2};
+  Fill(rim, BACKGROUND);
+  SDL_Rect dot = {centreX - size / 2, centreY - size / 2, size, size};
+  Fill(dot, colour);
+}
+
+static void DrawSideRing(int centreX, int centreY, int size, const SDL_Color &colour)
+{
+  DrawSideDot(centreX, centreY, size, colour);
+  int frame = std::max(1, size / 4);
+  if (size - 2 * frame < 1) return;
+  SDL_Rect hole = {centreX - size / 2 + frame, centreY - size / 2 + frame, size - 2 * frame,
+                   size - 2 * frame};
+  Fill(hole, BACKGROUND);
+}
+
+static void DrawDoorMarkers(const SDL_Rect &cell, const AutoMapCellRecord &door)
+{
+  FaceGoods goods[AUTOMAP_SIDE_COUNT];
+  GoodsOfFaces(door, goods);
   int dotSize = std::max(6, cell.w / 7);
-  int midX = cell.x + cell.w / 2;
-  int midY = cell.y + cell.h / 2;
-  // Both dots sit fully inside the cell: the lock dot rim-tight against the edge,
-  // the stocked dot one diameter further in, so they never overlap each other or
-  // bleed into the neighbouring cell.
   int lockOffset = dotSize / 2 + 1;
   int stockedOffset = lockOffset + dotSize + 2;
   for (int side = 0; side < AUTOMAP_SIDE_COUNT; side++)
   {
-    if (!locked[side] && !stocked[side]) continue;
-    int edgeX = midX, edgeY = midY;
-    int inwardX = 0, inwardY = 0;
+    if (!goods[side].locked && !goods[side].stocked) continue;
+    int edgeX = cell.x + cell.w / 2, edgeY = cell.y + cell.h / 2, inwardX = 0, inwardY = 0;
     if (side == AutoMapNorth) { edgeY = cell.y; inwardY = 1; }
     else if (side == AutoMapSouth) { edgeY = cell.y + cell.h; inwardY = -1; }
     else if (side == AutoMapWest) { edgeX = cell.x; inwardX = 1; }
     else { edgeX = cell.x + cell.w; inwardX = -1; }
-    if (locked[side])
-    {
-      DrawSideRing(edgeX + inwardX * lockOffset, edgeY + inwardY * lockOffset, dotSize,
-                   LINK_BADGE);
-    }
-    if (stocked[side])
-    {
-      DrawSideDot(edgeX + inwardX * stockedOffset, edgeY + inwardY * stockedOffset,
-                  dotSize, ITEM_MARKER);
-    }
+    if (goods[side].locked) DrawSideRing(edgeX + inwardX * lockOffset, edgeY + inwardY * lockOffset, dotSize, LINK_BADGE);
+    if (goods[side].stocked) DrawSideDot(edgeX + inwardX * stockedOffset, edgeY + inwardY * stockedOffset, dotSize, ITEM_MARKER);
   }
 }
 
@@ -1804,8 +1827,7 @@ static void DrawWall(const SDL_Rect &cell, const AutoMapCellRecord &wall)
 {
   Fill(cell, WALL);
   Outline(cell, WALL_EDGE);
-  for (int side = 0; side < AUTOMAP_SIDE_COUNT; side++) DrawWallSide(cell, wall, side, true);
-  DrawWallMarkers(cell, wall);
+  DrawWallFaces(cell, wall);
 }
 
 // An illusionary wall: the pinstripes tell it from stone at a glance
@@ -1818,9 +1840,7 @@ static void DrawFalseWall(const SDL_Rect &cell, const AutoMapCellRecord &wall)
   {
     SDL_RenderDrawLine(mapRenderer, x, cell.y + 1, x, cell.y + cell.h - 2);
   }
-  // Features keep to their own half so the stripes stay visible around them
-  for (int side = 0; side < AUTOMAP_SIDE_COUNT; side++) DrawWallSide(cell, wall, side, false);
-  DrawWallMarkers(cell, wall);
+  DrawWallFaces(cell, wall);
 }
 
 static void DrawDashedRect(const SDL_Rect &area, const SDL_Color &colour)
@@ -2076,16 +2096,15 @@ static void DrawGlimpses(const AutoMapView &view, const AutoMapDrawList &drawLis
     SDL_Rect cell = CellArea(view, drawList.glimpsedItems[i].x, drawList.glimpsedItems[i].y);
     DrawGlimpseMark(std::max(1, cell.w / 9), cell);
   }
-  // On a wall, a smaller "?" sits in the third of the cell towards the face
+  // On a wall, a smaller "?" sits in the face's slot
   for (size_t i = 0; i < drawList.glimpsedFaces.size(); i++)
   {
     const AutoMapGlimpsedFace &face = drawList.glimpsedFaces[i];
     SDL_Rect cell = CellArea(view, face.x, face.y);
-    SDL_Rect area = cell;
-    if (face.side == AutoMapNorth || face.side == AutoMapSouth) area.h = cell.h / 3;
-    else area.w = cell.w / 3;
-    if (face.side == AutoMapSouth) area.y = cell.y + cell.h - area.h;
-    if (face.side == AutoMapEast) area.x = cell.x + cell.w - area.w;
+    if (face.side < 0 || face.side >= AUTOMAP_SIDE_COUNT) continue;
+    bool alone[AUTOMAP_SIDE_COUNT] = {false, false, false, false};
+    alone[face.side] = true;
+    SDL_Rect area = SlotOf(cell, alone, face.side);
     DrawGlimpseMark(std::max(1, cell.w / 16), area);
   }
 }
@@ -2363,8 +2382,12 @@ static void DrawLinkBadgeIfLinked(const SDL_Rect &cell, const AutoMapShownCell &
                                   const AutoMapDrawList &drawList)
 {
   if (!CellIsLinked(drawList, shown.x, shown.y)) return;
-  int size = std::max(3, cell.w / 6);
-  SDL_Rect dot = {cell.x + cell.w - size - 2, cell.y + cell.h - size - 2, size, size};
+  // Upper right, clear of the wall slots and the who-badge in the lower left; a dark rim keeps it
+  // apart from the stone
+  int size = std::max(4, cell.w / 7);
+  SDL_Rect dot = {cell.x + cell.w - size - 3, cell.y + 3, size, size};
+  SDL_Rect rim = {dot.x - 1, dot.y - 1, size + 2, size + 2};
+  Fill(rim, BACKGROUND);
   Fill(dot, LINK_BADGE);
 }
 
@@ -2471,7 +2494,7 @@ static void DrawCellBase(const AutoMapView &view, const AutoMapShownCell &shown,
     DrawLinkBadgeIfLinked(cell, shown, drawList);
   }
   if (record.kind == AutoMapCellDoor) DrawDoorBreakMarks(cell, record);
-  if (record.kind == AutoMapCellDoor) DrawWallMarkers(cell, record);
+  if (record.kind == AutoMapCellDoor) DrawDoorMarkers(cell, record);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -4448,7 +4471,7 @@ static void DrawLegendSwatch(const SDL_Rect &box, LegendSwatch swatch)
   {
     // Drawn like the map draws them: small on the north face beside its strip, big across the
     // whole cell
-    bool isBig = !smallWallDecorations;
+    bool isBig = false;
     SDL_Rect area = isBig ? box : FeatureSquare(box, AutoMapNorth);
     Fill(box, WALL);
     Fill(Inset(area, 6), WALL_FEATURE_BACKDROP);

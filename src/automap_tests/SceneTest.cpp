@@ -5210,8 +5210,30 @@ static void MonsterNameLineNamesTheGroup(void)
   CHECK(AutoMapScene_MonsterNameLine(fogged, 2, 1) == "");
 }
 
+// A false wall says what it is, and that a switch operates it when one does
+static void SwitchedFalseWallSaysSo(void)
+{
+  AutoMapLevelSnapshot corridor = Corridor();
+  corridor.cells[0 * 4 + 2].kind = AutoMapCellFalseWall;
+  corridor.cells[0 * 4 + 3].kind = AutoMapCellFalseWall;
+  AutoMapFloorActuator pad = {1, 1, AutoMapActuatorPad};
+  corridor.actuators.push_back(pad);
+  AutoMapLink toWall = {1, 1, 2, 0, false, -1};
+  corridor.links.push_back(toWall);
+  AutoMapCell linked = {LEVEL, 2, 0};
+  corridor.linkedCells.push_back(linked);
+  AutoMapExplored explored = NothingExplored();
+  AutoMapVisibleCells visibleNow;
+  AutoMapDrawList drawList = AutoMapScene_BuildDrawList(corridor, NoFog(explored, visibleNow));
+  std::vector<std::string> switched = AutoMapScene_RelayLines(drawList, 2, 0);
+  std::vector<std::string> plain = AutoMapScene_RelayLines(drawList, 3, 0);
+  CHECK(!switched.empty() && switched[0] == "FALSE WALL, SWITCHED");
+  CHECK(!plain.empty() && plain[0] == "FALSE WALL");
+}
+
 void TestAutoMapScene(void)
 {
+  SwitchedFalseWallSaysSo();
   MonsterNameLineNamesTheGroup();
   AsManyMonstersAsFitShareACell();
   AQuarterCellMonsterCanTakeAnyQuadrantOrTheCentre();

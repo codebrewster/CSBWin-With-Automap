@@ -1692,6 +1692,15 @@ std::vector<std::string> AutoMapScene_RelayLines(const AutoMapDrawList &drawList
   std::vector<std::string> lines;
   const AutoMapShownCell *shown = FindShownCell(drawList, x, y);
   if (shown == NULL) return lines;
+  if (shown->cell.kind == AutoMapCellFalseWall || shown->cell.kind == AutoMapCellOpenFalseWall)
+  {
+    bool switched = !AutoMapScene_LinksTo(drawList, x, y).empty();
+    for (size_t i = 0; i < drawList.linkedCells.size(); i++)
+    {
+      if (drawList.linkedCells[i].x == x && drawList.linkedCells[i].y == y) switched = true;
+    }
+    AddRelayLine(&lines, switched ? "FALSE WALL, SWITCHED" : "FALSE WALL");
+  }
   if (shown->cell.isOutsideLevel) AddRelayLine(&lines, "ADDED ROCK: OUTSIDE THE LEVEL");
   // Sealed doors first: no switch, no incoming link, no axe/fireball way
   // through. Bashable counts as openable and names the force that breaks it.
