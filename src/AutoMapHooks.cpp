@@ -1956,6 +1956,22 @@ int AutoMap_LevelCount(void)
   return recorder.Explored().LevelCount();
 }
 
+bool AutoMap_LevelIsVisited(int level)
+{
+  if (level < 0 || level >= recorder.Explored().LevelCount()) return false;
+  const std::vector<uint8_t> &bits = recorder.Explored().BitsOfLevel(level);
+  for (size_t i = 0; i < bits.size(); i++)
+  {
+    if (bits[i] != 0) return true;
+  }
+  return false;
+}
+
+int AutoMap_PartyLevel(void)
+{
+  return d.partyLevel;
+}
+
 void AutoMap_ShowLevel(int level)
 {
   int levelCount = recorder.Explored().LevelCount();

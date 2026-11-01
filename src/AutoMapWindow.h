@@ -76,5 +76,7 @@ void AutoMapWindow_ToggleDebugPanel(void);
 void AutoMapWindow_StepLevel(int delta);
 // Back to the party's level, centred on the party, following it
 void AutoMapWindow_FollowParty(void);
+// How many hits of the open search lie on level; 0 without a search
+int AutoMapWindow_SearchHitsOnLevel(int level);
 
 #endif

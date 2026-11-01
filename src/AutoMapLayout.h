@@ -103,4 +103,9 @@ std::vector<AutoMapRect> AutoMapLayout_PackBar(const std::vector<std::string> &l
 // The bar's height for a font pixel
 int AutoMapLayout_BarHeight(int pixel);
 
+// The level list on the bar: the first level shown when it opens on focusLevel (four rows down,
+// within the dungeon), and the level typed digits pick (clamped to the last; -1 for none)
+int AutoMapLayout_LevelListTop(int levels, int rows, int focusLevel);
+int AutoMapLayout_TypedLevel(const std::string &digits, int levels);
+
 #endif

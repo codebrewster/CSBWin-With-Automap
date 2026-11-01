@@ -58,6 +58,10 @@ static bool showOpen = false;
 static bool helpOpen = false;
 // The level list (drawn from Task 12 on)
 static bool levelListOpen = false;
+static int levelListTop = 0;
+static std::string typedLevel;
+static int levelButtonX = 0;
+static const int LEVEL_ROWS = 12;
 static int barScroll = 0;
 static std::vector<AutoMapRect> itemRects;
 static std::vector<BarItem> items;
@@ -123,6 +127,7 @@ void AutoMapBar_Draw(int width)
     itemRects[i].x -= barScroll;
     const AutoMapRect &r = itemRects[i];
     if (items[i].action == ActionShow) showButtonX = r.x;
+    if (items[i].action == ActionLevelList) levelButtonX = r.x;
     if (items[i].action == ActionNone)
     {
       AutoMapPaint_Text(r.x, r.y + 2 * PIXEL, shown[i], CAPTION_TEXT, PIXEL);
@@ -250,16 +255,100 @@ static void DrawHelp(int width)
   }
 }
 
+// ---------------- level list ----------------
+static AutoMapRect LevelList(void)
+{
+  int levels = AutoMap_LevelCount();
+  int rows = std::min(LEVEL_ROWS, std::max(1, levels));
+  int w = AutoMapPaint_TextWidth("L000  NOT VISITED  000 HITS", PIXEL) + 34;
+  int h = rows * ROW + 10 + (typedLevel.empty() ? 0 : 18);
+  AutoMapRect panel = {std::max(4, levelButtonX - 4), AutoMapBar_Height() + 2, w, h};
+  return panel;
+}
+
+static void PickLevel(int level)
+{
+  if (level < 0) return;
+  if (level == AutoMap_PartyLevel()) AutoMapWindow_FollowParty();
+  else AutoMap_ShowLevel(level);
+  levelListOpen = false;
+  typedLevel.clear();
+}
+
+static void DrawLevelList(void)
+{
+  int levels = AutoMap_LevelCount();
+  AutoMapRect panel = LevelList();
+  AutoMapPaint_Fill(panel, PANEL_FILL);
+  AutoMapPaint_Frame(panel, PANEL_FRAME, 1);
+  int y = panel.y + 5;
+  if (!typedLevel.empty())
+  {
+    AutoMapPaint_Text(panel.x + 8, y + 2, "GO TO L" + typedLevel, GOLD, PIXEL);
+    y += 18;
+  }
+  int shownLevel = AutoMap_ShownLevel();
+  int nameW = AutoMapPaint_TextWidth("L000", PIXEL);
+  for (int row = 0; row < LEVEL_ROWS; row++)
+  {
+    int level = levelListTop + row;
+    if (level >= levels) break;
+    bool selected = level == shownLevel;
+    bool visited = AutoMap_LevelIsVisited(level);
+    AutoMapRect line = {panel.x + 3, y, panel.w - 14, ROW};
+    if (selected) AutoMapPaint_Fill(line, ON_FILL);
+    SDL_Color text = selected ? ON_TEXT : (visited ? WHITE : GREY);
+    AutoMapPaint_Text(panel.x + 8, y + 3, "L" + std::to_string(level), text, PIXEL);
+    SDL_Color red = {0xff, 0x4d, 0x4d, 0xff};
+    if (level == AutoMap_PartyLevel()) AutoMapPaint_PartyArrow(panel.x + 8 + nameW + 10, y + ROW / 2.0f, 5, 1, red, false);
+    int x = panel.x + 8 + nameW + 22;
+    if (!visited)
+    {
+      AutoMapPaint_Text(x, y + 3, "NOT VISITED", selected ? ON_TEXT : GREY, PIXEL);
+      x += AutoMapPaint_TextWidth("NOT VISITED", PIXEL) + 10;
+    }
+    int hits = AutoMapWindow_SearchHitsOnLevel(level);
+    if (hits > 0) AutoMapPaint_Text(x, y + 3, std::to_string(hits) + (hits > 1 ? " HITS" : " HIT"), selected ? ON_TEXT : GOLD, PIXEL);
+    y += ROW;
+  }
+  if (levels > LEVEL_ROWS)
+  {
+    int track = panel.h - 10;
+    int thumb = std::max(16, track * LEVEL_ROWS / levels);
+    int thumbY = panel.y + 5 + (track - thumb) * levelListTop / std::max(1, levels - LEVEL_ROWS);
+    AutoMapRect rail = {panel.x + panel.w - 8, panel.y + 5, 4, track};
+    AutoMapRect knob = {rail.x, thumbY, 4, thumb};
+    AutoMapPaint_Fill(rail, DIVIDER);
+    AutoMapPaint_Fill(knob, GREY);
+  }
+}
+
+static bool LevelListPress(int x, int y)
+{
+  AutoMapRect panel = LevelList();
+  if (x < panel.x || x >= panel.x + panel.w || y < panel.y || y >= panel.y + panel.h)
+  {
+    levelListOpen = false;
+    return true;
+  }
+  int rowsY = panel.y + 5 + (typedLevel.empty() ? 0 : 18);
+  if (y < rowsY) return true;
+  int level = levelListTop + (y - rowsY) / ROW;
+  if (level < AutoMap_LevelCount()) PickLevel(level);
+  return true;
+}
+
 void AutoMapBar_DrawPanels(int width, int height)
 {
   (void)height;
   if (showOpen) DrawShowPanel(width);
   if (helpOpen) DrawHelp(width);
+  if (levelListOpen) DrawLevelList();
 }
 
 bool AutoMapBar_PanelIsOpen(void)
 {
-  return showOpen || helpOpen;
+  return showOpen || helpOpen || levelListOpen;
 }
 
 void AutoMapBar_ClosePanels(void)
@@ -281,6 +370,8 @@ static void Carry(BarAction action)
     bool open = !levelListOpen;
     AutoMapBar_ClosePanels();
     levelListOpen = open;
+    typedLevel.clear();
+    levelListTop = AutoMapLayout_LevelListTop(AutoMap_LevelCount(), LEVEL_ROWS, AutoMap_ShownLevel());
     break;
   }
   case ActionFollow:
@@ -322,6 +413,7 @@ bool AutoMapBar_HandlePress(int x, int y, int width)
     return true;
   }
   if (showOpen && y >= AutoMapBar_Height()) return ShowPanelPress(x, y, width);
+  if (levelListOpen && y >= AutoMapBar_Height()) return LevelListPress(x, y);
   if (y >= AutoMapBar_Height()) return false;
   for (size_t i = 0; i < itemRects.size() && i < items.size(); i++)
   {
@@ -338,7 +430,16 @@ bool AutoMapBar_HandlePress(int x, int y, int width)
 
 bool AutoMapBar_HandleWheel(int x, int y, int notches)
 {
-  (void)x;
+  if (levelListOpen)
+  {
+    AutoMapRect panel = LevelList();
+    if (x >= panel.x && x < panel.x + panel.w && y >= panel.y && y < panel.y + panel.h)
+    {
+      int most = std::max(0, AutoMap_LevelCount() - LEVEL_ROWS);
+      levelListTop = std::max(0, std::min(most, levelListTop - notches * 3));
+      return true;
+    }
+  }
   if (y >= AutoMapBar_Height()) return false;
   barScroll = std::max(0, barScroll - notches * 24);
   return true;
@@ -352,5 +453,28 @@ bool AutoMapBar_HandleKey(int sym)
     AutoMapBar_ClosePanels();
     return true;
   }
-  return false;
+  if (!levelListOpen) return false;
+  int digit = -1;
+  if (sym >= SDLK_0 && sym <= SDLK_9) digit = sym - SDLK_0;
+  if (sym >= SDLK_KP_1 && sym <= SDLK_KP_9) digit = sym - SDLK_KP_1 + 1;
+  if (sym == SDLK_KP_0) digit = 0;
+  int levels = AutoMap_LevelCount();
+  if (digit >= 0)
+  {
+    typedLevel += (char)('0' + digit);
+    if (typedLevel.size() > 3) typedLevel.erase(0, 1);
+    levelListTop = AutoMapLayout_LevelListTop(levels, LEVEL_ROWS, AutoMapLayout_TypedLevel(typedLevel, levels));
+    return true;
+  }
+  if (sym == SDLK_BACKSPACE && !typedLevel.empty())
+  {
+    typedLevel.erase(typedLevel.size() - 1);
+    return true;
+  }
+  if (sym == SDLK_RETURN || sym == SDLK_KP_ENTER)
+  {
+    PickLevel(AutoMapLayout_TypedLevel(typedLevel, levels));
+    return true;
+  }
+  return true;
 }

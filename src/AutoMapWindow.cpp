@@ -5101,3 +5101,11 @@ void AutoMapWindow_FollowParty(void)
   RecenterViewOnParty();
   AutoMap_FollowParty();
 }
+
+int AutoMapWindow_SearchHitsOnLevel(int level)
+{
+  if (!searchOpen || searchQuery.empty()) return 0;
+  int hits = 0;
+  for (size_t i = 0; i < searchHits.size(); i++) hits += searchHits[i].level == level ? 1 : 0;
+  return hits;
+}

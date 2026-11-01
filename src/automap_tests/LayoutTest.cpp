@@ -181,8 +181,25 @@ static void BarFitsNarrowWindow(void)
   CHECK(narrow.back().x + narrow.back().w < wide.back().x + wide.back().w);
 }
 
+// The level list opens with the shown level four rows down, and stays within the dungeon; typing
+// a level beyond the last goes to the last
+static void LevelListClamps(void)
+{
+  CHECK(AutoMapLayout_LevelListTop(64, 12, 10) == 6);
+  CHECK(AutoMapLayout_LevelListTop(64, 12, 62) == 52);
+  CHECK(AutoMapLayout_LevelListTop(64, 12, 2) == 0);
+  CHECK(AutoMapLayout_LevelListTop(1, 12, 0) == 0);
+  CHECK(AutoMapLayout_LevelListTop(14, 12, 13) == 2);
+  CHECK(AutoMapLayout_TypedLevel("99", 14) == 13);
+  CHECK(AutoMapLayout_TypedLevel("4", 14) == 4);
+  CHECK(AutoMapLayout_TypedLevel("07", 14) == 7);
+  CHECK(AutoMapLayout_TypedLevel("", 14) == -1);
+  CHECK(AutoMapLayout_TypedLevel("3", 0) == -1);
+}
+
 void TestAutoMapLayout(void)
 {
+  LevelListClamps();
   BarFitsNarrowWindow();
   TooltipGridHasTwoRowsOfSix();
   LineStopsAtTheTargetEdge();

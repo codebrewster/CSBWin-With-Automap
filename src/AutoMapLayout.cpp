@@ -205,3 +205,22 @@ std::vector<AutoMapRect> AutoMapLayout_PackBar(const std::vector<std::string> &l
   if (rects.empty() || rects.back().x + rects.back().w <= width) return rects;
   return PackBarAs(labels, pixel, true, shownLabels);
 }
+
+int AutoMapLayout_LevelListTop(int levels, int rows, int focusLevel)
+{
+  int top = focusLevel - 4;
+  top = std::min(top, levels - rows);
+  return std::max(0, top);
+}
+
+int AutoMapLayout_TypedLevel(const std::string &digits, int levels)
+{
+  if (digits.empty() || levels <= 0) return -1;
+  int level = 0;
+  for (size_t i = 0; i < digits.size() && i < 4; i++)
+  {
+    if (digits[i] < '0' || digits[i] > '9') return -1;
+    level = level * 10 + (digits[i] - '0');
+  }
+  return std::min(level, levels - 1);
+}
