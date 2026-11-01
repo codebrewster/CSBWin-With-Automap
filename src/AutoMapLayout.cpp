@@ -148,3 +148,17 @@ int AutoMapLayout_TooltipSide(int hoverX, int hoverY, const std::vector<AutoMapL
   }
   return (sumX > 0 ? AUTOMAP_TOOLTIP_LEFT : 0) | (sumY > 0 ? AUTOMAP_TOOLTIP_UP : 0);
 }
+
+AutoMapTooltipGrid AutoMapLayout_TooltipGrid(int entries)
+{
+  static const int COLUMNS = 6;
+  static const int MOST = 12;
+  AutoMapTooltipGrid grid = {0, 0, 0, 0};
+  if (entries <= 0) return grid;
+  grid.tiles = entries > MOST ? MOST - 1 : entries;
+  grid.plusMore = entries > MOST ? entries - grid.tiles : 0;
+  int shown = grid.tiles + (grid.plusMore > 0 ? 1 : 0);
+  grid.columns = std::min(COLUMNS, shown);
+  grid.rows = (shown + COLUMNS - 1) / COLUMNS;
+  return grid;
+}

@@ -1529,6 +1529,31 @@ std::vector<AutoMapLevelSize> AutoMapLevelReader_DungeonLevelSizes(void)
 
 // The level's offset in global coordinates. The descriptors can be unavailable while a saved
 // game loads; then the level reads as if it started at the origin.
+// Where each map's stairs lead, the way the engine moves the party (IncrementLevel): before the
+// boundary rock is added, while the cells are still in level coordinates
+static void ResolveStairsTargets(AutoMapLevelSnapshot *snapshot)
+{
+  if (d.dungeonDatIndex == NULL || d.pLevelDescriptors == NULL) return;
+  std::vector<AutoMapLevelArea> areas;
+  for (int level = 0; level < d.dungeonDatIndex->NumLevel(); level++)
+  {
+    LEVELDESC &descriptor = d.pLevelDescriptors[level];
+    AutoMapLevelArea area = {descriptor.Level(), descriptor.offsetX, descriptor.offsetY,
+                             descriptor.LastColumn() + 1, descriptor.LastRow() + 1};
+    areas.push_back(area);
+  }
+  for (int y = 0; y < snapshot->height; y++)
+  {
+    for (int x = 0; x < snapshot->width; x++)
+    {
+      AutoMapCellRecord &cell = snapshot->cells[(size_t)y * snapshot->width + x];
+      if (cell.kind != AutoMapCellStairs) continue;
+      cell.stairsTargetLevel = AutoMapScene_StairsTarget(areas, snapshot->level, cell.stairsLeadUp,
+                                                         snapshot->offsetX + x, snapshot->offsetY + y);
+    }
+  }
+}
+
 static void LevelOffset(int level, int *offsetX, int *offsetY)
 {
   *offsetX = 0;
@@ -1817,6 +1842,7 @@ AutoMapLevelSnapshot AutoMapLevelReader_ReadPartyLevel(void)
   ReportReadSplit(cellTicks, objectTicks);
   snapshot.itemOfDescIndex = ItemsOfAllDescriptions();
   MaybeInspectSnapshot(snapshot);
+  ResolveStairsTargets(&snapshot);
   ExpandSnapshotWithBoundaryRock(&snapshot);
   MaybeInspectAlcoves(snapshot);
   return snapshot;
@@ -1953,6 +1979,7 @@ AutoMapLevelSnapshot AutoMapLevelReader_ReadLevel(int level)
   snapshot.itemOfDescIndex = ItemsOfAllDescriptions();
   // While this level is still loaded: FindFirstObject reads it, not the party level.
   MaybeInspectSnapshot(snapshot);
+  ResolveStairsTargets(&snapshot);
   ExpandSnapshotWithBoundaryRock(&snapshot);
   MaybeInspectAlcoves(snapshot);
   LoadLevel(savedLoadedLevel);

@@ -81,4 +81,15 @@ const int AUTOMAP_TOOLTIP_LEFT = 1;
 const int AUTOMAP_TOOLTIP_UP = 2;
 int AutoMapLayout_TooltipSide(int hoverX, int hoverY, const std::vector<AutoMapLink> &lines);
 
+// The tooltip's icon grid for this many entries: six to a row, two rows at most; with more, the
+// last tile is "+N" for the rest
+struct AutoMapTooltipGrid
+{
+  int tiles;
+  int columns;
+  int rows;
+  int plusMore;
+};
+AutoMapTooltipGrid AutoMapLayout_TooltipGrid(int entries);
+
 #endif

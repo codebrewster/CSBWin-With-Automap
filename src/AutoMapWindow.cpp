@@ -40,6 +40,8 @@ static const SDL_Color STAIRS_UP_LIGHT = {0x9a, 0x94, 0x88, 0xff};
 static const SDL_Color STAIRS_UP_DARK = {0x5e, 0x59, 0x4f, 0xff};
 static const SDL_Color STAIRS_DOWN_LIGHT = {0x6d, 0x68, 0x5f, 0xff};
 static const SDL_Color STAIRS_DOWN_DARK = {0x3a, 0x37, 0x31, 0xff};
+static const SDL_Color STAIRS_UP_PLATE = {0xff, 0xf6, 0xdc, 0xff};
+static const SDL_Color STAIRS_DOWN_PLATE = {0xc9, 0xc0, 0xad, 0xff};
 static const SDL_Color TELEPORTER_HAZE = {80, 200, 255, 115};
 static const SDL_Color TELEPORTER_EDGE = {150, 225, 255, 204};
 static const SDL_Color PIT_MARKER = {0x00, 0x00, 0x00, 0xff};
@@ -1419,6 +1421,28 @@ static void DrawStairs(const SDL_Rect &cell, const AutoMapCellRecord &stairs)
     }
     Fill(step, stripe % 2 == 0 ? light : dark);
   }
+  // A plate with an arrow and the level the stairs lead to; without a known target, the arrow alone
+  int pixel = AutoMapLayout_PlatePixel(cell.w);
+  std::string label = stairs.stairsTargetLevel == AUTOMAP_NO_LEVEL ? "" : std::to_string(stairs.stairsTargetLevel);
+  int arrowW = 6 * pixel;
+  int width = arrowW + AutoMapPaint_TextWidth(label, pixel) + 4 * pixel - (label.empty() ? pixel : 0);
+  int height = 9 * pixel;
+  AutoMapRect plate = {cell.x + (cell.w - width) / 2, cell.y + (cell.h - height) / 2, width, height};
+  const SDL_Color &colour = stairs.stairsLeadUp ? STAIRS_UP_PLATE : STAIRS_DOWN_PLATE;
+  AutoMapPaint_Plate(plate, colour);
+  static const unsigned char UP[5] = {0x04, 0x0e, 0x15, 0x04, 0x04};
+  static const unsigned char DOWN[5] = {0x04, 0x04, 0x15, 0x0e, 0x04};
+  const unsigned char *arrow = stairs.stairsLeadUp ? UP : DOWN;
+  for (int row = 0; row < 5; row++)
+  {
+    for (int col = 0; col < 5; col++)
+    {
+      if (!(arrow[row] & (0x10 >> col))) continue;
+      AutoMapRect dot = {plate.x + 2 * pixel + col * pixel, plate.y + 2 * pixel + row * pixel, pixel, pixel};
+      AutoMapPaint_Fill(dot, colour);
+    }
+  }
+  AutoMapPaint_Text(plate.x + 2 * pixel + arrowW, plate.y + 2 * pixel, label, colour, pixel);
 }
 
 // A teleporter's field: a checkerboard of cyan pixels in a cyan frame, in the game's pixel style
@@ -2126,7 +2150,19 @@ static void DrawItems(const SDL_Rect &cell, const AutoMapShownCell &shown)
     SDL_Rect slot = {cell.x + cell.w * i / count, cell.y, cell.w / count, cell.h};
     DrawItem(slot, items[i].worldPicture);
   }
-  if (hasMoreItems) DrawMoreItemsMark(cell);
+  // More than three: the whole pile's count on a plate in the upper right
+  int total = kinds != AUTOMAP_ALL_ITEM_KINDS ? (int)AutoMapScene_ItemsOfKinds(shown.allItemPictures, kinds).size()
+                                              : (int)shown.allItemPictures.size();
+  if (hasMoreItems && total > AUTOMAP_MOST_ITEMS_SHOWN)
+  {
+    int pixel = std::max(1, cell.w / 24);
+    std::string label = std::to_string(total);
+    int width = AutoMapPaint_TextWidth(label, pixel) + 4 * pixel;
+    AutoMapRect plate = {cell.x + cell.w - width - 2, cell.y + 2, width, 9 * pixel};
+    AutoMapPaint_Plate(plate, ITEM_MARKER);
+    AutoMapPaint_Text(plate.x + 2 * pixel, plate.y + 2 * pixel, label, ITEM_MARKER, pixel);
+  }
+  else if (hasMoreItems) DrawMoreItemsMark(cell);
 }
 
 // A lingering cloud settles over the floor but under what lies on it
@@ -3269,10 +3305,11 @@ static void DrawNumberCentred(int centreX, int y, int value)
 // as NEEDS slots from the scene, monsters, missiles and clouds join from the
 // same filtered draw list, so the tooltip never shows what the map itself
 // hides. Counts use the ruler digit font: no text backend needed.
-static const int TOOLTIP_COLUMNS = 5;
-static const int TOOLTIP_MAX_CELLS = 30;
 static const int TOOLTIP_MIN_SLOT = 28;
-static const int TOOLTIP_DEFAULT_SLOT = 40;
+static const int TOOLTIP_TILE = 38;
+static const SDL_Color TOOLTIP_TILE_FILL = {0x3a, 0x37, 0x33, 0xff};
+static const SDL_Color TOOLTIP_TILE_DIM = {0x24, 0x22, 0x1f, 0xff};
+static const SDL_Color TOOLTIP_TILE_FRAME = {0x5a, 0x55, 0x4c, 0xff};
 static const int TOOLTIP_PAD = 6;
 static const int TOOLTIP_CURSOR_GAP = 18;
 
@@ -3454,12 +3491,6 @@ static void DrawCountBadge(const SDL_Rect &slot, int count)
   DrawNumberCentred(badge.x + badge.w / 2, badge.y + 2, count);
 }
 
-static void DrawNestedItem(const SDL_Rect &slot, const AutoMapItem &item, bool predicted)
-{
-  SDL_Rect inner = Inset(slot, 18);
-  DrawTooltipIcon(inner, item);
-  if (!predicted) Outline(slot, ITEM_MARKER);
-}
 
 // Footer lines per shown group member, in group order: the hit points at All, the damage the
 // game showed below it. DrawLegendText renders them with the same 3x5 font as the legend.
@@ -3497,23 +3528,12 @@ static std::vector<std::string> BuildTooltipNameLines(const std::vector<TooltipC
     const char *name = AutoMapLevelReader_ItemName(cells[i].item.nameIndex);
     if (name == NULL || name[0] == '\0') continue;
     char line[64];
-    if (cells[i].required && cells[i].side == -1 && cells[i].count > 1)
-    {
-      if (cells[i].carried) std::snprintf(line, sizeof(line), "%dx NEEDS CARRIED %s", cells[i].count, name);
-      else std::snprintf(line, sizeof(line), "%dx NEEDS ON PAD %s", cells[i].count, name);
-    }
-    else if (cells[i].required && cells[i].side == -1)
-    {
-      if (cells[i].carried) std::snprintf(line, sizeof(line), "NEEDS CARRIED %s", name);
-      else std::snprintf(line, sizeof(line), "NEEDS ON PAD %s", name);
-    }
-    else if (cells[i].required && cells[i].count > 1)
-    {
-      std::snprintf(line, sizeof(line), "%dx NEEDS %s", cells[i].count, name);
-    }
-    else if (cells[i].required) std::snprintf(line, sizeof(line), "NEEDS %s", name);
-    else if (cells[i].count > 1) std::snprintf(line, sizeof(line), "%dx %s", cells[i].count, name);
-    else std::snprintf(line, sizeof(line), "%s", name);
+    // "COPPER COIN X5", "NEEDS ON PAD COIN X2": the count follows the name
+    std::string what = AutoMapScene_StackLine(name, cells[i].count);
+    const char *need = "";
+    if (cells[i].required && cells[i].side == -1) need = cells[i].carried ? "NEEDS CARRIED " : "NEEDS ON PAD ";
+    else if (cells[i].required) need = "NEEDS ";
+    std::snprintf(line, sizeof(line), "%s%s", need, what.c_str());
     char sideInitial = SideInitial(cells[i].side);
     if (sideInitial != '\0')
     {
@@ -3737,22 +3757,19 @@ static void DrawTileTooltip(const AutoMapView &view)
   if (iconMaxH < 60 && !cells.empty()) iconMaxH = 60;
   // Start at full map-tile size so one stack reads like a single-item cell at any
   // zoom. Oversized multi-stack plates shrink back down to the map area below.
-  int slot = view.cellSize <= 0 ? TOOLTIP_DEFAULT_SLOT : view.cellSize;
-  if (slot < TOOLTIP_DEFAULT_SLOT) slot = TOOLTIP_DEFAULT_SLOT;
-  bool capped = (int)cells.size() > TOOLTIP_MAX_CELLS;
-  size_t shown = capped ? (size_t)(TOOLTIP_MAX_CELLS - 1) : cells.size();
-  int leftover = 0;
-  if (capped)
-  {
-    for (size_t i = shown; i < cells.size(); i++) leftover += cells[i].count;
-  }
+  // Inventory-slot tiles, six to a row, two rows; with more kinds the last tile is "+N"
+  int slot = TOOLTIP_TILE;
+  AutoMapTooltipGrid grid = AutoMapLayout_TooltipGrid((int)cells.size());
+  bool capped = grid.plusMore > 0;
+  size_t shown = (size_t)grid.tiles;
+  int leftover = grid.plusMore;
   size_t slots = shown + (capped ? 1 : 0);
   int columns = 0;
   int rows = 0;
   if (!cells.empty())
   {
-    columns = std::min(TOOLTIP_COLUMNS, (int)slots);
-    rows = ((int)slots + columns - 1) / columns;
+    columns = grid.columns;
+    rows = grid.rows;
     // Too big: shrink the slots first.
     while ((columns * slot + 2 * TOOLTIP_PAD > maxW || rows * slot + 2 * TOOLTIP_PAD > iconMaxH)
            && slot > TOOLTIP_MIN_SLOT)
@@ -3774,7 +3791,7 @@ static void DrawTileTooltip(const AutoMapView &view)
       if (capacity < 1) capacity = 1;
       size_t keep = capacity - 1;
       if (keep > shown) keep = shown;
-      for (size_t i = keep; i < shown; i++) leftover += cells[i].count;
+      leftover += (int)(shown - keep);
       shown = keep;
       capped = true;
       slots = shown + 1;
@@ -3808,28 +3825,26 @@ static void DrawTileTooltip(const AutoMapView &view)
   {
     int col = (int)i % columns;
     int row = (int)i / columns;
-    SDL_Rect icon = {x + TOOLTIP_PAD + col * slot, y + TOOLTIP_PAD + row * slot, slot, slot};
-    if (cells[i].nested) DrawNestedItem(icon, cells[i].item, cells[i].predicted);
-    else DrawTooltipIcon(icon, cells[i].item);
-    // A requirement is outlined white with a keyhole where the count badge would
-    // sit unreadably small: needs read as keyholes, haves as plain icons.
-    if (cells[i].required && !cells[i].nested)
-    {
-      Outline(icon, WHITE);
-      int badge = std::max(10, icon.w * 40 / 100);
-      SDL_Rect corner = {icon.x + 2, icon.y + 2, badge, badge};
-      DrawKeyholeMark(corner);
-    }
+    SDL_Rect icon = {x + TOOLTIP_PAD + col * slot, y + TOOLTIP_PAD + row * slot, slot - 2, slot - 2};
+    // A nested tile (chest contents, what a monster carries) is smaller; a predicted drop is dim
+    SDL_Rect tile = cells[i].nested ? Inset(icon, 16) : icon;
+    Fill(tile, cells[i].predicted ? TOOLTIP_TILE_DIM : TOOLTIP_TILE_FILL);
+    Outline(tile, cells[i].required ? FACING_BADGE_FRAME
+                                    : (cells[i].nested && !cells[i].predicted ? ITEM_MARKER : TOOLTIP_TILE_FRAME));
+    DrawTooltipIcon(tile, cells[i].item);
     DrawCountBadge(icon, cells[i].count);
   }
   if (truncated && columns > 0)
   {
     int col = (int)shown % columns;
     int row = (int)shown / columns;
-    SDL_Rect icon = {x + TOOLTIP_PAD + col * slot, y + TOOLTIP_PAD + row * slot, slot, slot};
-    DrawMoreItemsMark(icon);
-    UseColour(ITEM_MARKER);
-    DrawNumberCentred(icon.x + icon.w / 2, icon.y + icon.h - 2 - 5 * DIGIT_SCALE, leftover);
+    SDL_Rect icon = {x + TOOLTIP_PAD + col * slot, y + TOOLTIP_PAD + row * slot, slot - 2, slot - 2};
+    Fill(icon, TOOLTIP_TILE_FILL);
+    Outline(icon, TOOLTIP_TILE_FRAME);
+    std::string more = "+" + std::to_string(leftover);
+    int moreW = AutoMapPaint_TextWidth(more, DIGIT_SCALE);
+    AutoMapPaint_Text(icon.x + (icon.w - moreW) / 2, icon.y + (icon.h - 5 * DIGIT_SCALE) / 2, more, ITEM_MARKER,
+                      DIGIT_SCALE);
   }
   for (size_t i = 0; i < footerLines.size(); i++)
   {

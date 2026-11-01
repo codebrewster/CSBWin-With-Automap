@@ -44,7 +44,8 @@ AutoMapCellRecord::AutoMapCellRecord(void)
     doorBreakableWithAxe(false),
     doorBreakableWithFireball(false),
     doorBreakForce(-1),
-    stairsLeadUp(false)
+    stairsLeadUp(false),
+    stairsTargetLevel(AUTOMAP_NO_LEVEL)
 {
   for (int side = 0; side < AUTOMAP_SIDE_COUNT; side++) wallSides[side] = PlainWallSide();
 }
@@ -2618,4 +2619,25 @@ bool AutoMapScene_TakeCentre(AutoMapPendingCentre *pending, int shownLevel, floa
   *y = pending->y;
   *pending = AutoMapScene_NoPendingCentre();
   return true;
+}
+
+int AutoMapScene_StairsTarget(const std::vector<AutoMapLevelArea> &areas, int level, bool up, int absX, int absY)
+{
+  if (level < 0 || level >= (int)areas.size()) return AUTOMAP_NO_LEVEL;
+  int depth = areas[(size_t)level].depth + (up ? -1 : 1);
+  for (size_t i = 0; i < areas.size(); i++)
+  {
+    const AutoMapLevelArea &area = areas[i];
+    if (area.depth != depth) continue;
+    if (absX < area.offsetX || absX >= area.offsetX + area.width) continue;
+    if (absY < area.offsetY || absY >= area.offsetY + area.height) continue;
+    return (int)i;
+  }
+  return AUTOMAP_NO_LEVEL;
+}
+
+std::string AutoMapScene_StackLine(const std::string &name, int count)
+{
+  if (count <= 1) return name;
+  return name + " X" + std::to_string(count);
 }

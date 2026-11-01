@@ -320,6 +320,8 @@ struct AutoMapCellRecord
   // it with the low byte of the level's DoorTOC entry for the door type); -1 unknown
   int doorBreakForce;
   bool stairsLeadUp;
+  // The map the stairs lead to (AutoMapScene_StairsTarget), AUTOMAP_NO_LEVEL when unknown
+  int stairsTargetLevel;
   // Walls: indexed by AutoMapDirection
   AutoMapWallSide wallSides[AUTOMAP_SIDE_COUNT];
   std::vector<AutoMapItem> itemPictures;
@@ -555,6 +557,25 @@ struct AutoMapLink
 };
 
 // One level as it is right now, secrets left out the way the 3D view leaves them out
+// One map of the dungeon: its depth (the level descriptor's Level(), shared by maps side by side)
+// and the area it covers in the dungeon's absolute coordinates
+struct AutoMapLevelArea
+{
+  int depth;
+  int offsetX;
+  int offsetY;
+  int width;
+  int height;
+};
+
+// The map stairs on map `level` at absolute (absX, absY) lead to, the way the engine moves the
+// party (IncrementLevel): the map one depth up or down that covers the same spot.
+// AUTOMAP_NO_LEVEL when none does.
+int AutoMapScene_StairsTarget(const std::vector<AutoMapLevelArea> &areas, int level, bool up, int absX, int absY);
+
+// A stack in the tooltip: "COPPER COIN X5", the name alone for one
+std::string AutoMapScene_StackLine(const std::string &name, int count);
+
 struct AutoMapLevelSnapshot
 {
   AutoMapLevelSnapshot(void);

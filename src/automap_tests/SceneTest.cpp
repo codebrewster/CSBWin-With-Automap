@@ -5254,8 +5254,38 @@ static void TeleportsIntoACell(void)
   CHECK(AutoMapScene_TeleportsInto(fogged, 2, 1).empty());
 }
 
+// Stairs lead to the map at the next depth that covers the same spot, as the engine moves the
+// party (IncrementLevel): in a dungeon with two maps at one depth that need not be level + 1
+static void StairsLeadToTheMapAtTheNextDepth(void)
+{
+  std::vector<AutoMapLevelArea> areas;
+  AutoMapLevelArea wide = {1, 0, 0, 30, 10};
+  AutoMapLevelArea west = {2, 0, 0, 10, 10};
+  AutoMapLevelArea east = {2, 20, 0, 10, 10};
+  AutoMapLevelArea above = {0, 0, 0, 30, 10};
+  areas.push_back(wide);
+  areas.push_back(west);
+  areas.push_back(east);
+  areas.push_back(above);
+  CHECK(AutoMapScene_StairsTarget(areas, 0, false, 5, 5) == 1);
+  CHECK(AutoMapScene_StairsTarget(areas, 0, false, 25, 5) == 2);
+  CHECK(AutoMapScene_StairsTarget(areas, 0, false, 15, 5) == AUTOMAP_NO_LEVEL);
+  CHECK(AutoMapScene_StairsTarget(areas, 2, true, 25, 5) == 0);
+  CHECK(AutoMapScene_StairsTarget(areas, 0, true, 5, 5) == 3);
+  CHECK(AutoMapScene_StairsTarget(areas, 9, true, 5, 5) == AUTOMAP_NO_LEVEL);
+}
+
+// A stack of the same item reads as one line with its count after the name
+static void StackNameLine(void)
+{
+  CHECK(AutoMapScene_StackLine("COPPER COIN", 5) == "COPPER COIN X5");
+  CHECK(AutoMapScene_StackLine("DAGGER", 1) == "DAGGER");
+}
+
 void TestAutoMapScene(void)
 {
+  StairsLeadToTheMapAtTheNextDepth();
+  StackNameLine();
   TeleportsIntoACell();
   SwitchedFalseWallSaysSo();
   MonsterNameLineNamesTheGroup();

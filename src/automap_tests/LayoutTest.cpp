@@ -134,8 +134,22 @@ static void TooltipOpensAwayFromTheLines(void)
   CHECK(AutoMapLayout_TooltipSide(5, 5, incoming) == 0);
 }
 
+// The tooltip's icon grid: six to a row, two rows; with more kinds the twelfth tile reads +N
+static void TooltipGridHasTwoRowsOfSix(void)
+{
+  AutoMapTooltipGrid five = AutoMapLayout_TooltipGrid(5);
+  CHECK(five.tiles == 5 && five.columns == 5 && five.rows == 1 && five.plusMore == 0);
+  AutoMapTooltipGrid twelve = AutoMapLayout_TooltipGrid(12);
+  CHECK(twelve.tiles == 12 && twelve.columns == 6 && twelve.rows == 2 && twelve.plusMore == 0);
+  AutoMapTooltipGrid fourteen = AutoMapLayout_TooltipGrid(14);
+  CHECK(fourteen.tiles == 11 && fourteen.columns == 6 && fourteen.rows == 2 && fourteen.plusMore == 3);
+  AutoMapTooltipGrid none = AutoMapLayout_TooltipGrid(0);
+  CHECK(none.tiles == 0 && none.columns == 0 && none.rows == 0 && none.plusMore == 0);
+}
+
 void TestAutoMapLayout(void)
 {
+  TooltipGridHasTwoRowsOfSix();
   LineStopsAtTheTargetEdge();
   TooltipOpensAwayFromTheLines();
   BadgesSpeakOneVocabulary();
