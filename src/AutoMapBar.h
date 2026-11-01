@@ -18,6 +18,7 @@ bool AutoMapBar_HandleWheel(int x, int y, int notches);
 // A key while a panel is open: true when the panel took it (Escape closes; the level list types)
 bool AutoMapBar_HandleKey(int sym);
 bool AutoMapBar_PanelIsOpen(void);
+bool AutoMapBar_LevelListIsOpen(void);
 void AutoMapBar_ClosePanels(void);
 // Where the / button sits, in window pixels, for the search panel to open below it
 int AutoMapBar_SearchButtonX(void);

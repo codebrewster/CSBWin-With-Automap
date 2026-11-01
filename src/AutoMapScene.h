@@ -722,6 +722,7 @@ struct AutoMapShownMonster
   std::vector<AutoMapItem> residuePictures;
   std::vector<AutoMapItem> chanceResiduePictures;
   std::string name;
+  AutoMapRecordId record = AUTOMAP_NO_RECORD;
 };
 
 struct AutoMapShownMissile
@@ -1052,6 +1053,8 @@ struct AutoMapSearchHit
   int count;
   // The name of the group that carries a CARRIED item
   std::string carriedBy;
+  // A monster group's record: the hit is found again after the group moved
+  AutoMapRecordId group = AUTOMAP_NO_RECORD;
   // A monster group's or a generator's monster picture, for the results' icon
   int monsterPicture = AUTOMAP_NO_PICTURE;
   int monsterTransparentColour = 0;
@@ -1068,6 +1071,8 @@ struct AutoMapSearchRow
 };
 std::vector<AutoMapSearchRow> AutoMapScene_SearchRows(const std::vector<AutoMapSearchHit> &hits, int shownLevel,
                                                       const std::set<int> &folded);
+// The hit of the first row that is not a heading, -1 when every level is folded or nothing matched
+int AutoMapScene_FirstListedHit(const std::vector<AutoMapSearchRow> &rows);
 
 // The name a wall feature is searched and listed by: "WATER FOUNTAIN", "ALTAR OF VI", "" for none
 const char *AutoMapScene_WallFeatureName(AutoMapWallFeature feature);

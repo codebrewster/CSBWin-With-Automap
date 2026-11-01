@@ -64,6 +64,9 @@ static int levelButtonX = 0;
 static int searchButtonX = 0;
 static const int LEVEL_ROWS = 12;
 static int barScroll = 0;
+static bool scrollLeft = false;
+static bool scrollRight = false;
+static int barWidth = 0;
 static std::vector<AutoMapRect> itemRects;
 static std::vector<BarItem> items;
 static int showButtonX = 0;
@@ -138,6 +141,23 @@ void AutoMapBar_Draw(int width)
     AutoMapPaint_Fill(r, items[i].on ? ON_FILL : BUTTON_FILL);
     AutoMapPaint_Frame(r, items[i].on ? ON_FILL : BUTTON_FRAME, 1);
     AutoMapPaint_Text(r.x + 5 * PIXEL / 2, r.y + 2 * PIXEL, shown[i], items[i].on ? ON_TEXT : BUTTON_TEXT, PIXEL);
+  }
+  // The bar reaches past the window: arrows at the clipped ends scroll it
+  scrollLeft = barScroll > 0;
+  scrollRight = reach - barScroll > width;
+  barWidth = width;
+  int arrowW = 9 * PIXEL;
+  if (scrollLeft)
+  {
+    AutoMapRect arrow = {0, 0, arrowW, AutoMapBar_Height() - 1};
+    AutoMapPaint_Fill(arrow, BAR_FILL);
+    AutoMapPaint_Text(3 * PIXEL, 4 * PIXEL, "<", GOLD, PIXEL);
+  }
+  if (scrollRight)
+  {
+    AutoMapRect arrow = {width - arrowW, 0, arrowW, AutoMapBar_Height() - 1};
+    AutoMapPaint_Fill(arrow, BAR_FILL);
+    AutoMapPaint_Text(width - arrowW + 3 * PIXEL, 4 * PIXEL, ">", GOLD, PIXEL);
   }
 }
 
@@ -417,6 +437,17 @@ bool AutoMapBar_HandlePress(int x, int y, int width)
   if (showOpen && y >= AutoMapBar_Height()) return ShowPanelPress(x, y, width);
   if (levelListOpen && y >= AutoMapBar_Height()) return LevelListPress(x, y);
   if (y >= AutoMapBar_Height()) return false;
+  int arrowW = 9 * PIXEL;
+  if (scrollLeft && x < arrowW)
+  {
+    barScroll = std::max(0, barScroll - width / 2);
+    return true;
+  }
+  if (scrollRight && x >= barWidth - arrowW)
+  {
+    barScroll += width / 2;
+    return true;
+  }
   for (size_t i = 0; i < itemRects.size() && i < items.size(); i++)
   {
     const AutoMapRect &r = itemRects[i];
@@ -484,4 +515,9 @@ bool AutoMapBar_HandleKey(int sym)
 int AutoMapBar_SearchButtonX(void)
 {
   return searchButtonX;
+}
+
+bool AutoMapBar_LevelListIsOpen(void)
+{
+  return levelListOpen;
 }

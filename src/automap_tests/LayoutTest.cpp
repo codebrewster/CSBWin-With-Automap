@@ -39,10 +39,8 @@ static void RectanglesOverlapOnlyWhenTheyShareAPixel(void)
 // the cell, no two slots share a pixel, each corner icon stays inside its slot
 static void SlotsNeverOverlap(void)
 {
-  static const int SIZES[] = {12, 36, 96};
-  for (int s = 0; s < 3; s++)
+  for (int cell = 1; cell <= 200; cell++)
   {
-    int cell = SIZES[s];
     for (int mask = 1; mask < 16; mask++)
     {
       bool decorated[4] = {(mask & 1) != 0, (mask & 2) != 0, (mask & 4) != 0, (mask & 8) != 0};
@@ -52,7 +50,8 @@ static void SlotsNeverOverlap(void)
         if (!decorated[side]) continue;
         slots[side] = AutoMapLayout_WallSlot(decorated, side, cell);
         const AutoMapRect &slot = slots[side];
-        CHECK(slot.w > 0 && slot.h > 0);
+        // Too small a cell draws no slot at all
+        if (slot.w <= 0 || slot.h <= 0) continue;
         CHECK(slot.x >= 0 && slot.y >= 0 && slot.x + slot.w <= cell && slot.y + slot.h <= cell);
         for (int right = 0; right < 2; right++)
         {
@@ -197,8 +196,19 @@ static void LevelListClamps(void)
   CHECK(AutoMapLayout_TypedLevel("3", 0) == -1);
 }
 
+// A plate, count or badge that does not fit inside its cell is left out rather than spill over
+static void PlatesKeepInsideTheirCell(void)
+{
+  CHECK(AutoMapLayout_Fits(17, 9, 40));
+  CHECK(!AutoMapLayout_Fits(17, 9, 12));
+  CHECK(!AutoMapLayout_Fits(10, 9, 10));
+  CHECK(AutoMapLayout_Fits(8, 8, 10));
+  CHECK(AutoMapLayout_Fits(0, 0, 0) == false);
+}
+
 void TestAutoMapLayout(void)
 {
+  PlatesKeepInsideTheirCell();
   LevelListClamps();
   BarFitsNarrowWindow();
   TooltipGridHasTwoRowsOfSix();

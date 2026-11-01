@@ -206,6 +206,7 @@ static bool dragNeedsResync = false;
 static int dragDistance = 0;
 static const int DRAG_START_DISTANCE = 4;
 static void CancelMiddleDrag(void);
+static void EndLeftDrag(void);
 // Hovered cell for action-link arrows: the cell under the pointer, or nothing when the
 // pointer is off the level. Forward mode draws outgoing edges, reverse mode incoming ones.
 static bool hoverValid = false;
@@ -267,6 +268,7 @@ static void SearchStep(int delta)
 
 static void SearchGiveBackTextInput(void);
 static void SearchFullRefresh(void);
+static std::vector<AutoMapSearchRow> SearchRowsNow(void);
 static void SearchRefreshCurrentLevel(void);
 static void SearchCenterOnSelected(void);
 static void SearchEnsureSelectedVisible(void);
@@ -498,6 +500,7 @@ void AutoMapWindow_Hide(void)
   RememberPlacement();
   GiveThePointerBackToTheGame();
   CancelMiddleDrag();
+  EndLeftDrag();
   ClearHover();
   if (searchOpen)
   {
@@ -583,6 +586,8 @@ static void SearchFullRefresh(void)
   searchTop = 0;
   if (!searchOpen || searchQuery.empty()) return;
   searchHits = AutoMap_SearchDungeon(searchQuery);
+  // The selection starts on the first hit the panel lists
+  searchSelected = std::max(0, AutoMapScene_FirstListedHit(SearchRowsNow()));
   isDirty = true;
 }
 
@@ -605,6 +610,7 @@ static void SearchRefreshCurrentLevel(void)
   bool selectedCarried = false;
   AutoMapWallFeature selectedFeature = AutoMapWallFeatureNone;
   int selectedSide = -1;
+  AutoMapRecordId selectedGroup = AUTOMAP_NO_RECORD;
   // The refresh runs with every new draw list: it must not undo the wheel, so it keeps the
   // selection in view only when the selection was in view
   int selectedRow = RowOfSelectedHit(SearchRowsNow());
@@ -619,6 +625,7 @@ static void SearchRefreshCurrentLevel(void)
     selectedCarried = old.monsterCarried;
     selectedFeature = old.wallFeature;
     selectedSide = old.slot.side;
+    selectedGroup = old.kind == AutoMapHitMonster ? old.group : AUTOMAP_NO_RECORD;
   }
   std::vector<AutoMapSearchHit> merged;
   for (size_t i = 0; i < searchHits.size(); i++)
@@ -628,9 +635,19 @@ static void SearchRefreshCurrentLevel(void)
   merged.insert(merged.end(), fresh.begin(), fresh.end());
   AutoMapScene_SortSearchHits(&merged, searchQuery);
   searchHits = merged;
-  searchSelected = 0;
+  searchSelected = std::max(0, AutoMapScene_FirstListedHit(SearchRowsNow()));
   for (size_t i = 0; i < searchHits.size(); i++)
   {
+    // A monster group walks: found again by its record, wherever it stands now
+    if (selectedGroup != AUTOMAP_NO_RECORD)
+    {
+      if (searchHits[i].kind == AutoMapHitMonster && searchHits[i].group == selectedGroup)
+      {
+        searchSelected = (int)i;
+        break;
+      }
+      continue;
+    }
     if (searchHits[i].level == selectedLevel && searchHits[i].x == selectedX
         && searchHits[i].y == selectedY && searchHits[i].name == selectedName
         && searchHits[i].monsterCarried == selectedCarried
@@ -747,6 +764,8 @@ bool AutoMapWindow_HandleKeyEvent(const SDL_Event &event)
   if (!isShown || !BelongsToMapWindow(KeyWindowOf(event))) return false;
   if (event.type == SDL_TEXTINPUT)
   {
+    // The level list types digits of its own; they are not for the search
+    if (AutoMapBar_LevelListIsOpen()) return true;
     if (!searchOpen) return false;
     searchQuery += event.text.text;
     SearchFullRefresh();
@@ -851,7 +870,7 @@ bool AutoMapWindow_HandleWindowEvent(const SDL_Event &event)
     ClearHover();
     if (middleDragging) dragNeedsResync = true;
     break;
-  case SDL_WINDOWEVENT_FOCUS_LOST: CancelMiddleDrag(); ClearHover(); break;
+  case SDL_WINDOWEVENT_FOCUS_LOST: CancelMiddleDrag(); EndLeftDrag(); ClearHover(); break;
   default: isDirty = true; break;
   }
   return true;
@@ -1246,7 +1265,9 @@ static bool HandleMapPointerEvent(const SDL_Event &event)
   }
   if (event.type == SDL_MOUSEMOTION && leftDragging)
   {
-    DragLeft(event.motion.xrel, event.motion.yrel);
+    // A release the map never saw (captured elsewhere) ends the drag at the next motion
+    if ((event.motion.state & SDL_BUTTON_LMASK) == 0) EndLeftDrag();
+    else DragLeft(event.motion.xrel, event.motion.yrel);
     return true;
   }
   if (event.type == SDL_MOUSEBUTTONDOWN
@@ -1335,6 +1356,12 @@ static bool HandleMapPointerEvent(const SDL_Event &event)
 // everything else reaches the map shifted into the map's own coordinates, below the bar
 bool AutoMapWindow_HandlePointerEvent(const SDL_Event &event)
 {
+  // A left release ends a pan wherever it happens, like the middle button's
+  if (event.type == SDL_MOUSEBUTTONUP && event.button.button == SDL_BUTTON_LEFT && leftDragging)
+  {
+    EndLeftDrag();
+    if (!IsPointerEventOfMapWindow(event)) return false;
+  }
   int bar = AutoMapBar_Height();
   bool onMapWindow = IsPointerEventOfMapWindow(event) && mapRenderer != NULL;
   if (onMapWindow && !middleDragging && !leftDragging)
@@ -1566,6 +1593,13 @@ static void DrawStairs(const SDL_Rect &cell, const AutoMapCellRecord &stairs)
   int arrowW = 6 * pixel;
   int width = arrowW + AutoMapPaint_TextWidth(label, pixel) + 4 * pixel - (label.empty() ? pixel : 0);
   int height = 9 * pixel;
+  // Too little room: the arrow alone, then nothing
+  if (!AutoMapLayout_Fits(width, height, cell.w))
+  {
+    label.clear();
+    width = arrowW + 3 * pixel;
+  }
+  if (!AutoMapLayout_Fits(width, height, cell.w)) return;
   AutoMapRect plate = {cell.x + (cell.w - width) / 2, cell.y + (cell.h - height) / 2, width, height};
   const SDL_Color &colour = stairs.stairsLeadUp ? STAIRS_UP_PLATE : STAIRS_DOWN_PLATE;
   AutoMapPaint_Plate(plate, colour);
@@ -1606,6 +1640,7 @@ static void DrawLevelPlate(const SDL_Rect &cell, int level)
   std::string label = "L" + std::to_string(level);
   int width = AutoMapPaint_TextWidth(label, pixel) + 4 * pixel;
   int height = 9 * pixel;
+  if (!AutoMapLayout_Fits(width, height, cell.w)) return;
   AutoMapRect plate = {cell.x + (cell.w - width) / 2, cell.y + (cell.h - height) / 2, width, height};
   AutoMapPaint_Plate(plate, SPINNER);
   AutoMapPaint_Text(plate.x + 2 * pixel, plate.y + 2 * pixel, label, SPINNER, pixel);
@@ -1777,6 +1812,13 @@ static void DecoratedFaces(const AutoMapCellRecord &wall, bool decorated[AUTOMAP
   }
 }
 
+struct FaceGoods;
+static void GoodsOfFaces(const AutoMapCellRecord &record, FaceGoods goods[AUTOMAP_SIDE_COUNT]);
+
+// Every face that takes a slot: decorations, hidden machinery, and faces whose lock or alcove shows
+// an icon though they carry no picture; one set per cell, so all its slots are sized together
+static void SlotFaces(const AutoMapCellRecord &wall, bool decorated[AUTOMAP_SIDE_COUNT]);
+
 static SDL_Rect SlotOf(const SDL_Rect &cell, const bool decorated[AUTOMAP_SIDE_COUNT], int side)
 {
   AutoMapRect slot = AutoMapLayout_WallSlot(decorated, side, cell.w);
@@ -1869,6 +1911,7 @@ static void DrawWallSide(const SDL_Rect &cell, const AutoMapCellRecord &wall, in
   const AutoMapWallSide &wallSide = wall.wallSides[side];
   if (!decorated[side]) return;
   SDL_Rect slot = SlotOf(cell, decorated, side);
+  if (slot.w <= 0) return;
   bool drawsPicture = Shows(AutoMapShowWallDecorations)
       && (wallSide.picture != AUTOMAP_NO_PICTURE || wallSide.portrait != AUTOMAP_NO_PICTURE);
   bool drawsWriting = Shows(AutoMapShowWallWriting) && wallSide.hasWriting;
@@ -1902,21 +1945,37 @@ static void DrawWallSide(const SDL_Rect &cell, const AutoMapCellRecord &wall, in
   if (goods.locked) DrawSlotCorner(slot, false, &goods.key, true);
 }
 
-static void DrawWallFaces(const SDL_Rect &cell, const AutoMapCellRecord &wall)
+static void SlotFaces(const AutoMapCellRecord &wall, bool decorated[AUTOMAP_SIDE_COUNT])
 {
-  bool decorated[AUTOMAP_SIDE_COUNT];
   DecoratedFaces(wall, decorated);
   FaceGoods goods[AUTOMAP_SIDE_COUNT];
   GoodsOfFaces(wall, goods);
   for (int side = 0; side < AUTOMAP_SIDE_COUNT; side++)
   {
-    DrawWallSide(cell, wall, side, decorated, goods[side]);
-    // A lock or goods on a face without a picture still show, in a slot of their own
-    if (decorated[side] || (!goods[side].locked && !goods[side].stocked)) continue;
-    if (!wall.wallSides[side].functional && !wall.wallSides[side].isAlcove) continue;
-    bool alone[AUTOMAP_SIDE_COUNT] = {false, false, false, false};
-    alone[side] = true;
-    SDL_Rect slot = SlotOf(cell, alone, side);
+    bool showsGoods = goods[side].locked || goods[side].stocked;
+    if (showsGoods && (wall.wallSides[side].functional || wall.wallSides[side].isAlcove)) decorated[side] = true;
+  }
+}
+
+static void DrawWallFaces(const SDL_Rect &cell, const AutoMapCellRecord &wall)
+{
+  bool withPicture[AUTOMAP_SIDE_COUNT];
+  DecoratedFaces(wall, withPicture);
+  bool decorated[AUTOMAP_SIDE_COUNT];
+  SlotFaces(wall, decorated);
+  FaceGoods goods[AUTOMAP_SIDE_COUNT];
+  GoodsOfFaces(wall, goods);
+  for (int side = 0; side < AUTOMAP_SIDE_COUNT; side++)
+  {
+    if (withPicture[side])
+    {
+      DrawWallSide(cell, wall, side, decorated, goods[side]);
+      continue;
+    }
+    // A lock or goods on a face without a picture still show, in that face's slot
+    if (!decorated[side]) continue;
+    SDL_Rect slot = SlotOf(cell, decorated, side);
+    if (slot.w <= 0) continue;
     if (goods[side].stocked) DrawSlotCorner(slot, true, &goods[side].stock, false);
     if (goods[side].locked) DrawSlotCorner(slot, false, &goods[side].key, true);
   }
@@ -2212,6 +2271,8 @@ static void DrawGlimpseMark(int pixel, const SDL_Rect &area)
   }
 }
 
+static const AutoMapShownCell *ShownCellAt(const AutoMapDrawList &drawList, int x, int y);
+
 static void DrawGlimpses(const AutoMapView &view, const AutoMapDrawList &drawList)
 {
   for (size_t i = 0; i < drawList.glimpsedItems.size(); i++)
@@ -2225,9 +2286,13 @@ static void DrawGlimpses(const AutoMapView &view, const AutoMapDrawList &drawLis
     const AutoMapGlimpsedFace &face = drawList.glimpsedFaces[i];
     SDL_Rect cell = CellArea(view, face.x, face.y);
     if (face.side < 0 || face.side >= AUTOMAP_SIDE_COUNT) continue;
-    bool alone[AUTOMAP_SIDE_COUNT] = {false, false, false, false};
-    alone[face.side] = true;
-    SDL_Rect area = SlotOf(cell, alone, face.side);
+    // The same slot the face's decoration would take, beside the cell's other slots
+    bool faces[AUTOMAP_SIDE_COUNT] = {false, false, false, false};
+    const AutoMapShownCell *wall = ShownCellAt(drawList, face.x, face.y);
+    if (wall != NULL) SlotFaces(wall->cell, faces);
+    faces[face.side] = true;
+    SDL_Rect area = SlotOf(cell, faces, face.side);
+    if (area.w <= 0) continue;
     DrawGlimpseMark(std::max(1, cell.w / 16), area);
   }
 }
@@ -2258,6 +2323,7 @@ static void DrawItems(const SDL_Rect &cell, const AutoMapShownCell &shown)
     int pixel = std::max(1, cell.w / 24);
     std::string label = std::to_string(total);
     int width = AutoMapPaint_TextWidth(label, pixel) + 4 * pixel;
+    if (!AutoMapLayout_Fits(width + 2, 9 * pixel + 2, cell.w)) return;
     AutoMapRect plate = {cell.x + cell.w - width - 2, cell.y + 2, width, 9 * pixel};
     AutoMapPaint_Plate(plate, ITEM_MARKER);
     AutoMapPaint_Text(plate.x + 2 * pixel, plate.y + 2 * pixel, label, ITEM_MARKER, pixel);
@@ -2323,20 +2389,29 @@ static void DrawBadge(const SDL_Rect &cell, const AutoMapBadge &badge, const Aut
   int size = AutoMapLayout_BadgeSize(cell.w);
   if (size <= 0 || badge.glyphs.empty()) return;
   int textPixel = std::max(1, size / 9);
-  int width = 2;
-  for (size_t i = 0; i < badge.glyphs.size(); i++)
-  {
-    width += badge.glyphs[i] == AutoMapGlyphGen ? AutoMapPaint_TextWidth("GEN", textPixel) + 4 : size;
-  }
   int margin = std::max(2, cell.w * 6 / 100);
+  // Glyphs that do not fit inside the cell drop out from the end, then the badge itself
+  AutoMapBadge fitting = badge;
+  int width = 0;
+  while (!fitting.glyphs.empty())
+  {
+    width = 2;
+    for (size_t i = 0; i < fitting.glyphs.size(); i++)
+    {
+      width += fitting.glyphs[i] == AutoMapGlyphGen ? AutoMapPaint_TextWidth("GEN", textPixel) + 4 : size;
+    }
+    if (AutoMapLayout_Fits(width + margin, size + 2 + margin, cell.w)) break;
+    fitting.glyphs.pop_back();
+  }
+  if (fitting.glyphs.empty()) return;
   AutoMapRect plate = {cell.x + margin, cell.y + cell.h - size - 2 - margin, width, size + 2};
   AutoMapPaint_Plate(plate, frame);
   int x = plate.x + 1;
   int y = plate.y + 1;
-  for (size_t i = 0; i < badge.glyphs.size(); i++)
+  for (size_t i = 0; i < fitting.glyphs.size(); i++)
   {
     AutoMapRect box = {x, y, size, size};
-    switch (badge.glyphs[i])
+    switch (fitting.glyphs[i])
     {
     case AutoMapGlyphParty:
       AutoMapPaint_PartyArrow(x + size / 2.0f, y + size / 2.0f, size * 0.36f, badge.facing, PARTY, false);

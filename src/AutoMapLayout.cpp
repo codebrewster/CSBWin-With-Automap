@@ -41,19 +41,27 @@ int AutoMapLayout_FaceLine(int cellSize)
 AutoMapRect AutoMapLayout_WallSlot(const bool decorated[4], int side, int cellSize)
 {
   int inset = AutoMapLayout_FaceLine(cellSize);
-  int room = std::max(1, cellSize - 2 * inset);
+  int room = cellSize - 2 * inset;
+  // Too small a cell for slots: draw none rather than let them pile up or leave the cell
+  if (room < 3)
+  {
+    AutoMapRect none = {0, 0, 0, 0};
+    return none;
+  }
   int before = (side + 3) % 4;
   int after = (side + 1) % 4;
   bool besideBefore = decorated[before];
   bool besideAfter = decorated[after];
   int size;
+  int margin = (int)std::lround(cellSize * 0.04);
   if (besideBefore && besideAfter) size = room / 3;
-  else if (besideBefore || besideAfter) size = (int)std::lround(cellSize * 0.44);
+  // Slid apart, a slot and its neighbour's must fit side by side between the far end's margin and
+  // the neighbour's inset
+  else if (besideBefore || besideAfter) size = std::min((int)std::lround(cellSize * 0.44), (cellSize - inset - margin) / 2);
   else size = (int)std::lround(cellSize * 0.56);
   if (decorated[(side + 2) % 4]) size = std::min(size, room / 2);
   size = std::max(1, std::min(size, room));
   // Along the face: centred, or slid to the end away from the one decorated neighbour
-  int margin = (int)std::lround(cellSize * 0.04);
   int along = (cellSize - size) / 2;
   if (besideBefore != besideAfter)
   {
@@ -223,4 +231,9 @@ int AutoMapLayout_TypedLevel(const std::string &digits, int levels)
     level = level * 10 + (digits[i] - '0');
   }
   return std::min(level, levels - 1);
+}
+
+bool AutoMapLayout_Fits(int width, int height, int cellSize)
+{
+  return width > 0 && height > 0 && width <= cellSize - 2 && height <= cellSize - 2;
 }

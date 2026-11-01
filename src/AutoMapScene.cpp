@@ -725,6 +725,7 @@ static AutoMapShownMonster ShowMonster(const AutoMapMonsterRecord &monster,
   shown.y = monster.y;
   shown.transparentColour = monster.kind.transparentColour;
   shown.name = monster.name;
+  shown.record = monster.record;
   shown.memberCount = std::min(monster.memberCount, AUTOMAP_LARGEST_GROUP);
   for (int member = 0; member < AUTOMAP_LARGEST_GROUP; member++)
   {
@@ -2276,6 +2277,7 @@ std::vector<AutoMapSearchHit> AutoMapScene_SearchItems(const AutoMapDrawList &dr
     AutoMapScene_GlobalPosition(drawList, group.x, group.y, &hit.globalX, &hit.globalY);
     for (size_t c = 0; c < group.name.size(); c++) hit.name += (char)toupper((unsigned char)group.name[c]);
     hit.count = group.memberCount;
+    hit.group = group.record;
     hit.monsterPicture = group.memberPictures[0].picture;
     hit.monsterTransparentColour = group.transparentColour;
     if (AutoMapScene_SearchHitRank(hit, trimmed) < 0) continue;
@@ -2759,4 +2761,13 @@ std::string AutoMapScene_StackLine(const std::string &name, int count)
 {
   if (count <= 1) return name;
   return name + " X" + std::to_string(count);
+}
+
+int AutoMapScene_FirstListedHit(const std::vector<AutoMapSearchRow> &rows)
+{
+  for (size_t i = 0; i < rows.size(); i++)
+  {
+    if (!rows[i].heading) return rows[i].hit;
+  }
+  return -1;
 }

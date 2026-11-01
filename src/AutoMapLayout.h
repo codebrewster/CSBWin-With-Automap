@@ -108,4 +108,8 @@ int AutoMapLayout_BarHeight(int pixel);
 int AutoMapLayout_LevelListTop(int levels, int rows, int focusLevel);
 int AutoMapLayout_TypedLevel(const std::string &digits, int levels);
 
+// Whether a plate, count or badge of width x height fits inside a cell with a pixel to spare: what
+// does not fit is left out instead of spilling into the neighbouring cells
+bool AutoMapLayout_Fits(int width, int height, int cellSize);
+
 #endif

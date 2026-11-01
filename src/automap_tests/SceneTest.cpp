@@ -5414,8 +5414,38 @@ static void SearchRowsGroupByLevel(void)
   CHECK(rows.size() == 4 && rows[3].heading && rows[3].level == 1);
 }
 
+// After a new query the selection starts on the first hit the panel lists, not on the best-ranked
+// hit of the lowest level
+static void SearchSelectionStartsOnTheFirstListedHit(void)
+{
+  std::vector<AutoMapSearchHit> hits;
+  hits.push_back(HitOn(1, 2, 2));
+  hits.push_back(HitOn(5, 7, 4));
+  hits.push_back(HitOn(5, 3, 1));
+  std::set<int> folded;
+  std::vector<AutoMapSearchRow> rows = AutoMapScene_SearchRows(hits, 5, folded);
+  CHECK(AutoMapScene_FirstListedHit(rows) == 2);
+  folded.insert(5);
+  folded.insert(1);
+  CHECK(AutoMapScene_FirstListedHit(AutoMapScene_SearchRows(hits, 5, folded)) == -1);
+}
+
+// A monster hit carries its group, so a selected group can be found again after it moved
+static void MonsterHitsKnowTheirGroup(void)
+{
+  AutoMapLevelSnapshot corridor = CorridorWithTrolins();
+  corridor.monsters[0].record = 0x40011u;
+  AutoMapExplored explored = NothingExplored();
+  AutoMapVisibleCells visibleNow;
+  AutoMapDrawList drawList = AutoMapScene_BuildDrawList(corridor, NoFog(explored, visibleNow));
+  std::vector<AutoMapSearchHit> hits = AutoMapScene_SearchItems(drawList, "MON", SearchItemName, NULL);
+  CHECK(hits.size() == 1 && hits[0].group == 0x40011u);
+}
+
 void TestAutoMapScene(void)
 {
+  SearchSelectionStartsOnTheFirstListedHit();
+  MonsterHitsKnowTheirGroup();
   SearchFindsMonstersAndGenerators();
   SearchKeepsTheFog();
   SearchRowsGroupByLevel();
