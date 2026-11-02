@@ -534,7 +534,10 @@ int PressesToFireGate(const std::vector<PressGateMessage> &messages, const AutoM
         bool fires = false;
         int next = GateReceives(relay, bits, own[i]->bit, own[i]->signal, &closed, &fires);
         int cost = std::max(best[bits], own[i]->presses);
-        if (fires)
+        // The path behind waits on the gate's closed send (SET). A held gate also sends on a
+        // message that passes its filter without closing it, but that is CLEAR, the side the
+        // path does not wait on: it only moves the bits on. A plain gate fires closed anyway.
+        if (fires && closed)
         {
           if (fire < 0 || cost < fire) fire = cost;
         }

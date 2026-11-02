@@ -5128,6 +5128,31 @@ static void HeldRelayMidPathIsNoHold(void)
   CHECK(result.find("NEEDS OTHER SOURCES") != std::string::npos);
 }
 
+static void HeldGateWaitingOnItsFilterNeedsAMatch(void)
+{
+  // A held gate at 0001 needing 0011, filter "the bit turns on", the lever toggling bit 0.
+  // This press: 0001 -> 0000, the bit turns off, the filter drops it. Next press: 0000 ->
+  // 0001, it passes but does not match, so the gate sends CLEAR and the door stays shut.
+  // Bit 0 alone never makes 0011: the door needs other sources.
+  AutoMapLevelSnapshot snapshot = MachineRoom();
+  snapshot.cells[1 * 6 + 5].doorState = AutoMapDoorClosed;
+  AutoMapRelay gate = GateRelay(0x1 | (0x3 << 4), false);
+  gate.signal = AutoMapSignalPressure;
+  gate.edgeMode = 6;
+  PutRelay(&snapshot, 2, 0, gate, 200);
+  snapshot.links.push_back(Message(0, 1, 2, 0, LEVER_RECORD, AutoMapSignalToggle, 0, 0));
+  snapshot.links.push_back(Message(2, 0, 5, 1, 200, AutoMapSignalPressure, 0, 0));
+  AutoMapDrawList drawList = DrawAll(snapshot);
+  std::string result, badge;
+  LeverResultAndBadge(drawList, &result, &badge);
+  CHECK(result == "  DOOR L0 (5, 1) 2 BITS OFF, NEEDS OTHER SOURCES");
+  CHECK(badge.find("MORE") == std::string::npos);
+  std::string route = JoinedTip(RouteBlock(drawList, 0, 1));
+  CHECK(route.find("EACH MESSAGE, ONLY WHEN THE BIT TURNS ON: (2 BITS OFF, NEEDS OTHER SOURCES)")
+        != std::string::npos);
+  CHECK(route.find("NEXT PRESS") == std::string::npos);
+}
+
 static void RouteAfterADSANeverSaysThisPress(void)
 {
   // A counter at 1 after a DSA reaches 0 on this press, plain or held: the DSA may stop it
@@ -6809,6 +6834,7 @@ void TestAutoMapScene(void)
   RouteDeadCounterIsBlocked();
   HeldSourceAgreesInRouteResultAndBadge();
   HeldRelayMidPathIsNoHold();
+  HeldGateWaitingOnItsFilterNeedsAMatch();
   RouteAfterADSANeverSaysThisPress();
   RouteHeldStepReachedLaterDoesNotSayEveryPress();
   RouteHoldCounterToDoorNamesBothSides();
