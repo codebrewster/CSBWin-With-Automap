@@ -5487,8 +5487,22 @@ static void AGroupKeepsWhereItsMembersStandAndItsSize(void)
   CHECK(lone.positions == AUTOMAP_CENTRE_POSITIONS);
 }
 
+static void TipGlyphsFindEveryInlineIcon(void)
+{
+  std::string text = std::string("TRIGGER: \x01\x01 PARTY \x02\x02 MONSTER ") + AUTOMAP_GLYPH_ITEM + '1'
+                     + " APPLE " + AUTOMAP_GLYPH_FACING + '1';
+  std::vector<AutoMapTipGlyph> glyphs = AutoMapScene_TipGlyphs(text);
+  CHECK(glyphs.size() == 4);
+  CHECK(glyphs[0].column == 9 && glyphs[0].kind == 1);
+  CHECK(glyphs[1].kind == 2);
+  CHECK(glyphs[2].kind == 4 && glyphs[2].argument == 1);
+  CHECK(glyphs[3].kind == 5 && glyphs[3].argument == 1);
+  CHECK(AutoMapScene_TipGlyphs("PLAIN TEXT").empty());
+}
+
 void TestAutoMapScene(void)
 {
+  TipGlyphsFindEveryInlineIcon();
   AGroupKeepsWhereItsMembersStandAndItsSize();
   SearchSelectionStartsOnTheFirstListedHit();
   MonsterHitsKnowTheirGroup();

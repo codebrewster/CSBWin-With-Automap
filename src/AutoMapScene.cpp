@@ -2613,6 +2613,34 @@ bool AutoMapScene_FontPixel(char mark, int row, int col)
   return PunctuationPixel(mark, row, col);
 }
 
+AutoMapTipLine AutoMapScene_TipLine(const std::string &text, AutoMapTipStyle style)
+{
+  AutoMapTipLine line;
+  line.text = text;
+  line.style = style;
+  return line;
+}
+
+std::vector<AutoMapTipGlyph> AutoMapScene_TipGlyphs(const std::string &text)
+{
+  std::vector<AutoMapTipGlyph> glyphs;
+  for (size_t i = 0; i + 1 < text.size(); i++)
+  {
+    char c = text[i];
+    AutoMapTipGlyph glyph = {i, 0, 0};
+    if (c >= 1 && c <= 3 && text[i + 1] == c) glyph.kind = c;
+    else if (c == AUTOMAP_GLYPH_ITEM || c == AUTOMAP_GLYPH_FACING)
+    {
+      glyph.kind = c;
+      glyph.argument = text[i + 1] - '0';
+    }
+    else continue;
+    glyphs.push_back(glyph);
+    i++;
+  }
+  return glyphs;
+}
+
 int AutoMapScene_TextWidth(const char *text)
 {
   if (text == NULL) return 0;

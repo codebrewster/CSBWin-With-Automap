@@ -689,6 +689,41 @@ struct AutoMapItemStack
   int count;
 };
 
+// How a tooltip line is drawn
+enum AutoMapTipStyle
+{
+  AutoMapTipPlain,         // white, as today
+  AutoMapTipHeader,        // gold
+  AutoMapTipDormantHeader, // DORMANT_TEXT
+  AutoMapTipDormant,       // DORMANT_TEXT (WOULD ... lines)
+  AutoMapTipState,         // grey: what this press does to a counter or gate
+  AutoMapTipCondition,     // cyan: when a step passes the signal on
+  AutoMapTipResult,        // goal gold
+  AutoMapTipHint           // dim: SHIFT: ROUTE, +N MORE
+};
+
+struct AutoMapTipLine
+{
+  std::string text;
+  AutoMapTipStyle style;
+  // Pictures the line shows inline: AUTOMAP_GLYPH_ITEM followed by '0' + index
+  std::vector<AutoMapItem> items;
+};
+
+AutoMapTipLine AutoMapScene_TipLine(const std::string &text, AutoMapTipStyle style);
+
+// Inline glyphs take two characters, as \x01\x01 party, \x02\x02 claw, \x03\x03 box do today
+const char AUTOMAP_GLYPH_ITEM = '\x04';   // next char: '0' + index into items
+const char AUTOMAP_GLYPH_FACING = '\x05'; // next char: '0' + facing (0 north .. 3 west), gold frame
+
+struct AutoMapTipGlyph
+{
+  size_t column;  // character index where the glyph starts
+  int kind;       // 1 party, 2 claw, 3 box, 4 item, 5 facing
+  int argument;   // item index or facing; 0 otherwise
+};
+std::vector<AutoMapTipGlyph> AutoMapScene_TipGlyphs(const std::string &text);
+
 // Groups identical items in first-seen order for the icon tooltip.
 std::vector<AutoMapItemStack> AutoMapScene_GroupItems(const std::vector<AutoMapItem> &items);
 

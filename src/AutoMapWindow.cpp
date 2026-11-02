@@ -92,6 +92,12 @@ static const SDL_Color BADGE_GLYPH = {0xd8, 0xcf, 0xbd, 0xff};
 static const SDL_Color GEN_TEXT = {0xff, 0x80, 0x80, 0xff};
 // What a dormant teleporter or spinner would do: muted, so it never reads as active
 static const SDL_Color DORMANT_TEXT = {0xa8, 0xb8, 0xbc, 0xff};
+// Tooltip line styles (AutoMapTipStyle)
+static const SDL_Color TIP_HEADER_TEXT = FACING_BADGE_FRAME;
+static const SDL_Color TIP_STATE_TEXT = DORMANT_TEXT;
+static const SDL_Color TIP_CONDITION_TEXT = SPINNER;
+static const SDL_Color TIP_RESULT_TEXT = {0xff, 0xcc, 0x33, 0xff};
+static const SDL_Color TIP_HINT_TEXT = {0x8a, 0x8a, 0x9a, 0xff};
 // The game's pressure plate: what a pad without a floor picture of its own is drawn as, faint
 static const int PRESSURE_PLATE_PICTURE = 258;
 static const SDL_Color GENERATOR = {0xc0, 0x50, 0x50, 0xff};
@@ -3702,23 +3708,62 @@ static std::string WithBadgeGlyphs(const std::string &line)
   return line;
 }
 
-static void DrawBadgeGlyphsOfLine(int x, int y, const std::string &line)
+static SDL_Color TipLineColour(AutoMapTipStyle style)
 {
-  for (size_t i = 0; i + 1 < line.size(); i++)
+  switch (style)
   {
-    char glyph = line[i];
-    if (glyph < 1 || glyph > 3 || line[i + 1] != glyph) continue;
+  case AutoMapTipHeader: return TIP_HEADER_TEXT;
+  case AutoMapTipDormantHeader:
+  case AutoMapTipDormant: return DORMANT_TEXT;
+  case AutoMapTipState: return TIP_STATE_TEXT;
+  case AutoMapTipCondition: return TIP_CONDITION_TEXT;
+  case AutoMapTipResult: return TIP_RESULT_TEXT;
+  case AutoMapTipHint: return TIP_HINT_TEXT;
+  default: return WHITE;
+  }
+}
+
+static void DrawBadgeGlyphsOfLine(int x, int y, const AutoMapTipLine &line)
+{
+  std::vector<AutoMapTipGlyph> glyphs = AutoMapScene_TipGlyphs(line.text);
+  for (size_t g = 0; g < glyphs.size(); g++)
+  {
     int size = 7 * DIGIT_SCALE;
-    AutoMapRect box = {x + (int)i * 4 * DIGIT_SCALE, y - DIGIT_SCALE, size, size};
-    AutoMapPaint_Plate(box, BADGE_FRAME);
-    if (glyph == 1) AutoMapPaint_PartyArrow(box.x + size / 2.0f, box.y + size / 2.0f, size * 0.36f, 0, PARTY, false);
-    if (glyph == 2) AutoMapPaint_Claw(box, BADGE_GLYPH);
-    if (glyph == 3)
+    AutoMapRect box = {x + (int)glyphs[g].column * 4 * DIGIT_SCALE, y - DIGIT_SCALE, size, size};
+    int kind = glyphs[g].kind;
+    if (kind == 4)
+    {
+      int index = glyphs[g].argument;
+      if (index < 0 || index >= (int)line.items.size()) continue;
+      const AutoMapItem &item = line.items[index];
+      SDL_Rect slot = {box.x, box.y, box.w, box.h};
+      if (item.worldPicture == AUTOMAP_NO_PICTURE) DrawKeyholeMark(Inset(slot, 10));
+      else DrawTooltipIcon(slot, item);
+      continue;
+    }
+    AutoMapPaint_Plate(box, kind == 5 ? FACING_BADGE_FRAME : BADGE_FRAME);
+    if (kind == 1) AutoMapPaint_PartyArrow(box.x + size / 2.0f, box.y + size / 2.0f, size * 0.36f, 0, PARTY, false);
+    if (kind == 5)
+    {
+      int facing = glyphs[g].argument & 3;
+      AutoMapPaint_PartyArrow(box.x + size / 2.0f, box.y + size / 2.0f, size * 0.36f, facing, FACING_BADGE_FRAME, false);
+    }
+    if (kind == 2) AutoMapPaint_Claw(box, BADGE_GLYPH);
+    if (kind == 3)
     {
       AutoMapRect square = {box.x + size / 4, box.y + size / 4, size / 2, size / 2};
       AutoMapPaint_Frame(square, BADGE_GLYPH, 1);
     }
-    i++;
+  }
+}
+
+// Plain footer strings become styled lines: WOULD/DORMANT lines read muted, TAKES lines get glyphs
+static void AppendTipLines(std::vector<AutoMapTipLine> &out, const std::vector<std::string> &lines)
+{
+  for (size_t i = 0; i < lines.size(); i++)
+  {
+    bool dormant = lines[i].compare(0, 6, "WOULD ") == 0 || lines[i].compare(0, 7, "DORMANT") == 0;
+    out.push_back(AutoMapScene_TipLine(WithBadgeGlyphs(lines[i]), dormant ? AutoMapTipDormant : AutoMapTipPlain));
   }
 }
 
@@ -3761,32 +3806,32 @@ static void DrawTileTooltip(const AutoMapView &view)
   // Footer: position first, then HP lines, then one name line per named stack,
   // left-aligned below the icon grid. The footer keeps a fixed text scale; the icon grid
   // shrinks into what is left.
-  std::vector<std::string> footerLines;
+  std::vector<AutoMapTipLine> footerLines;
   {
     int gx = 0, gy = 0;
     AutoMapScene_GlobalPosition(shownDrawList, hoverX, hoverY, &gx, &gy);
     char pos[64];
     std::snprintf(pos, sizeof(pos), "POS: L%d (%d, %d)", shownDrawList.level, gx, gy);
-    footerLines.push_back(pos);
+    footerLines.push_back(AutoMapScene_TipLine(pos, AutoMapTipPlain));
   }
   std::string monsterName = AutoMapScene_MonsterNameLine(shownDrawList, hoverX, hoverY);
-  if (!monsterName.empty() && Shows(AutoMapShowMonsters)) footerLines.push_back(monsterName);
-  footerLines.insert(footerLines.end(), hpLines.begin(), hpLines.end());
+  if (!monsterName.empty() && Shows(AutoMapShowMonsters))
+    footerLines.push_back(AutoMapScene_TipLine(monsterName, AutoMapTipHeader));
+  AppendTipLines(footerLines, hpLines);
   std::vector<std::string> nameLines =
       BuildTooltipNameLines(cells, maxW - 2 * TOOLTIP_PAD);
-  footerLines.insert(footerLines.end(), nameLines.begin(), nameLines.end());
-  footerLines.insert(footerLines.end(), triggers.begin(), triggers.end());
-  footerLines.insert(footerLines.end(), teleporter.begin(), teleporter.end());
-  footerLines.insert(footerLines.end(), pit.begin(), pit.end());
-  footerLines.insert(footerLines.end(), relay.begin(), relay.end());
-  footerLines.insert(footerLines.end(), press.begin(), press.end());
-  footerLines.insert(footerLines.end(), relayHover.begin(), relayHover.end());
+  AppendTipLines(footerLines, nameLines);
+  AppendTipLines(footerLines, triggers);
+  AppendTipLines(footerLines, teleporter);
+  AppendTipLines(footerLines, pit);
+  AppendTipLines(footerLines, relay);
+  AppendTipLines(footerLines, press);
+  AppendTipLines(footerLines, relayHover);
   std::vector<std::string> textLines =
       BuildTooltipTextLines(scrolls, walls, maxW - 2 * TOOLTIP_PAD);
-  footerLines.insert(footerLines.end(), textLines.begin(), textLines.end());
+  AppendTipLines(footerLines, textLines);
   // The player's own notes come last: they are not what the map knows
-  footerLines.insert(footerLines.end(), notes.begin(), notes.end());
-  for (size_t i = 0; i < footerLines.size(); i++) footerLines[i] = WithBadgeGlyphs(footerLines[i]);
+  AppendTipLines(footerLines, notes);
   int footerTextH = 5 * DIGIT_SCALE;
   int footerLineGap = 4;
   int footerTextW = 0;
@@ -3805,7 +3850,7 @@ static void DrawTileTooltip(const AutoMapView &view)
       // The plate keeps its width while scrolling: measure every line and the widest notes
       for (size_t i = 0; i < footerLines.size(); i++)
       {
-        int w = AutoMapScene_TextWidth(footerLines[i].c_str()) * DIGIT_SCALE;
+        int w = AutoMapScene_TextWidth(footerLines[i].text.c_str()) * DIGIT_SCALE;
         if (w > footerTextW) footerTextW = w;
       }
       char widest[32];
@@ -3817,7 +3862,7 @@ static void DrawTileTooltip(const AutoMapView &view)
       if (noteW > footerTextW) footerTextW = noteW;
       tooltipScrollMax = total - visible;
       if (tooltipScrollLines > tooltipScrollMax) tooltipScrollLines = tooltipScrollMax;
-      std::vector<std::string> window(footerLines.begin() + tooltipScrollLines,
+      std::vector<AutoMapTipLine> window(footerLines.begin() + tooltipScrollLines,
                                       footerLines.begin() + tooltipScrollLines + visible);
       char note[32];
       int below = total - tooltipScrollLines - visible;
@@ -3826,19 +3871,19 @@ static void DrawTileTooltip(const AutoMapView &view)
       if (visible >= 3 && below > 0)
       {
         std::snprintf(note, sizeof(note), "+%d MORE BELOW", below + 1);
-        window.back() = note;
+        window.back() = AutoMapScene_TipLine(note, AutoMapTipHint);
       }
       if (visible >= 3 && tooltipScrollLines > 0)
       {
         std::snprintf(note, sizeof(note), "+%d MORE ABOVE", tooltipScrollLines + 1);
-        window.front() = note;
+        window.front() = AutoMapScene_TipLine(note, AutoMapTipHint);
       }
       footerLines = window;
     }
   }
   for (size_t i = 0; i < footerLines.size(); i++)
   {
-    int w = AutoMapScene_TextWidth(footerLines[i].c_str()) * DIGIT_SCALE;
+    int w = AutoMapScene_TextWidth(footerLines[i].text.c_str()) * DIGIT_SCALE;
     if (w > footerTextW) footerTextW = w;
   }
   int footerH = footerLines.empty() ? 0 : (int)footerLines.size() * footerTextH
@@ -3940,10 +3985,7 @@ static void DrawTileTooltip(const AutoMapView &view)
   {
     int lineY = y + iconH + (cells.empty() ? TOOLTIP_PAD : 0)
         + (int)i * (footerTextH + footerLineGap);
-    bool isMonsterName = !monsterName.empty() && footerLines[i] == monsterName;
-    bool isDormant = footerLines[i].compare(0, 6, "WOULD ") == 0 || footerLines[i].compare(0, 7, "DORMANT") == 0;
-    DrawLegendText(x + TOOLTIP_PAD, lineY, footerLines[i].c_str(),
-                   isMonsterName ? LINK_BADGE : (isDormant ? DORMANT_TEXT : WHITE));
+    DrawLegendText(x + TOOLTIP_PAD, lineY, footerLines[i].text.c_str(), TipLineColour(footerLines[i].style));
     DrawBadgeGlyphsOfLine(x + TOOLTIP_PAD, lineY, footerLines[i]);
   }
 }
