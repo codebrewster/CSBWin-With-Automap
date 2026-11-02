@@ -1,5 +1,5 @@
 // AutoMapSceneInternal.h : helpers of AutoMapScene.cpp that AutoMapPress.cpp shares. Not
-// part of the scene's interface: only the two scene units include it.
+// part of the scene's interface: only the scene units and AutoMapTooltip.cpp include it.
 #ifndef AUTOMAPSCENEINTERNAL_H
 #define AUTOMAPSCENEINTERNAL_H
 

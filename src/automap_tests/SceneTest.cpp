@@ -1,5 +1,6 @@
 #include "TestSupport.h"
 #include "../AutoMapScene.h"
+#include "../AutoMapTooltip.h"
 
 #include <cmath>
 #include <set>
@@ -33,6 +34,14 @@ static AutoMapRelay GateRelay(int value, bool local)
   relay.value = value;
   if (local) relay.localActionType = 0;
   return relay;
+}
+
+// The texts of styled tooltip lines, for the checks that read text only
+static std::vector<std::string> Texts(const std::vector<AutoMapTipLine> &lines)
+{
+  std::vector<std::string> texts;
+  for (size_t i = 0; i < lines.size(); i++) texts.push_back(lines[i].text);
+  return texts;
 }
 
 static AutoMapLevelSnapshot Corridor(void)
@@ -2070,12 +2079,12 @@ static void TriggerLinesNameEveryOperator(void)
   AutoMapExplored explored = NothingExplored();
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
-  CHECK(AutoMapScene_TriggerLines(drawList, 1, 1, TestItemName).size() == 1);
-  CHECK(AutoMapScene_TriggerLines(drawList, 1, 1, TestItemName)[0] == "TRIGGER: ANYTHING");
+  CHECK(Texts(AutoMapScene_TriggerLines(drawList, 1, 1, TestItemName)).size() == 1);
+  CHECK(Texts(AutoMapScene_TriggerLines(drawList, 1, 1, TestItemName))[0] == "TRIGGER: ANYTHING");
   std::vector<std::string> directedLines =
-      AutoMapScene_TriggerLines(drawList, 2, 1, TestItemName);
+      Texts(AutoMapScene_TriggerLines(drawList, 2, 1, TestItemName));
   CHECK(directedLines.size() == 1);
-  CHECK(directedLines[0] == "TRIGGER: PARTY FACING N");
+  CHECK(directedLines[0] == std::string("TRIGGER: ") + AUTOMAP_GLYPH_FACING + '0' + " PARTY FACING N");
 
   AutoMapLevelSnapshot rest = Corridor();
   rest.actuators.push_back(PadWithOp(1, 1, AutoMapPadPartyOrMonster));
@@ -2086,12 +2095,13 @@ static void TriggerLinesNameEveryOperator(void)
   rest.actuators.push_back(unknownFacing);
   AutoMapDrawList restList = AutoMapScene_BuildDrawList(rest, NoFog(explored, visibleNow));
   std::vector<std::string> restLines =
-      AutoMapScene_TriggerLines(restList, 1, 1, TestItemName);
+      Texts(AutoMapScene_TriggerLines(restList, 1, 1, TestItemName));
   CHECK(restLines.size() == 4);
-  CHECK(restLines[0] == "TRIGGER: PARTY OR MONSTER");
-  CHECK(restLines[1] == "TRIGGER: PARTY");
-  CHECK(restLines[2] == "TRIGGER: MONSTER");
-  CHECK(restLines[3] == "TRIGGER: PARTY FACING ?");
+  CHECK(restLines[0] == "TRIGGER: \x01\x01 PARTY \x02\x02 MONSTER");
+  CHECK(restLines[1] == "TRIGGER: \x01\x01 PARTY");
+  CHECK(restLines[2] == "TRIGGER: \x02\x02 MONSTER");
+  // An unknown facing has no arrow to turn: the plain party glyph
+  CHECK(restLines[3] == "TRIGGER: \x01\x01 PARTY FACING ?");
 }
 
 static void TriggerLinesNameRequiredObjects(void)
@@ -2109,14 +2119,14 @@ static void TriggerLinesNameRequiredObjects(void)
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
   std::vector<std::string> objectLines =
-      AutoMapScene_TriggerLines(drawList, 1, 1, TestItemName);
+      Texts(AutoMapScene_TriggerLines(drawList, 1, 1, TestItemName));
   CHECK(objectLines.size() == 2);
-  CHECK(objectLines[0] == "TRIGGER: OBJECT SKELETON KEY");
-  CHECK(objectLines[1] == "TRIGGER: OBJECT (UNKNOWN)");
+  CHECK(objectLines[0] == std::string("TRIGGER: ") + AUTOMAP_GLYPH_ITEM + "0 OBJECT SKELETON KEY");
+  CHECK(objectLines[1] == std::string("TRIGGER: ") + AUTOMAP_GLYPH_ITEM + "0 OBJECT (UNKNOWN)");
   std::vector<std::string> carriedLines =
-      AutoMapScene_TriggerLines(drawList, 2, 1, TestItemName);
+      Texts(AutoMapScene_TriggerLines(drawList, 2, 1, TestItemName));
   CHECK(carriedLines.size() == 1);
-  CHECK(carriedLines[0] == "TRIGGER: CARRY SKELETON KEY");
+  CHECK(carriedLines[0] == std::string("TRIGGER: \x01\x01 CARRY ") + AUTOMAP_GLYPH_ITEM + "0 SKELETON KEY");
 }
 
 static void TriggerLinesFoldDuplicatesAndNameContraptions(void)
@@ -2142,18 +2152,17 @@ static void TriggerLinesFoldDuplicatesAndNameContraptions(void)
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
   std::vector<std::string> partyLines =
-      AutoMapScene_TriggerLines(drawList, 1, 1, TestItemName);
+      Texts(AutoMapScene_TriggerLines(drawList, 1, 1, TestItemName));
   CHECK(partyLines.size() == 3);
-  CHECK(partyLines[0] == "TRIGGER: PARTY");
+  CHECK(partyLines[0] == "TRIGGER: \x01\x01 PARTY");
   CHECK(partyLines[1] == "GENERATES Screamer");
   CHECK(partyLines[2] == "GENERATES MONSTER");
   std::vector<std::string> machineLines =
-      AutoMapScene_TriggerLines(drawList, 2, 1, TestItemName);
-  // The cog is left to the relay hover block
-  CHECK(machineLines.size() == 3);
-  CHECK(machineLines[0] == "DORMANT PAD");
-  CHECK(machineLines[1] == "GENERATES 3X Mummy");
-  CHECK(machineLines[2] == "SPENT GENERATOR");
+      Texts(AutoMapScene_TriggerLines(drawList, 2, 1, TestItemName));
+  // The cog is left to the relay hover block; the dormant pad and the spent generator are
+  // named by their tooltip headers (AutoMapTooltip_Machinery), not by a line here
+  CHECK(machineLines.size() == 1);
+  CHECK(machineLines[0] == "GENERATES 3X Mummy");
 }
 
 static void EachPadOfACellIsItsOwnPress(void)
@@ -2226,8 +2235,8 @@ static void TriggerLinesStaySilentWithoutTheCell(void)
   AutoMapExplored explored = NothingExplored();
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList hidden = AutoMapScene_BuildDrawList(snapshot, FogOver(explored, visibleNow));
-  CHECK(AutoMapScene_TriggerLines(hidden, 1, 1, TestItemName).empty());
-  CHECK(AutoMapScene_TeleporterLines(hidden, 1, 1).empty());
+  CHECK(Texts(AutoMapScene_TriggerLines(hidden, 1, 1, TestItemName)).empty());
+  CHECK(Texts(AutoMapScene_TeleporterLines(hidden, 1, 1)).empty());
 }
 
 static AutoMapFloorActuator GeneratorWithHealth(int x, int y, const char *name,
@@ -2307,14 +2316,14 @@ static void TriggerLinesShowGeneratorHealth(void)
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
   std::vector<std::string> normal =
-      AutoMapScene_TriggerLines(drawList, 1, 1, TestItemName);
+      Texts(AutoMapScene_TriggerLines(drawList, 1, 1, TestItemName));
   CHECK(normal.size() == 4);
   CHECK(normal[0] == "GENERATES Screamer");
   CHECK(normal[1] == "LEVEL EXPERIENCE MULTIPLIER 3");
   CHECK(normal[2] == "HP RANGE 30-32");
   CHECK(normal[3] == "GENERATES MONSTER");
   std::vector<std::string> overridden =
-      AutoMapScene_TriggerLines(drawList, 2, 1, TestItemName);
+      Texts(AutoMapScene_TriggerLines(drawList, 2, 1, TestItemName));
   CHECK(overridden.size() == 4);
   CHECK(overridden[0] == "GENERATES Mummy");
   CHECK(overridden[1] == "HEALTH MULTIPLIER 5");
@@ -2333,7 +2342,7 @@ static void CounterCogCountsOnceAtAll(void)
   AutoMapExplored explored = NothingExplored();
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
-  CHECK(AutoMapScene_TriggerLines(drawList, 1, 1, TestItemName).empty());
+  CHECK(Texts(AutoMapScene_TriggerLines(drawList, 1, 1, TestItemName)).empty());
   std::vector<std::string> relay = AutoMapScene_RelayHoverLines(drawList, 1, 1, false);
   CHECK(relay.size() == 2);
   if (relay.size() != 2) return;
@@ -2520,8 +2529,8 @@ static void RelayLinesAtAllKeepOnlyCellFacts(void)
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
   CHECK(drawList.spoilers == AutoMapSpoilersAll);
-  CHECK(AutoMapScene_RelayLines(drawList, 1, 0).empty());
-  CHECK(AutoMapScene_RelayLines(drawList, 0, 1).empty());
+  CHECK(Texts(AutoMapScene_RelayLines(drawList, 1, 0)).empty());
+  CHECK(Texts(AutoMapScene_RelayLines(drawList, 0, 1)).empty());
 }
 
 static void RelayLinesBelowAllUnchanged(void)
@@ -2537,7 +2546,7 @@ static void RelayLinesBelowAllUnchanged(void)
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
   drawList.spoilers = AutoMapSpoilersLearned;
-  std::vector<std::string> lines = AutoMapScene_RelayLines(drawList, 1, 0);
+  std::vector<std::string> lines = Texts(AutoMapScene_RelayLines(drawList, 1, 0));
   CHECK(lines.size() == 1);
   CHECK(lines[0] == "TARGET: L2 (14, 23) DOOR");
 }
@@ -2568,11 +2577,15 @@ static void RelayLinesDescribeLaunchers(void)
   AutoMapExplored explored = NothingExplored();
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
-  std::vector<std::string> lines = AutoMapScene_RelayLines(drawList, 0, 1);
-  CHECK(lines.size() == 3);
-  CHECK(lines[0] == "LAUNCHES POISON CLOUD (E)");
-  CHECK(lines[1] == "LAUNCHES 2X FIREBALL (S)");
-  CHECK(lines[2] == "LAUNCHES OBJECT");
+  std::vector<std::string> lines = Texts(AutoMapScene_RelayLines(drawList, 0, 1));
+  CHECK(lines.size() == 6);
+  if (lines.size() != 6) return;
+  CHECK(lines[0] == "LAUNCHER (E)");
+  CHECK(lines[1] == "  LAUNCHES POISON CLOUD");
+  CHECK(lines[2] == "LAUNCHER (S)");
+  CHECK(lines[3] == "  LAUNCHES 2X FIREBALL");
+  CHECK(lines[4] == "LAUNCHER");
+  CHECK(lines[5] == "  LAUNCHES OBJECT");
 }
 
 static void PressLinesNameBothTriggersOnOneTarget(void)
@@ -2609,8 +2622,8 @@ static void RelayLinesStaySilentWithoutTheCell(void)
   AutoMapExplored explored = NothingExplored();
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList hidden = AutoMapScene_BuildDrawList(snapshot, FogOver(explored, visibleNow));
-  CHECK(AutoMapScene_RelayLines(hidden, 0, 1).empty());
-  CHECK(AutoMapScene_RelayLines(hidden, 1, 0).empty());
+  CHECK(Texts(AutoMapScene_RelayLines(hidden, 0, 1)).empty());
+  CHECK(Texts(AutoMapScene_RelayLines(hidden, 1, 0)).empty());
 }
 
 static AutoMapCellRecord PlainDoor(void)
@@ -2655,27 +2668,27 @@ static void RelayLinesNameSealedDoors(void)
   AutoMapExplored explored = NothingExplored();
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
-  std::vector<std::string> sealed = AutoMapScene_RelayLines(drawList, 2, 1);
-  CHECK(sealed.size() == 1);
-  CHECK(sealed[0] == "SEALED");
+  std::vector<std::string> sealed = Texts(AutoMapScene_RelayLines(drawList, 2, 1));
+  CHECK(sealed.size() == 2);
+  CHECK(sealed.size() == 2 && sealed[0] == "DOOR" && sealed[1] == "  SEALED");
   // An own switch, an incoming link or a bashable door each counts as openable.
   AutoMapLevelSnapshot withSwitch = snapshot;
   withSwitch.cells[1 * 4 + 2].doorHasSwitch = true;
   AutoMapDrawList switchDrawList =
       AutoMapScene_BuildDrawList(withSwitch, NoFog(explored, visibleNow));
-  CHECK(AutoMapScene_RelayLines(switchDrawList, 2, 1).empty());
+  CHECK(Texts(AutoMapScene_RelayLines(switchDrawList, 2, 1)).empty());
   AutoMapLevelSnapshot withLink = snapshot;
   AutoMapLink open = {1, 0, 2, 1, true, AutoMapSouth};
   withLink.links.push_back(open);
   AutoMapDrawList linkDrawList =
       AutoMapScene_BuildDrawList(withLink, NoFog(explored, visibleNow));
-  std::vector<std::string> target = AutoMapScene_RelayLines(linkDrawList, 2, 1);
+  std::vector<std::string> target = Texts(AutoMapScene_RelayLines(linkDrawList, 2, 1));
   CHECK(target.empty());
   AutoMapLevelSnapshot bashable = snapshot;
   bashable.cells[1 * 4 + 2].doorBreakableWithAxe = true;
   AutoMapDrawList bashDrawList =
       AutoMapScene_BuildDrawList(bashable, NoFog(explored, visibleNow));
-  CHECK(AutoMapScene_RelayLines(bashDrawList, 2, 1).empty());
+  CHECK(Texts(AutoMapScene_RelayLines(bashDrawList, 2, 1)).empty());
 }
 
 static void RelayLinesNameTheForceThatBreaksADoor(void)
@@ -2688,24 +2701,24 @@ static void RelayLinesNameTheForceThatBreaksADoor(void)
   AutoMapExplored explored = NothingExplored();
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList axeDrawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
-  std::vector<std::string> axe = AutoMapScene_RelayLines(axeDrawList, 2, 1);
-  CHECK(axe.size() == 1);
-  CHECK(axe[0] == "BREAK FORCE: 60 (AXE)");
+  std::vector<std::string> axe = Texts(AutoMapScene_RelayLines(axeDrawList, 2, 1));
+  CHECK(axe.size() == 2);
+  CHECK(axe.size() == 2 && axe[0] == "DOOR" && axe[1] == "  BREAK FORCE: 60 (AXE)");
   AutoMapLevelSnapshot both = snapshot;
   both.cells[1 * 4 + 2].doorBreakableWithFireball = true;
   AutoMapDrawList bothDrawList = AutoMapScene_BuildDrawList(both, NoFog(explored, visibleNow));
-  CHECK(AutoMapScene_RelayLines(bothDrawList, 2, 1)[0] == "BREAK FORCE: 60 (AXE, FIREBALL)");
+  CHECK(Texts(AutoMapScene_RelayLines(bothDrawList, 2, 1))[1] == "  BREAK FORCE: 60 (AXE, FIREBALL)");
   AutoMapLevelSnapshot fire = snapshot;
   fire.cells[1 * 4 + 2].doorBreakableWithAxe = false;
   fire.cells[1 * 4 + 2].doorBreakableWithFireball = true;
   AutoMapDrawList fireDrawList = AutoMapScene_BuildDrawList(fire, NoFog(explored, visibleNow));
-  CHECK(AutoMapScene_RelayLines(fireDrawList, 2, 1)[0] == "BREAK FORCE: 60 (FIREBALL)");
+  CHECK(Texts(AutoMapScene_RelayLines(fireDrawList, 2, 1))[1] == "  BREAK FORCE: 60 (FIREBALL)");
   // A destroyed door has nothing left to break.
   AutoMapLevelSnapshot destroyed = snapshot;
   destroyed.cells[1 * 4 + 2].doorState = AutoMapDoorDestroyed;
   AutoMapDrawList destroyedDrawList =
       AutoMapScene_BuildDrawList(destroyed, NoFog(explored, visibleNow));
-  CHECK(AutoMapScene_RelayLines(destroyedDrawList, 2, 1).empty());
+  CHECK(Texts(AutoMapScene_RelayLines(destroyedDrawList, 2, 1)).empty());
 }
 
 static void TeleporterLinesDescribeScopeDestinationAndTurn(void)
@@ -2717,12 +2730,12 @@ static void TeleporterLinesDescribeScopeDestinationAndTurn(void)
   AutoMapExplored explored = NothingExplored();
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
-  std::vector<std::string> lines = AutoMapScene_TeleporterLines(drawList, 1, 1);
+  std::vector<std::string> lines = Texts(AutoMapScene_TeleporterLines(drawList, 1, 1));
   CHECK(lines.size() == 3);
   CHECK(lines[0] == "TAKES: PARTY+OBJECTS");
   CHECK(lines[1] == "SENDS: L0 (2, 1)");
   CHECK(lines[2] == "TURN: RIGHT");
-  CHECK(AutoMapScene_TeleporterLines(drawList, 2, 1).empty());
+  CHECK(Texts(AutoMapScene_TeleporterLines(drawList, 2, 1)).empty());
 }
 
 static void TeleporterLinesDescribeAbsoluteFacing(void)
@@ -2734,7 +2747,7 @@ static void TeleporterLinesDescribeAbsoluteFacing(void)
   AutoMapExplored explored = NothingExplored();
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
-  std::vector<std::string> lines = AutoMapScene_TeleporterLines(drawList, 1, 1);
+  std::vector<std::string> lines = Texts(AutoMapScene_TeleporterLines(drawList, 1, 1));
   CHECK(lines.size() == 3);
   CHECK(lines[0] == "TAKES: ANYTHING");
   CHECK(lines[1] == "SENDS: L0 (2, 1)");
@@ -2759,7 +2772,7 @@ static void DestinationPrintsGlobalCoordinates(void)
   AutoMapExplored explored = NothingExplored();
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
-  std::vector<std::string> lines = AutoMapScene_TeleporterLines(drawList, 1, 1);
+  std::vector<std::string> lines = Texts(AutoMapScene_TeleporterLines(drawList, 1, 1));
   CHECK(lines.size() == 3);
   CHECK(lines[0] == "TAKES: ANYTHING");
   CHECK(lines[1] == "SENDS: L4 (15, 10)");
@@ -2778,10 +2791,10 @@ static void SpinnerLinesDescribeAbsoluteAndRelativeSpin(void)
   AutoMapExplored explored = NothingExplored();
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
-  std::vector<std::string> absolute = AutoMapScene_TeleporterLines(drawList, 1, 1);
+  std::vector<std::string> absolute = Texts(AutoMapScene_TeleporterLines(drawList, 1, 1));
   CHECK(absolute.size() == 1);
   CHECK(absolute[0] == "SPIN: FACE S");
-  std::vector<std::string> relative = AutoMapScene_TeleporterLines(drawList, 2, 1);
+  std::vector<std::string> relative = Texts(AutoMapScene_TeleporterLines(drawList, 2, 1));
   CHECK(relative.size() == 1);
   CHECK(relative[0] == "SPIN: LEFT");
 }
@@ -2800,14 +2813,14 @@ static void DormantSpinnerLinesNameHypotheticalSpin(void)
   AutoMapExplored explored = NothingExplored();
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
-  std::vector<std::string> absolute = AutoMapScene_TeleporterLines(drawList, 1, 1);
-  CHECK(absolute.size() == 2);
-  CHECK(absolute[0] == "DORMANT SPINNER");
-  CHECK(absolute[1] == "WOULD SPIN: FACE S");
-  std::vector<std::string> relative = AutoMapScene_TeleporterLines(drawList, 2, 1);
-  CHECK(relative.size() == 2);
-  CHECK(relative[0] == "DORMANT SPINNER");
-  CHECK(relative[1] == "WOULD SPIN: LEFT");
+  std::vector<std::string> absolute = Texts(AutoMapScene_TeleporterLines(drawList, 1, 1));
+  CHECK(absolute.size() == 1);
+  CHECK(absolute[0] == "WOULD SPIN: FACE S");
+  CHECK(Texts(AutoMapTooltip_Machinery(drawList, 1, 1, false, TestItemName))[0] == "DORMANT SPINNER");
+  std::vector<std::string> relative = Texts(AutoMapScene_TeleporterLines(drawList, 2, 1));
+  CHECK(relative.size() == 1);
+  CHECK(relative[0] == "WOULD SPIN: LEFT");
+  CHECK(AutoMapScene_TeleporterLines(drawList, 2, 1)[0].style == AutoMapTipDormant);
 }
 
 static void DormantTeleporterLineNamesNoEffect(void)
@@ -2817,9 +2830,9 @@ static void DormantTeleporterLineNamesNoEffect(void)
   AutoMapExplored explored = NothingExplored();
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
-  std::vector<std::string> lines = AutoMapScene_TeleporterLines(drawList, 1, 1);
+  std::vector<std::string> lines = Texts(AutoMapScene_TeleporterLines(drawList, 1, 1));
   CHECK(lines.size() == 1);
-  CHECK(lines[0] == "DORMANT, NO EFFECT");
+  CHECK(lines[0] == "NO EFFECT");
 }
 
 static void PitLinesNameOpenAndHiddenState(void)
@@ -2842,19 +2855,23 @@ static void PitLinesNameOpenAndHiddenState(void)
   AutoMapExplored explored = NothingExplored();
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
-  std::vector<std::string> hiddenOpen = AutoMapScene_PitLines(drawList, 1, 1);
+  std::vector<std::string> hiddenOpen = Texts(AutoMapScene_PitLines(drawList, 1, 1));
   CHECK(hiddenOpen.size() == 1);
-  CHECK(hiddenOpen[0] == "HIDDEN PIT OPEN");
-  std::vector<std::string> hiddenClosed = AutoMapScene_PitLines(drawList, 2, 1);
+  CHECK(hiddenOpen[0] == "OPEN");
+  CHECK(Texts(AutoMapTooltip_Machinery(drawList, 1, 1, false, TestItemName))[0] == "HIDDEN PIT");
+  std::vector<std::string> hiddenClosed = Texts(AutoMapScene_PitLines(drawList, 2, 1));
   CHECK(hiddenClosed.size() == 1);
-  CHECK(hiddenClosed[0] == "HIDDEN PIT CLOSED");
-  std::vector<std::string> open = AutoMapScene_PitLines(drawList, 3, 1);
+  CHECK(hiddenClosed[0] == "CLOSED");
+  CHECK(Texts(AutoMapTooltip_Machinery(drawList, 2, 1, false, TestItemName))[0] == "HIDDEN PIT");
+  std::vector<std::string> open = Texts(AutoMapScene_PitLines(drawList, 3, 1));
   CHECK(open.size() == 1);
-  CHECK(open[0] == "PIT OPEN");
-  std::vector<std::string> closed = AutoMapScene_PitLines(drawList, 4, 1);
+  CHECK(open[0] == "OPEN");
+  CHECK(Texts(AutoMapTooltip_Machinery(drawList, 3, 1, false, TestItemName))[0] == "PIT");
+  std::vector<std::string> closed = Texts(AutoMapScene_PitLines(drawList, 4, 1));
   CHECK(closed.size() == 1);
-  CHECK(closed[0] == "PIT CLOSED");
-  CHECK(AutoMapScene_PitLines(drawList, 5, 1).empty());
+  CHECK(closed[0] == "CLOSED");
+  CHECK(Texts(AutoMapTooltip_Machinery(drawList, 4, 1, false, TestItemName))[0] == "PIT");
+  CHECK(Texts(AutoMapScene_PitLines(drawList, 5, 1)).empty());
 }
 
 static bool CloseAngle(float a, float b)
@@ -2930,12 +2947,11 @@ static void DormantTeleporterNamesWhatItWouldDo(void)
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList =
       AutoMapScene_BuildDrawList(CorridorWithDormantTeleporter(), NoFog(explored, visibleNow));
-  std::vector<std::string> lines = AutoMapScene_TeleporterLines(drawList, 1, 1);
-  CHECK(lines.size() == 4);
-  CHECK(lines[0] == "DORMANT TELEPORTER");
-  CHECK(lines[1] == "WOULD TAKE: MONSTERS");
-  CHECK(lines[2] == "WOULD SEND: L0 (2, 1)");
-  CHECK(lines[3] == "WOULD TURN: AROUND");
+  std::vector<std::string> lines = Texts(AutoMapScene_TeleporterLines(drawList, 1, 1));
+  CHECK(lines.size() == 3);
+  CHECK(lines[0] == "WOULD TAKE: MONSTERS");
+  CHECK(lines[1] == "WOULD SEND: L0 (2, 1)");
+  CHECK(lines[2] == "WOULD TURN: AROUND");
 }
 
 static void DormantDestinationHidesWithItsCell(void)
@@ -2947,11 +2963,10 @@ static void DormantDestinationHidesWithItsCell(void)
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList =
       AutoMapScene_BuildDrawList(CorridorWithDormantTeleporter(), FogOver(explored, visibleNow));
-  std::vector<std::string> lines = AutoMapScene_TeleporterLines(drawList, 1, 1);
-  CHECK(lines.size() == 3);
-  CHECK(lines[0] == "DORMANT TELEPORTER");
-  CHECK(lines[1] == "WOULD TAKE: MONSTERS");
-  CHECK(lines[2] == "WOULD TURN: AROUND");
+  std::vector<std::string> lines = Texts(AutoMapScene_TeleporterLines(drawList, 1, 1));
+  CHECK(lines.size() == 2);
+  CHECK(lines[0] == "WOULD TAKE: MONSTERS");
+  CHECK(lines[1] == "WOULD TURN: AROUND");
 }
 
 static void LiveDestinationHidesWithItsCell(void)
@@ -2966,10 +2981,212 @@ static void LiveDestinationHidesWithItsCell(void)
   explored.Mark(AutoMapCell{LEVEL, 1, 1});
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, FogOver(explored, visibleNow));
-  std::vector<std::string> lines = AutoMapScene_TeleporterLines(drawList, 1, 1);
+  std::vector<std::string> lines = Texts(AutoMapScene_TeleporterLines(drawList, 1, 1));
   CHECK(lines.size() == 2);
   CHECK(lines[0] == "TAKES: PARTY+OBJECTS");
   CHECK(lines[1] == "TURN: RIGHT");
+}
+
+static std::string JoinedTip(const std::vector<AutoMapTipLine> &lines)
+{
+  std::string text;
+  for (size_t i = 0; i < lines.size(); i++) text += (i == 0 ? "" : "\n") + lines[i].text;
+  return text;
+}
+
+static const AutoMapTipLine *TipLineAt(const std::vector<AutoMapTipLine> &lines,
+                                      const std::string &text)
+{
+  for (size_t i = 0; i < lines.size(); i++)
+  {
+    if (lines[i].text == text) return &lines[i];
+  }
+  return NULL;
+}
+
+// The user's L12 tile in small: a firing teleporter for monsters and a party pad on one cell,
+// the pad wired straight to a generator
+static AutoMapLevelSnapshot TeleporterOnAPartyPad(void)
+{
+  AutoMapLevelSnapshot snapshot = CorridorWithTeleporter();
+  snapshot.cells[1 * 4 + 1].teleporterScope = 1;
+  snapshot.cells[1 * 4 + 1].teleporterRotation = 0;
+  snapshot.cells[1 * 4 + 1].teleporterFacingMode = 0;
+  AutoMapFloorActuator pad = PadWithOp(1, 1, AutoMapPadParty);
+  pad.record = 101;
+  snapshot.actuators.push_back(pad);
+  AutoMapFloorActuator generator(2, 1, AutoMapActuatorGenerator);
+  generator.hasGeneratedMonster = true;
+  generator.generatedMonsterName = "Mummy";
+  generator.record = 102;
+  snapshot.actuators.push_back(generator);
+  AutoMapLink padToGenerator = {1, 1, 2, 1, false, -1};
+  padToGenerator.source = 101;
+  snapshot.links.push_back(padToGenerator);
+  return snapshot;
+}
+
+static void MachineryGroupsTeleporterAndPad(void)
+{
+  AutoMapExplored explored = NothingExplored();
+  AutoMapVisibleCells visibleNow;
+  AutoMapDrawList drawList =
+      AutoMapScene_BuildDrawList(TeleporterOnAPartyPad(), NoFog(explored, visibleNow));
+  std::vector<AutoMapTipLine> lines =
+      AutoMapTooltip_Machinery(drawList, 1, 1, false, TestItemName);
+  CHECK(JoinedTip(lines)
+        == "TELEPORTER\n"
+           "  TAKES: \x02\x02 MONSTERS\n"
+           "  SENDS: L0 (2, 1)\n"
+           "  TURN: STRAIGHT\n"
+           "PAD\n"
+           "  TRIGGER: \x01\x01 PARTY\n"
+           "  RESULT:\n"
+           "    GENERATOR L0 (2, 1) OPENS ON THIS PRESS");
+  if (lines.size() != 8) return;
+  CHECK(lines[0].style == AutoMapTipHeader);
+  CHECK(lines[4].style == AutoMapTipHeader);
+  CHECK(lines[7].style == AutoMapTipResult);
+  for (size_t i = 0; i < lines.size(); i++) CHECK(lines[i].text.find("SHIFT") == std::string::npos);
+}
+
+static void DormantTeleporterKeepsItsWouldLines(void)
+{
+  AutoMapExplored explored = NothingExplored();
+  AutoMapVisibleCells visibleNow;
+  AutoMapDrawList drawList =
+      AutoMapScene_BuildDrawList(CorridorWithDormantTeleporter(), NoFog(explored, visibleNow));
+  std::vector<AutoMapTipLine> lines =
+      AutoMapTooltip_Machinery(drawList, 1, 1, false, TestItemName);
+  CHECK(JoinedTip(lines)
+        == "DORMANT TELEPORTER\n"
+           "  WOULD TAKE: \x02\x02 MONSTERS\n"
+           "  WOULD SEND: L0 (2, 1)\n"
+           "  WOULD TURN: AROUND");
+  CHECK(!lines.empty() && lines[0].style == AutoMapTipDormantHeader);
+  for (size_t i = 1; i < lines.size(); i++)
+  {
+    CHECK(lines[i].text.compare(0, 8, "  WOULD ") == 0);
+    CHECK(lines[i].style == AutoMapTipDormant);
+  }
+  // Without a record there is nothing it would do
+  AutoMapLevelSnapshot bare = Corridor();
+  bare.cells[1 * 4 + 1].kind = AutoMapCellDormantTeleporter;
+  AutoMapDrawList bareList = AutoMapScene_BuildDrawList(bare, NoFog(explored, visibleNow));
+  CHECK(JoinedTip(AutoMapTooltip_Machinery(bareList, 1, 1, false, TestItemName))
+        == "DORMANT TELEPORTER\n  NO EFFECT");
+}
+
+static const char *MachineryItemName(int nameIndex)
+{
+  if (nameIndex == 3) return "DAGGER";
+  if (nameIndex == 4) return "APPLE";
+  return "";
+}
+
+static void TriggerIconsForEveryPadKind(void)
+{
+  AutoMapLevelSnapshot snapshot = Corridor();
+  snapshot.actuators.push_back(PadWithOp(1, 1, AutoMapPadParty));
+  snapshot.actuators.push_back(PadWithOp(1, 1, AutoMapPadMonster));
+  snapshot.actuators.push_back(PadWithOp(1, 1, AutoMapPadPartyOrMonster));
+  AutoMapFloorActuator facing = PadWithOp(1, 1, AutoMapPadPartyFacing);
+  facing.requiredFacing = AutoMapEast;
+  snapshot.actuators.push_back(facing);
+  AutoMapFloorActuator object = PadWithOp(1, 1, AutoMapPadObject);
+  object.object = NamedItem(360, 0, 3);
+  snapshot.actuators.push_back(object);
+  AutoMapFloorActuator carried = PadWithOp(1, 1, AutoMapPadPossession);
+  carried.object = NamedItem(361, 0, 4);
+  snapshot.actuators.push_back(carried);
+  snapshot.actuators.push_back(PadWithOp(1, 1, AutoMapPadAnything));
+  AutoMapExplored explored = NothingExplored();
+  AutoMapVisibleCells visibleNow;
+  AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
+  std::vector<AutoMapTipLine> lines =
+      AutoMapTooltip_Machinery(drawList, 1, 1, false, MachineryItemName);
+  std::string facingE = std::string("  TRIGGER: ") + AUTOMAP_GLYPH_FACING + '1' + " PARTY FACING E";
+  std::string dagger = std::string("  TRIGGER: ") + AUTOMAP_GLYPH_ITEM + '0' + " OBJECT DAGGER";
+  std::string apple = std::string("  TRIGGER: \x01\x01 CARRY ") + AUTOMAP_GLYPH_ITEM + '0' + " APPLE";
+  CHECK(TipLineAt(lines, "  TRIGGER: \x01\x01 PARTY") != NULL);
+  CHECK(TipLineAt(lines, "  TRIGGER: \x02\x02 MONSTER") != NULL);
+  CHECK(TipLineAt(lines, "  TRIGGER: \x01\x01 PARTY \x02\x02 MONSTER") != NULL);
+  CHECK(TipLineAt(lines, facingE) != NULL);
+  CHECK(TipLineAt(lines, "  TRIGGER: ANYTHING") != NULL);
+  const AutoMapTipLine *daggerLine = TipLineAt(lines, dagger);
+  CHECK(daggerLine != NULL);
+  if (daggerLine != NULL)
+  {
+    CHECK(daggerLine->items.size() == 1);
+    CHECK(daggerLine->items.size() == 1 && daggerLine->items[0].worldPicture == 360);
+  }
+  const AutoMapTipLine *appleLine = TipLineAt(lines, apple);
+  CHECK(appleLine != NULL);
+  if (appleLine != NULL)
+  {
+    CHECK(appleLine->items.size() == 1 && appleLine->items[0].worldPicture == 361);
+  }
+  // One PAD header per pad actuator
+  int pads = 0;
+  for (size_t i = 0; i < lines.size(); i++)
+  {
+    if (lines[i].text == "PAD")
+    {
+      pads++;
+      CHECK(lines[i].style == AutoMapTipHeader);
+    }
+  }
+  CHECK(pads == 7);
+}
+
+static void BelowAllTheMachineryShowsNoRouteOrRelays(void)
+{
+  AutoMapExplored explored = NothingExplored();
+  AutoMapVisibleCells visibleNow;
+  AutoMapDrawList drawList =
+      AutoMapScene_BuildDrawList(TeleporterOnAPartyPad(), NoFog(explored, visibleNow));
+  drawList.spoilers = AutoMapSpoilersLearned;
+  std::vector<AutoMapTipLine> lines =
+      AutoMapTooltip_Machinery(drawList, 1, 1, false, TestItemName);
+  CHECK(!lines.empty() && lines[0].text == "TELEPORTER");
+  for (size_t i = 0; i < lines.size(); i++)
+  {
+    CHECK(lines[i].text.find("RESULT:") == std::string::npos);
+    CHECK(lines[i].text.find("ROUTE:") == std::string::npos);
+    CHECK(lines[i].text.find("TRIGGER") == std::string::npos);
+    CHECK(lines[i].text != "PAD");
+    CHECK(lines[i].text.compare(0, 6, "FLOOR:") != 0);
+    CHECK(lines[i].text.compare(0, 6, "STONE:") != 0);
+  }
+}
+
+static void MachineryHeadsPitsDoorsAndGenerators(void)
+{
+  AutoMapLevelSnapshot snapshot = Corridor();
+  snapshot.cells[1 * 4 + 1].kind = AutoMapCellPit;
+  snapshot.cells[1 * 4 + 1].pitIsHidden = true;
+  snapshot.cells[1 * 4 + 1].pitIsOpen = false;
+  snapshot.cells[1 * 4 + 2].kind = AutoMapCellDoor;
+  snapshot.cells[1 * 4 + 2].doorState = AutoMapDoorClosed;
+  snapshot.cells[1 * 4 + 2].doorBreakableWithAxe = true;
+  snapshot.cells[1 * 4 + 2].doorBreakForce = 60;
+  AutoMapFloorActuator generator(1, 1, AutoMapActuatorGenerator);
+  generator.hasGeneratedMonster = true;
+  generator.generatedMonsterName = "Mummy";
+  generator.generatedCount = 3;
+  snapshot.actuators.push_back(generator);
+  snapshot.actuators.push_back(AutoMapFloorActuator(1, 1, AutoMapActuatorSpentGenerator));
+  snapshot.actuators.push_back(AutoMapFloorActuator(1, 1, AutoMapActuatorDormantPad));
+  AutoMapExplored explored = NothingExplored();
+  AutoMapVisibleCells visibleNow;
+  AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
+  std::vector<AutoMapTipLine> pit = AutoMapTooltip_Machinery(drawList, 1, 1, false, TestItemName);
+  CHECK(JoinedTip(pit)
+        == "HIDDEN PIT\n  CLOSED\nDORMANT PAD\nGENERATOR\n  GENERATES 3X Mummy\nSPENT GENERATOR");
+  const AutoMapTipLine *dormant = TipLineAt(pit, "DORMANT PAD");
+  CHECK(dormant != NULL && dormant->style == AutoMapTipDormantHeader);
+  CHECK(JoinedTip(AutoMapTooltip_Machinery(drawList, 2, 1, false, TestItemName))
+        == "DOOR\n  BREAK FORCE: 60 (AXE)");
 }
 
 static const char *SearchItemName(int nameIndex)
@@ -3156,10 +3373,10 @@ static void BoundaryMarginKeepsFogAndGlobalsAligned(void)
     const AutoMapShownCell &shown = unfogged.cells[i];
     CHECK(shown.cell.isOutsideLevel == (shown.x == 0 && shown.y == 1));
   }
-  std::vector<std::string> rock = AutoMapScene_RelayLines(unfogged, 0, 1);
+  std::vector<std::string> rock = Texts(AutoMapScene_RelayLines(unfogged, 0, 1));
   CHECK(rock.size() == 1);
   CHECK(rock[0] == "ADDED ROCK: OUTSIDE THE LEVEL");
-  CHECK(AutoMapScene_RelayLines(unfogged, 1, 1).empty());
+  CHECK(Texts(AutoMapScene_RelayLines(unfogged, 1, 1)).empty());
   int globalX = 0, globalY = 0;
   AutoMapScene_GlobalPosition(unfogged, 0, 1, &globalX, &globalY);
   CHECK(globalX == -1 && globalY == 1);
@@ -4665,7 +4882,8 @@ static void PressLinesNameClosedSwitchablePits(void)
   std::vector<std::string> lines =
       AutoMapScene_PressLines(drawList, AutoMapScene_PressEffects(drawList, 0, 1), false);
   CHECK(HasText(lines, " PIT L0 (2, 1) OPENS ON THIS PRESS"));
-  CHECK(AutoMapScene_PitLines(drawList, 2, 1) == std::vector<std::string>(1, "PIT CLOSED"));
+  CHECK(Texts(AutoMapScene_PitLines(drawList, 2, 1)) == std::vector<std::string>(1, "CLOSED"));
+  CHECK(Texts(AutoMapTooltip_Machinery(drawList, 2, 1, false, TestItemName))[0] == "PIT");
   // Closing a closed pit does nothing
   snapshot.links.back().signal = AutoMapSignalClear;
   drawList = DrawAll(snapshot);
@@ -4689,7 +4907,7 @@ static void PressLinesNameClosedSwitchablePits(void)
   AutoMapFog seen = NoFog(explored, visibleNow);
   seen.spoilers = AutoMapSpoilersSeen;
   drawList = AutoMapScene_BuildDrawList(snapshot, seen);
-  CHECK(AutoMapScene_PitLines(drawList, 2, 1).empty());
+  CHECK(Texts(AutoMapScene_PitLines(drawList, 2, 1)).empty());
   bool flagged = false;
   for (size_t i = 0; i < drawList.cells.size(); i++)
   {
@@ -5352,10 +5570,11 @@ static void SwitchedFalseWallSaysSo(void)
   AutoMapExplored explored = NothingExplored();
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(corridor, NoFog(explored, visibleNow));
-  std::vector<std::string> switched = AutoMapScene_RelayLines(drawList, 2, 0);
-  std::vector<std::string> plain = AutoMapScene_RelayLines(drawList, 3, 0);
-  CHECK(!switched.empty() && switched[0] == "FALSE WALL, SWITCHED");
-  CHECK(!plain.empty() && plain[0] == "FALSE WALL");
+  std::vector<std::string> switched = Texts(AutoMapScene_RelayLines(drawList, 2, 0));
+  std::vector<std::string> plain = Texts(AutoMapScene_RelayLines(drawList, 3, 0));
+  CHECK(switched.size() == 2 && switched[0] == "FALSE WALL" && switched[1] == "  SWITCHED");
+  CHECK(plain.size() == 1 && plain[0] == "FALSE WALL");
+  CHECK(AutoMapScene_RelayLines(drawList, 3, 0)[0].style == AutoMapTipHeader);
 }
 
 // Hovering a teleporter's destination shows where the party would arrive from: the firing
@@ -5787,6 +6006,11 @@ void TestAutoMapScene(void)
   DormantTeleporterNamesWhatItWouldDo();
   DormantDestinationHidesWithItsCell();
   LiveDestinationHidesWithItsCell();
+  MachineryGroupsTeleporterAndPad();
+  DormantTeleporterKeepsItsWouldLines();
+  TriggerIconsForEveryPadKind();
+  BelowAllTheMachineryShowsNoRouteOrRelays();
+  MachineryHeadsPitsDoorsAndGenerators();
   SearchFindsFloorItemsBySubstring();
   SearchRanksExactBeforeSubstring();
   SearchRespectsFog();

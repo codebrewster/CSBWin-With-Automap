@@ -1460,13 +1460,113 @@ static std::string RequiredObjectName(AutoMapItemNameFn nameForIndex, const Auto
   return "(UNKNOWN)";
 }
 
-static void AddTriggerLine(std::vector<std::string> *lines, const std::string &line)
+static void AddTriggerLine(std::vector<AutoMapTipLine> *lines, const AutoMapTipLine &line)
 {
   for (size_t i = 0; i < lines->size(); i++)
   {
-    if ((*lines)[i] == line) return;
+    if ((*lines)[i].text == line.text && (*lines)[i].items == line.items) return;
   }
   lines->push_back(line);
+}
+
+// Party and claw glyphs as the map's trigger badges draw them (AutoMapScene_TipGlyphs)
+static const char TRIGGER_PARTY[] = "\x01\x01 ";
+static const char TRIGGER_CLAW[] = "\x02\x02 ";
+
+// A trigger line naming an item: head, the item's picture, then tail
+static AutoMapTipLine ItemTriggerLine(const std::string &head, const std::string &tail,
+                                      const AutoMapItem &object)
+{
+  std::string text = "TRIGGER: " + head;
+  text += AUTOMAP_GLYPH_ITEM;
+  text += '0';
+  text += " " + tail;
+  AutoMapTipLine line = AutoMapScene_TipLine(text, AutoMapTipPlain);
+  line.items.push_back(object);
+  return line;
+}
+
+std::vector<AutoMapTipLine> AutoMapScene_ActuatorLines(const AutoMapDrawList &drawList,
+                                                       const AutoMapFloorActuator &pad,
+                                                       AutoMapItemNameFn nameForIndex)
+{
+  std::vector<AutoMapTipLine> lines;
+  switch (pad.kind)
+  {
+  case AutoMapActuatorGenerator:
+  {
+    if (pad.hasGeneratedMonster && !pad.generatedMonsterName.empty())
+    {
+      if (pad.generatedCount > 1)
+      {
+        char generated[128];
+        std::snprintf(generated, sizeof(generated), "GENERATES %dX %s", pad.generatedCount,
+                      pad.generatedMonsterName.c_str());
+        AddTriggerLine(&lines, AutoMapScene_TipLine(generated, AutoMapTipPlain));
+      }
+      else
+      {
+        AddTriggerLine(&lines, AutoMapScene_TipLine("GENERATES " + pad.generatedMonsterName,
+                                                    AutoMapTipPlain));
+      }
+    }
+    else AddTriggerLine(&lines, AutoMapScene_TipLine("GENERATES MONSTER", AutoMapTipPlain));
+    if (pad.hasGeneratorHealth)
+    {
+      std::vector<std::string> health = AutoMapScene_GeneratorHealthLines(
+          pad.levelMultiplier, pad.healthMultiplier, pad.minHealth, pad.maxHealth);
+      for (size_t h = 0; h < health.size(); h++)
+      {
+        AddTriggerLine(&lines, AutoMapScene_TipLine(health[h], AutoMapTipPlain));
+      }
+    }
+    break;
+  }
+  case AutoMapActuatorPad:
+  {
+    // What a pad wants is not found out by stepping on it: the marker stands alone
+    if (drawList.spoilers != AutoMapSpoilersAll) break;
+    std::string text;
+    switch (pad.op)
+    {
+    case AutoMapPadPartyOrMonster:
+      text = std::string("TRIGGER: ") + TRIGGER_PARTY + "PARTY " + TRIGGER_CLAW + "MONSTER";
+      break;
+    case AutoMapPadParty: text = std::string("TRIGGER: ") + TRIGGER_PARTY + "PARTY"; break;
+    case AutoMapPadPartyFacing:
+      text = "TRIGGER: ";
+      if (pad.requiredFacing >= AutoMapNorth && pad.requiredFacing <= AutoMapWest)
+      {
+        // The arrow turned the way the party must face, in the facing badge's gold frame
+        text += AUTOMAP_GLYPH_FACING;
+        text += (char)('0' + pad.requiredFacing);
+        text += ' ';
+      }
+      else text += TRIGGER_PARTY;
+      text += "PARTY FACING ";
+      text += FacingInitial(pad.requiredFacing);
+      break;
+    case AutoMapPadObject:
+      lines.push_back(ItemTriggerLine("", "OBJECT " + RequiredObjectName(nameForIndex, pad.object),
+                                      pad.object));
+      break;
+    case AutoMapPadMonster: text = std::string("TRIGGER: ") + TRIGGER_CLAW + "MONSTER"; break;
+    case AutoMapPadPossession:
+      lines.push_back(ItemTriggerLine(std::string(TRIGGER_PARTY) + "CARRY ",
+                                      RequiredObjectName(nameForIndex, pad.object), pad.object));
+      break;
+    default: text = "TRIGGER: ANYTHING"; break;
+    }
+    if (!text.empty()) lines.push_back(AutoMapScene_TipLine(text, AutoMapTipPlain));
+    break;
+  }
+  default:
+    // A dormant pad and a spent generator are named by their header alone. Cogs are drawn
+    // at All only, where the relay hover block (RelayHoverLines) names each counter with
+    // its live count and each DSA: a line here would say it twice
+    break;
+  }
+  return lines;
 }
 
 bool AutoMapScene_GeneratorHealthRange(int levelMultiplier, int healthMultiplier,
@@ -1515,87 +1615,49 @@ std::vector<std::string> AutoMapScene_GeneratorHealthLines(int levelMultiplier,
   return lines;
 }
 
-std::vector<std::string> AutoMapScene_TriggerLines(const AutoMapDrawList &drawList, int x, int y,
-                                                   AutoMapItemNameFn nameForIndex)
+std::vector<AutoMapTipLine> AutoMapScene_TriggerLines(const AutoMapDrawList &drawList, int x, int y,
+                                                      AutoMapItemNameFn nameForIndex)
 {
-  std::vector<std::string> lines;
+  std::vector<AutoMapTipLine> lines;
   if (FindShownCell(drawList, x, y) == NULL) return lines;
   for (size_t i = 0; i < drawList.actuators.size(); i++)
   {
     const AutoMapFloorActuator &pad = drawList.actuators[i];
     if (pad.x != x || pad.y != y) continue;
-    switch (pad.kind)
-    {
-    case AutoMapActuatorDormantPad: AddTriggerLine(&lines, "DORMANT PAD"); break;
-    case AutoMapActuatorGenerator:
-    {
-      if (pad.hasGeneratedMonster && !pad.generatedMonsterName.empty())
-      {
-        if (pad.generatedCount > 1)
-        {
-          char generated[128];
-          std::snprintf(generated, sizeof(generated), "GENERATES %dX %s", pad.generatedCount,
-                        pad.generatedMonsterName.c_str());
-          AddTriggerLine(&lines, generated);
-        }
-        else AddTriggerLine(&lines, "GENERATES " + pad.generatedMonsterName);
-      }
-      else AddTriggerLine(&lines, "GENERATES MONSTER");
-      if (pad.hasGeneratorHealth)
-      {
-        std::vector<std::string> health = AutoMapScene_GeneratorHealthLines(
-            pad.levelMultiplier, pad.healthMultiplier, pad.minHealth, pad.maxHealth);
-        for (size_t h = 0; h < health.size(); h++) AddTriggerLine(&lines, health[h]);
-      }
-      break;
-    }
-    case AutoMapActuatorSpentGenerator: AddTriggerLine(&lines, "SPENT GENERATOR"); break;
-    case AutoMapActuatorCog:
-      // Cogs are drawn at All only, where the relay hover block (RelayHoverLines) names
-      // each counter with its live count and each DSA: a line here would say it twice
-      break;
-    default:
-    {
-      // What a pad wants is not found out by stepping on it: the marker stands alone
-      if (drawList.spoilers != AutoMapSpoilersAll) break;
-      switch (pad.op)
-      {
-      case AutoMapPadPartyOrMonster:
-        AddTriggerLine(&lines, "TRIGGER: PARTY OR MONSTER");
-        break;
-      case AutoMapPadParty: AddTriggerLine(&lines, "TRIGGER: PARTY"); break;
-      case AutoMapPadPartyFacing:
-      {
-        std::string line("TRIGGER: PARTY FACING ");
-        line += FacingInitial(pad.requiredFacing);
-        AddTriggerLine(&lines, line);
-        break;
-      }
-      case AutoMapPadObject:
-        AddTriggerLine(&lines,
-                       "TRIGGER: OBJECT " + RequiredObjectName(nameForIndex, pad.object));
-        break;
-      case AutoMapPadMonster: AddTriggerLine(&lines, "TRIGGER: MONSTER"); break;
-      case AutoMapPadPossession:
-        AddTriggerLine(&lines,
-                       "TRIGGER: CARRY " + RequiredObjectName(nameForIndex, pad.object));
-        break;
-      default: AddTriggerLine(&lines, "TRIGGER: ANYTHING"); break;
-      }
-      break;
-    }
-    }
+    std::vector<AutoMapTipLine> own = AutoMapScene_ActuatorLines(drawList, pad, nameForIndex);
+    for (size_t l = 0; l < own.size(); l++) AddTriggerLine(&lines, own[l]);
   }
   return lines;
 }
 
-static void AddRelayLine(std::vector<std::string> *lines, const std::string &line)
+// A header and the lines under it, two spaces in. A group already in lines is not repeated.
+static void AddRelayGroup(std::vector<AutoMapTipLine> *lines, const std::string &header,
+                          const std::vector<std::string> &children)
+{
+  std::vector<AutoMapTipLine> group(1, AutoMapScene_TipLine(header, AutoMapTipHeader));
+  for (size_t i = 0; i < children.size(); i++)
+  {
+    group.push_back(AutoMapScene_TipLine("  " + children[i], AutoMapTipPlain));
+  }
+  for (size_t i = 0; i + group.size() <= lines->size(); i++)
+  {
+    bool same = true;
+    for (size_t g = 0; g < group.size() && same; g++)
+    {
+      same = (*lines)[i + g].text == group[g].text && (*lines)[i + g].style == group[g].style;
+    }
+    if (same) return;
+  }
+  lines->insert(lines->end(), group.begin(), group.end());
+}
+
+static void AddRelayLine(std::vector<AutoMapTipLine> *lines, const std::string &line)
 {
   for (size_t i = 0; i < lines->size(); i++)
   {
-    if ((*lines)[i] == line) return;
+    if ((*lines)[i].text == line) return;
   }
-  lines->push_back(line);
+  lines->push_back(AutoMapScene_TipLine(line, AutoMapTipPlain));
 }
 
 // Four bits MSB-first, the way the gate compares them: low nibble first,
@@ -1696,11 +1758,12 @@ std::string DelayWord(int delay)
   return " AFTER " + std::to_string(delay) + (delay == 1 ? " TICK" : " TICKS");
 }
 
-std::vector<std::string> AutoMapScene_RelayLines(const AutoMapDrawList &drawList, int x, int y)
+std::vector<AutoMapTipLine> AutoMapScene_RelayLines(const AutoMapDrawList &drawList, int x, int y)
 {
-  std::vector<std::string> lines;
+  std::vector<AutoMapTipLine> lines;
   const AutoMapShownCell *shown = FindShownCell(drawList, x, y);
   if (shown == NULL) return lines;
+  if (shown->cell.isOutsideLevel) AddRelayLine(&lines, "ADDED ROCK: OUTSIDE THE LEVEL");
   if (shown->cell.kind == AutoMapCellFalseWall || shown->cell.kind == AutoMapCellOpenFalseWall)
   {
     bool switched = !AutoMapScene_LinksTo(drawList, x, y).empty();
@@ -1708,31 +1771,34 @@ std::vector<std::string> AutoMapScene_RelayLines(const AutoMapDrawList &drawList
     {
       if (drawList.linkedCells[i].x == x && drawList.linkedCells[i].y == y) switched = true;
     }
-    AddRelayLine(&lines, switched ? "FALSE WALL, SWITCHED" : "FALSE WALL");
+    AddRelayGroup(&lines, "FALSE WALL",
+                  switched ? std::vector<std::string>(1, "SWITCHED") : std::vector<std::string>());
   }
-  if (shown->cell.isOutsideLevel) AddRelayLine(&lines, "ADDED ROCK: OUTSIDE THE LEVEL");
   // Sealed doors first: no switch, no incoming link, no axe/fireball way
   // through. Bashable counts as openable and names the force that breaks it.
   if (shown->cell.kind == AutoMapCellDoor)
   {
+    std::vector<std::string> door;
     bool linked = !AutoMapScene_LinksTo(drawList, x, y).empty();
     if (drawList.spoilers == AutoMapSpoilersAll && AutoMapScene_DoorIsSealed(shown->cell, linked))
     {
-      AddRelayLine(&lines, "SEALED");
+      door.push_back("SEALED");
     }
-    const AutoMapCellRecord &door = shown->cell;
-    bool breakable = door.doorBreakableWithAxe || door.doorBreakableWithFireball;
-    if (breakable && door.doorState != AutoMapDoorDestroyed && door.doorBreakForce >= 0)
+    const AutoMapCellRecord &record = shown->cell;
+    bool breakable = record.doorBreakableWithAxe || record.doorBreakableWithFireball;
+    if (breakable && record.doorState != AutoMapDoorDestroyed && record.doorBreakForce >= 0)
     {
-      const char *tools = door.doorBreakableWithAxe
-          ? (door.doorBreakableWithFireball ? "AXE, FIREBALL" : "AXE")
+      const char *tools = record.doorBreakableWithAxe
+          ? (record.doorBreakableWithFireball ? "AXE, FIREBALL" : "AXE")
           : "FIREBALL";
       char line[64];
-      std::snprintf(line, sizeof(line), "BREAK FORCE: %d (%s)", door.doorBreakForce, tools);
-      AddRelayLine(&lines, line);
+      std::snprintf(line, sizeof(line), "BREAK FORCE: %d (%s)", record.doorBreakForce, tools);
+      door.push_back(line);
     }
+    // A door with nothing to say gets no header: the map draws it already
+    if (!door.empty()) AddRelayGroup(&lines, "DOOR", door);
   }
-  // What this stone cell throws when messaged: one line per launcher, with the
+  // What this stone cell throws when messaged: one group per launcher, headed by the
   // firing side (launchers answer only messages naming their side). Unknown
   // ammunition stays silent; once-only launchers vanish from the rebuild spent.
   // Below All the party never learns what a launcher throws, so no line.
@@ -1751,14 +1817,14 @@ std::vector<std::string> AutoMapScene_RelayLines(const AutoMapDrawList &drawList
     {
       std::snprintf(launches, sizeof(launches), "LAUNCHES %s", missile);
     }
-    std::string line(launches);
+    std::string header("LAUNCHER");
     if (launcher.side >= AutoMapNorth && launcher.side <= AutoMapWest)
     {
-      line += " (";
-      line += FacingInitial(launcher.side);
-      line += ")";
+      header += " (";
+      header += FacingInitial(launcher.side);
+      header += ")";
     }
-    AddRelayLine(&lines, line);
+    AddRelayGroup(&lines, header, std::vector<std::string>(1, launches));
   }
   // At All the press block (AutoMapScene_PressLines) names what a press reaches, so
   // the tooltip does not also list this cell's direct links. Below All the party saw
@@ -1811,34 +1877,34 @@ static std::string FacingLine(int rotation, int facingMode, bool hypothetical)
   return prefix + "TURN: " + TurnName(rotation);
 }
 
-std::vector<std::string> AutoMapScene_TeleporterLines(const AutoMapDrawList &drawList,
-                                                      int x, int y)
+std::vector<AutoMapTipLine> AutoMapScene_TeleporterLines(const AutoMapDrawList &drawList,
+                                                         int x, int y)
 {
-  std::vector<std::string> lines;
+  std::vector<AutoMapTipLine> lines;
   const AutoMapShownCell *shown = FindShownCell(drawList, x, y);
   if (shown == NULL) return lines;
   const AutoMapCellRecord &cell = shown->cell;
   if (cell.kind == AutoMapCellSpinner || cell.kind == AutoMapCellDormantSpinner)
   {
-    // A dormant spinner names itself and then what it would do if switched on,
-    // the way a dormant teleporter does.
+    // A dormant spinner names what it would do if switched on, the way a dormant
+    // teleporter does.
     bool dormant = cell.kind == AutoMapCellDormantSpinner;
-    if (dormant) lines.push_back("DORMANT SPINNER");
+    AutoMapTipStyle style = dormant ? AutoMapTipDormant : AutoMapTipPlain;
     std::string prefix = dormant ? "WOULD SPIN: " : "SPIN: ";
     if (cell.spinnerFacing >= AutoMapNorth && cell.spinnerFacing <= AutoMapWest)
     {
       std::string line(prefix);
       line += "FACE ";
       line += FacingInitial(cell.spinnerFacing);
-      lines.push_back(line);
+      lines.push_back(AutoMapScene_TipLine(line, style));
     }
     else if (TurnName(cell.spinnerRotation) != NULL)
     {
-      lines.push_back(prefix + TurnName(cell.spinnerRotation));
+      lines.push_back(AutoMapScene_TipLine(prefix + TurnName(cell.spinnerRotation), style));
     }
     else
     {
-      lines.push_back(prefix + "RELATIVE");
+      lines.push_back(AutoMapScene_TipLine(prefix + "RELATIVE", style));
     }
     return lines;
   }
@@ -1848,15 +1914,15 @@ std::vector<std::string> AutoMapScene_TeleporterLines(const AutoMapDrawList &dra
   {
     return lines;
   }
+  AutoMapTipStyle style = dormant ? AutoMapTipDormant : AutoMapTipPlain;
   if (!cell.hasTeleporterTarget)
   {
     // No record behind the cell (or none resolved): nothing hypothetical to name.
-    if (dormant) lines.push_back("DORMANT, NO EFFECT");
+    if (dormant) lines.push_back(AutoMapScene_TipLine("NO EFFECT", style));
     return lines;
   }
-  if (dormant) lines.push_back("DORMANT TELEPORTER");
   std::string takes = TakesLine(cell.teleporterScope, dormant);
-  if (!takes.empty()) lines.push_back(takes);
+  if (!takes.empty()) lines.push_back(AutoMapScene_TipLine(takes, style));
   // The destination shares the arrow's visibility rule: naming it otherwise
   // would leak an unexplored cell under fog. Levels count the engine's way
   // from zero, as in the title bar and on the cross-level plate; coordinates
@@ -1867,10 +1933,10 @@ std::vector<std::string> AutoMapScene_TeleporterLines(const AutoMapDrawList &dra
     std::snprintf(destination, sizeof(destination), "%sL%d (%d, %d)",
                   dormant ? "WOULD SEND: " : "SENDS: ", cell.teleporterDestLevel,
                   cell.teleporterDestGlobalX, cell.teleporterDestGlobalY);
-    lines.push_back(destination);
+    lines.push_back(AutoMapScene_TipLine(destination, style));
   }
   std::string facing = FacingLine(cell.teleporterRotation, cell.teleporterFacingMode, dormant);
-  if (!facing.empty()) lines.push_back(facing);
+  if (!facing.empty()) lines.push_back(AutoMapScene_TipLine(facing, style));
   return lines;
 }
 
@@ -1891,26 +1957,19 @@ std::vector<AutoMapLink> AutoMapScene_TeleportsInto(const AutoMapDrawList &drawL
   return into;
 }
 
-std::vector<std::string> AutoMapScene_PitLines(const AutoMapDrawList &drawList, int x, int y)
+std::vector<AutoMapTipLine> AutoMapScene_PitLines(const AutoMapDrawList &drawList, int x, int y)
 {
-  std::vector<std::string> lines;
+  std::vector<AutoMapTipLine> lines;
   const AutoMapShownCell *shown = FindShownCell(drawList, x, y);
   if (shown == NULL) return lines;
   // Only All keeps the flag: the floor hides a pit a message can open
   if (shown->cell.kind == AutoMapCellFloor && shown->cell.pitIsClosedSwitchable)
   {
-    lines.push_back("PIT CLOSED");
+    lines.push_back(AutoMapScene_TipLine("CLOSED", AutoMapTipPlain));
     return lines;
   }
   if (shown->cell.kind != AutoMapCellPit) return lines;
-  if (shown->cell.pitIsHidden)
-  {
-    lines.push_back(shown->cell.pitIsOpen ? "HIDDEN PIT OPEN" : "HIDDEN PIT CLOSED");
-  }
-  else
-  {
-    lines.push_back(shown->cell.pitIsOpen ? "PIT OPEN" : "PIT CLOSED");
-  }
+  lines.push_back(AutoMapScene_TipLine(shown->cell.pitIsOpen ? "OPEN" : "CLOSED", AutoMapTipPlain));
   return lines;
 }
 

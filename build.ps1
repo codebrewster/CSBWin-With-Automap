@@ -60,7 +60,7 @@ $CppSources = @(
     'utility', 'WinScreen', 'Code13ea4', 'Codea59a', 'RC4', 'Attack', 'Sound',
     'Code1f9e6', 'Code390e', 'Code222ea', 'Statistics', 'SoundMixer',
     'AutoMapExplored', 'AutoMapKnowledge', 'AutoMapSight', 'AutoMapFile',
-    'AutoMapScene', 'AutoMapPress', 'AutoMapLinkWatch', 'AutoMapDrawTally',
+    'AutoMapScene', 'AutoMapPress', 'AutoMapTooltip', 'AutoMapLinkWatch', 'AutoMapDrawTally',
     'AutoMapItemMemory', 'AutoMapCellMemory', 'AutoMapPlayerNotes',
     'AutoMapMonsterDamage', 'AutoMapVisibilityCases', 'AutoMapWindow',
     'AutoMapHooks', 'AutoMapRecorder',

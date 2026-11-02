@@ -9,6 +9,7 @@
 #include <string>
 
 #include "AutoMapScene.h"
+#include "AutoMapTooltip.h"
 #include "AutoMapBar.h"
 #include "AutoMapLayout.h"
 #include "AutoMapPaint.h"
@@ -3679,23 +3680,6 @@ static std::vector<std::string> BuildTooltipTextLines(
   return lines;
 }
 
-// Who a teleporter takes, in the tooltip: the words become the badge's glyphs. A glyph takes the
-// place of two characters, \x01 party, \x02 claw, \x03 box; the font draws nothing for them.
-static std::string WithBadgeGlyphs(const std::string &line)
-{
-  static const char *const PREFIXES[] = {"TAKES: ", "WOULD TAKE: "};
-  for (int p = 0; p < 2; p++)
-  {
-    std::string prefix = PREFIXES[p];
-    if (line.compare(0, prefix.size(), prefix) != 0) continue;
-    std::string what = line.substr(prefix.size());
-    if (what == "PARTY+OBJECTS") return prefix + "\x01\x01 PARTY \x03\x03 OBJECTS";
-    if (what == "OBJECTS") return prefix + "\x03\x03 OBJECTS";
-    if (what == "MONSTERS") return prefix + "\x02\x02 MONSTERS";
-  }
-  return line;
-}
-
 static SDL_Color TipLineColour(AutoMapTipStyle style)
 {
   switch (style)
@@ -3746,14 +3730,10 @@ static void DrawBadgeGlyphsOfLine(int x, int y, const AutoMapTipLine &line)
   }
 }
 
-// Plain footer strings become styled lines: WOULD/DORMANT lines read muted, TAKES lines get glyphs
+// Plain footer strings (health, names, texts, notes) become plain styled lines
 static void AppendTipLines(std::vector<AutoMapTipLine> &out, const std::vector<std::string> &lines)
 {
-  for (size_t i = 0; i < lines.size(); i++)
-  {
-    bool dormant = lines[i].compare(0, 6, "WOULD ") == 0 || lines[i].compare(0, 7, "DORMANT") == 0;
-    out.push_back(AutoMapScene_TipLine(WithBadgeGlyphs(lines[i]), dormant ? AutoMapTipDormant : AutoMapTipPlain));
-  }
+  for (size_t i = 0; i < lines.size(); i++) out.push_back(AutoMapScene_TipLine(lines[i], AutoMapTipPlain));
 }
 
 static void DrawTileTooltip(const AutoMapView &view)
@@ -3766,23 +3746,16 @@ static void DrawTileTooltip(const AutoMapView &view)
   std::vector<std::string> hpLines = BuildTooltipHealthLines(hoverX, hoverY);
   std::vector<std::string> scrolls = AutoMapScene_ScrollTexts(shownDrawList, hoverX, hoverY);
   std::vector<AutoMapWallText> walls = AutoMapScene_WallTexts(shownDrawList, hoverX, hoverY);
-  std::vector<std::string> triggers =
-      AutoMapScene_TriggerLines(shownDrawList, hoverX, hoverY, AutoMapLevelReader_ItemName);
-  std::vector<std::string> teleporter = AutoMapScene_TeleporterLines(shownDrawList, hoverX, hoverY);
-  std::vector<std::string> pit = AutoMapScene_PitLines(shownDrawList, hoverX, hoverY);
-  std::vector<std::string> relay = AutoMapScene_RelayLines(shownDrawList, hoverX, hoverY);
   // Shift unfolds the compact press lines into the full chain; the tooltip redraws every
   // frame, so no event handler is needed.
   bool fullChain = renderShift || (SDL_GetModState() & KMOD_SHIFT) != 0;
   if (!fullChain) tooltipScrollLines = 0;
-  std::vector<std::string> press = AutoMapScene_PressLines(
-      shownDrawList, AutoMapScene_PressEffects(shownDrawList, hoverX, hoverY), fullChain);
-  std::vector<std::string> relayHover =
-      AutoMapScene_RelayHoverLines(shownDrawList, hoverX, hoverY, fullChain);
+  std::vector<AutoMapTipLine> hint;
+  std::vector<AutoMapTipLine> machinery = AutoMapTooltip_Machinery(
+      shownDrawList, hoverX, hoverY, fullChain, AutoMapLevelReader_ItemName, &hint);
   std::vector<std::string> notes = AutoMapScene_PlayerNoteLines(shownDrawList, hoverX, hoverY);
-  if (cells.empty() && hpLines.empty() && scrolls.empty() && walls.empty() && triggers.empty()
-      && teleporter.empty() && pit.empty() && relay.empty() && press.empty()
-      && relayHover.empty() && notes.empty())
+  if (cells.empty() && hpLines.empty() && scrolls.empty() && walls.empty() && machinery.empty()
+      && notes.empty())
   {
     return;
   }
@@ -3810,17 +3783,13 @@ static void DrawTileTooltip(const AutoMapView &view)
   std::vector<std::string> nameLines =
       BuildTooltipNameLines(cells, maxW - 2 * TOOLTIP_PAD);
   AppendTipLines(footerLines, nameLines);
-  AppendTipLines(footerLines, triggers);
-  AppendTipLines(footerLines, teleporter);
-  AppendTipLines(footerLines, pit);
-  AppendTipLines(footerLines, relay);
-  AppendTipLines(footerLines, press);
-  AppendTipLines(footerLines, relayHover);
+  footerLines.insert(footerLines.end(), machinery.begin(), machinery.end());
   std::vector<std::string> textLines =
       BuildTooltipTextLines(scrolls, walls, maxW - 2 * TOOLTIP_PAD);
   AppendTipLines(footerLines, textLines);
-  // The player's own notes come last: they are not what the map knows
+  // The player's own notes come after what the map knows; the hint is the last line
   AppendTipLines(footerLines, notes);
+  footerLines.insert(footerLines.end(), hint.begin(), hint.end());
   int footerTextH = 5 * DIGIT_SCALE;
   int footerLineGap = 4;
   int footerTextW = 0;
@@ -5274,7 +5243,7 @@ void AutoMapWindow_PaintIfDirty(void)
 
 // The tooltip of a cell as DrawTileTooltip builds it, for the export (AutoMapWindowTooltip.h)
 void AutoMapWindow_TooltipFor(const AutoMapDrawList &list, int x, int y, bool fullChain,
-                                std::vector<std::string> *lines, std::vector<AutoMapTooltipEntry> *out)
+                                std::vector<AutoMapTipLine> *lines, std::vector<AutoMapTooltipEntry> *out)
 {
   AutoMapDrawList saved = shownDrawList;
   shownDrawList = list;
@@ -5282,39 +5251,27 @@ void AutoMapWindow_TooltipFor(const AutoMapDrawList &list, int x, int y, bool fu
   std::vector<std::string> hpLines = BuildTooltipHealthLines(x, y);
   std::vector<std::string> scrolls = AutoMapScene_ScrollTexts(shownDrawList, x, y);
   std::vector<AutoMapWallText> walls = AutoMapScene_WallTexts(shownDrawList, x, y);
-  std::vector<std::string> triggers =
-      AutoMapScene_TriggerLines(shownDrawList, x, y, AutoMapLevelReader_ItemName);
-  std::vector<std::string> teleporter = AutoMapScene_TeleporterLines(shownDrawList, x, y);
-  std::vector<std::string> pit = AutoMapScene_PitLines(shownDrawList, x, y);
-  std::vector<std::string> relay = AutoMapScene_RelayLines(shownDrawList, x, y);
-  std::vector<std::string> press = AutoMapScene_PressLines(
-      shownDrawList, AutoMapScene_PressEffects(shownDrawList, x, y), fullChain);
-  std::vector<std::string> relayHover = AutoMapScene_RelayHoverLines(shownDrawList, x, y, fullChain);
+  std::vector<AutoMapTipLine> hint;
+  std::vector<AutoMapTipLine> machinery = AutoMapTooltip_Machinery(
+      shownDrawList, x, y, fullChain, AutoMapLevelReader_ItemName, &hint);
   std::vector<std::string> notes = AutoMapScene_PlayerNoteLines(shownDrawList, x, y);
-  bool any = !(cells.empty() && hpLines.empty() && scrolls.empty() && walls.empty() && triggers.empty()
-               && teleporter.empty() && pit.empty() && relay.empty() && press.empty()
-               && relayHover.empty() && notes.empty());
+  bool any = !(cells.empty() && hpLines.empty() && scrolls.empty() && walls.empty()
+               && machinery.empty() && notes.empty());
   if (any)
   {
     int gx = 0, gy = 0;
     AutoMapScene_GlobalPosition(shownDrawList, x, y, &gx, &gy);
     char pos[64];
     std::snprintf(pos, sizeof(pos), "POS: L%d (%d, %d)", shownDrawList.level, gx, gy);
-    lines->push_back(pos);
+    lines->push_back(AutoMapScene_TipLine(pos, AutoMapTipPlain));
     std::string monsterName = AutoMapScene_MonsterNameLine(shownDrawList, x, y);
-    if (!monsterName.empty()) lines->push_back(monsterName);
-    lines->insert(lines->end(), hpLines.begin(), hpLines.end());
-    std::vector<std::string> names = BuildTooltipNameLines(cells, 100000);
-    lines->insert(lines->end(), names.begin(), names.end());
-    lines->insert(lines->end(), triggers.begin(), triggers.end());
-    lines->insert(lines->end(), teleporter.begin(), teleporter.end());
-    lines->insert(lines->end(), pit.begin(), pit.end());
-    lines->insert(lines->end(), relay.begin(), relay.end());
-    lines->insert(lines->end(), press.begin(), press.end());
-    lines->insert(lines->end(), relayHover.begin(), relayHover.end());
-    std::vector<std::string> texts = BuildTooltipTextLines(scrolls, walls, 100000);
-    lines->insert(lines->end(), texts.begin(), texts.end());
-    lines->insert(lines->end(), notes.begin(), notes.end());
+    if (!monsterName.empty()) lines->push_back(AutoMapScene_TipLine(monsterName, AutoMapTipMonsterName));
+    AppendTipLines(*lines, hpLines);
+    AppendTipLines(*lines, BuildTooltipNameLines(cells, 100000));
+    lines->insert(lines->end(), machinery.begin(), machinery.end());
+    AppendTipLines(*lines, BuildTooltipTextLines(scrolls, walls, 100000));
+    AppendTipLines(*lines, notes);
+    lines->insert(lines->end(), hint.begin(), hint.end());
     for (size_t i = 0; i < cells.size(); i++)
     {
       AutoMapTooltipEntry c = {cells[i].item, cells[i].count, cells[i].nested, cells[i].predicted,

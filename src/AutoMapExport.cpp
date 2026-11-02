@@ -219,10 +219,14 @@ static void WriteDrawList(FILE *f, ExportPictures &sp, const AutoMapDrawList &l,
   for (size_t i = 0; i < l.cells.size(); i++)
   {
     int x = l.cells[i].x, y = l.cells[i].y;
-    std::vector<std::string> lines, linesFull;
+    std::vector<AutoMapTipLine> tipLines, tipLinesFull;
     std::vector<AutoMapTooltipEntry> tip, tipFull;
-    AutoMapWindow_TooltipFor(l, x, y, false, &lines, &tip);
-    AutoMapWindow_TooltipFor(l, x, y, true, &linesFull, &tipFull);
+    AutoMapWindow_TooltipFor(l, x, y, false, &tipLines, &tip);
+    AutoMapWindow_TooltipFor(l, x, y, true, &tipLinesFull, &tipFull);
+    // The text of each line only, glyph codes included; the styles are not exported yet
+    std::vector<std::string> lines, linesFull;
+    for (size_t k = 0; k < tipLines.size(); k++) lines.push_back(tipLines[k].text);
+    for (size_t k = 0; k < tipLinesFull.size(); k++) linesFull.push_back(tipLinesFull[k].text);
     std::vector<AutoMapLink> from = AutoMapScene_LinksFrom(l, x, y), to = AutoMapScene_LinksTo(l, x, y);
     std::ostringstream o;
     bool any = false;

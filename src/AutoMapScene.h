@@ -1198,32 +1198,40 @@ std::vector<std::string> AutoMapScene_GeneratorHealthLines(int levelMultiplier,
                                                             int healthMultiplier,
                                                             int minHealth, int maxHealth);
 
-// Text lines describing what sets the floor actuators on a cell off, in
-// draw-list order with duplicates folded: "TRIGGER: PARTY",
-// "TRIGGER: PARTY FACING N", "TRIGGER: OBJECT <name>",
-// "TRIGGER: CARRY <name>", "DORMANT PAD", "GENERATES 3X <monster>"
-// (plus its spawn range on separate lines: the multipliers and "HP RANGE",
-// when resolved),
-// "SPENT GENERATOR". Cogs (counters, DSAs) print nothing: they are drawn at All
-// only, where AutoMapScene_RelayHoverLines names them. Empty when the cell is
-// absent from the draw list (unexplored), so fog-filtered pads stay silent.
-// Below All only pads the party has set off are listed, and a plain pad prints no line: what
-// a pad wants is not found out by stepping on it. A known generator still reads "GENERATES ...".
-std::vector<std::string> AutoMapScene_TriggerLines(const AutoMapDrawList &drawList, int x, int y,
-                                                   AutoMapItemNameFn nameForIndex);
+// The lines under one floor actuator's tooltip header (AutoMapTooltip_Machinery), with the
+// map's trigger icons: "TRIGGER: \x01\x01 PARTY", "TRIGGER: \x02\x02 MONSTER",
+// "TRIGGER: \x01\x01 PARTY \x02\x02 MONSTER", "TRIGGER: <facing glyph> PARTY FACING N",
+// "TRIGGER: <item glyph> OBJECT <name>", "TRIGGER: \x01\x01 CARRY <item glyph> <name>"
+// (the item in the line's items, index 0), "TRIGGER: ANYTHING"; a generator's
+// "GENERATES 3X <monster>" plus its spawn range on separate lines (the multipliers and
+// "HP RANGE", when resolved). A dormant pad, a spent generator and a cog have none: the header
+// names the first two, and cogs (counters, DSAs) are drawn at All only, where
+// AutoMapScene_RelayHoverLines names them. Below All a pad prints no line: what a pad wants
+// is not found out by stepping on it. A known generator still reads "GENERATES ...".
+std::vector<AutoMapTipLine> AutoMapScene_ActuatorLines(const AutoMapDrawList &drawList,
+                                                       const AutoMapFloorActuator &actuator,
+                                                       AutoMapItemNameFn nameForIndex);
 
-// Text lines for what a cell is, not what a press does (that is AutoMapScene_PressLines
-// and AutoMapScene_RelayHoverLines): "ADDED ROCK: OUTSIDE THE LEVEL"; a stone-embedded
-// missile launcher reads "LAUNCHES POISON CLOUD (N)" (ammunition and firing side, "2X"
-// for paired types 9/10/15); a door that is not open, with no own switch, no incoming link
-// and no axe/fireball way through reads "SEALED", at All only; a breakable door reads
-// "BREAK FORCE: 60 (AXE, FIREBALL)". Counter, gate and DSA state, and where this
-// cell's actuators point, belong to the press block at All and are not printed here.
-// Below All the only lines are "TARGET: L<level> (<gx>, <gy>)" per outgoing link, plus
-// " DOOR" for a door (the party saw the cell change, not how), and the rock line, which is no
-// secret. Empty when the cell is absent from the draw list (unexplored); targets naming
-// unexplored cells stay silent like the teleporter destination rule.
-std::vector<std::string> AutoMapScene_RelayLines(const AutoMapDrawList &drawList, int x, int y);
+// AutoMapScene_ActuatorLines of every floor actuator on a cell, in draw-list order with
+// duplicates folded. Empty when the cell is absent from the draw list (unexplored), so
+// fog-filtered pads stay silent.
+std::vector<AutoMapTipLine> AutoMapScene_TriggerLines(const AutoMapDrawList &drawList, int x, int y,
+                                                      AutoMapItemNameFn nameForIndex);
+
+// Tooltip lines for what a cell is, not what a press does (that is AutoMapScene_PressLines
+// and AutoMapScene_RelayHoverLines), already grouped: a header (AutoMapTipHeader) with its
+// lines two spaces in. "ADDED ROCK: OUTSIDE THE LEVEL" (plain, first); "FALSE WALL" with
+// "SWITCHED" under it when something operates it; a stone-embedded missile launcher reads
+// "LAUNCHER (N)" with "LAUNCHES POISON CLOUD" ("2X" for paired types 9/10/15) under it;
+// "DOOR" with "SEALED" (a door that is not open, with no own switch, no incoming link and no
+// axe/fireball way through, at All only) and "BREAK FORCE: 60 (AXE, FIREBALL)" for a
+// breakable door, and no header when neither applies. Counter, gate and DSA state, and
+// where this cell's actuators point, belong to the press block at All and are not printed
+// here. Below All the rest is "TARGET: L<level> (<gx>, <gy>)" per outgoing link, plus
+// " DOOR" for a door (the party saw the cell change, not how), plain. Empty when the cell is
+// absent from the draw list (unexplored); targets naming unexplored cells stay silent like
+// the teleporter destination rule.
+std::vector<AutoMapTipLine> AutoMapScene_RelayLines(const AutoMapDrawList &drawList, int x, int y);
 
 // How far a goal is from happening, from the path of the press tree that reaches it:
 // it happens on this press (or already has: OPEN on an open door), needs more presses
@@ -1419,31 +1427,31 @@ struct AutoMapSpinnerGeometry
 
 AutoMapSpinnerGeometry AutoMapScene_SpinnerGeometry(int spinnerFacing, int spinnerRotation);
 
-// Text lines describing a teleporter or spinner cell: who it takes
-// ("TAKES: ..."), where it sends them ("DEST: ...", only when the target is
+// The lines under a teleporter's or spinner's tooltip header: who it takes
+// ("TAKES: ..."), where it sends them ("SENDS: ...", only when the target is
 // visible under the arrow's rule so unexplored cells never leak; levels count
 // from zero as in the title bar, coordinates are global as on the rulers)
 // and what it does to their facing ("FACE ..." for an absolute facing,
 // "TURN: ..." for a relative turn), or the spin ("SPIN: ...") for a spinner.
-// A dormant teleporter names the same as a hypothetical ("DORMANT TELEPORTER"
-// plus "WOULD ..." lines); one without a record reads "DORMANT, NO EFFECT".
-// A dormant spinner reads "DORMANT SPINNER" plus its "WOULD SPIN: ..." line.
-// Anything else reads nothing. Same fog rule as everything else here.
-std::vector<std::string> AutoMapScene_TeleporterLines(const AutoMapDrawList &drawList,
-                                                       int x, int y);
+// A dormant teleporter or spinner says the same as a hypothetical ("WOULD ..." lines, style
+// AutoMapTipDormant); a dormant teleporter without a record reads "NO EFFECT". The header
+// ("TELEPORTER", "DORMANT SPINNER" ...) is AutoMapTooltip_Machinery's. Anything else reads
+// nothing. Same fog rule as everything else here.
+std::vector<AutoMapTipLine> AutoMapScene_TeleporterLines(const AutoMapDrawList &drawList,
+                                                         int x, int y);
 
 // The firing teleporters of the shown level that send what they take to (x, y), as links from the
 // teleporter to (x, y); only those whose target the fog lets the map name
 std::vector<AutoMapLink> AutoMapScene_TeleportsInto(const AutoMapDrawList &drawList, int x, int y);
 
-// Text line naming the state of every pit cell, so hovering always tells open
-// from closed: "PIT OPEN"/"PIT CLOSED", or "HIDDEN PIT OPEN"/"HIDDEN PIT
-// CLOSED" when the pit looks like floor in the 3D view (closed, or open with
-// the obscure bit set). At All a closed switchable pit, drawn as floor, reads
-// "PIT CLOSED" too. Anything else reads nothing. Empty when the cell is
-// absent from the draw list (unexplored). Same fog rule as everything else here.
-std::vector<std::string> AutoMapScene_PitLines(const AutoMapDrawList &drawList,
-                                               int x, int y);
+// The line under a pit's tooltip header, so hovering always tells open from closed:
+// "OPEN" / "CLOSED" (the header, AutoMapTooltip_Machinery's, reads "HIDDEN PIT" when the pit
+// looks like floor in the 3D view: closed, or open with the obscure bit set). At All a closed
+// switchable pit, drawn as floor, reads "CLOSED" under "PIT" too. Anything else reads nothing.
+// Empty when the cell is absent from the draw list (unexplored). Same fog rule as everything
+// else here.
+std::vector<AutoMapTipLine> AutoMapScene_PitLines(const AutoMapDrawList &drawList,
+                                                  int x, int y);
 
 // Whether a door cell can never be opened normally: no own switch (DB0 bit 6),
 // no incoming action-link, and no axe/fireball way through. Bashable counts as

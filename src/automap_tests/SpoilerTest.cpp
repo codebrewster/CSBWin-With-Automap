@@ -1,5 +1,6 @@
 #include "TestSupport.h"
 #include "../AutoMapScene.h"
+#include "../AutoMapTooltip.h"
 #include "../AutoMapCellMemory.h"
 #include "../AutoMapMonsterDamage.h"
 #include "../AutoMapPlayerNotes.h"
@@ -101,6 +102,14 @@ static void Learn(AutoMapKnowledge *knowledge, AutoMapFactKind kind, int x, int 
 {
   AutoMapCell cell = {LEVEL, x, y};
   knowledge->Learn(AutoMapFact_OfCell(kind, cell));
+}
+
+// The texts of styled tooltip lines, for the checks that read text only
+static std::vector<std::string> Texts(const std::vector<AutoMapTipLine> &lines)
+{
+  std::vector<std::string> texts;
+  for (size_t i = 0; i < lines.size(); i++) texts.push_back(lines[i].text);
+  return texts;
 }
 
 static bool HasLineStartingWith(const std::vector<std::string> &lines, const char *start)
@@ -496,7 +505,7 @@ static void RelayMachineryNeverShowsBelowAll(void)
   knowledge.Learn(AutoMapFact_OfRecord(AutoMapFactActuator, SWITCH_RECORD));
   AutoMapDrawList drawList = Build(snapshot, AutoMapSpoilersLearned, &knowledge);
   CHECK(FindCell(drawList, 3, 0)->cell.wallRelays.empty());
-  std::vector<std::string> lines = AutoMapScene_RelayLines(drawList, 3, 0);
+  std::vector<std::string> lines = Texts(AutoMapScene_RelayLines(drawList, 3, 0));
   CHECK(!HasLineStartingWith(lines, "COUNT"));
   CHECK(!HasLineStartingWith(lines, "GATE"));
   CHECK(!HasLineStartingWith(lines, "LOCAL GATE"));
@@ -514,7 +523,7 @@ static void BreakableDoorLooksLikeAPlainDoor(void)
   At(&snapshot, 2, 1).doorBreakableWithAxe = false;
   At(&snapshot, 2, 1).doorBreakForce = -1;
   AutoMapDrawList all = Build(snapshot, AutoMapSpoilersAll, NULL);
-  CHECK(HasLine(AutoMapScene_RelayLines(all, 2, 1), "SEALED"));
+  CHECK(HasLine(Texts(AutoMapScene_RelayLines(all, 2, 1)), "  SEALED"));
   At(&snapshot, 2, 1).doorBreakableWithAxe = true;
   At(&snapshot, 2, 1).doorBreakForce = 40;
   AutoMapKnowledge knowledge;
@@ -523,8 +532,9 @@ static void BreakableDoorLooksLikeAPlainDoor(void)
   CHECK(door.doorBreakForce == -1);
   CHECK(!door.doorBreakableWithAxe);
   CHECK(!door.doorBreakableWithFireball);
-  CHECK(!HasLine(AutoMapScene_RelayLines(drawList, 2, 1), "SEALED"));
-  CHECK(!HasLineStartingWith(AutoMapScene_RelayLines(drawList, 2, 1), "BREAK FORCE"));
+  CHECK(!HasLine(Texts(AutoMapScene_RelayLines(drawList, 2, 1)), "  SEALED"));
+  CHECK(!HasLine(Texts(AutoMapScene_RelayLines(drawList, 2, 1)), "DOOR"));
+  CHECK(!HasLineStartingWith(Texts(AutoMapScene_RelayLines(drawList, 2, 1)), "  BREAK FORCE"));
 }
 
 static void FalseWallIsAWallUntilKnown(void)
@@ -562,19 +572,21 @@ static void HiddenPitIsFloorUntilKnown(void)
   AutoMapDrawList before = Build(snapshot, AutoMapSpoilersLearned, &knowledge);
   CHECK(FindCell(before, 1, 1)->cell.kind == AutoMapCellFloor);
   CHECK(FindCell(before, 1, 1)->cell.floorPicture == AUTOMAP_NO_PICTURE);
-  CHECK(AutoMapScene_PitLines(before, 1, 1).empty());
+  CHECK(Texts(AutoMapScene_PitLines(before, 1, 1)).empty());
   // Open, it still reads as floor in the 3D view
   CHECK(FindCell(before, 2, 1)->cell.kind == AutoMapCellFloor);
   CHECK(FindCell(before, 2, 1)->cell.floorPicture == AUTOMAP_NO_PICTURE);
-  CHECK(AutoMapScene_PitLines(before, 2, 1).empty());
+  CHECK(Texts(AutoMapScene_PitLines(before, 2, 1)).empty());
   Learn(&knowledge, AutoMapFactPit, 1, 1);
   Learn(&knowledge, AutoMapFactPit, 2, 1);
   AutoMapDrawList after = Build(snapshot, AutoMapSpoilersLearned, &knowledge);
   CHECK(FindCell(after, 1, 1)->cell.kind == AutoMapCellPit);
   CHECK(FindCell(after, 1, 1)->cell.pitIsHidden);
-  CHECK(HasLine(AutoMapScene_PitLines(after, 1, 1), "HIDDEN PIT CLOSED"));
+  std::vector<std::string> hiddenClosed = Texts(AutoMapTooltip_Machinery(after, 1, 1, false, NULL));
+  CHECK(HasLine(hiddenClosed, "HIDDEN PIT") && HasLine(hiddenClosed, "  CLOSED"));
   CHECK(FindCell(after, 2, 1)->cell.kind == AutoMapCellPit);
-  CHECK(HasLine(AutoMapScene_PitLines(after, 2, 1), "HIDDEN PIT OPEN"));
+  std::vector<std::string> hiddenOpen = Texts(AutoMapTooltip_Machinery(after, 2, 1, false, NULL));
+  CHECK(HasLine(hiddenOpen, "HIDDEN PIT") && HasLine(hiddenOpen, "  OPEN"));
 }
 
 static AutoMapLevelSnapshot WithTeleporterAt11(AutoMapCellKind kind)
@@ -600,11 +612,11 @@ static void InvisibleTeleporterIsFloorUntilUsed(void)
   AutoMapKnowledge knowledge;
   AutoMapDrawList before = Build(snapshot, AutoMapSpoilersLearned, &knowledge);
   CHECK(FindCell(before, 1, 1)->cell.kind == AutoMapCellFloor);
-  CHECK(AutoMapScene_TeleporterLines(before, 1, 1).empty());
+  CHECK(Texts(AutoMapScene_TeleporterLines(before, 1, 1)).empty());
   Learn(&knowledge, AutoMapFactTeleporter, 1, 1);
   AutoMapDrawList after = Build(snapshot, AutoMapSpoilersLearned, &knowledge);
   CHECK(FindCell(after, 1, 1)->cell.kind == AutoMapCellInvisibleTeleporter);
-  std::vector<std::string> lines = AutoMapScene_TeleporterLines(after, 1, 1);
+  std::vector<std::string> lines = Texts(AutoMapScene_TeleporterLines(after, 1, 1));
   CHECK(HasLineStartingWith(lines, "SENDS:"));
   CHECK(!HasLineStartingWith(lines, "TAKES:"));
 }
@@ -616,7 +628,7 @@ static void VisibleTeleporterNamesNoDestinationUntilUsed(void)
   AutoMapDrawList drawList = Build(snapshot, AutoMapSpoilersLearned, &knowledge);
   CHECK(FindCell(drawList, 1, 1)->cell.kind == AutoMapCellTeleporter);
   CHECK(!FindCell(drawList, 1, 1)->cell.hasTeleporterTarget);
-  std::vector<std::string> lines = AutoMapScene_TeleporterLines(drawList, 1, 1);
+  std::vector<std::string> lines = Texts(AutoMapScene_TeleporterLines(drawList, 1, 1));
   CHECK(!HasLineStartingWith(lines, "SENDS:"));
   CHECK(!HasLineStartingWith(lines, "TAKES:"));
 }
@@ -664,7 +676,7 @@ static void DormantTeleporterNeverShowsBelowAll(void)
   Learn(&knowledge, AutoMapFactTeleporter, 1, 1);
   AutoMapDrawList drawList = Build(snapshot, AutoMapSpoilersLearned, &knowledge);
   CHECK(FindCell(drawList, 1, 1)->cell.kind == AutoMapCellFloor);
-  CHECK(AutoMapScene_TeleporterLines(drawList, 1, 1).empty());
+  CHECK(Texts(AutoMapScene_TeleporterLines(drawList, 1, 1)).empty());
 }
 
 // The reader grows the snapshot by a margin; facts and faces are in level coordinates
@@ -740,11 +752,11 @@ static void HiddenPadAppearsOnceKnownWithoutItsCondition(void)
   CHECK(after.actuators[0].op == AutoMapPadAnything);
   CHECK(after.actuators[0].requiredFacing == -1);
   CHECK(after.actuators[0].object.worldPicture == AUTOMAP_NO_PICTURE);
-  CHECK(!HasLineStartingWith(AutoMapScene_TriggerLines(after, 1, 1, FakeName), "TRIGGER"));
+  CHECK(!HasLineStartingWith(Texts(AutoMapScene_TriggerLines(after, 1, 1, FakeName)), "TRIGGER"));
   // At All the pad keeps its condition
   AutoMapDrawList all = Build(snapshot, AutoMapSpoilersAll, NULL);
   CHECK(all.actuators[0].op == AutoMapPadPossession);
-  CHECK(HasLineStartingWith(AutoMapScene_TriggerLines(all, 1, 1, FakeName), "TRIGGER: CARRY"));
+  CHECK(HasLineStartingWith(Texts(AutoMapScene_TriggerLines(all, 1, 1, FakeName)), "TRIGGER: \x01\x01 CARRY"));
 }
 
 // The pad on (1,1) opens the door on (2,1); both cells are explored, but the party looks away
@@ -843,9 +855,10 @@ static void KnownLauncherHasNoLaunchesLineBelowAll(void)
   knowledge.Learn(AutoMapFact_OfRecord(AutoMapFactActuator, SWITCH_RECORD));
   AutoMapDrawList learned = Build(snapshot, AutoMapSpoilersLearned, &knowledge);
   CHECK(FindCell(learned, 1, 0)->cell.wallLaunchers.size() == 1);
-  CHECK(!HasLineStartingWith(AutoMapScene_RelayLines(learned, 1, 0), "LAUNCHES"));
+  CHECK(!HasLineStartingWith(Texts(AutoMapScene_RelayLines(learned, 1, 0)), "  LAUNCHES"));
+  CHECK(!HasLineStartingWith(Texts(AutoMapScene_RelayLines(learned, 1, 0)), "LAUNCHER"));
   AutoMapDrawList all = Build(snapshot, AutoMapSpoilersAll, NULL);
-  CHECK(HasLineStartingWith(AutoMapScene_RelayLines(all, 1, 0), "LAUNCHES"));
+  CHECK(HasLineStartingWith(Texts(AutoMapScene_RelayLines(all, 1, 0)), "  LAUNCHES"));
 }
 
 static void KnownSpentGeneratorShowsAsAGenerator(void)
@@ -901,9 +914,9 @@ static void KnownLinkSkipsAHiddenCounter(void)
   CHECK(drawList.links[0].source == SWITCH_RECORD);
   CHECK(drawList.links[0].delay == 0 && !drawList.links[0].fromCounter);
   CHECK(drawList.linkedCells.size() == 1);
-  std::vector<std::string> lines = AutoMapScene_RelayLines(drawList, 1, 0);
+  std::vector<std::string> lines = Texts(AutoMapScene_RelayLines(drawList, 1, 0));
   CHECK(lines.size() == 1 && lines[0] == "TARGET: L0 (2, 1) DOOR");
-  CHECK(AutoMapScene_RelayLines(drawList, 3, 0).empty());
+  CHECK(Texts(AutoMapScene_RelayLines(drawList, 3, 0)).empty());
   // At All the whole chain stays
   AutoMapDrawList all = Build(LeverCounterDoor(), AutoMapSpoilersAll, NULL);
   CHECK(all.links.size() == 2);
@@ -1715,12 +1728,13 @@ static void UnknownConcealedPitRememberedOpenIsFloor(void)
     AutoMapDrawList drawList = BuildWithLooks(snapshot, true, below[i], &memory);
     CHECK(FindCell(drawList, 2, 1)->cell.kind == AutoMapCellFloor);
     CHECK(FindCell(drawList, 2, 1)->cell.floorPicture == AUTOMAP_NO_PICTURE);
-    CHECK(AutoMapScene_PitLines(drawList, 2, 1).empty());
+    CHECK(Texts(AutoMapScene_PitLines(drawList, 2, 1)).empty());
   }
   AutoMapDrawList all = BuildWithLooks(snapshot, true, AutoMapSpoilersAll, &memory);
   CHECK(FindCell(all, 2, 1)->cell.kind == AutoMapCellPit);
   CHECK(FindCell(all, 2, 1)->cell.pitIsOpen);
-  CHECK(HasLine(AutoMapScene_PitLines(all, 2, 1), "HIDDEN PIT OPEN"));
+  std::vector<std::string> hiddenOpen = Texts(AutoMapTooltip_Machinery(all, 2, 1, false, NULL));
+  CHECK(HasLine(hiddenOpen, "HIDDEN PIT") && HasLine(hiddenOpen, "  OPEN"));
 }
 
 static void RememberedSideOverridesOnlyThatSide(void)
@@ -1775,7 +1789,7 @@ static void RememberedDestroyedDoorDrawsWithoutLiveRemnants(void)
   RememberLook(&memory, 2, 1, look);
   AutoMapDrawList drawList = BuildWithLooks(snapshot, true, AutoMapSpoilersLearned, &memory);
   CHECK(FindCell(drawList, 2, 1)->cell.doorState == AutoMapDoorDestroyed);
-  CHECK(!HasLineStartingWith(AutoMapScene_RelayLines(drawList, 2, 1), "BREAK FORCE"));
+  CHECK(!HasLineStartingWith(Texts(AutoMapScene_RelayLines(drawList, 2, 1)), "  BREAK FORCE"));
 }
 
 static void RememberExploredLooksTakesOnlyNewExploredCells(void)
