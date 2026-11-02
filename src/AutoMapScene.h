@@ -1344,7 +1344,7 @@ struct AutoMapPressSource
 // counter just reads 0, and what it would send is followed as later once per path, so
 // the goals behind it read blocked). Each goal carries its distance, worked out from
 // its path once the source's tree is complete. Sources are grouped by face (srcIsWall,
-// srcSide; all pads of a floor cell are one) in link order, and the links of one share
+// srcSide; every pad of a floor cell is its own, by record) in link order, and the links of one share
 // its state. The walk stops after 1000 effects and marks the source it was on
 // truncated. Links sent by the relays of (x, y) itself (stone relays, floor cogs) are no
 // press and are left out: a relay cell reads through AutoMapScene_RelayHoverLines. Empty

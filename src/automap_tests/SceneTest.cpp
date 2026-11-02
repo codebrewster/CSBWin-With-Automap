@@ -2156,6 +2156,36 @@ static void TriggerLinesFoldDuplicatesAndNameContraptions(void)
   CHECK(machineLines[2] == "SPENT GENERATOR");
 }
 
+static void EachPadOfACellIsItsOwnPress(void)
+{
+  AutoMapLevelSnapshot snapshot = Corridor();
+  snapshot.cells[1 * 4 + 1].kind = AutoMapCellFloor;
+  snapshot.cells[1 * 4 + 2].kind = AutoMapCellDoor;
+  snapshot.cells[0 * 4 + 1].kind = AutoMapCellDoor;
+  snapshot.actuators.push_back(PadWithOp(1, 1, AutoMapPadParty));
+  snapshot.actuators.push_back(PadWithOp(1, 1, AutoMapPadMonster));
+  snapshot.actuators[0].record = 101;
+  snapshot.actuators[1].record = 102;
+  AutoMapLink toFirst = {1, 1, 2, 1, false, -1};
+  toFirst.source = 101;
+  AutoMapLink toSecond = {1, 1, 1, 0, false, -1};
+  toSecond.source = 102;
+  snapshot.links.push_back(toFirst);
+  snapshot.links.push_back(toSecond);
+  AutoMapExplored explored = NothingExplored();
+  AutoMapVisibleCells visibleNow;
+  AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
+  std::vector<AutoMapPressSource> sources = AutoMapScene_PressEffects(drawList, 1, 1);
+  CHECK(sources.size() == 2);
+  if (sources.size() != 2) return;
+  CHECK(sources[0].source == 101);
+  CHECK(sources[0].effects.size() == 1);
+  CHECK(sources[0].effects[0].x == 2 && sources[0].effects[0].y == 1);
+  CHECK(sources[1].source == 102);
+  CHECK(sources[1].effects.size() == 1);
+  CHECK(sources[1].effects[0].x == 1 && sources[1].effects[0].y == 0);
+}
+
 static void TriggerLinesStaySilentWithoutTheCell(void)
 {
   AutoMapLevelSnapshot snapshot = Corridor();
@@ -5650,6 +5680,7 @@ void TestAutoMapScene(void)
   TriggerLinesNameRequiredObjects();
   TriggerLinesFoldDuplicatesAndNameContraptions();
   TriggerLinesStaySilentWithoutTheCell();
+  EachPadOfACellIsItsOwnPress();
   GeneratorHealthRangeFollowsEngineFormula();
   GeneratorHealthLinesNameEachValueOnItsOwnLine();
   TriggerLinesShowGeneratorHealth();

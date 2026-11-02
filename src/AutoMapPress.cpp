@@ -697,11 +697,12 @@ static bool SentByOwnRelay(const AutoMapDrawList &drawList, const AutoMapShownCe
   return false;
 }
 
-// A link sent from the face (or, on a floor, the cell) a press source stands for
+// A link sent from the face (or, on a floor, the pad) a press source stands for
 static bool SamePressFace(const AutoMapPressSource &source, const AutoMapLink &link)
 {
   if (source.srcIsWall != link.srcIsWall) return false;
-  return !link.srcIsWall || source.srcSide == link.srcSide;
+  if (link.srcIsWall) return source.srcSide == link.srcSide;
+  return source.source == link.source;
 }
 
 std::vector<AutoMapPressSource> AutoMapScene_PressEffects(const AutoMapDrawList &drawList,
@@ -710,9 +711,10 @@ std::vector<AutoMapPressSource> AutoMapScene_PressEffects(const AutoMapDrawList 
   std::vector<AutoMapPressSource> sources;
   // Below All the relay machinery is stripped and the links are the learned ones
   if (drawList.spoilers != AutoMapSpoilersAll) return sources;
-  // One click fires every actuator on the touched face (TouchWall walks them all) and a
-  // step fires every pad of the cell, so a face or the pads are one press: their links
-  // share one state in link order. Each press starts from the live state.
+  // One click fires every actuator on the touched face (TouchWall walks them all), so a
+  // face is one press: its links share one state in link order. Each pad of a cell is
+  // its own press, as pads react to different things (party, monster, object). Each
+  // press starts from the live state.
   std::vector<PressState> states;
   const AutoMapShownCell *own = FindShownCell(drawList, x, y);
   PressWalk walk;
