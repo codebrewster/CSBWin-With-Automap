@@ -475,6 +475,7 @@ struct AutoMapFloorActuator
       minHealth(-1), maxHealth(-1), counterValue(-1), relay(), record(AUTOMAP_NO_RECORD)
   {
     generatedKind.frontPicture = AUTOMAP_NO_PICTURE;
+    generatedKind.size = 0;
     generatedKind.hasSidePicture = false;
     generatedKind.hasBackPicture = false;
     generatedKind.transparentColour = 0;

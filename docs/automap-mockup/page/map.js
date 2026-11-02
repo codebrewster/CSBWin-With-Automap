@@ -276,13 +276,33 @@ function memberArea(pos, member, size, facing0, c) {
   return a;
 }
 function figureFeet(a, c) { return [a.x + a.w * .5, (a.w === c && a.h === c) ? c * .72 : a.y + a.h * .94]; }
-// The facing mark sits against the side of the area the member faces, in a square of the area's shorter side; a black rim keeps it apart from a pale figure
+// A triangle filled in whole pixels, row by row, as the game's FillTriangle (no antialiasing, so a small mark stays white)
+function pixelTri(p, col) {
+  let [a, b, c] = [...p].sort((u, v) => u[1] - v[1]); g.fillStyle = col;
+  const part = (f, t, v) => t === f ? 0 : Math.max(0, Math.min((v - f) / (t - f), 1)), lerp = (f, t, k) => f + (t - f) * k;
+  for (let yy = Math.trunc(a[1]); yy <= Math.trunc(c[1]); yy++) {
+    const [f, t] = yy > b[1] ? [b, c] : [a, b];
+    const l = Math.trunc(lerp(a[0], c[0], part(a[1], c[1], yy))), r = Math.trunc(lerp(f[0], t[0], part(f[1], t[1], yy)));
+    g.fillRect(Math.min(l, r), yy, Math.abs(r - l) + 1, 1);
+  }
+}
+// The triangle grown away from its middle so that each side moves out by d, as GrowTriangle
+function grownTri(p, d) {
+  const mx = (p[0][0] + p[1][0] + p[2][0]) / 3, my = (p[0][1] + p[1][1] + p[2][1]) / 3;
+  const area2 = Math.abs((p[1][0] - p[0][0]) * (p[2][1] - p[0][1]) - (p[2][0] - p[0][0]) * (p[1][1] - p[0][1]));
+  const per = p.reduce((s, q, i) => s + Math.hypot(p[(i + 1) % 3][0] - q[0], p[(i + 1) % 3][1] - q[1]), 0);
+  if (area2 <= 0 || per <= 0) return p; const r = area2 / per, k = (r + d) / r;
+  return p.map(([qx, qy]) => [mx + (qx - mx) * k, my + (qy - my) * k]);
+}
+// The facing mark sits against the side of the area the member faces, in a square of the area's shorter side but at least 14 px
+// (never more than the cell, kept inside it); a 1-px black rim outside the white triangle keeps it apart from a pale figure
 function facingMark(a, facing, x, y) {
-  const side = Math.min(a.w, a.h); let sx = x + a.x + (a.w - side) / 2, sy = y + a.y + (a.h - side) / 2;
-  if (facing === 0) sy = y + a.y; if (facing === 1) sx = x + a.x + a.w - side; if (facing === 2) sy = y + a.y + a.h - side; if (facing === 3) sx = x + a.x;
+  const side = Math.min(Math.max(Math.min(a.w, a.h), 14), cs); let sx = a.x + Math.trunc((a.w - side) / 2), sy = a.y + Math.trunc((a.h - side) / 2);
+  if (facing === 0) sy = a.y; if (facing === 1) sx = a.x + a.w - side; if (facing === 2) sy = a.y + a.h - side; if (facing === 3) sx = a.x;
+  sx = x + Math.max(0, Math.min(sx, cs - side)); sy = y + Math.max(0, Math.min(sy, cs - side));
   const turn = ([fx, fy]) => { fx -= .5; fy -= .5; const [tx, ty] = facing === 2 ? [-fy, fx] : facing === 3 ? [-fx, -fy] : facing === 0 ? [fy, -fx] : [fx, fy]; return [sx + (tx + .5) * side, sy + (ty + .5) * side]; };
   const pts = [[1, .5], [.82, .36], [.82, .64]].map(turn);
-  tri(pts, '#fff'); g.strokeStyle = '#000'; g.lineWidth = 1; g.beginPath(); g.moveTo(...pts[0]); g.lineTo(...pts[1]); g.lineTo(...pts[2]); g.closePath(); g.stroke();
+  g.save(); g.beginPath(); g.rect(x, y, cs, cs); g.clip(); pixelTri(grownTri(pts, 1), '#000'); pixelTri(pts, '#fff'); g.restore();
 }
 function drawMonsters() {
   if (!SHOW.MONSTERS) return;

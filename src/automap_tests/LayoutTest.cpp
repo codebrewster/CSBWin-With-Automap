@@ -242,6 +242,12 @@ static void MediumMonstersTakeTheHalfAlongTheirFacing(void)
   CHECK(SameRect(AutoMapLayout_MemberArea(2, 0, 1, 2, 40), 20, 0, 20, 40));
 }
 
+// A later member's half also runs along member 0's facing (the facing passed in), not its own
+static void LaterMediumMembersUseMemberZerosFacing(void)
+{
+  CHECK(SameRect(AutoMapLayout_MemberArea(0 | (2 << 2), 1, 1, 1, 40), 0, 20, 40, 20));
+}
+
 static void LargeAndOddSizesFillTheCell(void)
 {
   CHECK(SameRect(AutoMapLayout_MemberArea(1, 0, 2, 0, 40), 0, 0, 40, 40));
@@ -276,6 +282,7 @@ void TestAutoMapLayout(void)
   RectanglesOverlapOnlyWhenTheyShareAPixel();
   SmallMonstersStandInTheirQuarter();
   MediumMonstersTakeTheHalfAlongTheirFacing();
+  LaterMediumMembersUseMemberZerosFacing();
   LargeAndOddSizesFillTheCell();
   FeetStandAtTheBottomOfTheArea();
 }

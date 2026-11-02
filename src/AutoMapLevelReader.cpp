@@ -850,7 +850,11 @@ static void ReadMonster(RN monster, int x, int y, AutoMapLevelSnapshot *snapshot
   record.name = DisplayNameOf(group->monsterType(), group->alternateGraphics());
   record.record = RecordIdOf(monster);
   record.memberCount = group->numMonM1() + 1;
-  record.positions = MonsterPositionByte(group, snapshot->level, false) & 255;
+  // The engine's table of active groups holds the positions on the party's level; a group
+  // missing from it (MonsterPositionByte would read past the table) stands in the middle
+  bool isMissingFromTable = snapshot->level == d.partyLevel && group->groupIndex() >= d.MaxITEM16;
+  record.positions =
+      isMissingFromTable ? AUTOMAP_CENTRE_POSITIONS : MonsterPositionByte(group, snapshot->level, false) & 255;
   for (int member = 0; member < AUTOMAP_LARGEST_GROUP; member++)
   {
     record.memberFacings[member] = FacingOfMember(group, member, snapshot->level);

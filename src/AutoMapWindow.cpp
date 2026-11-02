@@ -2672,29 +2672,76 @@ static void DrawParty(const AutoMapView &view, const AutoMapParty &party)
   SDL_RenderDrawLines(mapRenderer, outline, 5);
 }
 
-// The mark sits against the side of the area the member faces. A half tile is twice as long as it
-// is wide, so the mark is drawn in a square of the shorter side, flush with that side and centred
-// along it, and keeps the proportions it has in a whole tile. It lies on the figure's own body, so
-// a dark rim keeps it apart from a pale figure (a mummy, a skeleton)
-static void DrawFacingMark(const SDL_Rect &area, AutoMapDirection facing)
+// A facing mark is drawn in a square at least this wide, so a mark in a quarter of a small cell
+// still reads as a triangle; it never grows past the cell
+static const int FACING_MARK_SMALLEST_SIDE = 14;
+// The dark rim lies outside the white triangle, this many pixels wide
+static const float FACING_MARK_RIM = 1.0f;
+
+// The triangle grown away from its middle so that each side moves out by the given distance
+static void GrowTriangle(FloatPoint corners[3], float distance)
 {
-  static const FloatPoint TIP = {1.00f, 0.50f};
-  static const FloatPoint UPPER_CORNER = {0.82f, 0.36f};
-  static const FloatPoint LOWER_CORNER = {0.82f, 0.64f};
-  int side = std::min(area.w, area.h);
+  FloatPoint middle = {(corners[0].x + corners[1].x + corners[2].x) / 3,
+                       (corners[0].y + corners[1].y + corners[2].y) / 3};
+  float twiceArea = std::fabs((corners[1].x - corners[0].x) * (corners[2].y - corners[0].y) -
+                              (corners[2].x - corners[0].x) * (corners[1].y - corners[0].y));
+  float perimeter = 0;
+  for (int i = 0; i < 3; i++)
+  {
+    const FloatPoint &next = corners[(i + 1) % 3];
+    perimeter += std::sqrt((next.x - corners[i].x) * (next.x - corners[i].x) +
+                           (next.y - corners[i].y) * (next.y - corners[i].y));
+  }
+  if (twiceArea <= 0 || perimeter <= 0) return;
+  // The inscribed circle's radius is twice the area over the perimeter; the sides move out
+  // by the distance when the triangle is scaled about its middle by (radius + distance) / radius
+  float radius = twiceArea / perimeter;
+  float scale = (radius + distance) / radius;
+  for (int i = 0; i < 3; i++)
+  {
+    corners[i].x = middle.x + (corners[i].x - middle.x) * scale;
+    corners[i].y = middle.y + (corners[i].y - middle.y) * scale;
+  }
+}
+
+// The square the mark is drawn in: flush with the side of the area the member faces and centred
+// along it. A half tile is twice as long as it is wide, so the square takes the shorter side; in a
+// small area it takes the smallest side instead, reaching into the rest of the cell but not out of it
+static SDL_Rect FacingMarkSquare(const SDL_Rect &cell, const SDL_Rect &area, AutoMapDirection facing)
+{
+  int side = std::max(std::min(area.w, area.h), FACING_MARK_SMALLEST_SIDE);
+  side = std::min(side, std::min(cell.w, cell.h));
   SDL_Rect square = {area.x + (area.w - side) / 2, area.y + (area.h - side) / 2, side, side};
   if (facing == AutoMapNorth) square.y = area.y;
   if (facing == AutoMapEast) square.x = area.x + area.w - side;
   if (facing == AutoMapSouth) square.y = area.y + area.h - side;
   if (facing == AutoMapWest) square.x = area.x;
-  FloatPoint tip = TurnedPointInCell(square, TIP, facing);
-  FloatPoint upperCorner = TurnedPointInCell(square, UPPER_CORNER, facing);
-  FloatPoint lowerCorner = TurnedPointInCell(square, LOWER_CORNER, facing);
-  FillTriangle(tip, upperCorner, lowerCorner, WHITE);
-  SDL_Point rim[] = {{(int)tip.x, (int)tip.y}, {(int)upperCorner.x, (int)upperCorner.y},
-                     {(int)lowerCorner.x, (int)lowerCorner.y}, {(int)tip.x, (int)tip.y}};
-  UseColour(FACING_MARK_EDGE);
-  SDL_RenderDrawLines(mapRenderer, rim, 4);
+  square.x = std::max(cell.x, std::min(square.x, cell.x + cell.w - side));
+  square.y = std::max(cell.y, std::min(square.y, cell.y + cell.h - side));
+  return square;
+}
+
+// The mark keeps the proportions it has in a whole tile. It lies on the figure's own body, so a
+// dark rim around it, kept inside the cell, sets it apart from a pale figure (a mummy, a skeleton)
+static void DrawFacingMark(const SDL_Rect &cell, const SDL_Rect &area, AutoMapDirection facing)
+{
+  static const FloatPoint TIP = {1.00f, 0.50f};
+  static const FloatPoint UPPER_CORNER = {0.82f, 0.36f};
+  static const FloatPoint LOWER_CORNER = {0.82f, 0.64f};
+  SDL_Rect square = FacingMarkSquare(cell, area, facing);
+  FloatPoint mark[3] = {TurnedPointInCell(square, TIP, facing), TurnedPointInCell(square, UPPER_CORNER, facing),
+                        TurnedPointInCell(square, LOWER_CORNER, facing)};
+  FloatPoint rim[3] = {mark[0], mark[1], mark[2]};
+  GrowTriangle(rim, FACING_MARK_RIM);
+  SDL_Rect oldClip;
+  bool wasClipped = SDL_RenderIsClipEnabled(mapRenderer) == SDL_TRUE;
+  SDL_RenderGetClipRect(mapRenderer, &oldClip);
+  SDL_Rect clip = cell;
+  if (wasClipped && !SDL_IntersectRect(&cell, &oldClip, &clip)) return;
+  SDL_RenderSetClipRect(mapRenderer, &clip);
+  FillTriangle(rim[0], rim[1], rim[2], FACING_MARK_EDGE);
+  FillTriangle(mark[0], mark[1], mark[2], WHITE);
+  SDL_RenderSetClipRect(mapRenderer, wasClipped ? &oldClip : NULL);
 }
 
 // The part of its tile in which a member stands, on screen
@@ -2711,7 +2758,7 @@ static void DrawFacingMarks(const AutoMapView &view, const AutoMapShownMonster &
   SDL_Rect cell = CellArea(view, monster.x, monster.y);
   for (int member = 0; member < monster.memberCount; member++)
   {
-    DrawFacingMark(AreaOfMember(cell, monster, member), monster.memberFacings[member]);
+    DrawFacingMark(cell, AreaOfMember(cell, monster, member), monster.memberFacings[member]);
   }
 }
 
