@@ -4942,10 +4942,23 @@ static void RouteHeldCounterSaysWhatThisCountSends(void)
            "      DOOR L2 (14, 23) CLOSES");
 }
 
-static void RouteUnderAHeldSourceDoesNotPromiseEveryPress(void)
+// The RESULT line of the one goal of the lever's press, and its map badge
+static void LeverResultAndBadge(const AutoMapDrawList &drawList, std::string *result,
+                                std::string *badge)
+{
+  std::vector<AutoMapPressSource> sources = AutoMapScene_PressEffects(drawList, 0, 1);
+  std::vector<std::string> lines = PressText(drawList, sources, false);
+  *result = lines.empty() ? std::string() : lines.back();
+  std::vector<const AutoMapEffect *> goals = AutoMapScene_PressGoalsByCell(sources);
+  *badge = goals.size() == 1 ? AutoMapScene_GoalBadge(goals[0]->distance) : std::string("?");
+}
+
+static void HeldSourceAgreesInRouteResultAndBadge(void)
 {
   // A normally-closed held lever counts the counter down on press and up again on release:
-  // at 4 it never gets to 0 alone; at 1 it gets there on this press
+  // at 4 press and release never get it to 0, so ROUTE, RESULT and badge say it needs other
+  // sources; at 1 every step fires on this press, which holds while pressed
+  std::string result, badge;
   for (int count = 1; count <= 4; count += 3)
   {
     AutoMapLevelSnapshot snapshot = MachineRoom();
@@ -4954,18 +4967,77 @@ static void RouteUnderAHeldSourceDoesNotPromiseEveryPress(void)
     held.sourceNormallyClosed = true;
     snapshot.links.push_back(held);
     snapshot.links.push_back(Message(2, 0, 5, 1, 200, AutoMapSignalSet, 0, 0));
-    std::string route = JoinedTip(RouteBlock(DrawAll(snapshot), 0, 1));
+    AutoMapDrawList drawList = DrawAll(snapshot);
+    std::string route = JoinedTip(RouteBlock(drawList, 0, 1));
+    LeverResultAndBadge(drawList, &result, &badge);
     if (count == 4)
     {
       CHECK(route == "ROUTE:\n  COUNTER A L0 (2, 0)\n    COUNTS 4 -> 3\n"
                      "    AT 0: (NEEDS OTHER SOURCES)\n      DOOR L0 (5, 1) OPENS");
+      CHECK(result == "  DOOR L0 (5, 1) NEEDS OTHER SOURCES");
+      CHECK(badge == "NEEDS OTHERS");
     }
     else
     {
       CHECK(route == "ROUTE:\n  COUNTER A L0 (2, 0)\n    COUNTS 1 -> 0\n"
-                     "    AT 0: (THIS PRESS)\n      DOOR L0 (5, 1) OPENS");
+                     "    AT 0: (EVERY PRESS)\n      DOOR L0 (5, 1) OPENS");
+      CHECK(result == "  DOOR L0 (5, 1) HOLDS WHILE PRESSED");
+      CHECK(badge == "HOLD");
     }
   }
+  // Held straight into the door: HOLD everywhere (no steps, so no route)
+  AutoMapLevelSnapshot direct = MachineRoom();
+  direct.links.push_back(Message(0, 1, 5, 1, LEVER_RECORD, AutoMapSignalPressure, 0, 0));
+  AutoMapDrawList drawList = DrawAll(direct);
+  LeverResultAndBadge(drawList, &result, &badge);
+  CHECK(result == "  DOOR L0 (5, 1) HOLDS WHILE PRESSED");
+  CHECK(badge == "HOLD");
+  std::vector<AutoMapPressSource> sources = AutoMapScene_PressEffects(drawList, 0, 1);
+  CHECK(sources.size() == 1 && !AutoMapScene_PressHasSteps(sources[0]));
+}
+
+static void RouteAfterADSANeverSaysThisPress(void)
+{
+  // A counter at 1 after a DSA reaches 0 on this press, plain or held: the DSA may stop it
+  for (int heldLever = 0; heldLever < 2; heldLever++)
+  {
+    AutoMapLevelSnapshot snapshot = MachineRoom();
+    AutoMapRelay dsa;
+    dsa.kind = AutoMapRelayDSA;
+    PutRelay(&snapshot, 2, 0, dsa, 200);
+    PutRelay(&snapshot, 2, 0, CounterRelay(1), 201);
+    AutoMapLink lever = Message(0, 1, 2, 0, LEVER_RECORD,
+                                heldLever ? AutoMapSignalPressure : AutoMapSignalClear, 0, 0);
+    lever.sourceNormallyClosed = heldLever != 0;
+    snapshot.links.push_back(lever);
+    snapshot.links.push_back(Message(2, 0, 5, 1, 201, AutoMapSignalSet, 0, 0));
+    std::string route = JoinedTip(RouteBlock(DrawAll(snapshot), 0, 1));
+    CHECK(route.find("    AT 0: (IF DSA PASSES)\n") != std::string::npos);
+    CHECK(route.find("THIS PRESS") == std::string::npos);
+    CHECK(route.find("EVERY PRESS") == std::string::npos);
+  }
+}
+
+static void RouteHeldStepReachedLaterDoesNotSayEveryPress(void)
+{
+  // A counter at 3 feeds a held counter at 2: the held one only gets the message in 2 more
+  AutoMapLevelSnapshot snapshot = MachineRoom();
+  PutRelay(&snapshot, 2, 0, CounterRelay(3), 200);
+  AutoMapRelay held = CounterRelay(2);
+  held.signal = AutoMapSignalPressure;
+  PutRelay(&snapshot, 3, 0, held, 201);
+  snapshot.links.push_back(Message(0, 1, 2, 0, LEVER_RECORD, AutoMapSignalClear, 0, 0));
+  snapshot.links.push_back(Message(2, 0, 3, 0, 200, AutoMapSignalClear, 0, 0));
+  snapshot.links.push_back(Message(3, 0, 5, 1, 201, AutoMapSignalPressure, 0, 0));
+  CHECK(JoinedTip(RouteBlock(DrawAll(snapshot), 0, 1))
+        == "ROUTE:\n"
+           "  COUNTER A L0 (2, 0)\n"
+           "    COUNTS 3 -> 2\n"
+           "    AT 0: (IN 2 MORE)\n"
+           "      COUNTER A L0 (3, 0)\n"
+           "        COUNTS 2 -> 1\n"
+           "        EACH COUNT: (NEEDS OTHER SOURCES)\n"
+           "          DOOR L0 (5, 1) CLOSES");
 }
 
 static void RouteDeadCounterIsBlocked(void)
@@ -5037,7 +5109,7 @@ static void RouteNamesTheLoop(void)
            "      COUNTER A L0 (3, 0)\n"
            "        COUNTS 1 -> 0\n"
            "        AT 0: (NEXT PRESS)\n"
-           "          LOOPS BACK TO COUNTER A");
+           "          LOOPS BACK TO COUNTER A L0 (2, 0)");
 }
 
 static void RouteNamesBareTargetsAndLocalActions(void)
@@ -5409,7 +5481,7 @@ static void RouteStepMarks(void)
   AutoMapEffect loop;
   loop.kind = AutoMapEffectLoop;
   loop.relay = 0;
-  CHECK(RouteOf(CounterRelay(1), loop, false) == "  LOOPS BACK TO COUNTER A");
+  CHECK(RouteOf(CounterRelay(1), loop, false) == "  LOOPS BACK TO COUNTER A L0 (2, 0)");
   AutoMapRelay rotate = GateRelay(0x0 | (0x1 << 4), true);
   rotate.localActionType = 1;
   AutoMapEffect local;
@@ -6451,7 +6523,9 @@ void TestAutoMapScene(void)
   WhenNoteWords();
   RouteCounterThenGoal();
   RouteDeadCounterIsBlocked();
-  RouteUnderAHeldSourceDoesNotPromiseEveryPress();
+  HeldSourceAgreesInRouteResultAndBadge();
+  RouteAfterADSANeverSaysThisPress();
+  RouteHeldStepReachedLaterDoesNotSayEveryPress();
   RouteHeldCounterSaysWhatThisCountSends();
   RouteStopsAtADSA();
   RouteMarksStepsAfterADSA();

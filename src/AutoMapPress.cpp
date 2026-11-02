@@ -580,8 +580,13 @@ AutoMapGoalDistance PressGoalDistance(const AutoMapDrawList &drawList, const Pre
   bool afterDSA = false;
   for (size_t i = 0; i < path.size(); i++) afterDSA = afterDSA || path[i]->afterDSA;
   const char *blocked = PressPathBlock(path, state);
-  if (PressPathHolds(path)) distance.status = AutoMapGoalHolds;
-  else if (afterDSA) distance.status = AutoMapGoalThroughDSA;
+  // A held message (CONSTPRESSURE) is taken back on release. It holds the goal only when
+  // every step on the way fires on this press; a goal that waits on further messages is
+  // not reached by press and release swinging the path between two states, so the source
+  // alone is not known to get it there (it may under-promise, never over-promise).
+  bool holds = PressPathHolds(path);
+  if (afterDSA) distance.status = AutoMapGoalThroughDSA;
+  else if (holds && !goal.later) distance.status = AutoMapGoalHolds;
   else if (!goal.later)
   {
     // Every relay on the way fired: the goal happens now, unless a door or false wall
@@ -599,7 +604,7 @@ AutoMapGoalDistance PressGoalDistance(const AutoMapDrawList &drawList, const Pre
     // The first counter fed by the source counts this source's presses; any other
     // first relay passes every press on
     int more = path[0]->kind == AutoMapEffectCounter ? path[0]->after : 1;
-    if (fixPresses < 0 || PressPathNeedsOthers(path)) more = -1;
+    if (holds || fixPresses < 0 || PressPathNeedsOthers(path)) more = -1;
     else more = std::max(more, fixPresses);
     if (more > 0)
     {
@@ -1403,8 +1408,8 @@ static void RouteStep(const AutoMapDrawList &drawList, const AutoMapEffect &effe
     return;
   case AutoMapEffectLoop:
     out->push_back(RouteLine(depth, "LOOPS BACK TO " + PressReceiverName(drawList, effect,
-        relay != NULL && relay->kind == AutoMapRelayGate ? "GATE" : "COUNTER"),
-                             AutoMapTipPlain));
+        relay != NULL && relay->kind == AutoMapRelayGate ? "GATE" : "COUNTER")
+        + " " + PressLocation(drawList, effect.x, effect.y), AutoMapTipPlain));
     return;
   case AutoMapEffectLocalAction:
     out->push_back(RouteLine(depth, PressLocalActionWord(relay != NULL ? relay->localActionType : -1),
@@ -1469,17 +1474,7 @@ static void RouteStep(const AutoMapDrawList &drawList, const AutoMapEffect &effe
                                : "AT 0:";
   bool held = relay != NULL && relay->signal == AutoMapSignalPressure;
   if (held) condition = gate ? "EACH MESSAGE:" : "EACH COUNT:";
-  // A held message upstream is taken back on release, so a step that is no hold type itself
-  // does not pass it on every press: it passes now when it fired now. Otherwise the press
-  // and its release only swing it between two states and the source alone is not known to
-  // get it there.
-  AutoMapGoalDistance passes = effect.passes;
-  if (passes.status == AutoMapGoalHolds && !held)
-  {
-    passes.status = effect.fires && !effect.later ? AutoMapGoalOnThisPress
-                                                  : AutoMapGoalNeedsOthers;
-  }
-  std::string note = AutoMapScene_WhenNote(passes);
+  std::string note = AutoMapScene_WhenNote(effect.passes);
   if (!note.empty()) condition += " " + note;
   out->push_back(RouteLine(depth + 1, condition, AutoMapTipCondition));
   // What it sends now, or (waiting for more messages) once it fires: closed then
