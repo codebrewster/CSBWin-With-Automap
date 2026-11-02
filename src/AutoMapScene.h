@@ -1285,8 +1285,8 @@ struct AutoMapEffect
 {
   AutoMapEffect(void)
     : kind(AutoMapEffectGoal), x(-1), y(-1), relay(-1), floorRelay(false),
-      before(-1), after(-1), fires(false), later(false), afterDSA(false), delayTicks(0),
-      target(false)
+      sent(AutoMapSignalSet), before(-1), after(-1), fires(false), later(false), afterDSA(false),
+      delayTicks(0), target(false)
   {
   }
   AutoMapEffectKind kind;
@@ -1299,6 +1299,9 @@ struct AutoMapEffect
   bool floorRelay;
   // The link whose message this is; a local action, which has no link, keeps the default
   AutoMapLink via;
+  // What the message carries: via's signal, or for a held link (CONSTPRESSURE) the SET or
+  // CLEAR its sender reports this time (PressSentSignal; a pressed source, a closed relay)
+  AutoMapSignal sent;
   // Counter value or gate low nibble before and after the message; -1 otherwise
   int before;
   int after;

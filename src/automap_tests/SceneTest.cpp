@@ -4695,14 +4695,15 @@ static void GoalDistanceOtherStatuses(void)
   AutoMapLevelSnapshot held = ShutMachineRoom();
   held.links.push_back(Message(0, 1, 5, 1, LEVER_RECORD, AutoMapSignalPressure, 0, 0));
   CHECK(LeverGoalDistance(held).status == AutoMapGoalHolds);
-  // So does a CONSTPRESSURE counter on the way
+  // A CONSTPRESSURE counter on the way does not: it reports what it really sends. At 3 -> 2
+  // that is CLEAR, which leaves the shut door shut.
   AutoMapLevelSnapshot relayed = ShutMachineRoom();
   AutoMapRelay pressure = CounterRelay(3);
   pressure.signal = AutoMapSignalPressure;
   PutRelay(&relayed, 2, 0, pressure, 200);
   relayed.links.push_back(Message(0, 1, 2, 0, LEVER_RECORD, AutoMapSignalClear, 0, 0));
   relayed.links.push_back(Message(2, 0, 5, 1, 200, AutoMapSignalPressure, 0, 0));
-  CHECK(LeverGoalDistance(relayed).status == AutoMapGoalHolds);
+  CHECK(LeverGoalDistance(relayed).status == AutoMapGoalAlreadyDone);
   // A DSA ahead of the counter may stop the message, which the walk cannot tell
   AutoMapLevelSnapshot guarded = ShutMachineRoom();
   AutoMapRelay dsa;
@@ -4924,7 +4925,8 @@ static void RouteCounterThenGoal(void)
 }
 
 // A CONSTPRESSURE counter (record 60, at count, normally closed or not) in (0, 1), counted
-// down by the coin slot at (1, 0) and wired to the door at (2, 1)
+// down by the coin slot at (1, 0) and wired to the door at (2, 1). The door stands so that
+// what this count sends moves it (open for a CLEAR, shut for a SET).
 static AutoMapDrawList SlotHeldCounterDoor(int count, bool normallyClosed)
 {
   AutoMapLevelSnapshot snapshot = Corridor();
@@ -4932,6 +4934,7 @@ static AutoMapDrawList SlotHeldCounterDoor(int count, bool normallyClosed)
   snapshot.offsetX = 12;
   snapshot.offsetY = 22;
   snapshot.cells[1 * 4 + 2].kind = AutoMapCellDoor;
+  if (normallyClosed) snapshot.cells[1 * 4 + 2].doorState = AutoMapDoorClosed;
   AutoMapRelay counter = CounterRelay(count);
   counter.record = 60;
   counter.signal = AutoMapSignalPressure;
@@ -4957,7 +4960,7 @@ static void RouteHoldCounterToDoorNamesBothSides(void)
            "  COUNTER A L2 (12, 23)\n"
            "    COUNTS 2 -> 1\n"
            "    HOLD: REPORTS EVERY COUNT\n"
-           "    EACH COUNT: (EVERY PRESS)\n"
+           "    EACH COUNT: (THIS PRESS)\n"
            "      DOOR L2 (14, 23) OPENS AT 0, CLOSES ABOVE 0");
   CHECK(block.size() == 6 && block[3].style == AutoMapTipState
         && block[4].style == AutoMapTipCondition && block[5].style == AutoMapTipResult);
@@ -4983,6 +4986,8 @@ static void RouteHoldGateToDoorNamesBothSides(void)
     gate.normallyClosed = nc != 0;
     gate.edgeMode = 4;
     PutRelay(&snapshot, 2, 0, gate, 200);
+    // Shut for the SET a match sends, open for the CLEAR of a normally-closed gate
+    if (nc == 0) snapshot.cells[1 * 6 + 5].doorState = AutoMapDoorClosed;
     snapshot.links.push_back(Message(0, 1, 2, 0, LEVER_RECORD, AutoMapSignalSet, 0, 0));
     snapshot.links.push_back(Message(2, 0, 5, 1, 200, AutoMapSignalPressure, 0, 0));
     AutoMapDrawList drawList = DrawAll(snapshot);
@@ -4991,7 +4996,7 @@ static void RouteHoldGateToDoorNamesBothSides(void)
                          "  GATE A L0 (2, 0), SETS BIT 0\n"
                          "    BITS 0000 -> 0001, NEEDS 0001\n"
                          "    HOLD: REPORTS EVERY MESSAGE\n"
-                         "    EACH MESSAGE, ONLY ON SET: (EVERY PRESS)\n"
+                         "    EACH MESSAGE, ONLY ON SET: (THIS PRESS)\n"
                          "      DOOR L0 (5, 1) OPENS WHILE ")
              + (nc ? "NOT MATCHING" : "MATCHING") + ", CLOSES OTHERWISE");
     // The relay block: its state lines, then one send line per side
@@ -5015,6 +5020,7 @@ static AutoMapDrawList LeverHeldCounterGate(int count)
   counter.signal = AutoMapSignalPressure;
   PutRelay(&snapshot, 2, 0, counter, 200);
   PutRelay(&snapshot, 3, 0, GateRelay(0x1 << 4, false), 201);
+  snapshot.cells[1 * 6 + 5].doorState = AutoMapDoorClosed;
   snapshot.links.push_back(Message(0, 1, 2, 0, LEVER_RECORD, AutoMapSignalClear, 0, 0));
   snapshot.links.push_back(Message(2, 0, 3, 0, 200, AutoMapSignalPressure, 0, 0));
   snapshot.links.push_back(Message(3, 0, 5, 1, 201, AutoMapSignalSet, 0, 0));
@@ -5034,7 +5040,7 @@ static void RouteHoldCounterToGateFollowsOneSideAndSaysSo(void)
            "    WHILE AT 0: (THIS PRESS)\n"
            "      GATE A L0 (3, 0), SETS BIT 0\n"
            "        BITS 0000 -> 0001, NEEDS 0001\n"
-           "        ON MATCH: (EVERY PRESS)\n"
+           "        ON MATCH: (THIS PRESS)\n"
            "          DOOR L0 (5, 1) OPENS\n"
            "    ABOVE 0: SENDS CLEAR (NOT FOLLOWED)");
   CHECK(block.size() == 10 && block[4].style == AutoMapTipCondition
@@ -5105,6 +5111,21 @@ static void HeldSourceAgreesInRouteResultAndBadge(void)
   CHECK(badge == "HOLD");
   std::vector<AutoMapPressSource> sources = AutoMapScene_PressEffects(drawList, 0, 1);
   CHECK(sources.size() == 1 && !AutoMapScene_PressHasSteps(sources[0]));
+}
+
+static void HeldRelayMidPathIsNoHold(void)
+{
+  // A held counter between the lever and the gate: at 1 this press brings it to 0, it sends
+  // SET once and is dead, so the door opens now and stays open. No HOLD anywhere.
+  std::string result, badge;
+  LeverResultAndBadge(LeverHeldCounterGate(1), &result, &badge);
+  CHECK(result == "  DOOR L0 (5, 1) OPENS ON THIS PRESS");
+  CHECK(badge == "NOW");
+  // At 3 it sends CLEAR to the gate: the door waits on the SET side, which this source
+  // alone does not bring for sure
+  LeverResultAndBadge(LeverHeldCounterGate(3), &result, &badge);
+  CHECK(result.find("HOLD") == std::string::npos && badge != "HOLD");
+  CHECK(result.find("NEEDS OTHER SOURCES") != std::string::npos);
 }
 
 static void RouteAfterADSANeverSaysThisPress(void)
@@ -6787,6 +6808,7 @@ void TestAutoMapScene(void)
   RouteCounterThenGoal();
   RouteDeadCounterIsBlocked();
   HeldSourceAgreesInRouteResultAndBadge();
+  HeldRelayMidPathIsNoHold();
   RouteAfterADSANeverSaysThisPress();
   RouteHeldStepReachedLaterDoesNotSayEveryPress();
   RouteHoldCounterToDoorNamesBothSides();

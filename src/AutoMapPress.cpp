@@ -317,6 +317,7 @@ void DeliverPressMessage(PressWalk *walk, const AutoMapLink &link, AutoMapSignal
   arrival.x = link.dstX;
   arrival.y = link.dstY;
   arrival.via = link;
+  arrival.sent = signal;
   arrival.later = later;
   arrival.delayTicks = delayBefore + link.delay;
   // Only stone and open floors walk their records (ProcessTT_STONEROOM,
@@ -404,6 +405,12 @@ void DeliverPressMessage(PressWalk *walk, const AutoMapLink &link, AutoMapSignal
 // effect at its end
 typedef std::vector<const AutoMapEffect *> PressPath;
 
+// What a message carries: a held link's SET or CLEAR this time, else the link's signal
+AutoMapSignal PressCarried(const AutoMapEffect &effect)
+{
+  return effect.via.signal == AutoMapSignalPressure ? effect.sent : effect.via.signal;
+}
+
 // Why the relays on the path keep its end from ever happening, or NULL. The last entry
 // is the end itself and is not looked at. A relay the path waits on (it fires later, or
 // not on this message) that this press spent, being once-only, is inert by then.
@@ -415,7 +422,7 @@ const char *PressPathBlock(const PressPath &path, const PressState &spentBy)
     if (relay.kind == AutoMapEffectCounter)
     {
       if (relay.before == 0) return "COUNTER AT 0";
-      if (relay.via.signal == AutoMapSignalSet) return "COUNTS UP";
+      if (PressCarried(relay) == AutoMapSignalSet) return "COUNTS UP";
     }
     PressRelayKey key = {relay.x, relay.y, relay.relay, relay.floorRelay};
     if ((relay.later || !relay.fires) && spentBy.spent.count(key) != 0) return "SPENT";
@@ -423,8 +430,17 @@ const char *PressPathBlock(const PressPath &path, const PressState &spentBy)
   return NULL;
 }
 
-// A message through a CONSTPRESSURE source or relay is taken back on release
+// The press itself is held (its source sends CONSTPRESSURE): the release takes back what the
+// press sent, so what it reaches holds only while pressed. A held relay further on is not
+// that: it reports what it really sends, and a counter it drives to 0 stays dead there.
 bool PressPathHolds(const PressPath &path)
+{
+  return !path.empty() && path[0]->via.signal == AutoMapSignalPressure;
+}
+
+// Any held link on the path, source or relay: a held relay's later messages swing with its
+// state, which the gate search does not model, so such a path brings a gate no sure message
+bool PressPathHasHeldLink(const PressPath &path)
 {
   for (size_t i = 0; i < path.size(); i++)
   {
@@ -472,13 +488,13 @@ void CollectGateMessages(const std::vector<AutoMapEffect> &effects, const PressS
       const AutoMapEffect &first = *path->front();
       int presses = 1;
       if (path->size() > 1 && first.kind == AutoMapEffectCounter) presses = first.after;
-      if (presses <= 0 || PressPathHolds(*path) || PressPathNeedsOthers(*path)
+      if (presses <= 0 || PressPathHasHeldLink(*path) || PressPathNeedsOthers(*path)
           || PressPathBlock(*path, state) != NULL)
       {
         presses = -1;
       }
       PressGateMessage message = {effect.x, effect.y, effect.relay, effect.via.targetPos,
-                                  effect.via.signal, presses};
+                                  PressCarried(effect), presses};
       messages->push_back(message);
     }
     CollectGateMessages(effect.next, state, path, messages);
@@ -539,7 +555,7 @@ bool PressGoalAlreadyDone(const AutoMapDrawList &drawList, const AutoMapEffect &
 {
   const AutoMapShownCell *cell = FindShownCell(drawList, goal.x, goal.y);
   if (cell == NULL || goal.target) return false;
-  AutoMapSignal signal = goal.via.signal;
+  AutoMapSignal signal = PressCarried(goal);
   switch (cell->cell.kind)
   {
   case AutoMapCellDoor: return AutoMapScene_PredictDoorState(cell->cell.doorState, signal) < 0;
@@ -890,7 +906,7 @@ static const char *PressGoalNoun(const AutoMapDrawList &drawList, const AutoMapE
 // says which way the pit goes, since a closed one looks like floor and TOGGLES tells nothing.
 static const char *PressGoalVerb(const AutoMapDrawList &drawList, const AutoMapEffect &goal)
 {
-  AutoMapSignal signal = goal.via.signal;
+  AutoMapSignal signal = PressCarried(goal);
   if (signal == AutoMapSignalClear) return goal.target ? "CLEARS" : "CLOSES";
   if (signal == AutoMapSignalToggle)
   {
@@ -930,7 +946,7 @@ static std::string PressDistanceWord(const AutoMapDrawList &drawList, const Auto
   case AutoMapGoalHolds: return "HOLDS WHILE PRESSED";
   case AutoMapGoalThroughDSA: return "THROUGH DSA";
   case AutoMapGoalAlreadyDone:
-    return goal.via.signal == AutoMapSignalClear ? "ALREADY CLOSED" : "ALREADY OPEN";
+    return PressCarried(goal) == AutoMapSignalClear ? "ALREADY CLOSED" : "ALREADY OPEN";
   default: return verb;
   }
 }
@@ -1125,7 +1141,7 @@ static std::string PressGoalTreeText(const AutoMapDrawList &drawList, const Auto
   std::string noun = PressGoalNoun(drawList, goal);
   if (goal.distance.status == AutoMapGoalAlreadyDone)
   {
-    return noun + (goal.via.signal == AutoMapSignalClear ? " ALREADY CLOSED" : " ALREADY OPEN");
+    return noun + (PressCarried(goal) == AutoMapSignalClear ? " ALREADY CLOSED" : " ALREADY OPEN");
   }
   return noun + " " + PressGoalVerb(drawList, goal);
 }
@@ -1422,11 +1438,11 @@ static std::string RouteGoalText(const AutoMapDrawList &drawList, AutoMapEffect 
 // OPENS WHILE MATCHING, CLOSES OTHERWISE for a gate. The verbs are those of the SET and the
 // CLEAR the held link carries.
 static std::string HeldGoalText(const AutoMapDrawList &drawList, const AutoMapEffect &goal,
-                                const AutoMapRelay &relay)
+                                const AutoMapRelay &relay, bool closed)
 {
   if (goal.via.signal != AutoMapSignalPressure || goal.distance.status == AutoMapGoalAlreadyDone)
   {
-    return RouteGoalText(drawList, goal, true);
+    return RouteGoalText(drawList, goal, closed);
   }
   AutoMapEffect set = goal;
   set.via.signal = AutoMapSignalSet;
@@ -1624,7 +1640,7 @@ static void RouteStep(const RouteContext &route, const AutoMapEffect &effect, in
       for (size_t i = 0; i < effect.next.size(); i++)
       {
         const AutoMapEffect &goal = effect.next[i];
-        goals[i].push_back(RouteLine(depth + 2, HeldGoalText(drawList, goal, *relay)
+        goals[i].push_back(RouteLine(depth + 2, HeldGoalText(drawList, goal, *relay, closedNow)
                                                     + RouteStepTail(goal, effect.delayTicks),
                                      AutoMapTipResult));
       }
