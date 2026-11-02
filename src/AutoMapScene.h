@@ -1293,8 +1293,8 @@ struct AutoMapEffect
   // The receiver cell, draw-list coordinates
   int x;
   int y;
-  // Index into the cell's wallRelays, or into drawList.actuators when floorRelay;
-  // -1 for goals and loops
+  // Index into the cell's wallRelays, or into drawList.actuators when floorRelay; for a
+  // loop the relay it comes back to; -1 for goals
   int relay;
   bool floorRelay;
   // The link whose message this is; a local action, which has no link, keeps the default
@@ -1318,6 +1318,10 @@ struct AutoMapEffect
   bool target;
   // Goals only
   AutoMapGoalDistance distance;
+  // Counters and gates only: when this step passes the signal on, worked out like a goal
+  // that would sit right behind it (on its path, with the step's first send), so the
+  // route's condition line and the goals under it never disagree
+  AutoMapGoalDistance passes;
   std::vector<AutoMapEffect> next;
 };
 
@@ -1380,10 +1384,14 @@ std::vector<const AutoMapEffect *> AutoMapScene_PressGoalsByCell(
 // caller indents them under the source's PAD / SWITCH header), each entry two spaces in.
 // Compact (shift false): THIS PRESS: the receivers the press reaches first (plain), then
 // RESULT: every goal behind them and how far it is (AutoMapTipResult), a delay at the end
-// (", AFTER 6 TICKS"). Shift with steps (AutoMapScene_PressHasSteps): ROUTE: and the whole
-// tree, two spaces per depth, with delays, gate edge modes, once-only and normally-closed
-// marks. Shift without steps: the full RESULT list. The font is ASCII: arrows read 4->3,
-// identical lines fold as 3X ..., a loop LOOPS BACK. Compact keeps at most
+// (", AFTER 6 TICKS"). Shift with steps (AutoMapScene_PressHasSteps): ROUTE: and the
+// route, two spaces per depth, where a line one step further in only happens when the line
+// above passes the signal on: a step (COUNTER A L11 (47, 27), AFTER 6 TICKS), its state
+// lines (COUNTS 3 -> 2, ONCE ONLY; AutoMapTipState), its condition with the when-note
+// (AT 0: (IN 2 MORE); AutoMapTipCondition) and what it sends under that; goals
+// (AutoMapTipResult), a DSA (IF ITS PROGRAM PASSES IT ON (NOT FOLLOWED)), a local action,
+// LOOPS BACK TO COUNTER A. Shift without steps: the full RESULT list. The font is ASCII:
+// arrows read 4->3, identical siblings fold as 3X .... Compact keeps at most
 // AUTOMAP_PRESS_MAX_LINES lines below the headings, the last one +N MORE (SHIFT); Shift
 // lifts the cap. A walk that ran out of budget ends with CHAIN CUT SHORT. No hint: the
 // tooltip adds SHIFT: ROUTE once for the tile.
@@ -1398,6 +1406,12 @@ bool AutoMapScene_PressHasSteps(const AutoMapPressSource &source);
 // Every link in the trees of a press, depth first and without duplicates, for the map to
 // light the whole chain. A local action has no link and adds none.
 std::vector<AutoMapLink> AutoMapScene_PressChainLinks(const std::vector<AutoMapPressSource> &sources);
+
+// The when-note of a route's condition line, in the RESULT and badge vocabulary:
+// (THIS PRESS), (NEXT PRESS), (IN 3 MORE) (with mismatched gate bits first:
+// (1 BIT OFF, IN 2 MORE)), (NEEDS OTHER SOURCES), (BLOCKED: COUNTER AT 0), (EVERY PRESS)
+// for a held message, (IF DSA PASSES); "" for already done or unknown.
+std::string AutoMapScene_WhenNote(const AutoMapGoalDistance &distance);
 
 // Short goal badge for the map: NOW, 2 MORE, 1 BIT OFF, NEEDS OTHERS, BLOCKED, HOLD, DSA, DONE;
 // empty for Unknown. Within the tooltip font.

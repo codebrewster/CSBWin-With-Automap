@@ -258,9 +258,8 @@ bool ReceivePressMessage(PressWalk *walk, const PressRelayKey &key, const AutoMa
   bool dead = relay.kind == AutoMapRelayCounter && before == 0;
   if (!dead && std::find(walk->path.begin(), walk->path.end(), key) != walk->path.end())
   {
+    // It keeps the relay it comes back to, for the route to name
     effect->kind = AutoMapEffectLoop;
-    effect->relay = -1;
-    effect->floorRelay = false;
     return true;
   }
   int after = before;
@@ -612,6 +611,29 @@ AutoMapGoalDistance PressGoalDistance(const AutoMapDrawList &drawList, const Pre
   return distance;
 }
 
+// When a counter or gate passes the signal on: the distance of a goal that would sit
+// right behind it, reached by its first send. That goal comes now only when the step
+// fires on this press, as every goal behind it does. A bare target, so the cell's own
+// state (an open door) has no say.
+AutoMapGoalDistance PressStepPasses(const AutoMapDrawList &drawList, const AutoMapEffect &step,
+                                    const PressState &state,
+                                    const std::vector<PressGateMessage> &messages,
+                                    PressPath *path)
+{
+  AutoMapEffect behind;
+  behind.kind = AutoMapEffectGoal;
+  behind.x = step.x;
+  behind.y = step.y;
+  behind.target = true;
+  behind.later = !(step.fires && !step.later);
+  behind.via = step.next.empty() ? step.via : step.next[0].via;
+  behind.delayTicks = step.delayTicks;
+  path->push_back(&behind);
+  AutoMapGoalDistance passes = PressGoalDistance(drawList, *path, state, messages);
+  path->pop_back();
+  return passes;
+}
+
 void AssessPressGoals(const AutoMapDrawList &drawList, const PressState &state,
                       const std::vector<PressGateMessage> &messages, PressPath *path,
                       std::vector<AutoMapEffect> *effects)
@@ -623,6 +645,10 @@ void AssessPressGoals(const AutoMapDrawList &drawList, const PressState &state,
     if (effect.kind == AutoMapEffectGoal)
     {
       effect.distance = PressGoalDistance(drawList, *path, state, messages);
+    }
+    if (effect.kind == AutoMapEffectCounter || effect.kind == AutoMapEffectGate)
+    {
+      effect.passes = PressStepPasses(drawList, effect, state, messages, path);
     }
     AssessPressGoals(drawList, state, messages, path, &effect.next);
     path->pop_back();
@@ -915,21 +941,6 @@ static std::string PressDistanceWord(const AutoMapDrawList &drawList, const Auto
   }
 }
 
-static const char *PressEdgeWord(int edgeMode)
-{
-  switch (edgeMode)
-  {
-  case 1: return " ON INPUT CHANGE";
-  case 2: return " ON OUTPUT CHANGE";
-  case 3: return " ON INPUT CHANGE ONLY";
-  case 4: return " ON SET";
-  case 5: return " ON CLEAR";
-  case 6: return " ON BIT SET";
-  case 7: return " ON BIT CLEAR";
-  default: return "";
-  }
-}
-
 static const char *PressLocalActionWord(int localActionType)
 {
   if (localActionType == 10) return "SKILL BONUS";
@@ -1041,18 +1052,7 @@ static std::string PressStateText(const AutoMapDrawList &drawList, const AutoMap
   }
 }
 
-// ONCE and NC marks, and the edge filter of a gate
-static std::string PressRelayMarks(const AutoMapRelay *relay, bool gate)
-{
-  std::string marks;
-  if (relay == NULL) return marks;
-  if (gate) marks += PressEdgeWord(relay->edgeMode);
-  if (relay->onceOnly) marks += " ONCE";
-  if (relay->normallyClosed) marks += " NC";
-  return marks;
-}
-
-// The line a goal takes in the tree, after its place
+// What a relay hover says a goal does, after its place
 static std::string PressGoalTreeText(const AutoMapDrawList &drawList, const AutoMapEffect &goal)
 {
   std::string noun = PressGoalNoun(drawList, goal);
@@ -1061,59 +1061,6 @@ static std::string PressGoalTreeText(const AutoMapDrawList &drawList, const Auto
     return noun + (goal.via.signal == AutoMapSignalClear ? " ALREADY CLOSED" : " ALREADY OPEN");
   }
   return noun + PressGoalWord(drawList, goal);
-}
-
-// One effect and what follows it, a space of indent per depth on top of the block's one.
-// condition is what lets the parent's message through ("AT 0: ", "MATCH: "). A gate takes
-// two lines, the message that reaches it and the state it ends in, so its children sit
-// one level deeper.
-static void PressTreeLines(const AutoMapDrawList &drawList, const AutoMapEffect &effect,
-                           int depth, const std::string &condition,
-                           std::vector<std::string> *lines)
-{
-  std::string indent((size_t)(1 + depth), ' ');
-  std::string line = indent + condition + PressLocation(drawList, effect.x, effect.y) + " ";
-  const AutoMapRelay *relay = PressEffectRelay(drawList, effect);
-  std::string after;
-  if (effect.kind != AutoMapEffectLoop) after += DelayWord(effect.delayTicks);
-  if (effect.afterDSA) after += " (IF DSA PASSES)";
-  int childDepth = depth + 1;
-  std::string childCondition;
-  switch (effect.kind)
-  {
-  case AutoMapEffectGoal:
-    lines->push_back(line + PressGoalTreeText(drawList, effect) + after);
-    return;
-  case AutoMapEffectGate:
-  {
-    char bit[32] = "";
-    if (effect.via.targetPos >= 0 && effect.via.targetPos <= 3)
-    {
-      std::snprintf(bit, sizeof(bit), " BIT %d", effect.via.targetPos);
-    }
-    lines->push_back(line + PressReceiverName(drawList, effect, "GATE") + bit
-                     + SignalWord(effect.via.signal) + after);
-    lines->push_back(std::string((size_t)(2 + depth), ' ') + PressStateText(drawList, effect)
-                     + PressRelayMarks(relay, true));
-    childDepth = depth + 2;
-    childCondition = relay != NULL && relay->normallyClosed ? "NO MATCH: " : "MATCH: ";
-    break;
-  }
-  case AutoMapEffectCounter:
-    lines->push_back(line + PressStateText(drawList, effect) + PressRelayMarks(relay, false)
-                     + after);
-    // Children of any counter (a CONSTPRESSURE one too) and of a gate (NO MATCH too) take
-    // the same prefix by design: it names the usual case, the tree stays readable
-    childCondition = "AT 0: ";
-    break;
-  default:
-    lines->push_back(line + PressStateText(drawList, effect) + after);
-    break;
-  }
-  for (size_t i = 0; i < effect.next.size(); i++)
-  {
-    PressTreeLines(drawList, effect.next[i], childDepth, childCondition, lines);
-  }
 }
 
 // The compact view lists a goal wherever it sits in the tree
@@ -1135,17 +1082,25 @@ struct PressLine
   bool hint;
   // A warning that outranks the cap: always shown, never counted, after the +N MORE
   bool tail;
+  AutoMapTipStyle style;
 };
+
+typedef std::vector<PressLine> PressLines;
 
 static PressLine MakePressLine(const std::string &text, bool header, bool hint)
 {
-  PressLine line = {text, header, hint, false};
+  PressLine line = {text, header, hint, false, AutoMapTipPlain};
   return line;
 }
 
+static bool operator==(const PressLine &a, const PressLine &b)
+{
+  return a.text == b.text && a.header == b.header && a.hint == b.hint && a.tail == b.tail
+      && a.style == b.style;
+}
+
 // Identical blocks fold into one with a count: "3X " goes after the indent of the first line
-static void FoldPressBlocks(const std::vector<std::vector<std::string> > &blocks,
-                            std::vector<PressLine> *out)
+static void FoldStyledBlocks(const std::vector<PressLines> &blocks, PressLines *out)
 {
   std::vector<int> counts(blocks.size(), 0);
   std::vector<size_t> firsts;
@@ -1165,29 +1120,43 @@ static void FoldPressBlocks(const std::vector<std::vector<std::string> > &blocks
   }
   for (size_t f = 0; f < firsts.size(); f++)
   {
-    const std::vector<std::string> &block = blocks[firsts[f]];
+    const PressLines &block = blocks[firsts[f]];
     for (size_t l = 0; l < block.size(); l++)
     {
-      std::string text = block[l];
+      PressLine line = block[l];
       if (l == 0 && counts[firsts[f]] > 1)
       {
-        size_t indent = text.find_first_not_of(' ');
+        size_t indent = line.text.find_first_not_of(' ');
         char count[16];
         std::snprintf(count, sizeof(count), "%dX ", counts[firsts[f]]);
-        text.insert(indent == std::string::npos ? 0 : indent, count);
+        line.text.insert(indent == std::string::npos ? 0 : indent, count);
       }
-      out->push_back(MakePressLine(text, false, false));
+      out->push_back(line);
     }
   }
 }
 
-// The cap counts every line but the headers and the tails. The hint counts as one and
-// goes first; past the cap a line says how many were left out, before the next tail.
-// uncapped (Shift held) lifts the cap: every line stays and no +N MORE is said.
-static std::vector<std::string> CapPressLines(const std::vector<PressLine> &lines,
-                                              const char *moreSuffix, bool uncapped)
+// FoldStyledBlocks for plain one-style blocks
+static void FoldPressBlocks(const std::vector<std::vector<std::string> > &blocks,
+                            std::vector<PressLine> *out)
 {
-  std::vector<std::string> result;
+  std::vector<PressLines> styled(blocks.size());
+  for (size_t i = 0; i < blocks.size(); i++)
+  {
+    for (size_t l = 0; l < blocks[i].size(); l++)
+    {
+      styled[i].push_back(MakePressLine(blocks[i][l], false, false));
+    }
+  }
+  FoldStyledBlocks(styled, out);
+}
+
+// The cap counts every line but the headers and the tails. The hint counts as one and
+// goes first; past the cap a line says how many were left out (hint style), before the
+// next tail. uncapped (Shift held) lifts the cap: every line stays and no +N MORE is said.
+static PressLines CapStyledLines(const PressLines &lines, const char *moreSuffix, bool uncapped)
+{
+  PressLines result;
   size_t body = 0;
   for (size_t i = 0; i < lines.size(); i++)
   {
@@ -1198,42 +1167,50 @@ static std::vector<std::string> CapPressLines(const std::vector<PressLine> &line
   size_t shown = body > limit ? limit - 1 : body;
   size_t taken = 0;
   bool moreSaid = body <= shown;
-  std::vector<std::string> pendingHeaders;
+  PressLine more = MakePressLine("", false, false);
+  more.style = AutoMapTipHint;
+  char moreText[32];
+  std::snprintf(moreText, sizeof(moreText), "+%d MORE%s", (int)(body - shown), moreSuffix);
+  more.text = moreText;
+  PressLines pendingHeaders;
   for (size_t i = 0; i < lines.size(); i++)
   {
     if (lines[i].hint)
     {
-      if (hint) result.push_back(lines[i].text);
+      if (hint) result.push_back(lines[i]);
       continue;
     }
     if (lines[i].header)
     {
-      pendingHeaders.push_back(lines[i].text);
+      pendingHeaders.push_back(lines[i]);
       continue;
     }
     if (lines[i].tail || taken == shown)
     {
       if (!moreSaid && taken == shown)
       {
-        char more[32];
-        std::snprintf(more, sizeof(more), "+%d MORE%s", (int)(body - shown), moreSuffix);
-        result.push_back(std::string(more));
+        result.push_back(more);
         moreSaid = true;
       }
-      if (lines[i].tail) result.push_back(lines[i].text);
+      if (lines[i].tail) result.push_back(lines[i]);
       continue;
     }
     result.insert(result.end(), pendingHeaders.begin(), pendingHeaders.end());
     pendingHeaders.clear();
-    result.push_back(lines[i].text);
+    result.push_back(lines[i]);
     taken++;
   }
-  if (!moreSaid)
-  {
-    char more[32];
-    std::snprintf(more, sizeof(more), "+%d MORE%s", (int)(body - shown), moreSuffix);
-    result.push_back(std::string(more));
-  }
+  if (!moreSaid) result.push_back(more);
+  return result;
+}
+
+// CapStyledLines, as text
+static std::vector<std::string> CapPressLines(const PressLines &lines, const char *moreSuffix,
+                                              bool uncapped)
+{
+  PressLines capped = CapStyledLines(lines, moreSuffix, uncapped);
+  std::vector<std::string> result;
+  for (size_t i = 0; i < capped.size(); i++) result.push_back(capped[i].text);
   return result;
 }
 
@@ -1307,6 +1284,27 @@ bool AutoMapScene_PressHasSteps(const AutoMapPressSource &source)
   return EffectsHaveSteps(source.effects);
 }
 
+std::string AutoMapScene_WhenNote(const AutoMapGoalDistance &distance)
+{
+  std::string off = distance.bitsOff > 0 ? PressBitsOff(distance.bitsOff) + ", " : "";
+  char more[32];
+  switch (distance.status)
+  {
+  case AutoMapGoalOnThisPress: return "(THIS PRESS)";
+  case AutoMapGoalMore:
+    if (distance.more == 1) return "(" + off + "NEXT PRESS)";
+    std::snprintf(more, sizeof(more), "IN %d MORE)", distance.more);
+    return "(" + off + more;
+  case AutoMapGoalNeedsOthers: return "(" + off + "NEEDS OTHER SOURCES)";
+  case AutoMapGoalBlocked:
+    if (distance.blocked != NULL) return std::string("(BLOCKED: ") + distance.blocked + ")";
+    return "(BLOCKED)";
+  case AutoMapGoalHolds: return "(EVERY PRESS)";
+  case AutoMapGoalThroughDSA: return "(IF DSA PASSES)";
+  default: return "";
+  }
+}
+
 // A goal's RESULT line, one space in: noun, place, how far, and its delay after a comma
 static std::string PressResultLine(const AutoMapDrawList &drawList, const AutoMapEffect &goal)
 {
@@ -1317,21 +1315,201 @@ static std::string PressResultLine(const AutoMapDrawList &drawList, const AutoMa
   return line;
 }
 
+// ---- The route (Shift held) ----
+// A line one step further in only happens when the line above lets the signal through:
+// under a counter or gate its state lines, then its condition, then, one further in, what
+// it sends. Lines at one depth all get the same message, in the walk's order.
+
+// A route line at depth (one space per depth here; the block doubles it)
+static PressLine RouteLine(int depth, const std::string &text, AutoMapTipStyle style)
+{
+  PressLine line = MakePressLine(std::string((size_t)depth, ' ') + text, false, false);
+  line.style = style;
+  return line;
+}
+
+// What a step line ends in: the delay after a comma, and the DSA before it in its cell
+static std::string RouteStepTail(const AutoMapEffect &effect)
+{
+  std::string tail;
+  if (effect.delayTicks > 0) tail += "," + DelayWord(effect.delayTicks);
+  if (effect.afterDSA) tail += " (IF DSA PASSES)";
+  return tail;
+}
+
+// A held link as the message it carries: SET from a closed sender, CLEAR from an open one
+static AutoMapLink PressedVia(AutoMapLink via, bool closed)
+{
+  via.signal = PressSentSignal(via, closed);
+  return via;
+}
+
+// A goal as the route names it: noun, place and what the message does, or that it stands
+// that way already. A held message (CONSTPRESSURE) reads as what it carries this time.
+static std::string RouteGoalText(const AutoMapDrawList &drawList, AutoMapEffect goal,
+                                 bool closed)
+{
+  if (goal.via.signal == AutoMapSignalPressure) goal.via = PressedVia(goal.via, closed);
+  std::string text = std::string(PressGoalNoun(drawList, goal)) + " "
+      + PressLocation(drawList, goal.x, goal.y) + " ";
+  if (goal.distance.status == AutoMapGoalAlreadyDone)
+  {
+    return text + (goal.via.signal == AutoMapSignalClear ? "ALREADY CLOSED" : "ALREADY OPEN");
+  }
+  return text + PressGoalVerb(drawList, goal);
+}
+
+// What a message did to a gate's bit. A held message (CONSTPRESSURE) arrives as SET or
+// CLEAR, which the bit it left tells.
+static const char *RouteGateVerb(const AutoMapEffect &gate)
+{
+  int bit = gate.via.targetPos;
+  switch (gate.via.signal)
+  {
+  case AutoMapSignalSet: return "SETS";
+  case AutoMapSignalClear: return "CLEARS";
+  case AutoMapSignalToggle: return "TOGGLES";
+  default: break;
+  }
+  if (bit < 0 || bit > 3) return "SENDS";
+  return (gate.after & (1 << bit)) != 0 ? "SETS" : "CLEARS";
+}
+
+static void RouteSteps(const AutoMapDrawList &drawList, const std::vector<AutoMapEffect> &effects,
+                       int depth, bool upstreamBlocked, bool closed, PressLines *out);
+
+// Whether a relay that took its message is closed, as ReceivePressMessage works it out: a
+// counter at 0, a gate whose bits match, inverted when normally closed
+static bool RouteStepClosed(const AutoMapEffect &step, const AutoMapRelay *relay)
+{
+  bool nc = relay != NULL && relay->normallyClosed;
+  if (step.kind == AutoMapEffectCounter) return (step.after == 0) != nc;
+  int pattern = relay != NULL ? (relay->value >> 4) & 15 : 0;
+  return ((step.after & 15) == pattern) != nc;
+}
+
+// One step of the route and all that follows from it. upstreamBlocked: the step above
+// already reads BLOCKED, so a block on this one may be that one's. closed: whether its
+// sender was closed, which says what a held message carries.
+static void RouteStep(const AutoMapDrawList &drawList, const AutoMapEffect &effect, int depth,
+                      bool upstreamBlocked, bool closed, PressLines *out)
+{
+  const AutoMapRelay *relay = PressEffectRelay(drawList, effect);
+  switch (effect.kind)
+  {
+  case AutoMapEffectGoal:
+    out->push_back(RouteLine(depth, RouteGoalText(drawList, effect, closed) + RouteStepTail(effect),
+                             AutoMapTipResult));
+    return;
+  case AutoMapEffectLoop:
+    out->push_back(RouteLine(depth, "LOOPS BACK TO " + PressReceiverName(drawList, effect,
+        relay != NULL && relay->kind == AutoMapRelayGate ? "GATE" : "COUNTER"),
+                             AutoMapTipPlain));
+    return;
+  case AutoMapEffectLocalAction:
+    out->push_back(RouteLine(depth, PressLocalActionWord(relay != NULL ? relay->localActionType : -1),
+                             AutoMapTipPlain));
+    return;
+  case AutoMapEffectDSA:
+    out->push_back(RouteLine(depth, PressReceiverName(drawList, effect, "DSA") + " "
+                                        + PressLocation(drawList, effect.x, effect.y)
+                                        + RouteStepTail(effect),
+                             AutoMapTipPlain));
+    out->push_back(RouteLine(depth + 1, "IF ITS PROGRAM PASSES IT ON (NOT FOLLOWED)",
+                             AutoMapTipCondition));
+    return;
+  default:
+    break;
+  }
+  bool gate = effect.kind == AutoMapEffectGate;
+  std::string step = PressReceiverName(drawList, effect, gate ? "GATE" : "COUNTER") + " "
+      + PressLocation(drawList, effect.x, effect.y);
+  if (gate)
+  {
+    step += std::string(", ") + RouteGateVerb(effect);
+    if (effect.via.targetPos >= 0 && effect.via.targetPos <= 3)
+    {
+      step += " BIT " + std::to_string(effect.via.targetPos);
+    }
+  }
+  out->push_back(RouteLine(depth, step + RouteStepTail(effect), AutoMapTipPlain));
+  // State: what this message does to it, then fixed facts
+  std::string state;
+  char text[64];
+  if (gate)
+  {
+    int pattern = relay != NULL ? (relay->value >> 4) & 15 : 0;
+    state = "BITS " + GateBits(effect.before) + " -> " + GateBits(effect.after) + ", NEEDS "
+            + GateBits(pattern);
+  }
+  else if (effect.before == 0) state = "AT 0, DEAD";
+  else
+  {
+    std::snprintf(text, sizeof(text), "%s %d -> %d",
+                  effect.after > effect.before || effect.after == 511 ? "COUNTS UP" : "COUNTS",
+                  effect.before,
+                  effect.after);
+    state = text;
+  }
+  out->push_back(RouteLine(depth + 1, state, AutoMapTipState));
+  // A once-only relay this press already spent, the path waiting on it, is inert by then.
+  // When the step above is blocked, the block may be that one's: then only ONCE ONLY.
+  bool blocked = effect.passes.status == AutoMapGoalBlocked;
+  if (relay != NULL && relay->onceOnly)
+  {
+    bool spent = blocked && !upstreamBlocked && effect.passes.blocked != NULL
+                 && std::string(effect.passes.blocked) == "SPENT";
+    out->push_back(RouteLine(depth + 1, spent ? "SPENT" : "ONCE ONLY", AutoMapTipState));
+  }
+  if (effect.next.empty()) return;
+  // Condition: when it passes the message on, then what it sends, one further in. A
+  // CONSTPRESSURE relay reports on every message it takes, whatever its count or bits.
+  std::string condition = gate ? (relay != NULL && relay->normallyClosed ? "ON NO MATCH:"
+                                                                         : "ON MATCH:")
+                               : "AT 0:";
+  bool held = relay != NULL && relay->signal == AutoMapSignalPressure;
+  if (held) condition = gate ? "EACH MESSAGE:" : "EACH COUNT:";
+  // A held message upstream is taken back on release, so a step that is no hold type itself
+  // does not pass it on every press: it passes now when it fired now. Otherwise the press
+  // and its release only swing it between two states and the source alone is not known to
+  // get it there.
+  AutoMapGoalDistance passes = effect.passes;
+  if (passes.status == AutoMapGoalHolds && !held)
+  {
+    passes.status = effect.fires && !effect.later ? AutoMapGoalOnThisPress
+                                                  : AutoMapGoalNeedsOthers;
+  }
+  std::string note = AutoMapScene_WhenNote(passes);
+  if (!note.empty()) condition += " " + note;
+  out->push_back(RouteLine(depth + 1, condition, AutoMapTipCondition));
+  // What it sends now, or (waiting for more messages) once it fires: closed then
+  RouteSteps(drawList, effect.next, depth + 2, blocked,
+             !effect.fires || RouteStepClosed(effect, relay), out);
+}
+
+// Siblings of the route in the walk's order; identical ones fold as 2X
+static void RouteSteps(const AutoMapDrawList &drawList, const std::vector<AutoMapEffect> &effects,
+                       int depth, bool upstreamBlocked, bool closed, PressLines *out)
+{
+  std::vector<PressLines> blocks(effects.size());
+  for (size_t i = 0; i < effects.size(); i++)
+  {
+    // From the source itself: pressing closes it, or opens a normally-closed one
+    bool sender = depth == 1 ? !effects[i].via.sourceNormallyClosed : closed;
+    RouteStep(drawList, effects[i], depth, upstreamBlocked, sender, &blocks[i]);
+  }
+  FoldStyledBlocks(blocks, out);
+}
+
 std::vector<AutoMapTipLine> AutoMapScene_PressBlock(const AutoMapDrawList &drawList,
                                                     const AutoMapPressSource &source, bool shift)
 {
   // Built one space per depth as the cap knows it, then two spaces per depth
-  std::vector<PressLine> lines;
+  PressLines lines;
   if (shift && AutoMapScene_PressHasSteps(source))
   {
     lines.push_back(MakePressLine("ROUTE:", true, false));
-    std::vector<std::vector<std::string> > blocks;
-    for (size_t e = 0; e < source.effects.size(); e++)
-    {
-      blocks.push_back(std::vector<std::string>());
-      PressTreeLines(drawList, source.effects[e], 0, "", &blocks.back());
-    }
-    FoldPressBlocks(blocks, &lines);
+    RouteSteps(drawList, source.effects, 1, false, true, &lines);
   }
   else
   {
@@ -1351,42 +1529,35 @@ std::vector<AutoMapTipLine> AutoMapScene_PressBlock(const AutoMapDrawList &drawL
     }
     std::vector<const AutoMapEffect *> goals;
     PressGoals(source.effects, &goals);
-    std::vector<std::vector<std::string> > results;
+    std::vector<PressLines> results;
     for (size_t g = 0; g < goals.size(); g++)
     {
-      results.push_back(std::vector<std::string>(1, PressResultLine(drawList, *goals[g])));
+      PressLine result = MakePressLine(PressResultLine(drawList, *goals[g]), false, false);
+      result.style = AutoMapTipResult;
+      results.push_back(PressLines(1, result));
     }
     if (!results.empty())
     {
       lines.push_back(MakePressLine("RESULT:", true, false));
-      FoldPressBlocks(results, &lines);
+      FoldStyledBlocks(results, &lines);
     }
   }
   if (source.truncated)
   {
     lines.push_back(MakePressLine(" CHAIN CUT SHORT", false, false));
     lines.back().tail = true;
+    lines.back().style = AutoMapTipHint;
   }
   std::vector<AutoMapTipLine> block;
   if (lines.empty()) return block;
-  std::vector<std::string> capped = CapPressLines(lines, shift ? "" : " (SHIFT)", shift);
-  AutoMapTipStyle under = AutoMapTipPlain;
+  PressLines capped = CapStyledLines(lines, shift ? "" : " (SHIFT)", shift);
   for (size_t i = 0; i < capped.size(); i++)
   {
-    const std::string &line = capped[i];
+    const std::string &line = capped[i].text;
     size_t depth = line.find_first_not_of(' ');
     if (depth == std::string::npos) continue;
-    if (depth == 0)
-    {
-      if (line == "RESULT:") under = AutoMapTipResult;
-      else if (line == "THIS PRESS:" || line == "ROUTE:") under = AutoMapTipPlain;
-      bool more = line[0] == '+';
-      block.push_back(AutoMapScene_TipLine(line, more ? AutoMapTipHint : AutoMapTipPlain));
-      continue;
-    }
-    bool cut = line.compare(depth, std::string::npos, "CHAIN CUT SHORT") == 0;
     block.push_back(AutoMapScene_TipLine(std::string(2 * depth, ' ') + line.substr(depth),
-                                         cut ? AutoMapTipHint : under));
+                                         capped[i].style));
   }
   return block;
 }

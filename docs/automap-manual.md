@@ -231,10 +231,26 @@ On the map each goal gets a frame and a badge: `NOW`, `2 MORE`, `1 BIT OFF`, `NE
 on something else are orange. Hovering a relay draws what feeds it in blue and what it feeds in gold.
 
 When a counter, gate, DSA or local action sits between the press and a goal, the tooltip ends with
-`SHIFT: ROUTE`: hold **Shift** to see the ROUTE, the whole relay tree indented by depth, with delays
-and gate modes. A switch or pad wired straight to its goals has no route and shows no hint; when its
-RESULT list is too long for the tooltip (`+3 MORE (SHIFT)`), Shift shows all of it. Delays are in
-the game's ticks (about six a second): `AFTER 6 TICKS`.
+`SHIFT: ROUTE`: hold **Shift** to see the ROUTE. A line one step further in only happens when the
+line above lets the signal through:
+
+```
+ROUTE:
+  COUNTER A L11 (47, 27), AFTER 1 TICK
+    COUNTS 3 -> 2
+    AT 0: (IN 2 MORE)
+      FALSE WALL L11 (47, 26) OPENS, AFTER 2 TICKS
+```
+
+Under each counter or gate come, one step in, what this press does to it (grey: `COUNTS 3 -> 2`,
+`BITS 0101 -> 0111, NEEDS 0111`, `ONCE ONLY`), then when it passes the signal on (cyan: `AT 0:`,
+`ON MATCH:`), with the same words RESULT and the badges use: `(THIS PRESS)`, `(NEXT PRESS)`,
+`(IN 2 MORE)`, `(NEEDS OTHER SOURCES)`, `(BLOCKED: COUNTER AT 0)`. What it sends sits one further in;
+goals are gold. A DSA reads `IF ITS PROGRAM PASSES IT ON (NOT FOLLOWED)` with nothing below it, and
+steps after it in the same cell end in `(IF DSA PASSES)`. A message that comes back to a step on the
+route reads `LOOPS BACK TO COUNTER A`. A switch or pad wired straight to its goals has no route and
+shows no hint; when its RESULT list is too long for the tooltip (`+3 MORE (SHIFT)`), Shift shows all
+of it. Delays are in the game's ticks (about six a second): `AFTER 6 TICKS`.
 
 ![Hovering a pad at spoiler level All: two more presses open the false wall](images/automap-press.png)
 
