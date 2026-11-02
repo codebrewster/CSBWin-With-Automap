@@ -2641,6 +2641,18 @@ std::vector<AutoMapTipGlyph> AutoMapScene_TipGlyphs(const std::string &text)
   return glyphs;
 }
 
+std::string AutoMapScene_TipTextWithoutGlyphs(const std::string &text)
+{
+  std::string blanked = text;
+  std::vector<AutoMapTipGlyph> glyphs = AutoMapScene_TipGlyphs(text);
+  for (size_t i = 0; i < glyphs.size(); i++)
+  {
+    blanked[glyphs[i].column] = ' ';
+    blanked[glyphs[i].column + 1] = ' ';
+  }
+  return blanked;
+}
+
 int AutoMapScene_TextWidth(const char *text)
 {
   if (text == NULL) return 0;

@@ -699,7 +699,8 @@ enum AutoMapTipStyle
   AutoMapTipState,         // grey: what this press does to a counter or gate
   AutoMapTipCondition,     // cyan: when a step passes the signal on
   AutoMapTipResult,        // goal gold
-  AutoMapTipHint           // dim: SHIFT: ROUTE, +N MORE
+  AutoMapTipHint,          // dim: SHIFT: ROUTE, +N MORE
+  AutoMapTipMonsterName    // the monster's name line, link gold
 };
 
 struct AutoMapTipLine
@@ -723,6 +724,8 @@ struct AutoMapTipGlyph
   int argument;   // item index or facing; 0 otherwise
 };
 std::vector<AutoMapTipGlyph> AutoMapScene_TipGlyphs(const std::string &text);
+// The text with both characters of every glyph blanked, so the font paints nothing of them
+std::string AutoMapScene_TipTextWithoutGlyphs(const std::string &text);
 
 // Groups identical items in first-seen order for the icon tooltip.
 std::vector<AutoMapItemStack> AutoMapScene_GroupItems(const std::vector<AutoMapItem> &items);

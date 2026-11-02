@@ -3719,6 +3719,7 @@ static SDL_Color TipLineColour(AutoMapTipStyle style)
   case AutoMapTipCondition: return TIP_CONDITION_TEXT;
   case AutoMapTipResult: return TIP_RESULT_TEXT;
   case AutoMapTipHint: return TIP_HINT_TEXT;
+  case AutoMapTipMonsterName: return LINK_BADGE;
   default: return WHITE;
   }
 }
@@ -3816,7 +3817,7 @@ static void DrawTileTooltip(const AutoMapView &view)
   }
   std::string monsterName = AutoMapScene_MonsterNameLine(shownDrawList, hoverX, hoverY);
   if (!monsterName.empty() && Shows(AutoMapShowMonsters))
-    footerLines.push_back(AutoMapScene_TipLine(monsterName, AutoMapTipHeader));
+    footerLines.push_back(AutoMapScene_TipLine(monsterName, AutoMapTipMonsterName));
   AppendTipLines(footerLines, hpLines);
   std::vector<std::string> nameLines =
       BuildTooltipNameLines(cells, maxW - 2 * TOOLTIP_PAD);
@@ -3985,7 +3986,7 @@ static void DrawTileTooltip(const AutoMapView &view)
   {
     int lineY = y + iconH + (cells.empty() ? TOOLTIP_PAD : 0)
         + (int)i * (footerTextH + footerLineGap);
-    DrawLegendText(x + TOOLTIP_PAD, lineY, footerLines[i].text.c_str(), TipLineColour(footerLines[i].style));
+    DrawLegendText(x + TOOLTIP_PAD, lineY, AutoMapScene_TipTextWithoutGlyphs(footerLines[i].text).c_str(), TipLineColour(footerLines[i].style));
     DrawBadgeGlyphsOfLine(x + TOOLTIP_PAD, lineY, footerLines[i]);
   }
 }

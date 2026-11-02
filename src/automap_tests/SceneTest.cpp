@@ -5500,8 +5500,16 @@ static void TipGlyphsFindEveryInlineIcon(void)
   CHECK(AutoMapScene_TipGlyphs("PLAIN TEXT").empty());
 }
 
+static void TipTextWithoutGlyphsBlanksTheArgumentCharacters(void)
+{
+  std::string text = std::string("A ") + AUTOMAP_GLYPH_ITEM + '1' + " B " + AUTOMAP_GLYPH_FACING + '2';
+  CHECK(AutoMapScene_TipTextWithoutGlyphs(text) == "A    B   ");
+  CHECK(AutoMapScene_TipTextWithoutGlyphs("PLAIN 12") == "PLAIN 12");
+}
+
 void TestAutoMapScene(void)
 {
+  TipTextWithoutGlyphsBlanksTheArgumentCharacters();
   TipGlyphsFindEveryInlineIcon();
   AGroupKeepsWhereItsMembersStandAndItsSize();
   SearchSelectionStartsOnTheFirstListedHit();
