@@ -1344,14 +1344,20 @@ struct AutoMapPressSource
 // counter just reads 0, and what it would send is followed as later once per path, so
 // the goals behind it read blocked). Each goal carries its distance, worked out from
 // its path once the source's tree is complete. Sources are grouped by face (srcIsWall,
-// srcSide; every pad of a floor cell is its own, by record) in link order, and the links of one share
-// its state. The walk stops after 1000 effects and marks the source it was on
+// srcSide; every pad of a floor cell is its own, by record) in link order, and the
+// links of one share its state. The walk stops after 1000 effects and marks the source it was on
 // truncated. Links sent by the relays of (x, y) itself (stone relays, floor cogs) are no
 // press and are left out: a relay cell reads through AutoMapScene_RelayHoverLines. Empty
 // below All, or when (x, y) has no outgoing link with an explored target; unexplored
 // cells are neither named nor followed.
 std::vector<AutoMapPressSource> AutoMapScene_PressEffects(const AutoMapDrawList &drawList,
                                                           int x, int y);
+
+// One goal effect per goal cell over all sources, the most imminent status winning:
+// on this press, more (fewest first), holds, through a DSA, needs others, already
+// done, blocked, unknown. For the badges, so a cell never gets two.
+std::vector<const AutoMapEffect *> AutoMapScene_PressGoalsByCell(
+    const std::vector<AutoMapPressSource> &sources);
 
 // The tooltip lines for the effects of a press, from AutoMapScene_PressEffects. Compact
 // (fullChain false) is a THIS PRESS block of the receivers the press reaches first and a

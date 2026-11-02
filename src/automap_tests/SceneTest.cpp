@@ -2186,6 +2186,39 @@ static void EachPadOfACellIsItsOwnPress(void)
   CHECK(sources[1].effects[0].x == 1 && sources[1].effects[0].y == 0);
 }
 
+static void PadsReachingOneDoorGetOneBadge(void)
+{
+  AutoMapLevelSnapshot snapshot = Corridor();
+  snapshot.cells[1 * 4 + 1].kind = AutoMapCellFloor;
+  snapshot.cells[1 * 4 + 2].kind = AutoMapCellDoor;
+  snapshot.cells[1 * 4 + 2].doorState = AutoMapDoorClosed;
+  snapshot.cells[1 * 4 + 0].wallRelays.push_back(CounterRelay(3));
+  snapshot.actuators.push_back(PadWithOp(1, 1, AutoMapPadParty));
+  snapshot.actuators.push_back(PadWithOp(1, 1, AutoMapPadMonster));
+  snapshot.actuators[0].record = 101;
+  snapshot.actuators[1].record = 102;
+  // The party pad counts the counter down, the monster pad opens the door directly
+  AutoMapLink viaCounter = {1, 1, 0, 1, false, -1};
+  viaCounter.source = 101;
+  viaCounter.signal = AutoMapSignalClear;
+  AutoMapLink counterToDoor = {0, 1, 2, 1, true, AutoMapEast};
+  AutoMapLink straight = {1, 1, 2, 1, false, -1};
+  straight.source = 102;
+  snapshot.links.push_back(viaCounter);
+  snapshot.links.push_back(counterToDoor);
+  snapshot.links.push_back(straight);
+  AutoMapExplored explored = NothingExplored();
+  AutoMapVisibleCells visibleNow;
+  AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
+  std::vector<AutoMapPressSource> sources = AutoMapScene_PressEffects(drawList, 1, 1);
+  CHECK(sources.size() == 2);
+  std::vector<const AutoMapEffect *> goals = AutoMapScene_PressGoalsByCell(sources);
+  CHECK(goals.size() == 1);
+  if (goals.size() != 1) return;
+  CHECK(goals[0]->x == 2 && goals[0]->y == 1);
+  CHECK(goals[0]->distance.status == AutoMapGoalOnThisPress);
+}
+
 static void TriggerLinesStaySilentWithoutTheCell(void)
 {
   AutoMapLevelSnapshot snapshot = Corridor();
@@ -5681,6 +5714,7 @@ void TestAutoMapScene(void)
   TriggerLinesFoldDuplicatesAndNameContraptions();
   TriggerLinesStaySilentWithoutTheCell();
   EachPadOfACellIsItsOwnPress();
+  PadsReachingOneDoorGetOneBadge();
   GeneratorHealthRangeFollowsEngineFormula();
   GeneratorHealthLinesNameEachValueOnItsOwnLine();
   TriggerLinesShowGeneratorHealth();

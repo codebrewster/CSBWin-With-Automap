@@ -753,6 +753,54 @@ std::vector<AutoMapPressSource> AutoMapScene_PressEffects(const AutoMapDrawList 
   return sources;
 }
 
+// Lower is more imminent
+static int GoalImminence(const AutoMapGoalDistance &d)
+{
+  switch (d.status)
+  {
+  case AutoMapGoalOnThisPress: return 0;
+  case AutoMapGoalMore: return 1;
+  case AutoMapGoalHolds: return 2;
+  case AutoMapGoalThroughDSA: return 3;
+  case AutoMapGoalNeedsOthers: return 4;
+  case AutoMapGoalAlreadyDone: return 5;
+  case AutoMapGoalBlocked: return 6;
+  default: return 7;
+  }
+}
+
+static bool GoalMoreImminent(const AutoMapGoalDistance &a, const AutoMapGoalDistance &b)
+{
+  int ra = GoalImminence(a), rb = GoalImminence(b);
+  if (ra != rb) return ra < rb;
+  return a.status == AutoMapGoalMore && a.more < b.more;
+}
+
+static void CollectGoalsByCell(const std::vector<AutoMapEffect> &effects,
+                               std::vector<const AutoMapEffect *> *goals)
+{
+  for (size_t i = 0; i < effects.size(); i++)
+  {
+    const AutoMapEffect &effect = effects[i];
+    if (effect.kind == AutoMapEffectGoal)
+    {
+      size_t g = 0;
+      while (g < goals->size() && ((*goals)[g]->x != effect.x || (*goals)[g]->y != effect.y)) g++;
+      if (g == goals->size()) goals->push_back(&effect);
+      else if (GoalMoreImminent(effect.distance, (*goals)[g]->distance)) (*goals)[g] = &effect;
+    }
+    CollectGoalsByCell(effect.next, goals);
+  }
+}
+
+std::vector<const AutoMapEffect *> AutoMapScene_PressGoalsByCell(
+    const std::vector<AutoMapPressSource> &sources)
+{
+  std::vector<const AutoMapEffect *> goals;
+  for (size_t i = 0; i < sources.size(); i++) CollectGoalsByCell(sources[i].effects, &goals);
+  return goals;
+}
+
 // ---- Tooltip lines of a press ----
 
 static std::string PressLocation(const AutoMapDrawList &drawList, int x, int y)

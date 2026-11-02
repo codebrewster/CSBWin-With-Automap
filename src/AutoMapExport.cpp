@@ -119,26 +119,6 @@ static std::string LinkArr(const std::vector<AutoMapLink> &v)
   return o.str();
 }
 
-static void WriteGoals(const std::vector<AutoMapEffect> &effects, std::ostringstream &o, bool &first)
-{
-  for (size_t i = 0; i < effects.size(); i++)
-  {
-    if (effects[i].kind == AutoMapEffectGoal)
-    {
-      std::string badge = AutoMapScene_GoalBadge(effects[i].distance);
-      AutoMapGoalStatus st = effects[i].distance.status;
-      bool good = st == AutoMapGoalOnThisPress || st == AutoMapGoalMore || st == AutoMapGoalAlreadyDone;
-      if (!badge.empty())
-      {
-        o << (first ? "" : ",") << "[" << effects[i].x << "," << effects[i].y << "," << JsonText(badge) << "," << good << "]";
-        first = false;
-      }
-    }
-    WriteGoals(effects[i].next, o, first);
-  }
-}
-
-
 static void WriteDrawList(FILE *f, ExportPictures &sp, const AutoMapDrawList &l, const AutoMapLevelSnapshot &snap,
                           const std::vector<AutoMapMonsterChoice> &types)
 {
@@ -267,7 +247,16 @@ static void WriteDrawList(FILE *f, ExportPictures &sp, const AutoMapDrawList &l,
         std::vector<AutoMapLink> chain = AutoMapScene_PressChainLinks(sources);
         o << (any ? "," : "") << "\"chain\":" << LinkArr(chain) << ",\"relay\":" << relayCell << ",\"goals\":[";
         bool first = true;
-        for (size_t s = 0; s < sources.size(); s++) WriteGoals(sources[s].effects, o, first);
+        std::vector<const AutoMapEffect *> goals = AutoMapScene_PressGoalsByCell(sources);
+        for (size_t g = 0; g < goals.size(); g++)
+        {
+          std::string badge = AutoMapScene_GoalBadge(goals[g]->distance);
+          AutoMapGoalStatus st = goals[g]->distance.status;
+          bool good = st == AutoMapGoalOnThisPress || st == AutoMapGoalMore || st == AutoMapGoalAlreadyDone;
+          if (badge.empty()) continue;
+          o << (first ? "" : ",") << "[" << goals[g]->x << "," << goals[g]->y << "," << JsonText(badge) << "," << good << "]";
+          first = false;
+        }
         o << "]";
         any = true;
       }

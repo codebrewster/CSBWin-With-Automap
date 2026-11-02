@@ -3164,17 +3164,6 @@ static std::vector<AutoMapLink> PlayerLinksAtHover(void)
   return !outgoing.empty() ? outgoing : incoming;
 }
 
-// Goals behind a press, depth first: the cells that get a badge. Relays in between get none.
-static void CollectChainGoals(const std::vector<AutoMapEffect> &effects,
-                              std::vector<const AutoMapEffect *> *goals)
-{
-  for (size_t i = 0; i < effects.size(); i++)
-  {
-    if (effects[i].kind == AutoMapEffectGoal) goals->push_back(&effects[i]);
-    CollectChainGoals(effects[i].next, goals);
-  }
-}
-
 // A goal's frame and badge. Gold for what happens now or is done; the warning colour for what
 // still waits on something, so a blocked door never reads like an open one.
 static void DrawGoalBadge(const AutoMapView &view, const AutoMapEffect &goal)
@@ -3221,8 +3210,7 @@ static bool DrawChainArrows(const AutoMapView &view, const std::vector<AutoMapLi
   DrawEdgeGroups(view, playerEdges, PLAYER_NOTE, true);
   // Door previews stay forward-only, and for the direct targets
   for (size_t i = 0; i < direct.size(); i++) DrawDoorPreview(view, direct[i]);
-  std::vector<const AutoMapEffect *> goals;
-  for (size_t i = 0; i < sources.size(); i++) CollectChainGoals(sources[i].effects, &goals);
+  std::vector<const AutoMapEffect *> goals = AutoMapScene_PressGoalsByCell(sources);
   for (size_t i = 0; i < goals.size(); i++) DrawGoalBadge(view, *goals[i]);
   DrawTeleporterTarget(view);
   return true;
