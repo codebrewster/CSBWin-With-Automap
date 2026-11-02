@@ -50,6 +50,8 @@ const int AUTOMAP_SIDE_COUNT = 4;
 const int AUTOMAP_NO_PICTURE = -1;
 const int AUTOMAP_NO_LEVEL = -1;
 const int AUTOMAP_LARGEST_GROUP = 4;
+// The stored position byte of a group whose members all stand in the middle of the tile
+const int AUTOMAP_CENTRE_POSITIONS = 255;
 const int AUTOMAP_MOST_ITEMS_SHOWN = 3;
 // The colour schemes ReadGraphicsForLevel starts from before the monster types of the
 // level replace them

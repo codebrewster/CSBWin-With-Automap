@@ -131,6 +131,38 @@ AutoMapBadge AutoMapLayout_TeleporterBadge(int scope)
   return badge;
 }
 
+AutoMapRect AutoMapLayout_MemberArea(int positions, int member, int monsterSize, int member0Facing, int cellSize)
+{
+  AutoMapRect area = {0, 0, cellSize, cellSize};
+  if (positions == AUTOMAP_CENTRE_POSITIONS || monsterSize < 0 || monsterSize > 1) return area;
+  int corner = (positions >> (2 * member)) & 3;
+  int half = cellSize / 2;
+  int rest = cellSize - half;
+  bool east = corner == 1 || corner == 2;
+  bool south = corner == 2 || corner == 3;
+  bool splitsNorthFromSouth = (member0Facing & 1) != 0;
+  if (monsterSize == 0 || !splitsNorthFromSouth)
+  {
+    area.x = east ? half : 0;
+    area.w = east ? rest : half;
+  }
+  if (monsterSize == 0 || splitsNorthFromSouth)
+  {
+    area.y = south ? half : 0;
+    area.h = south ? rest : half;
+  }
+  return area;
+}
+
+AutoMapPointF AutoMapLayout_FigureFeet(const AutoMapRect &area, int cellSize)
+{
+  AutoMapPointF feet;
+  feet.x = area.x + area.w * 0.5f;
+  bool whole = area.w == cellSize && area.h == cellSize;
+  feet.y = whole ? cellSize * 0.72f : area.y + area.h * 0.94f;
+  return feet;
+}
+
 AutoMapPointF AutoMapLayout_LineEnd(AutoMapPointF from, int targetX, int targetY, int cellSize)
 {
   float centreX = targetX * cellSize + cellSize / 2.0f;

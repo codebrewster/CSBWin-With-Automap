@@ -71,6 +71,18 @@ struct AutoMapPointF
   float y;
 };
 
+// The part of its tile (relative to the tile's top left) in which member `member` of a group
+// stands. `positions` is the group's stored byte: four 2-bit corners in group order (0 north-west,
+// 1 north-east, 2 south-east, 3 south-west), the whole byte 255 meaning the centre. Size 0 (small)
+// takes the quarter of its corner; size 1 (medium) the half that holds the corner and runs along
+// member 0's facing, as OrdinalOfMonsterAtPosition (Code11f52.cpp) decides who stands where: facing
+// east/west splits north from south, north/south splits west from east. Size 2 (large), the byte
+// 255 and any other size take the whole tile. The member count plays no part.
+AutoMapRect AutoMapLayout_MemberArea(int positions, int member, int monsterSize, int member0Facing, int cellSize);
+// Where the feet of a figure drawn in `area` stand: the middle of the area, near its bottom (a bit
+// above the bottom of a whole tile so a centred figure sits between the back and front rows)
+AutoMapPointF AutoMapLayout_FigureFeet(const AutoMapRect &area, int cellSize);
+
 // Where a line from `from` (pixels, the level's top left at 0, 0) enters cell (targetX, targetY),
 // inset 18 % of the cell: lines end at their target's edge, not its centre
 AutoMapPointF AutoMapLayout_LineEnd(AutoMapPointF from, int targetX, int targetY, int cellSize);

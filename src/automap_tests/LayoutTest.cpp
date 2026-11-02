@@ -206,6 +206,60 @@ static void PlatesKeepInsideTheirCell(void)
   CHECK(AutoMapLayout_Fits(0, 0, 0) == false);
 }
 
+static bool SameRect(const AutoMapRect &a, int x, int y, int w, int h)
+{
+  return a.x == x && a.y == y && a.w == w && a.h == h;
+}
+
+// Small monsters stand in the quarter of their own two bits; 255 is the centre
+static void SmallMonstersStandInTheirQuarter(void)
+{
+  int positions = 0 | (1 << 2) | (2 << 4) | (3 << 6);
+  CHECK(SameRect(AutoMapLayout_MemberArea(positions, 0, 0, 0, 40), 0, 0, 20, 20));
+  CHECK(SameRect(AutoMapLayout_MemberArea(positions, 1, 0, 0, 40), 20, 0, 20, 20));
+  CHECK(SameRect(AutoMapLayout_MemberArea(positions, 2, 0, 0, 40), 20, 20, 20, 20));
+  CHECK(SameRect(AutoMapLayout_MemberArea(positions, 3, 0, 0, 40), 0, 20, 20, 20));
+  // Two on the west side: north-west and south-west
+  int west = 0 | (3 << 2);
+  CHECK(SameRect(AutoMapLayout_MemberArea(west, 1, 0, 0, 40), 0, 20, 20, 20));
+  // A lone one the AI moved to the south-east stays there
+  CHECK(SameRect(AutoMapLayout_MemberArea(2, 0, 0, 0, 40), 20, 20, 20, 20));
+  CHECK(SameRect(AutoMapLayout_MemberArea(AUTOMAP_CENTRE_POSITIONS, 0, 0, 0, 40), 0, 0, 40, 40));
+}
+
+// A medium monster's half holds its corner and runs along member 0's facing (OrdinalOfMonsterAtPosition)
+static void MediumMonstersTakeTheHalfAlongTheirFacing(void)
+{
+  // facing east (1) or west (3): corners 0,1 north, 2,3 south
+  CHECK(SameRect(AutoMapLayout_MemberArea(0, 0, 1, 1, 40), 0, 0, 40, 20));
+  CHECK(SameRect(AutoMapLayout_MemberArea(1, 0, 1, 3, 40), 0, 0, 40, 20));
+  CHECK(SameRect(AutoMapLayout_MemberArea(2, 0, 1, 1, 40), 0, 20, 40, 20));
+  CHECK(SameRect(AutoMapLayout_MemberArea(3, 0, 1, 3, 40), 0, 20, 40, 20));
+  // facing north (0) or south (2): corners 0,3 west, 1,2 east
+  CHECK(SameRect(AutoMapLayout_MemberArea(0, 0, 1, 0, 40), 0, 0, 20, 40));
+  CHECK(SameRect(AutoMapLayout_MemberArea(3, 0, 1, 2, 40), 0, 0, 20, 40));
+  CHECK(SameRect(AutoMapLayout_MemberArea(1, 0, 1, 0, 40), 20, 0, 20, 40));
+  CHECK(SameRect(AutoMapLayout_MemberArea(2, 0, 1, 2, 40), 20, 0, 20, 40));
+}
+
+static void LargeAndOddSizesFillTheCell(void)
+{
+  CHECK(SameRect(AutoMapLayout_MemberArea(1, 0, 2, 0, 40), 0, 0, 40, 40));
+  CHECK(SameRect(AutoMapLayout_MemberArea(1, 0, 3, 0, 40), 0, 0, 40, 40));
+  CHECK(SameRect(AutoMapLayout_MemberArea(1, 0, -1, 0, 40), 0, 0, 40, 40));
+}
+
+// Feet: back row above front row, the centre between them, x in the middle of the area
+static void FeetStandAtTheBottomOfTheArea(void)
+{
+  AutoMapPointF back = AutoMapLayout_FigureFeet(AutoMapLayout_MemberArea(0, 0, 0, 0, 40), 40);
+  AutoMapPointF front = AutoMapLayout_FigureFeet(AutoMapLayout_MemberArea(3, 0, 0, 0, 40), 40);
+  AutoMapPointF centre = AutoMapLayout_FigureFeet(AutoMapLayout_MemberArea(255, 0, 0, 0, 40), 40);
+  CHECK(back.x == 10.0f && front.x == 10.0f && centre.x == 20.0f);
+  CHECK(back.y < centre.y && centre.y < front.y);
+  CHECK(back.y <= 20.0f && front.y <= 40.0f);
+}
+
 void TestAutoMapLayout(void)
 {
   PlatesKeepInsideTheirCell();
@@ -220,4 +274,8 @@ void TestAutoMapLayout(void)
   LayoutAtTinyCells();
   PaintSizesGrowWithTheCell();
   RectanglesOverlapOnlyWhenTheyShareAPixel();
+  SmallMonstersStandInTheirQuarter();
+  MediumMonstersTakeTheHalfAlongTheirFacing();
+  LargeAndOddSizesFillTheCell();
+  FeetStandAtTheBottomOfTheArea();
 }
