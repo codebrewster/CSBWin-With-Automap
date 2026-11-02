@@ -1849,7 +1849,7 @@ std::vector<AutoMapTipLine> AutoMapScene_RelayLines(const AutoMapDrawList &drawL
     }
     AddRelayGroup(&lines, header, std::vector<std::string>(1, launches));
   }
-  // At All the press block (AutoMapScene_PressLines) names what a press reaches, so
+  // At All the press block (AutoMapScene_PressBlock) names what a press reaches, so
   // the tooltip does not also list this cell's direct links. Below All the party saw
   // that a cell changed, not how: one plain line per outgoing link with a visible
   // target, in global ruler coordinates (levels count from zero, like the teleporter

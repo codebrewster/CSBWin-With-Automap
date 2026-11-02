@@ -221,16 +221,20 @@ cells only. The tooltip then has two parts:
 
 - **THIS PRESS** lists what the next press reaches first, for example
   `L11 (47, 27) COUNTER A 3->2`.
-- **PUZZLE** lists every goal behind it and how far it is, for example
+- **RESULT** lists every goal behind it and how far it is, for example
   `FALSE WALL L11 (47, 26) OPENS IN 2 MORE`, `1 BIT OFF` or
-  `BLOCKED: COUNTER AT 0`.
+  `BLOCKED: COUNTER AT 0`. A goal that comes late says so at the end:
+  `DOOR L11 (49, 25) OPENS ON THIS PRESS, AFTER 6 TICKS`.
 
 On the map each goal gets a frame and a badge: `NOW`, `2 MORE`, `1 BIT OFF`, `NEEDS OTHERS`,
 `BLOCKED`, `HOLD`, `DSA` or `DONE`. Goals that happen now, soon or already are gold; those that wait
 on something else are orange. Hovering a relay draws what feeds it in blue and what it feeds in gold.
 
-Hold **Shift** to see the whole relay tree, indented by depth, with delays and gate modes. Delays are
-in the game's ticks (about six a second): `AFTER 6 TICKS`.
+When a counter, gate, DSA or local action sits between the press and a goal, the tooltip ends with
+`SHIFT: ROUTE`: hold **Shift** to see the ROUTE, the whole relay tree indented by depth, with delays
+and gate modes. A switch or pad wired straight to its goals has no route and shows no hint; when its
+RESULT list is too long for the tooltip (`+3 MORE (SHIFT)`), Shift shows all of it. Delays are in
+the game's ticks (about six a second): `AFTER 6 TICKS`.
 
 ![Hovering a pad at spoiler level All: two more presses open the false wall](images/automap-press.png)
 

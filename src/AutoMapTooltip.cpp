@@ -5,7 +5,7 @@
 
 #include "AutoMapSceneInternal.h"
 
-static const char *const SHIFT_HINT = "SHIFT: FULL CHAIN";
+static const char *const SHIFT_HINT = "SHIFT: ROUTE";
 
 // Who a teleporter takes: the words get the map badge's glyphs in front. A glyph takes the
 // place of two characters, \x01 party, \x02 claw, \x03 box; the font draws nothing for them.
@@ -52,44 +52,16 @@ static bool SameLines(const std::vector<AutoMapTipLine> &a, const std::vector<Au
   return true;
 }
 
-// The press block of one source (AutoMapScene_PressLines), as the lines under its pad's or
-// switch's header: PUZZLE reads RESULT, the lines under THIS PRESS / RESULT / PRESS go two
-// spaces in per space they had. The SHIFT hint is tile-wide and leaves the block.
+// The press block of one source (AutoMapScene_PressBlock), as the lines under its pad's or
+// switch's header. The SHIFT hint is tile-wide: a block with steps between the press and a
+// result asks for it, and the window puts it last.
 static void AddPressBlock(const AutoMapDrawList &drawList, const AutoMapPressSource &source,
                           bool shift, std::vector<AutoMapTipLine> *children, bool *hint)
 {
-  std::vector<std::string> raw =
-      AutoMapScene_PressLines(drawList, std::vector<AutoMapPressSource>(1, source), shift);
-  AutoMapTipStyle under = AutoMapTipPlain;
-  for (size_t i = 0; i < raw.size(); i++)
-  {
-    const std::string &line = raw[i];
-    if (line == SHIFT_HINT)
-    {
-      *hint = true;
-      continue;
-    }
-    size_t depth = line.find_first_not_of(' ');
-    if (depth == std::string::npos) continue;
-    if (depth == 0)
-    {
-      AutoMapTipStyle style = AutoMapTipPlain;
-      std::string text = line;
-      if (line == "PUZZLE:")
-      {
-        text = "RESULT:";
-        under = AutoMapTipResult;
-      }
-      else if (line == "THIS PRESS:") under = AutoMapTipState;
-      else if (line == "PRESS:") under = AutoMapTipPlain;
-      else if (line[0] == '+') style = AutoMapTipHint;
-      children->push_back(AutoMapScene_TipLine(text, style));
-      continue;
-    }
-    std::string text = std::string(2 * depth, ' ') + line.substr(depth);
-    bool cut = line.compare(depth, std::string::npos, "CHAIN CUT SHORT") == 0;
-    children->push_back(AutoMapScene_TipLine(text, cut ? AutoMapTipHint : under));
-  }
+  std::vector<AutoMapTipLine> block = AutoMapScene_PressBlock(drawList, source, shift);
+  if (block.empty()) return;
+  children->insert(children->end(), block.begin(), block.end());
+  if (AutoMapScene_PressHasSteps(source)) *hint = true;
 }
 
 static std::string SwitchHeader(const AutoMapPressSource &source)

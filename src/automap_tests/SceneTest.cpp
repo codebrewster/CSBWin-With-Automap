@@ -2400,6 +2400,20 @@ static void CounterCogCountsOnceAtAll(void)
 
 static std::string Joined(const std::vector<std::string> &lines);
 
+// The press blocks of the sources one after another, as text (AutoMapScene_PressBlock)
+static std::vector<std::string> PressText(const AutoMapDrawList &drawList,
+                                          const std::vector<AutoMapPressSource> &sources,
+                                          bool shift)
+{
+  std::vector<std::string> texts;
+  for (size_t s = 0; s < sources.size(); s++)
+  {
+    std::vector<AutoMapTipLine> block = AutoMapScene_PressBlock(drawList, sources[s], shift);
+    for (size_t i = 0; i < block.size(); i++) texts.push_back(block[i].text);
+  }
+  return texts;
+}
+
 static void RelayLinesDescribeWallCounterChain(void)
 {
   // Coin slot (1,0, wall) -> counter (0,1, wall-embedded, value 2) -> door (2,1).
@@ -2422,8 +2436,8 @@ static void RelayLinesDescribeWallCounterChain(void)
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
   // The cell block is silent at All; the press and relay-hover blocks name the chain.
-  CHECK(Joined(AutoMapScene_PressLines(drawList, AutoMapScene_PressEffects(drawList, 1, 0), true))
-        == "PRESS:\n L2 (12, 23) COUNTER A 2->1");
+  CHECK(Joined(PressText(drawList, AutoMapScene_PressEffects(drawList, 1, 0), true))
+        == "ROUTE:\n  L2 (12, 23) COUNTER A 2->1");
   CHECK(Joined(AutoMapScene_RelayHoverLines(drawList, 0, 1, false))
         == "STONE: 1 COUNTER\n A COUNT 2\nFED BY:\n L2 (13, 22) SWITCH (S) A-1");
   // A SET firing increments instead: same chain, opposite delta.
@@ -2437,8 +2451,8 @@ static void RelayLinesDescribeWallCounterChain(void)
   upSnapshot.links.push_back(upLink);
   AutoMapDrawList upDrawList =
       AutoMapScene_BuildDrawList(upSnapshot, NoFog(explored, visibleNow));
-  CHECK(Joined(AutoMapScene_PressLines(upDrawList, AutoMapScene_PressEffects(upDrawList, 1, 0), true))
-        == "PRESS:\n L2 (12, 23) COUNTER A 2->3");
+  CHECK(Joined(PressText(upDrawList, AutoMapScene_PressEffects(upDrawList, 1, 0), true))
+        == "ROUTE:\n  L2 (12, 23) COUNTER A 2->3");
 }
 
 static void RelayHoverLinesNameEachCounterSourceCount(void)
@@ -2500,8 +2514,8 @@ static void PressLinesDescribeGateBitsAndSwitches(void)
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
   CHECK(Joined(AutoMapScene_RelayHoverLines(drawList, 0, 1, false))
         == "STONE: 1 GATE\n A GATE 0011 (NEEDS 0000)\nFED BY:\n L2 (13, 22) SWITCH (S) A BIT 1 TOGGLE");
-  CHECK(Joined(AutoMapScene_PressLines(drawList, AutoMapScene_PressEffects(drawList, 1, 0), true))
-        == "PRESS:\n L2 (12, 23) GATE A BIT 1 TOGGLE\n  GATE A 0011->0001 (NEEDS 0000) NO MATCH");
+  CHECK(Joined(PressText(drawList, AutoMapScene_PressEffects(drawList, 1, 0), true))
+        == "ROUTE:\n  L2 (12, 23) GATE A BIT 1 TOGGLE\n    GATE A 0011->0001 (NEEDS 0000) NO MATCH");
   // Same switch, second bit: same source and target but another position stays
   // its own line instead of folding into the first.
   AutoMapLevelSnapshot twoBits = snapshot;
@@ -2510,8 +2524,8 @@ static void PressLinesDescribeGateBitsAndSwitches(void)
   twoBits.links.push_back(secondBit);
   AutoMapDrawList twoDrawList =
       AutoMapScene_BuildDrawList(twoBits, NoFog(explored, visibleNow));
-  CHECK(Joined(AutoMapScene_PressLines(twoDrawList, AutoMapScene_PressEffects(twoDrawList, 1, 0), true))
-        == "PRESS:\n L2 (12, 23) GATE A BIT 1 TOGGLE\n  GATE A 0011->0001 (NEEDS 0000) NO MATCH\n L2 (12, 23) GATE A BIT 2 TOGGLE\n  GATE A 0001->0101 (NEEDS 0000) NO MATCH");
+  CHECK(Joined(PressText(twoDrawList, AutoMapScene_PressEffects(twoDrawList, 1, 0), true))
+        == "ROUTE:\n  L2 (12, 23) GATE A BIT 1 TOGGLE\n    GATE A 0011->0001 (NEEDS 0000) NO MATCH\n  L2 (12, 23) GATE A BIT 2 TOGGLE\n    GATE A 0001->0101 (NEEDS 0000) NO MATCH");
   // A bank of gates sharing one cell: one GATE line per distinct pattern.
   AutoMapLevelSnapshot bank = snapshot;
   bank.cells[1 * 4 + 0].wallRelays.push_back(GateRelay(0xF1, false));
@@ -2657,8 +2671,9 @@ static void PressLinesNameBothTriggersOnOneTarget(void)
   AutoMapExplored explored = NothingExplored();
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
-  CHECK(Joined(AutoMapScene_PressLines(drawList, AutoMapScene_PressEffects(drawList, 1, 0), true))
-        == "PRESS:\n L2 (14, 23) DOOR ALREADY OPEN\n L2 (14, 23) DOOR CLOSE AFTER 6 TICKS");
+  CHECK(Joined(PressText(drawList, AutoMapScene_PressEffects(drawList, 1, 0), true))
+        == "RESULT:\n  DOOR L2 (14, 23) ALREADY OPEN\n"
+           "  DOOR L2 (14, 23) CLOSES ON THIS PRESS, AFTER 6 TICKS");
 }
 
 static void RelayLinesStaySilentWithoutTheCell(void)
@@ -4269,12 +4284,11 @@ static void PressLinesNameBareTargets(void)
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
   std::vector<AutoMapPressSource> sources = AutoMapScene_PressEffects(drawList, 0, 1);
-  CHECK(Joined(AutoMapScene_PressLines(drawList, sources, false))
-        == "PUZZLE:\n TARGET L0 (1, 1) TOGGLES ON THIS PRESS\n"
-           " TARGET L0 (3, 0) SETS ON THIS PRESS\n TARGET L0 (4, 0) CLEARS ON THIS PRESS\n"
-           "SHIFT: FULL CHAIN");
-  CHECK(Joined(AutoMapScene_PressLines(drawList, sources, true))
-        == "PRESS:\n L0 (1, 1) TARGET TOGGLE\n L0 (3, 0) TARGET SET\n L0 (4, 0) TARGET CLEAR");
+  CHECK(Joined(PressText(drawList, sources, false))
+        == "RESULT:\n  TARGET L0 (1, 1) TOGGLES ON THIS PRESS\n"
+           "  TARGET L0 (3, 0) SETS ON THIS PRESS\n  TARGET L0 (4, 0) CLEARS ON THIS PRESS");
+  // Nothing between the lever and its targets: Shift shows the same RESULT, no route
+  CHECK(PressText(drawList, sources, true) == PressText(drawList, sources, false));
   CHECK(AutoMapScene_PressChainLinks(sources).size() == 3);
 }
 
@@ -4392,8 +4406,8 @@ static void PressEffectsLeaveARelayCellUnpressed(void)
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
   std::vector<AutoMapPressSource> sources = AutoMapScene_PressEffects(drawList, 2, 0);
   CHECK(sources.empty());
-  CHECK(AutoMapScene_PressLines(drawList, sources, false).empty());
-  CHECK(AutoMapScene_PressLines(drawList, sources, true).empty());
+  CHECK(PressText(drawList, sources, false).empty());
+  CHECK(PressText(drawList, sources, true).empty());
   CHECK(Joined(AutoMapScene_RelayHoverLines(drawList, 2, 0, false))
         == "STONE: 2 COUNTERS\n A COUNT 4 -> L0 (5, 1) DOOR OPEN AT 0\n"
            " B COUNT 3 -> L0 (5, 1) DOOR CLOSE AT 0\nFED BY:\n L0 (0, 1) SWITCH (E) A-1 B-1");
@@ -4436,10 +4450,10 @@ static void PressEffectsFireEveryActuatorOfTheFace(void)
   CHECK(sources[0].effects[0].before == 0x0 && sources[0].effects[0].after == 0x1);
   CHECK(sources[0].effects[1].before == 0x1 && sources[0].effects[1].after == 0x3);
   CHECK(sources[0].effects[1].fires);
-  CHECK(Joined(AutoMapScene_PressLines(drawList, sources, false))
-        == "THIS PRESS:\n L0 (2, 0) GATE A 0000->0001 (NEEDS 0011) NO MATCH\n"
-           " L0 (2, 0) GATE A 0001->0011 (NEEDS 0011) MATCH\n"
-           "PUZZLE:\n DOOR L0 (5, 1) OPENS ON THIS PRESS\nSHIFT: FULL CHAIN");
+  CHECK(Joined(PressText(drawList, sources, false))
+        == "THIS PRESS:\n  L0 (2, 0) GATE A 0000->0001 (NEEDS 0011) NO MATCH\n"
+           "  L0 (2, 0) GATE A 0001->0011 (NEEDS 0011) MATCH\n"
+           "RESULT:\n  DOOR L0 (5, 1) OPENS ON THIS PRESS");
   CHECK(sources[0].effects[0].next.empty());
   // Beside a lever on another face, the east face still takes one header
   AutoMapLevelSnapshot twoFaces = snapshot;
@@ -4450,10 +4464,11 @@ static void PressEffectsFireEveryActuatorOfTheFace(void)
   AutoMapDrawList twoDrawList = AutoMapScene_BuildDrawList(twoFaces, NoFog(explored, visibleNow));
   std::vector<AutoMapPressSource> two = AutoMapScene_PressEffects(twoDrawList, 0, 1);
   CHECK(two.size() == 2);
-  std::string twoLines = Joined(AutoMapScene_PressLines(twoDrawList, two, false));
-  CHECK(twoLines.find("SWITCH (E):") == 0);
-  CHECK(twoLines.find("SWITCH (E):", 1) == std::string::npos);
-  CHECK(twoLines.find("SWITCH (S):") != std::string::npos);
+  std::string twoLines =
+      JoinedTip(AutoMapTooltip_Machinery(twoDrawList, 0, 1, false, TestItemName));
+  CHECK(twoLines.find("SWITCH (E)\n") == 0);
+  CHECK(twoLines.find("SWITCH (E)", 1) == std::string::npos);
+  CHECK(twoLines.find("SWITCH (S)\n") != std::string::npos);
   // Two TOGGLEs of one bit from one face cancel: the gate ends where it began
   snapshot.links[1].targetPos = 0;
   drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
@@ -4462,7 +4477,7 @@ static void PressEffectsFireEveryActuatorOfTheFace(void)
   if (sources.size() != 1 || sources[0].effects.size() != 2) return;
   CHECK(sources[0].effects[1].before == 0x1 && sources[0].effects[1].after == 0x0);
   CHECK(!sources[0].effects[0].fires && !sources[0].effects[1].fires);
-  std::string lines = Joined(AutoMapScene_PressLines(drawList, sources, false));
+  std::string lines = Joined(PressText(drawList, sources, false));
   CHECK(lines.find("GATE A 0001->0000 (NEEDS 0011) NO MATCH") != std::string::npos);
   CHECK(lines.find(") MATCH") == std::string::npos);
   CHECK(lines.find("SWITCH") == std::string::npos);
@@ -4697,14 +4712,14 @@ static void GoalDistanceOtherStatuses(void)
   wall.cells[1 * 6 + 5].kind = AutoMapCellOpenFalseWall;
   wall.links.push_back(Message(0, 1, 5, 1, LEVER_RECORD, AutoMapSignalSet, 0, 0));
   CHECK(LeverGoalDistance(wall).status == AutoMapGoalAlreadyDone);
-  CHECK(Joined(AutoMapScene_PressLines(DrawAll(wall), PressLever(wall), false))
-        == "PUZZLE:\n FALSE WALL L0 (5, 1) ALREADY OPEN\nSHIFT: FULL CHAIN");
+  CHECK(Joined(PressText(DrawAll(wall), PressLever(wall), false))
+        == "RESULT:\n  FALSE WALL L0 (5, 1) ALREADY OPEN");
   wall.links[0].signal = AutoMapSignalClear;
   CHECK(LeverGoalDistance(wall).status == AutoMapGoalOnThisPress);
   wall.cells[1 * 6 + 5].kind = AutoMapCellFalseWall;
   CHECK(LeverGoalDistance(wall).status == AutoMapGoalAlreadyDone);
-  CHECK(Joined(AutoMapScene_PressLines(DrawAll(wall), PressLever(wall), false))
-        == "PUZZLE:\n FALSE WALL L0 (5, 1) ALREADY CLOSED\nSHIFT: FULL CHAIN");
+  CHECK(Joined(PressText(DrawAll(wall), PressLever(wall), false))
+        == "RESULT:\n  FALSE WALL L0 (5, 1) ALREADY CLOSED");
   wall.links[0].signal = AutoMapSignalToggle;
   CHECK(LeverGoalDistance(wall).status == AutoMapGoalOnThisPress);
 }
@@ -4773,26 +4788,150 @@ static AutoMapLevelSnapshot L5Machine(void)
 static void PressLinesCompact(void)
 {
   AutoMapDrawList drawList = DrawAll(L5Machine());
-  std::vector<std::string> lines = AutoMapScene_PressLines(
+  std::vector<std::string> lines = PressText(
       drawList, AutoMapScene_PressEffects(drawList, 0, 3), false);
-  CHECK(Joined(lines) == "THIS PRESS:\n L5 (18, 28) COUNTER A 4->3\n L5 (18, 28) COUNTER B 3->2\n"
-                         "PUZZLE:\n DOOR L5 (26, 26) OPENS IN 3 MORE\n"
-                         " DOOR L5 (20, 29) OPENS IN 2 MORE\nSHIFT: FULL CHAIN");
+  CHECK(Joined(lines) == "THIS PRESS:\n  L5 (18, 28) COUNTER A 4->3\n  L5 (18, 28) COUNTER B 3->2\n"
+                         "RESULT:\n  DOOR L5 (26, 26) OPENS IN 3 MORE, AFTER 6 TICKS\n"
+                         "  DOOR L5 (20, 29) OPENS IN 2 MORE");
+  // Headings plain, what this press reaches plain, results gold
+  std::vector<AutoMapPressSource> sources = AutoMapScene_PressEffects(drawList, 0, 3);
+  if (sources.size() == 1)
+  {
+    std::vector<AutoMapTipLine> block = AutoMapScene_PressBlock(drawList, sources[0], false);
+    CHECK(block.size() == 6);
+    if (block.size() == 6)
+    {
+      CHECK(block[0].style == AutoMapTipPlain && block[1].style == AutoMapTipPlain);
+      CHECK(block[3].style == AutoMapTipPlain && block[4].style == AutoMapTipResult);
+    }
+  }
   // Nothing to say without a press
-  CHECK(AutoMapScene_PressLines(drawList, std::vector<AutoMapPressSource>(), false).empty());
+  CHECK(AutoMapScene_PressBlock(drawList, AutoMapPressSource(), false).empty());
 }
 
 static void PressLinesTree(void)
 {
   AutoMapDrawList drawList = DrawAll(L5Machine());
-  std::vector<std::string> lines = AutoMapScene_PressLines(
+  std::vector<std::string> lines = PressText(
       drawList, AutoMapScene_PressEffects(drawList, 0, 3), true);
-  CHECK(Joined(lines) == "PRESS:\n L5 (18, 28) COUNTER A 4->3\n  AT 0: L5 (25, 26) GATE A BIT 2 SET\n"
-                         "   GATE A 1011->1111 (NEEDS 1111) MATCH\n"
-                         "    MATCH: L5 (26, 26) DOOR OPEN AFTER 6 TICKS\n"
-                         " L5 (18, 28) COUNTER B 3->2\n  AT 0: L5 (20, 29) DOOR OPEN");
+  CHECK(Joined(lines) == "ROUTE:\n  L5 (18, 28) COUNTER A 4->3\n    AT 0: L5 (25, 26) GATE A BIT 2 SET\n"
+                         "      GATE A 1011->1111 (NEEDS 1111) MATCH\n"
+                         "        MATCH: L5 (26, 26) DOOR OPEN AFTER 6 TICKS\n"
+                         "  L5 (18, 28) COUNTER B 3->2\n    AT 0: L5 (20, 29) DOOR OPEN");
 }
 
+
+// A party pad on the machine room's floor (1, 1), its record 300, and a link from it
+static AutoMapLevelSnapshot PadRoom(int width)
+{
+  AutoMapLevelSnapshot snapshot = MachineRoom();
+  if (width != snapshot.width)
+  {
+    AutoMapLevelSnapshot narrow = snapshot;
+    snapshot.width = width;
+    snapshot.cells.assign((size_t)(width * 3), AutoMapCellRecord());
+    for (int y = 0; y < 3; y++)
+    {
+      for (int x = 0; x < narrow.width; x++) snapshot.cells[y * width + x] = narrow.cells[y * narrow.width + x];
+    }
+  }
+  AutoMapFloorActuator pad = PadWithOp(1, 1, AutoMapPadParty);
+  pad.record = 300;
+  snapshot.actuators.push_back(pad);
+  return snapshot;
+}
+
+static AutoMapLink PadMessage(int dstX, int dstY, AutoMapSignal signal, int delay)
+{
+  AutoMapLink link = Message(1, 1, dstX, dstY, 300, signal, 0, delay);
+  link.srcIsWall = false;
+  link.srcSide = -1;
+  return link;
+}
+
+static std::vector<std::string> PadBlock(const AutoMapDrawList &drawList, bool shift)
+{
+  std::vector<AutoMapPressSource> sources = AutoMapScene_PressEffects(drawList, 1, 1);
+  CHECK(sources.size() == 1);
+  if (sources.size() != 1) return std::vector<std::string>();
+  return Texts(AutoMapScene_PressBlock(drawList, sources[0], shift));
+}
+
+static void ResultNamesItsDelay(void)
+{
+  AutoMapLevelSnapshot snapshot = PadRoom(6);
+  snapshot.cells[1 * 6 + 5].doorState = AutoMapDoorClosed;
+  snapshot.links.push_back(PadMessage(5, 1, AutoMapSignalSet, 6));
+  AutoMapDrawList drawList = DrawAll(snapshot);
+  CHECK(Joined(PadBlock(drawList, false))
+        == "RESULT:\n  DOOR L0 (5, 1) OPENS ON THIS PRESS, AFTER 6 TICKS");
+  std::vector<AutoMapPressSource> sources = AutoMapScene_PressEffects(drawList, 1, 1);
+  if (sources.size() != 1) return;
+  std::vector<AutoMapTipLine> block = AutoMapScene_PressBlock(drawList, sources[0], false);
+  CHECK(block.size() == 2);
+  if (block.size() != 2) return;
+  CHECK(block[0].style == AutoMapTipPlain);
+  CHECK(block[1].style == AutoMapTipResult);
+  CHECK(!AutoMapScene_PressHasSteps(sources[0]));
+}
+
+static void ShiftHintOnlyWithStepsBetween(void)
+{
+  // Straight to the door: nothing between, no hint
+  AutoMapLevelSnapshot direct = PadRoom(6);
+  direct.cells[1 * 6 + 5].doorState = AutoMapDoorClosed;
+  direct.links.push_back(PadMessage(5, 1, AutoMapSignalSet, 0));
+  AutoMapDrawList drawList = DrawAll(direct);
+  std::vector<AutoMapTipLine> hint;
+  std::vector<AutoMapTipLine> lines =
+      AutoMapTooltip_Machinery(drawList, 1, 1, false, TestItemName, &hint);
+  CHECK(hint.empty());
+  CHECK(JoinedTip(lines).find("SHIFT") == std::string::npos);
+  // Through a counter: the hint, last
+  AutoMapLevelSnapshot counted = PadRoom(6);
+  counted.cells[1 * 6 + 5].doorState = AutoMapDoorClosed;
+  PutRelay(&counted, 2, 0, CounterRelay(2), 200);
+  counted.links.push_back(PadMessage(2, 0, AutoMapSignalClear, 0));
+  counted.links.push_back(Message(2, 0, 5, 1, 200, AutoMapSignalSet, 0, 0));
+  drawList = DrawAll(counted);
+  std::vector<AutoMapPressSource> sources = AutoMapScene_PressEffects(drawList, 1, 1);
+  CHECK(sources.size() == 1 && AutoMapScene_PressHasSteps(sources[0]));
+  lines = AutoMapTooltip_Machinery(drawList, 1, 1, false, TestItemName, &hint);
+  CHECK(hint.size() == 1);
+  if (hint.size() == 1)
+  {
+    CHECK(hint[0].text == "SHIFT: ROUTE");
+    CHECK(hint[0].style == AutoMapTipHint);
+  }
+  CHECK(JoinedTip(lines).find("SHIFT") == std::string::npos);
+  // Shift held: the route, no hint
+  hint.clear();
+  lines = AutoMapTooltip_Machinery(drawList, 1, 1, true, TestItemName, &hint);
+  CHECK(hint.empty());
+  CHECK(JoinedTip(lines).find("  ROUTE:") != std::string::npos);
+}
+
+static void ShiftOnACappedDirectListShowsEveryResult(void)
+{
+  // A pad wired straight to 12 doors at (2..13, 1)
+  AutoMapLevelSnapshot snapshot = PadRoom(14);
+  for (int x = 2; x < 14; x++)
+  {
+    snapshot.cells[1 * 14 + x].kind = AutoMapCellDoor;
+    snapshot.cells[1 * 14 + x].doorState = AutoMapDoorClosed;
+    snapshot.links.push_back(PadMessage(x, 1, AutoMapSignalSet, 0));
+  }
+  AutoMapDrawList drawList = DrawAll(snapshot);
+  std::vector<std::string> compact = PadBlock(drawList, false);
+  CHECK(compact.size() == 1 + AUTOMAP_PRESS_MAX_LINES);
+  CHECK(!compact.empty() && compact[0] == "RESULT:");
+  CHECK(!compact.empty() && compact.back() == "+3 MORE (SHIFT)");
+  std::vector<std::string> full = PadBlock(drawList, true);
+  CHECK(full.size() == 13);
+  CHECK(!full.empty() && full[0] == "RESULT:");
+  CHECK(!HasText(full, "ROUTE:") && !HasText(full, "MORE"));
+  CHECK(!full.empty() && full.back() == "  DOOR L0 (13, 1) OPENS ON THIS PRESS");
+}
 static bool SameLink(const AutoMapLink &a, const AutoMapLink &b)
 {
   return a.srcX == b.srcX && a.srcY == b.srcY && a.dstX == b.dstX && a.dstY == b.dstY
@@ -4869,44 +5008,44 @@ static std::vector<AutoMapPressSource> GoalSource(int x, int y, AutoMapSignal si
   return std::vector<AutoMapPressSource>(1, source);
 }
 
-// The PUZZLE line of a lone goal
-static std::string PuzzleLine(const AutoMapLevelSnapshot &snapshot, int x, int y,
+// The RESULT line of a lone goal
+static std::string ResultLine(const AutoMapLevelSnapshot &snapshot, int x, int y,
                               AutoMapSignal signal, AutoMapGoalStatus status, int more,
                               int bitsOff, const char *blocked)
 {
   AutoMapDrawList drawList = DrawAll(snapshot);
-  std::vector<std::string> lines = AutoMapScene_PressLines(
+  std::vector<std::string> lines = PressText(
       drawList, GoalSource(x, y, signal, status, more, bitsOff, blocked), false);
-  CHECK(lines.size() == 3 && lines[0] == "PUZZLE:");
-  return lines.size() == 3 ? lines[1] : std::string();
+  CHECK(lines.size() == 2 && lines[0] == "RESULT:");
+  return lines.size() == 2 ? lines[1] : std::string();
 }
 
 static void PressLinesWordTheGoalDistance(void)
 {
   AutoMapLevelSnapshot room = MachineRoom();
   AutoMapSignal set = AutoMapSignalSet;
-  CHECK(PuzzleLine(room, 5, 1, set, AutoMapGoalOnThisPress, -1, 0, NULL)
-        == " DOOR L0 (5, 1) OPENS ON THIS PRESS");
-  CHECK(PuzzleLine(room, 5, 1, AutoMapSignalClear, AutoMapGoalOnThisPress, -1, 0, NULL)
-        == " DOOR L0 (5, 1) CLOSES ON THIS PRESS");
-  CHECK(PuzzleLine(room, 5, 1, AutoMapSignalToggle, AutoMapGoalMore, 2, 0, NULL)
-        == " DOOR L0 (5, 1) TOGGLES IN 2 MORE");
-  CHECK(PuzzleLine(room, 5, 1, set, AutoMapGoalMore, 1, 2, NULL)
-        == " DOOR L0 (5, 1) 2 BITS OFF, 1 MORE");
-  CHECK(PuzzleLine(room, 5, 1, set, AutoMapGoalNeedsOthers, -1, 1, NULL)
-        == " DOOR L0 (5, 1) 1 BIT OFF, NEEDS OTHER SOURCES");
-  CHECK(PuzzleLine(room, 5, 1, set, AutoMapGoalNeedsOthers, -1, 0, NULL)
-        == " DOOR L0 (5, 1) NEEDS OTHER SOURCES");
-  CHECK(PuzzleLine(room, 5, 1, set, AutoMapGoalBlocked, -1, 0, "COUNTER AT 0")
-        == " DOOR L0 (5, 1) BLOCKED: COUNTER AT 0");
-  CHECK(PuzzleLine(room, 5, 1, set, AutoMapGoalHolds, -1, 0, NULL)
-        == " DOOR L0 (5, 1) HOLDS WHILE PRESSED");
-  CHECK(PuzzleLine(room, 5, 1, set, AutoMapGoalThroughDSA, -1, 0, NULL)
-        == " DOOR L0 (5, 1) THROUGH DSA");
-  CHECK(PuzzleLine(room, 5, 1, set, AutoMapGoalAlreadyDone, -1, 0, NULL)
-        == " DOOR L0 (5, 1) ALREADY OPEN");
-  CHECK(PuzzleLine(room, 5, 1, AutoMapSignalClear, AutoMapGoalAlreadyDone, -1, 0, NULL)
-        == " DOOR L0 (5, 1) ALREADY CLOSED");
+  CHECK(ResultLine(room, 5, 1, set, AutoMapGoalOnThisPress, -1, 0, NULL)
+        == "  DOOR L0 (5, 1) OPENS ON THIS PRESS");
+  CHECK(ResultLine(room, 5, 1, AutoMapSignalClear, AutoMapGoalOnThisPress, -1, 0, NULL)
+        == "  DOOR L0 (5, 1) CLOSES ON THIS PRESS");
+  CHECK(ResultLine(room, 5, 1, AutoMapSignalToggle, AutoMapGoalMore, 2, 0, NULL)
+        == "  DOOR L0 (5, 1) TOGGLES IN 2 MORE");
+  CHECK(ResultLine(room, 5, 1, set, AutoMapGoalMore, 1, 2, NULL)
+        == "  DOOR L0 (5, 1) 2 BITS OFF, 1 MORE");
+  CHECK(ResultLine(room, 5, 1, set, AutoMapGoalNeedsOthers, -1, 1, NULL)
+        == "  DOOR L0 (5, 1) 1 BIT OFF, NEEDS OTHER SOURCES");
+  CHECK(ResultLine(room, 5, 1, set, AutoMapGoalNeedsOthers, -1, 0, NULL)
+        == "  DOOR L0 (5, 1) NEEDS OTHER SOURCES");
+  CHECK(ResultLine(room, 5, 1, set, AutoMapGoalBlocked, -1, 0, "COUNTER AT 0")
+        == "  DOOR L0 (5, 1) BLOCKED: COUNTER AT 0");
+  CHECK(ResultLine(room, 5, 1, set, AutoMapGoalHolds, -1, 0, NULL)
+        == "  DOOR L0 (5, 1) HOLDS WHILE PRESSED");
+  CHECK(ResultLine(room, 5, 1, set, AutoMapGoalThroughDSA, -1, 0, NULL)
+        == "  DOOR L0 (5, 1) THROUGH DSA");
+  CHECK(ResultLine(room, 5, 1, set, AutoMapGoalAlreadyDone, -1, 0, NULL)
+        == "  DOOR L0 (5, 1) ALREADY OPEN");
+  CHECK(ResultLine(room, 5, 1, AutoMapSignalClear, AutoMapGoalAlreadyDone, -1, 0, NULL)
+        == "  DOOR L0 (5, 1) ALREADY CLOSED");
   // The noun follows the cell
   AutoMapCellKind kinds[] = {AutoMapCellFalseWall, AutoMapCellPit, AutoMapCellTeleporter};
   const char *nouns[] = {"FALSE WALL", "PIT", "TELEPORTER"};
@@ -4914,16 +5053,16 @@ static void PressLinesWordTheGoalDistance(void)
   {
     AutoMapLevelSnapshot other = MachineRoom();
     other.cells[1 * 6 + 5].kind = kinds[i];
-    CHECK(PuzzleLine(other, 5, 1, set, AutoMapGoalOnThisPress, -1, 0, NULL)
-          == std::string(" ") + nouns[i] + " L0 (5, 1) OPENS ON THIS PRESS");
+    CHECK(ResultLine(other, 5, 1, set, AutoMapGoalOnThisPress, -1, 0, NULL)
+          == std::string("  ") + nouns[i] + " L0 (5, 1) OPENS ON THIS PRESS");
   }
   AutoMapLevelSnapshot launcher = MachineRoom();
   AutoMapLauncher fires;
   fires.actuatorType = 8;
   fires.side = AutoMapSouth;
   launcher.cells[0 * 6 + 3].wallLaunchers.push_back(fires);
-  CHECK(PuzzleLine(launcher, 3, 0, set, AutoMapGoalOnThisPress, -1, 0, NULL)
-        == " LAUNCHER L0 (3, 0) OPENS ON THIS PRESS");
+  CHECK(ResultLine(launcher, 3, 0, set, AutoMapGoalOnThisPress, -1, 0, NULL)
+        == "  LAUNCHER L0 (3, 0) OPENS ON THIS PRESS");
 }
 
 // The last tree line of one hand-built effect over a relay in the cell (2, 0)
@@ -4939,8 +5078,8 @@ static std::string TreeLineOf(const AutoMapRelay &relay, AutoMapEffect effect, b
   source.truncated = truncated;
   source.effects.push_back(effect);
   std::vector<std::string> lines =
-      AutoMapScene_PressLines(drawList, std::vector<AutoMapPressSource>(1, source), true);
-  CHECK(lines.size() >= 2 && lines[0] == "PRESS:");
+      PressText(drawList, std::vector<AutoMapPressSource>(1, source), true);
+  CHECK(lines.size() >= 2 && lines[0] == "ROUTE:");
   if (lines.size() < 2) return std::string();
   return lines.back();
 }
@@ -4965,14 +5104,14 @@ static void PressLinesNameClosedSwitchablePits(void)
   snapshot.links.push_back(Message(0, 1, 2, 1, LEVER_RECORD, AutoMapSignalToggle, 0, 0));
   AutoMapDrawList drawList = DrawAll(snapshot);
   std::vector<std::string> lines =
-      AutoMapScene_PressLines(drawList, AutoMapScene_PressEffects(drawList, 0, 1), false);
+      PressText(drawList, AutoMapScene_PressEffects(drawList, 0, 1), false);
   CHECK(HasText(lines, " PIT L0 (2, 1) OPENS ON THIS PRESS"));
   CHECK(Texts(AutoMapScene_PitLines(drawList, 2, 1)) == std::vector<std::string>(1, "CLOSED"));
   CHECK(Texts(AutoMapTooltip_Machinery(drawList, 2, 1, false, TestItemName))[0] == "PIT");
   // Closing a closed pit does nothing
   snapshot.links.back().signal = AutoMapSignalClear;
   drawList = DrawAll(snapshot);
-  lines = AutoMapScene_PressLines(drawList, AutoMapScene_PressEffects(drawList, 0, 1), false);
+  lines = PressText(drawList, AutoMapScene_PressEffects(drawList, 0, 1), false);
   CHECK(HasText(lines, " PIT L0 (2, 1) ALREADY CLOSED"));
   // An open pit closes on a toggle, and opening it again does nothing
   AutoMapLevelSnapshot open = MachineRoom();
@@ -4980,11 +5119,11 @@ static void PressLinesNameClosedSwitchablePits(void)
   open.cells[1 * 6 + 2].pitIsOpen = true;
   open.links.push_back(Message(0, 1, 2, 1, LEVER_RECORD, AutoMapSignalToggle, 0, 0));
   drawList = DrawAll(open);
-  lines = AutoMapScene_PressLines(drawList, AutoMapScene_PressEffects(drawList, 0, 1), false);
+  lines = PressText(drawList, AutoMapScene_PressEffects(drawList, 0, 1), false);
   CHECK(HasText(lines, " PIT L0 (2, 1) CLOSES ON THIS PRESS"));
   open.links.back().signal = AutoMapSignalSet;
   drawList = DrawAll(open);
-  lines = AutoMapScene_PressLines(drawList, AutoMapScene_PressEffects(drawList, 0, 1), false);
+  lines = PressText(drawList, AutoMapScene_PressEffects(drawList, 0, 1), false);
   CHECK(HasText(lines, " PIT L0 (2, 1) ALREADY OPEN"));
   // Below All a closed pit is floor and nothing gives it away
   AutoMapExplored explored = NothingExplored();
@@ -5004,39 +5143,39 @@ static void PressLinesNameClosedSwitchablePits(void)
 static void PressLinesTreeMarks(void)
 {
   AutoMapEffect counter = CounterEffect(0, 0);
-  CHECK(TreeLineOf(CounterRelay(0), counter, false) == " L0 (2, 0) COUNTER A 0 (DEAD)");
+  CHECK(TreeLineOf(CounterRelay(0), counter, false) == "  L0 (2, 0) COUNTER A 0 (DEAD)");
   AutoMapRelay once = CounterRelay(2);
   once.onceOnly = true;
   once.normallyClosed = true;
-  CHECK(TreeLineOf(once, CounterEffect(2, 1), false) == " L0 (2, 0) COUNTER A 2->1 ONCE NC");
+  CHECK(TreeLineOf(once, CounterEffect(2, 1), false) == "  L0 (2, 0) COUNTER A 2->1 ONCE NC");
   AutoMapEffect delayed = CounterEffect(2, 1);
   delayed.delayTicks = 3;
-  CHECK(TreeLineOf(CounterRelay(2), delayed, false) == " L0 (2, 0) COUNTER A 2->1 AFTER 3 TICKS");
+  CHECK(TreeLineOf(CounterRelay(2), delayed, false) == "  L0 (2, 0) COUNTER A 2->1 AFTER 3 TICKS");
   AutoMapEffect guarded = CounterEffect(2, 1);
   guarded.afterDSA = true;
   CHECK(TreeLineOf(CounterRelay(2), guarded, false)
-        == " L0 (2, 0) COUNTER A 2->1 (IF DSA PASSES)");
+        == "  L0 (2, 0) COUNTER A 2->1 (IF DSA PASSES)");
   AutoMapRelay dsa;
   dsa.kind = AutoMapRelayDSA;
   AutoMapEffect dsaEffect;
   dsaEffect.kind = AutoMapEffectDSA;
   dsaEffect.relay = 0;
-  CHECK(TreeLineOf(dsa, dsaEffect, false) == " L0 (2, 0) DSA A: NOT FOLLOWED");
+  CHECK(TreeLineOf(dsa, dsaEffect, false) == "  L0 (2, 0) DSA A: NOT FOLLOWED");
   AutoMapEffect loop;
   loop.kind = AutoMapEffectLoop;
-  CHECK(TreeLineOf(CounterRelay(1), loop, false) == " L0 (2, 0) LOOPS BACK");
+  CHECK(TreeLineOf(CounterRelay(1), loop, false) == "  L0 (2, 0) LOOPS BACK");
   AutoMapRelay rotate = GateRelay(0x0 | (0x1 << 4), true);
   rotate.localActionType = 1;
   AutoMapEffect local;
   local.kind = AutoMapEffectLocalAction;
   local.relay = 0;
-  CHECK(TreeLineOf(rotate, local, false) == " L0 (2, 0) ROTATES ACTUATORS");
+  CHECK(TreeLineOf(rotate, local, false) == "  L0 (2, 0) ROTATES ACTUATORS");
   rotate.localActionType = 2;
-  CHECK(TreeLineOf(rotate, local, false) == " L0 (2, 0) ROTATES ACTUATORS");
+  CHECK(TreeLineOf(rotate, local, false) == "  L0 (2, 0) ROTATES ACTUATORS");
   rotate.localActionType = 10;
-  CHECK(TreeLineOf(rotate, local, false) == " L0 (2, 0) SKILL BONUS");
+  CHECK(TreeLineOf(rotate, local, false) == "  L0 (2, 0) SKILL BONUS");
   // The walk ran out of budget: the last line says so
-  CHECK(TreeLineOf(CounterRelay(2), CounterEffect(2, 1), true) == " CHAIN CUT SHORT");
+  CHECK(TreeLineOf(CounterRelay(2), CounterEffect(2, 1), true) == "  CHAIN CUT SHORT");
   // A gate prints its arrival and its state, with the edge filter, once-only and NC marks
   const char *edges[] = {"", "ON INPUT CHANGE", "ON OUTPUT CHANGE", "ON INPUT CHANGE ONLY",
                          "ON SET", "ON CLEAR", "ON BIT SET", "ON BIT CLEAR"};
@@ -5054,7 +5193,7 @@ static void PressLinesTreeMarks(void)
     arrival.via.targetPos = 2;
     arrival.via.signal = AutoMapSignalToggle;
     std::string state = TreeLineOf(gate, arrival, false);
-    std::string expected = "  GATE A 0011->0111 (NEEDS 0111) MATCH";
+    std::string expected = "    GATE A 0011->0111 (NEEDS 0111) MATCH";
     if (mode > 0) expected += std::string(" ") + edges[mode];
     if (mode == 1) expected += " ONCE";
     if (mode == 2) expected += " NC";
@@ -5066,7 +5205,7 @@ static void PressLinesTreeMarks(void)
   miss.before = 3;
   miss.after = 1;
   CHECK(TreeLineOf(GateRelay(0x3 | (0x7 << 4), false), miss, false)
-        == "  GATE A 0011->0001 (NEEDS 0111) NO MATCH");
+        == "    GATE A 0011->0001 (NEEDS 0111) NO MATCH");
 }
 
 static void PressLinesFoldIdenticalReceiversAndCap(void)
@@ -5077,9 +5216,9 @@ static void PressLinesFoldIdenticalReceiversAndCap(void)
   AutoMapDrawList drawList = DrawAll(triple);
   std::vector<AutoMapPressSource> sources = AutoMapScene_PressEffects(drawList, 0, 1);
   // Each counter keeps its own letter, so three equal counters stay three lines
-  CHECK(Joined(AutoMapScene_PressLines(drawList, sources, false))
-        == "THIS PRESS:\n L0 (2, 0) COUNTER A 4->3\n L0 (2, 0) COUNTER B 4->3\n"
-           " L0 (2, 0) COUNTER C 4->3\nSHIFT: FULL CHAIN");
+  CHECK(Joined(PressText(drawList, sources, false))
+        == "THIS PRESS:\n  L0 (2, 0) COUNTER A 4->3\n  L0 (2, 0) COUNTER B 4->3\n"
+           "  L0 (2, 0) COUNTER C 4->3");
   // Two messages into one dead counter say the same thing twice, and fold
   AutoMapLevelSnapshot dead = MachineRoom();
   PutRelay(&dead, 2, 0, CounterRelay(0), 200);
@@ -5087,8 +5226,8 @@ static void PressLinesFoldIdenticalReceiversAndCap(void)
   dead.links.push_back(Message(0, 1, 2, 0, LEVER_RECORD, AutoMapSignalClear, 1, 0));
   drawList = DrawAll(dead);
   sources = AutoMapScene_PressEffects(drawList, 0, 1);
-  CHECK(Joined(AutoMapScene_PressLines(drawList, sources, true))
-        == "PRESS:\n 2X L0 (2, 0) COUNTER A 0 (DEAD)");
+  CHECK(Joined(PressText(drawList, sources, true))
+        == "ROUTE:\n  2X L0 (2, 0) COUNTER A 0 (DEAD)");
   // A hub with 14 receivers: 10 lines under the headers, the last one the rest
   AutoMapLevelSnapshot hub = MachineRoom();
   for (int i = 0; i < 14; i++) PutRelay(&hub, 2, 0, CounterRelay(5 + i), 200 + i);
@@ -5096,7 +5235,7 @@ static void PressLinesFoldIdenticalReceiversAndCap(void)
   drawList = DrawAll(hub);
   sources = AutoMapScene_PressEffects(drawList, 0, 1);
   {
-    std::vector<std::string> lines = AutoMapScene_PressLines(drawList, sources, false);
+    std::vector<std::string> lines = PressText(drawList, sources, false);
     size_t body = 0;
     for (size_t i = 0; i < lines.size(); i++)
     {
@@ -5105,25 +5244,25 @@ static void PressLinesFoldIdenticalReceiversAndCap(void)
     }
     CHECK(body == AUTOMAP_PRESS_MAX_LINES);
     CHECK(!lines.empty() && lines.back() == "+5 MORE (SHIFT)");
-    CHECK(!HasText(lines, "FULL CHAIN"));
+    CHECK(!HasText(lines, "SHIFT:"));
     CHECK(HasText(lines, "COUNTER A 5->4") && HasText(lines, "COUNTER I 13->12"));
     CHECK(!HasText(lines, "COUNTER J 14->13"));
   }
-  // Nine lines and the hint make ten, which still fits
+  // Nine lines fit
   AutoMapLevelSnapshot nine = MachineRoom();
   for (int i = 0; i < 9; i++) PutRelay(&nine, 2, 0, CounterRelay(5 + i), 200 + i);
   nine.links.push_back(Message(0, 1, 2, 0, LEVER_RECORD, AutoMapSignalClear, 0, 0));
   drawList = DrawAll(nine);
   std::vector<std::string> fits =
-      AutoMapScene_PressLines(drawList, AutoMapScene_PressEffects(drawList, 0, 1), false);
-  CHECK(fits.size() == 1 + 9 + 1);
-  CHECK(HasText(fits, "FULL CHAIN") && !HasText(fits, "MORE"));
-  // Ten lines leave no room for the hint, which goes first and nothing is cut
+      PressText(drawList, AutoMapScene_PressEffects(drawList, 0, 1), false);
+  CHECK(fits.size() == 1 + 9);
+  CHECK(!HasText(fits, "SHIFT:") && !HasText(fits, "MORE"));
+  // Ten lines still fit: the hint is the tooltip's, not the block's, and nothing is cut
   PutRelay(&nine, 2, 0, CounterRelay(30), 300);
   drawList = DrawAll(nine);
-  fits = AutoMapScene_PressLines(drawList, AutoMapScene_PressEffects(drawList, 0, 1), false);
+  fits = PressText(drawList, AutoMapScene_PressEffects(drawList, 0, 1), false);
   CHECK(fits.size() == 1 + 10);
-  CHECK(!HasText(fits, "FULL CHAIN") && !HasText(fits, "MORE"));
+  CHECK(!HasText(fits, "SHIFT:") && !HasText(fits, "MORE"));
 }
 
 static void PressLinesGroupSources(void)
@@ -5141,16 +5280,17 @@ static void PressLinesGroupSources(void)
   std::vector<AutoMapPressSource> sources = AutoMapScene_PressEffects(drawList, 0, 1);
   CHECK(sources.size() == 2);
   if (sources.size() != 2) return;
-  CHECK(Joined(AutoMapScene_PressLines(drawList, sources, true))
-        == "SWITCH (E):\n L0 (2, 0) COUNTER A 4->3\nSWITCH (S):\n L0 (2, 0) COUNTER A 4->3");
-  CHECK(Joined(AutoMapScene_PressLines(drawList, sources, false))
-        == "SWITCH (E):\nTHIS PRESS:\n L0 (2, 0) COUNTER A 4->3\n"
-           "SWITCH (S):\nTHIS PRESS:\n L0 (2, 0) COUNTER A 4->3\nSHIFT: FULL CHAIN");
-  // A floor source reads PAD
-  sources[1].srcIsWall = false;
-  sources[1].srcSide = -1;
-  CHECK(Joined(AutoMapScene_PressLines(drawList, sources, true))
-        == "SWITCH (E):\n L0 (2, 0) COUNTER A 4->3\nPAD:\n L0 (2, 0) COUNTER A 4->3");
+  // Each face is its own group in the tooltip (the PAD header is the tooltip's too, see
+  // SameTriggerPadsShareOnePadGroup); the counter between asks for the route hint once
+  std::vector<AutoMapTipLine> hint;
+  CHECK(JoinedTip(AutoMapTooltip_Machinery(drawList, 0, 1, true, TestItemName, &hint))
+        == "SWITCH (E)\n  ROUTE:\n    L0 (2, 0) COUNTER A 4->3\n"
+           "SWITCH (S)\n  ROUTE:\n    L0 (2, 0) COUNTER A 4->3");
+  CHECK(hint.empty());
+  CHECK(JoinedTip(AutoMapTooltip_Machinery(drawList, 0, 1, false, TestItemName, &hint))
+        == "SWITCH (E)\n  THIS PRESS:\n    L0 (2, 0) COUNTER A 4->3\n"
+           "SWITCH (S)\n  THIS PRESS:\n    L0 (2, 0) COUNTER A 4->3");
+  CHECK(JoinedTip(hint) == "SHIFT: ROUTE");
 }
 
 static void RelayHoverLinesLetterRelays(void)
@@ -5250,24 +5390,24 @@ static void PressLinesCutShortSurvivesTheCap(void)
   CHECK(sources.size() == 1);
   if (sources.size() != 1) return;
   sources[0].truncated = true;
-  std::vector<std::string> lines = AutoMapScene_PressLines(drawList, sources, false);
+  std::vector<std::string> lines = PressText(drawList, sources, false);
   CHECK(lines.size() >= 3);
   if (lines.size() >= 3)
   {
     CHECK(lines[lines.size() - 2] == "+5 MORE (SHIFT)");
-    CHECK(lines.back() == " CHAIN CUT SHORT");
+    CHECK(lines.back() == "  CHAIN CUT SHORT");
     size_t body = 0;
     for (size_t i = 0; i < lines.size(); i++)
     {
-      if (!lines[i].empty() && lines[i][0] == ' ' && lines[i] != " CHAIN CUT SHORT") body++;
+      if (!lines[i].empty() && lines[i][0] == ' ' && lines[i] != "  CHAIN CUT SHORT") body++;
       else if (lines[i].find("MORE") != std::string::npos) body++;
     }
     CHECK(body == AUTOMAP_PRESS_MAX_LINES);
   }
   // Uncapped, the tail still ends the block
-  lines = AutoMapScene_PressLines(drawList, sources, true);
+  lines = PressText(drawList, sources, true);
   CHECK(!HasText(lines, "MORE"));
-  CHECK(!lines.empty() && lines.back() == " CHAIN CUT SHORT");
+  CHECK(!lines.empty() && lines.back() == "  CHAIN CUT SHORT");
 }
 
 static void RelayHoverLinesCapTheTargets(void)
@@ -5298,7 +5438,7 @@ static void PressLinesFullChainIsUncapped(void)
   hub.links.push_back(Message(0, 1, 2, 0, LEVER_RECORD, AutoMapSignalClear, 0, 0));
   AutoMapDrawList drawList = DrawAll(hub);
   std::vector<AutoMapPressSource> sources = AutoMapScene_PressEffects(drawList, 0, 1);
-  std::vector<std::string> lines = AutoMapScene_PressLines(drawList, sources, true);
+  std::vector<std::string> lines = PressText(drawList, sources, true);
   CHECK(!HasText(lines, "MORE"));
   CHECK(HasText(lines, "COUNTER A 5->4") && HasText(lines, "COUNTER N 18->17"));
   size_t body = 0;
@@ -6067,6 +6207,9 @@ void TestAutoMapScene(void)
   GoalBadgeWords();
   PressLinesCompact();
   PressLinesTree();
+  ResultNamesItsDelay();
+  ShiftHintOnlyWithStepsBetween();
+  ShiftOnACappedDirectListShowsEveryResult();
   PressLinesWordTheGoalDistance();
   PressLinesTreeMarks();
   PressLinesFoldIdenticalReceiversAndCap();

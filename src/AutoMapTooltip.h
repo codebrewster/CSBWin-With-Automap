@@ -11,7 +11,8 @@
 // indented two spaces. shift: the route / uncapped lists. Empty when the cell has none.
 // Group order: teleporter or spinner, pit, door / false wall / launcher, pads, switches,
 // generators, then the relay hover lines. hint, when not NULL, receives the tile-wide hint
-// the press blocks ask for (SHIFT: FULL CHAIN), to go last in the tooltip.
+// a press block with steps between the press and a result asks for (SHIFT: ROUTE), to go
+// last in the tooltip; none while shift is held.
 std::vector<AutoMapTipLine> AutoMapTooltip_Machinery(const AutoMapDrawList &drawList, int x, int y,
                                                      bool shift, AutoMapItemNameFn nameForIndex,
                                                      std::vector<AutoMapTipLine> *hint = NULL);

@@ -1,5 +1,5 @@
 // AutoMapPress.cpp : what a press does down the relay chain, and the tooltip lines that
-// tell it (AutoMapScene_PressEffects, PressLines, RelayHoverLines and their helpers).
+// tell it (AutoMapScene_PressEffects, PressBlock, RelayHoverLines and their helpers).
 #include "AutoMapScene.h"
 #include "AutoMapSceneInternal.h"
 
@@ -888,7 +888,7 @@ static std::string PressBitsOff(int bits)
   return std::string(text);
 }
 
-// How far a goal is, from its distance: the PUZZLE wording
+// How far a goal is, from its distance: the RESULT wording
 static std::string PressDistanceWord(const AutoMapDrawList &drawList, const AutoMapEffect &goal)
 {
   const AutoMapGoalDistance &distance = goal.distance;
@@ -1181,14 +1181,6 @@ static void FoldPressBlocks(const std::vector<std::vector<std::string> > &blocks
   }
 }
 
-// What a source is called when several share the cell: the face of a switch, or the pad
-static std::string PressSourceHeader(const AutoMapPressSource &source)
-{
-  if (!source.srcIsWall) return "PAD:";
-  if (source.srcSide < AutoMapNorth || source.srcSide > AutoMapWest) return "SWITCH:";
-  return std::string("SWITCH (") + FacingInitial(source.srcSide) + "):";
-}
-
 // The cap counts every line but the headers and the tails. The hint counts as one and
 // goes first; past the cap a line says how many were left out, before the next tail.
 // uncapped (Shift held) lifts the cap: every line stays and no +N MORE is said.
@@ -1300,68 +1292,103 @@ std::string AutoMapScene_GoalBadge(const AutoMapGoalDistance &distance)
   }
 }
 
-std::vector<std::string> AutoMapScene_PressLines(const AutoMapDrawList &drawList,
-                                                 const std::vector<AutoMapPressSource> &sources,
-                                                 bool fullChain)
+static bool EffectsHaveSteps(const std::vector<AutoMapEffect> &effects)
 {
-  std::vector<PressLine> lines;
-  bool several = sources.size() > 1;
-  for (size_t s = 0; s < sources.size(); s++)
+  for (size_t i = 0; i < effects.size(); i++)
   {
-    const AutoMapPressSource &source = sources[s];
-    if (several) lines.push_back(MakePressLine(PressSourceHeader(source), true, false));
-    if (fullChain)
+    if (effects[i].kind != AutoMapEffectGoal || effects[i].afterDSA) return true;
+    if (EffectsHaveSteps(effects[i].next)) return true;
+  }
+  return false;
+}
+
+bool AutoMapScene_PressHasSteps(const AutoMapPressSource &source)
+{
+  return EffectsHaveSteps(source.effects);
+}
+
+// A goal's RESULT line, one space in: noun, place, how far, and its delay after a comma
+static std::string PressResultLine(const AutoMapDrawList &drawList, const AutoMapEffect &goal)
+{
+  std::string line = std::string(" ") + PressGoalNoun(drawList, goal) + " "
+      + PressLocation(drawList, goal.x, goal.y) + " " + PressDistanceWord(drawList, goal);
+  std::string delay = DelayWord(goal.delayTicks);
+  if (!delay.empty()) line += "," + delay;
+  return line;
+}
+
+std::vector<AutoMapTipLine> AutoMapScene_PressBlock(const AutoMapDrawList &drawList,
+                                                    const AutoMapPressSource &source, bool shift)
+{
+  // Built one space per depth as the cap knows it, then two spaces per depth
+  std::vector<PressLine> lines;
+  if (shift && AutoMapScene_PressHasSteps(source))
+  {
+    lines.push_back(MakePressLine("ROUTE:", true, false));
+    std::vector<std::vector<std::string> > blocks;
+    for (size_t e = 0; e < source.effects.size(); e++)
     {
-      if (!several) lines.push_back(MakePressLine("PRESS:", true, false));
-      std::vector<std::vector<std::string> > blocks;
-      for (size_t e = 0; e < source.effects.size(); e++)
-      {
-        blocks.push_back(std::vector<std::string>());
-        PressTreeLines(drawList, source.effects[e], 0, "", &blocks.back());
-      }
-      FoldPressBlocks(blocks, &lines);
+      blocks.push_back(std::vector<std::string>());
+      PressTreeLines(drawList, source.effects[e], 0, "", &blocks.back());
     }
-    else
+    FoldPressBlocks(blocks, &lines);
+  }
+  else
+  {
+    std::vector<std::vector<std::string> > pressed;
+    for (size_t e = 0; e < source.effects.size(); e++)
     {
-      std::vector<std::vector<std::string> > pressed;
-      for (size_t e = 0; e < source.effects.size(); e++)
-      {
-        const AutoMapEffect &effect = source.effects[e];
-        if (effect.kind == AutoMapEffectGoal) continue;
-        pressed.push_back(std::vector<std::string>(
-            1, " " + PressLocation(drawList, effect.x, effect.y) + " "
-               + PressStateText(drawList, effect)));
-      }
-      if (!pressed.empty())
-      {
-        lines.push_back(MakePressLine("THIS PRESS:", true, false));
-        FoldPressBlocks(pressed, &lines);
-      }
-      std::vector<const AutoMapEffect *> goals;
-      PressGoals(source.effects, &goals);
-      std::vector<std::vector<std::string> > puzzle;
-      for (size_t g = 0; g < goals.size(); g++)
-      {
-        puzzle.push_back(std::vector<std::string>(
-            1, std::string(" ") + PressGoalNoun(drawList, *goals[g]) + " "
-               + PressLocation(drawList, goals[g]->x, goals[g]->y) + " "
-               + PressDistanceWord(drawList, *goals[g])));
-      }
-      if (!puzzle.empty())
-      {
-        lines.push_back(MakePressLine("PUZZLE:", true, false));
-        FoldPressBlocks(puzzle, &lines);
-      }
+      const AutoMapEffect &effect = source.effects[e];
+      if (effect.kind == AutoMapEffectGoal) continue;
+      pressed.push_back(std::vector<std::string>(
+          1, " " + PressLocation(drawList, effect.x, effect.y) + " "
+             + PressStateText(drawList, effect)));
     }
-    if (source.truncated)
+    if (!pressed.empty())
     {
-      lines.push_back(MakePressLine(" CHAIN CUT SHORT", false, false));
-      lines.back().tail = true;
+      lines.push_back(MakePressLine("THIS PRESS:", true, false));
+      FoldPressBlocks(pressed, &lines);
+    }
+    std::vector<const AutoMapEffect *> goals;
+    PressGoals(source.effects, &goals);
+    std::vector<std::vector<std::string> > results;
+    for (size_t g = 0; g < goals.size(); g++)
+    {
+      results.push_back(std::vector<std::string>(1, PressResultLine(drawList, *goals[g])));
+    }
+    if (!results.empty())
+    {
+      lines.push_back(MakePressLine("RESULT:", true, false));
+      FoldPressBlocks(results, &lines);
     }
   }
-  if (lines.empty()) return std::vector<std::string>();
-  if (!fullChain) lines.push_back(MakePressLine("SHIFT: FULL CHAIN", false, true));
-  return CapPressLines(lines, fullChain ? "" : " (SHIFT)", fullChain);
+  if (source.truncated)
+  {
+    lines.push_back(MakePressLine(" CHAIN CUT SHORT", false, false));
+    lines.back().tail = true;
+  }
+  std::vector<AutoMapTipLine> block;
+  if (lines.empty()) return block;
+  std::vector<std::string> capped = CapPressLines(lines, shift ? "" : " (SHIFT)", shift);
+  AutoMapTipStyle under = AutoMapTipPlain;
+  for (size_t i = 0; i < capped.size(); i++)
+  {
+    const std::string &line = capped[i];
+    size_t depth = line.find_first_not_of(' ');
+    if (depth == std::string::npos) continue;
+    if (depth == 0)
+    {
+      if (line == "RESULT:") under = AutoMapTipResult;
+      else if (line == "THIS PRESS:" || line == "ROUTE:") under = AutoMapTipPlain;
+      bool more = line[0] == '+';
+      block.push_back(AutoMapScene_TipLine(line, more ? AutoMapTipHint : AutoMapTipPlain));
+      continue;
+    }
+    bool cut = line.compare(depth, std::string::npos, "CHAIN CUT SHORT") == 0;
+    block.push_back(AutoMapScene_TipLine(std::string(2 * depth, ' ') + line.substr(depth),
+                                         cut ? AutoMapTipHint : under));
+  }
+  return block;
 }
 
 static std::string HoverCount(int count, const char *singular, const char *plural)

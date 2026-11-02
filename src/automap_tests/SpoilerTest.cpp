@@ -112,6 +112,20 @@ static std::vector<std::string> Texts(const std::vector<AutoMapTipLine> &lines)
   return texts;
 }
 
+// Every source's press block (AutoMapScene_PressBlock), as text
+static std::vector<std::string> PressBlocksText(const AutoMapDrawList &drawList,
+                                                const std::vector<AutoMapPressSource> &sources,
+                                                bool shift)
+{
+  std::vector<std::string> texts;
+  for (size_t s = 0; s < sources.size(); s++)
+  {
+    std::vector<std::string> block = Texts(AutoMapScene_PressBlock(drawList, sources[s], shift));
+    texts.insert(texts.end(), block.begin(), block.end());
+  }
+  return texts;
+}
+
 static bool HasLineStartingWith(const std::vector<std::string> &lines, const char *start)
 {
   for (size_t i = 0; i < lines.size(); i++)
@@ -2121,10 +2135,10 @@ static void PlayerLinksAreNotLearnedLinks(void)
     }
     for (int full = 0; full < 2; full++)
     {
-      CHECK(AutoMapScene_PressLines(with, pressWith, full != 0)
-            == AutoMapScene_PressLines(without, pressWithout, full != 0));
+      CHECK(PressBlocksText(with, pressWith, full != 0)
+            == PressBlocksText(without, pressWithout, full != 0));
     }
-    CHECK(AutoMapScene_PressLines(without, pressWithout, true).empty() == !atAll);
+    CHECK(PressBlocksText(without, pressWithout, true).empty() == !atAll);
   }
 }
 

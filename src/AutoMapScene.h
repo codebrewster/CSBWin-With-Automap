@@ -1218,7 +1218,7 @@ std::vector<AutoMapTipLine> AutoMapScene_ActuatorLines(const AutoMapDrawList &dr
 std::vector<AutoMapTipLine> AutoMapScene_TriggerLines(const AutoMapDrawList &drawList, int x, int y,
                                                       AutoMapItemNameFn nameForIndex);
 
-// Tooltip lines for what a cell is, not what a press does (that is AutoMapScene_PressLines
+// Tooltip lines for what a cell is, not what a press does (that is AutoMapScene_PressBlock
 // and AutoMapScene_RelayHoverLines), already grouped: a header (AutoMapTipHeader) with its
 // lines two spaces in. "ADDED ROCK: OUTSIDE THE LEVEL" (plain, first); "FALSE WALL" with
 // "SWITCHED" under it when something operates it; a stone-embedded missile launcher reads
@@ -1376,20 +1376,24 @@ bool AutoMapScene_SamePadTrigger(const AutoMapFloorActuator &a, const AutoMapFlo
 std::vector<const AutoMapEffect *> AutoMapScene_PressGoalsByCell(
     const std::vector<AutoMapPressSource> &sources);
 
-// The tooltip lines for the effects of a press, from AutoMapScene_PressEffects. Compact
-// (fullChain false) is a THIS PRESS block of the receivers the press reaches first and a
-// PUZZLE block with every goal behind them and how far it is, then a SHIFT hint; fullChain
-// is the whole tree, indented one space per depth, with delays, gate edge modes, once-only
-// and normally-closed marks. Several sources get a header each (SWITCH (E):, PAD:). The
-// font is ASCII: arrows read 4->3, folds 3X ..., a loop LOOPS BACK. At most
-// AUTOMAP_PRESS_MAX_LINES lines below the headers in the compact view, the last one
-// +N MORE (SHIFT); the hint is the first line to go. A source whose
-// walk ran out of budget ends with CHAIN CUT SHORT. Empty without sources. fullChain
-// lifts the cap as well: every line is kept (still folded), with no +N MORE.
+// The tooltip lines of one press source, from AutoMapScene_PressEffects, at depth 0 (the
+// caller indents them under the source's PAD / SWITCH header), each entry two spaces in.
+// Compact (shift false): THIS PRESS: the receivers the press reaches first (plain), then
+// RESULT: every goal behind them and how far it is (AutoMapTipResult), a delay at the end
+// (", AFTER 6 TICKS"). Shift with steps (AutoMapScene_PressHasSteps): ROUTE: and the whole
+// tree, two spaces per depth, with delays, gate edge modes, once-only and normally-closed
+// marks. Shift without steps: the full RESULT list. The font is ASCII: arrows read 4->3,
+// identical lines fold as 3X ..., a loop LOOPS BACK. Compact keeps at most
+// AUTOMAP_PRESS_MAX_LINES lines below the headings, the last one +N MORE (SHIFT); Shift
+// lifts the cap. A walk that ran out of budget ends with CHAIN CUT SHORT. No hint: the
+// tooltip adds SHIFT: ROUTE once for the tile.
 const size_t AUTOMAP_PRESS_MAX_LINES = 10;
-std::vector<std::string> AutoMapScene_PressLines(const AutoMapDrawList &drawList,
-                                                 const std::vector<AutoMapPressSource> &sources,
-                                                 bool fullChain);
+std::vector<AutoMapTipLine> AutoMapScene_PressBlock(const AutoMapDrawList &drawList,
+                                                    const AutoMapPressSource &source, bool shift);
+
+// A counter, gate, DSA or local action sits between the press and some result, so Shift
+// has a route to show
+bool AutoMapScene_PressHasSteps(const AutoMapPressSource &source);
 
 // Every link in the trees of a press, depth first and without duplicates, for the map to
 // light the whole chain. A local action has no link and adds none.
