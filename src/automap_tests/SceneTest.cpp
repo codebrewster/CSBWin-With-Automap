@@ -5455,6 +5455,138 @@ static void PressLinesNameClosedSwitchablePits(void)
   CHECK(!flagged);
 }
 
+// The spec's L11 example: a pad counts counter A (3) down; at 0 it opens the false wall and,
+// 6 ticks later, sets bit 1 of the gate (0101, needs 0111) that opens the door. A switch
+// feeds the gate's bit 2. Local coordinates are global minus (45, 23).
+static AutoMapLevelSnapshot L11PadCounterGate(void)
+{
+  AutoMapLevelSnapshot snapshot;
+  snapshot.level = 11;
+  snapshot.width = 7;
+  snapshot.height = 6;
+  snapshot.offsetX = 45;
+  snapshot.offsetY = 23;
+  snapshot.cells.assign(42, AutoMapCellRecord());
+  snapshot.cells[4 * 7 + 1].kind = AutoMapCellFloor;
+  snapshot.cells[3 * 7 + 2].kind = AutoMapCellFalseWall;
+  snapshot.cells[2 * 7 + 4].kind = AutoMapCellDoor;
+  snapshot.cells[2 * 7 + 4].doorState = AutoMapDoorClosed;
+  snapshot.cells[1 * 7 + 5].wallSides[AutoMapWest].picture = LEVER_PICTURE;
+  snapshot.party.x = 1;
+  snapshot.party.y = 4;
+  snapshot.party.facing = AutoMapNorth;
+  AutoMapFloorActuator pad = PadWithOp(1, 4, AutoMapPadParty);
+  pad.record = 300;
+  snapshot.actuators.push_back(pad);
+  PutRelay(&snapshot, 2, 4, CounterRelay(3), 400);
+  PutRelay(&snapshot, 3, 2, GateRelay(0x5 | (0x7 << 4), false), 401);
+  AutoMapLink padToCounter = Message(1, 4, 2, 4, 300, AutoMapSignalClear, 0, 0);
+  padToCounter.srcIsWall = false;
+  padToCounter.srcSide = -1;
+  snapshot.links.push_back(padToCounter);
+  snapshot.links.push_back(Message(2, 4, 2, 3, 400, AutoMapSignalSet, 0, 0));
+  snapshot.links.push_back(Message(2, 4, 3, 2, 400, AutoMapSignalSet, 1, 6));
+  snapshot.links.push_back(Message(3, 2, 4, 2, 401, AutoMapSignalSet, 0, 0));
+  AutoMapLink switchToGate = Message(5, 1, 3, 2, 500, AutoMapSignalToggle, 2, 0);
+  switchToGate.srcSide = AutoMapWest;
+  snapshot.links.push_back(switchToGate);
+  return snapshot;
+}
+
+static void RouteGateNeedsBothConditions(void)
+{
+  // The door sits under the gate's ON MATCH, which sits under the counter's AT 0: it needs
+  // both. The switch on bit 2 is the gate's other input; the delay is the gate's own message.
+  std::vector<AutoMapTipLine> block = RouteBlock(DrawAll(L11PadCounterGate()), 1, 4);
+  CHECK(JoinedTip(block) == "ROUTE:\n"
+                            "  COUNTER A L11 (47, 27)\n"
+                            "    COUNTS 3 -> 2\n"
+                            "    AT 0: (IN 2 MORE)\n"
+                            "      FALSE WALL L11 (47, 26) OPENS\n"
+                            "      GATE A L11 (48, 25), SETS BIT 1, AFTER 6 TICKS\n"
+                            "        BITS 0101 -> 0111, NEEDS 0111\n"
+                            "        BIT 2 FROM: SWITCH (W) L11 (50, 24)\n"
+                            "        ON MATCH: (IN 2 MORE)\n"
+                            "          DOOR L11 (49, 25) OPENS");
+  CHECK(block.size() == 10);
+  if (block.size() == 10) CHECK(block[7].style == AutoMapTipState);
+  // RESULT gives the total wait from the press
+  AutoMapDrawList drawList = DrawAll(L11PadCounterGate());
+  CHECK(HasText(PressText(drawList, AutoMapScene_PressEffects(drawList, 1, 4), false),
+                "DOOR L11 (49, 25) OPENS IN 2 MORE, AFTER 6 TICKS"));
+}
+
+// The user's gate: 0000, needs 0001, normally closed, sends only when the match changes,
+// once only; the lever toggles bit 0 and the gate opens the pit
+static AutoMapLevelSnapshot NormallyClosedGatePit(void)
+{
+  AutoMapLevelSnapshot snapshot = MachineRoom();
+  snapshot.cells[1 * 6 + 3].kind = AutoMapCellPit;
+  AutoMapRelay gate = GateRelay(0x0 | (0x1 << 4), false);
+  gate.normallyClosed = true;
+  gate.edgeMode = 2;
+  gate.onceOnly = true;
+  PutRelay(&snapshot, 2, 0, gate, 200);
+  snapshot.links.push_back(Message(0, 1, 2, 0, LEVER_RECORD, AutoMapSignalToggle, 0, 0));
+  snapshot.links.push_back(Message(2, 0, 3, 1, 200, AutoMapSignalSet, 0, 0));
+  return snapshot;
+}
+
+static void RouteNormallyClosedGateWithFilter(void)
+{
+  // This press makes it 0001: a match, so a normally-closed gate stays silent. The next
+  // makes it 0000: no match, and the match changed, so it sends.
+  CHECK(JoinedTip(RouteBlock(DrawAll(NormallyClosedGatePit()), 0, 1))
+        == "ROUTE:\n"
+           "  GATE A L0 (2, 0), TOGGLES BIT 0\n"
+           "    BITS 0000 -> 0001, NEEDS 0001\n"
+           "    ONCE ONLY\n"
+           "    ON NO MATCH, ONLY WHEN THE MATCH CHANGES: (NEXT PRESS)\n"
+           "      PIT L0 (3, 1) OPENS");
+  // A second lever on the same bit is another input; the pressed lever's own link is not
+  AutoMapLevelSnapshot twoLevers = NormallyClosedGatePit();
+  twoLevers.cells[0 * 6 + 3].wallSides[AutoMapSouth].picture = LEVER_PICTURE;
+  AutoMapLink second = Message(3, 0, 2, 0, 600, AutoMapSignalToggle, 0, 0);
+  second.srcSide = AutoMapSouth;
+  twoLevers.links.push_back(second);
+  CHECK(JoinedTip(RouteBlock(DrawAll(twoLevers), 0, 1))
+        == "ROUTE:\n"
+           "  GATE A L0 (2, 0), TOGGLES BIT 0\n"
+           "    BITS 0000 -> 0001, NEEDS 0001\n"
+           "    BIT 0 FROM: SWITCH (S) L0 (3, 0)\n"
+           "    ONCE ONLY\n"
+           "    ON NO MATCH, ONLY WHEN THE MATCH CHANGES: (NEXT PRESS)\n"
+           "      PIT L0 (3, 1) OPENS");
+  // Other inputs go by bit, whatever the order of their links
+  twoLevers.cells[0 * 6 + 4].wallSides[AutoMapSouth].picture = LEVER_PICTURE;
+  AutoMapLink third = Message(4, 0, 2, 0, 601, AutoMapSignalSet, 3, 0);
+  third.srcSide = AutoMapSouth;
+  twoLevers.links.insert(twoLevers.links.begin(), third);
+  std::vector<std::string> lines = Texts(RouteBlock(DrawAll(twoLevers), 0, 1));
+  CHECK(lines.size() == 8);
+  if (lines.size() == 8)
+  {
+    CHECK(lines[3] == "    BIT 0 FROM: SWITCH (S) L0 (3, 0)");
+    CHECK(lines[4] == "    BIT 3 FROM: SWITCH (S) L0 (4, 0)");
+  }
+}
+
+static void GateFilterWords(void)
+{
+  CHECK(AutoMapScene_GateFilterWords(0) == "");
+  CHECK(AutoMapScene_GateFilterWords(1) == ", ONLY WHEN A BIT CHANGES");
+  CHECK(AutoMapScene_GateFilterWords(2) == ", ONLY WHEN THE MATCH CHANGES");
+  CHECK(AutoMapScene_GateFilterWords(3) == ", ONLY WHEN A BIT CHANGES BUT THE MATCH DOES NOT");
+  CHECK(AutoMapScene_GateFilterWords(4) == ", ONLY ON SET");
+  CHECK(AutoMapScene_GateFilterWords(5) == ", ONLY ON CLEAR");
+  CHECK(AutoMapScene_GateFilterWords(6) == ", ONLY WHEN THE BIT TURNS ON");
+  CHECK(AutoMapScene_GateFilterWords(7) == ", ONLY WHEN THE BIT TURNS OFF");
+  // The relay hover words a gate's condition the same way
+  AutoMapDrawList drawList = DrawAll(NormallyClosedGatePit());
+  CHECK(HasText(AutoMapScene_RelayHoverLines(drawList, 2, 0, false),
+                "PIT OPEN ON NO MATCH, ONLY WHEN THE MATCH CHANGES"));
+}
+
 static void RouteStepMarks(void)
 {
   CHECK(RouteOf(CounterRelay(0), CounterEffect(0, 0), false)
@@ -6535,6 +6667,9 @@ void TestAutoMapScene(void)
   ShiftHintOnlyWithStepsBetween();
   ShiftOnACappedDirectListShowsEveryResult();
   PressLinesWordTheGoalDistance();
+  RouteGateNeedsBothConditions();
+  RouteNormallyClosedGateWithFilter();
+  GateFilterWords();
   RouteStepMarks();
   PressLinesFoldIdenticalReceiversAndCap();
   PressLinesGroupSources();

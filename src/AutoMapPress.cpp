@@ -953,6 +953,59 @@ static const char *PressLocalActionWord(int localActionType)
   return "LOCAL ACTION";
 }
 
+std::string AutoMapScene_GateFilterWords(int edgeMode)
+{
+  // GateReceives' andOrEdge cases, in the same order
+  switch (edgeMode)
+  {
+  case 1: return ", ONLY WHEN A BIT CHANGES";
+  case 2: return ", ONLY WHEN THE MATCH CHANGES";
+  case 3: return ", ONLY WHEN A BIT CHANGES BUT THE MATCH DOES NOT";
+  case 4: return ", ONLY ON SET";
+  case 5: return ", ONLY ON CLEAR";
+  case 6: return ", ONLY WHEN THE BIT TURNS ON";
+  case 7: return ", ONLY WHEN THE BIT TURNS OFF";
+  default: return "";
+  }
+}
+
+// When a gate sends, without the colon: on a match, or on no match when normally closed,
+// then its filter. One wording for the route and the relay hover.
+static std::string GateConditionWords(const AutoMapRelay &relay)
+{
+  return std::string(relay.normallyClosed ? "ON NO MATCH" : "ON MATCH")
+         + AutoMapScene_GateFilterWords(relay.edgeMode);
+}
+
+// What sends a link: the relay of its source record (COUNTER, GATE, DSA), else a PAD on the
+// floor or a SWITCH on a wall, with the face it sits on when known: SWITCH (N)
+static std::string PressFeederName(const AutoMapDrawList &drawList, const AutoMapLink &link)
+{
+  std::string name;
+  const AutoMapShownCell *from = FindShownCell(drawList, link.srcX, link.srcY);
+  if (from != NULL && link.source != AUTOMAP_NO_RECORD)
+  {
+    for (size_t r = 0; r < from->cell.wallRelays.size(); r++)
+    {
+      if (from->cell.wallRelays[r].record != link.source) continue;
+      const AutoMapRelay &relay = from->cell.wallRelays[r];
+      name = relay.kind == AutoMapRelayCounter ? "COUNTER"
+             : relay.kind == AutoMapRelayGate ? "GATE" : "DSA";
+    }
+    for (size_t a = 0; a < drawList.actuators.size(); a++)
+    {
+      const AutoMapFloorActuator &cog = drawList.actuators[a];
+      if (cog.x != link.srcX || cog.y != link.srcY || cog.relay.record != link.source) continue;
+      if (cog.kind != AutoMapActuatorCog) continue;
+      name = cog.relay.kind == AutoMapRelayCounter ? "COUNTER" : "DSA";
+    }
+  }
+  if (!name.empty()) return name;
+  if (!link.srcIsWall) return "PAD";
+  if (link.srcSide < AutoMapNorth || link.srcSide > AutoMapWest) return "SWITCH";
+  return std::string("SWITCH (") + FacingInitial(link.srcSide) + ")";
+}
+
 // What a stone cell or an open floor hands messages to: the relays in the order the
 // walk gives them the message
 struct HoverReceiver
@@ -1333,11 +1386,13 @@ static PressLine RouteLine(int depth, const std::string &text, AutoMapTipStyle s
   return line;
 }
 
-// What a step line ends in: the delay after a comma, and the DSA before it in its cell
-static std::string RouteStepTail(const AutoMapEffect &effect)
+// What a step line ends in: its own message's delay after a comma (the wait after the step
+// above lets it through; RESULT gives the total), and the DSA before it in its cell
+static std::string RouteStepTail(const AutoMapEffect &effect, int parentDelay)
 {
   std::string tail;
-  if (effect.delayTicks > 0) tail += "," + DelayWord(effect.delayTicks);
+  int delay = effect.delayTicks - parentDelay;
+  if (delay > 0) tail += "," + DelayWord(delay);
   if (effect.afterDSA) tail += " (IF DSA PASSES)";
   return tail;
 }
@@ -1380,8 +1435,27 @@ static const char *RouteGateVerb(const AutoMapEffect &gate)
   return (gate.after & (1 << bit)) != 0 ? "SETS" : "CLEARS";
 }
 
-static void RouteSteps(const AutoMapDrawList &drawList, const std::vector<AutoMapEffect> &effects,
-                       int depth, bool upstreamBlocked, bool closed, PressLines *out);
+// What the route walks with: the map, and every link the route already shows
+struct RouteContext
+{
+  const AutoMapDrawList *drawList;
+  std::vector<AutoMapLink> links;
+};
+
+// The links the route shows: the message of every step and goal. Unlike the chain the map
+// lights, a hand-built link without a source record counts too; a local action has none.
+static void RouteLinks(const std::vector<AutoMapEffect> &effects, std::vector<AutoMapLink> *links)
+{
+  for (size_t i = 0; i < effects.size(); i++)
+  {
+    if (effects[i].kind != AutoMapEffectLocalAction) links->push_back(effects[i].via);
+    RouteLinks(effects[i].next, links);
+  }
+}
+
+static void RouteSteps(const RouteContext &route, const std::vector<AutoMapEffect> &effects,
+                       int depth, int parentDelay, bool upstreamBlocked, bool closed,
+                       PressLines *out);
 
 // Whether a relay that took its message is closed, as ReceivePressMessage works it out: a
 // counter at 0, a gate whose bits match, inverted when normally closed
@@ -1393,17 +1467,54 @@ static bool RouteStepClosed(const AutoMapEffect &step, const AutoMapRelay *relay
   return ((step.after & 15) == pattern) != nc;
 }
 
-// One step of the route and all that follows from it. upstreamBlocked: the step above
-// already reads BLOCKED, so a block on this one may be that one's. closed: whether its
-// sender was closed, which says what a held message carries.
-static void RouteStep(const AutoMapDrawList &drawList, const AutoMapEffect &effect, int depth,
-                      bool upstreamBlocked, bool closed, PressLines *out)
+static bool LowerTargetPos(const AutoMapLink &a, const AutoMapLink &b)
 {
+  return a.targetPos < b.targetPos;
+}
+
+// A gate's other inputs, by bit: one line per link into its cell that the route does not show
+// already, on another bit or on the same one from another source (BIT 2 FROM: SWITCH (W)
+// L11 (50, 24)). Every gate of the cell takes each of them.
+static void RouteGateInputs(const RouteContext &route, const AutoMapEffect &gate, int depth,
+                            PressLines *out)
+{
+  const AutoMapDrawList &drawList = *route.drawList;
+  std::vector<AutoMapLink> incoming = AutoMapScene_LinksTo(drawList, gate.x, gate.y);
+  // By bit, then in link order
+  std::stable_sort(incoming.begin(), incoming.end(), LowerTargetPos);
+  std::vector<std::string> said;
+  for (size_t i = 0; i < incoming.size(); i++)
+  {
+    const AutoMapLink &link = incoming[i];
+    bool onRoute = false;
+    for (size_t j = 0; j < route.links.size() && !onRoute; j++)
+    {
+      onRoute = SamePressLink(route.links[j], link);
+    }
+    if (onRoute) continue;
+    std::string text = link.targetPos >= 0 && link.targetPos <= 3
+        ? "BIT " + std::to_string(link.targetPos) + " FROM: " : std::string("INPUT FROM: ");
+    text += PressFeederName(drawList, link) + " " + PressLocation(drawList, link.srcX, link.srcY);
+    if (std::find(said.begin(), said.end(), text) != said.end()) continue;
+    said.push_back(text);
+    out->push_back(RouteLine(depth, text, AutoMapTipState));
+  }
+}
+
+// One step of the route and all that follows from it. parentDelay: the delay of the step
+// above, which this one's own delay comes after. upstreamBlocked: the step above already
+// reads BLOCKED, so a block on this one may be that one's. closed: whether its sender was
+// closed, which says what a held message carries.
+static void RouteStep(const RouteContext &route, const AutoMapEffect &effect, int depth,
+                      int parentDelay, bool upstreamBlocked, bool closed, PressLines *out)
+{
+  const AutoMapDrawList &drawList = *route.drawList;
   const AutoMapRelay *relay = PressEffectRelay(drawList, effect);
   switch (effect.kind)
   {
   case AutoMapEffectGoal:
-    out->push_back(RouteLine(depth, RouteGoalText(drawList, effect, closed) + RouteStepTail(effect),
+    out->push_back(RouteLine(depth, RouteGoalText(drawList, effect, closed)
+                                        + RouteStepTail(effect, parentDelay),
                              AutoMapTipResult));
     return;
   case AutoMapEffectLoop:
@@ -1418,7 +1529,7 @@ static void RouteStep(const AutoMapDrawList &drawList, const AutoMapEffect &effe
   case AutoMapEffectDSA:
     out->push_back(RouteLine(depth, PressReceiverName(drawList, effect, "DSA") + " "
                                         + PressLocation(drawList, effect.x, effect.y)
-                                        + RouteStepTail(effect),
+                                        + RouteStepTail(effect, parentDelay),
                              AutoMapTipPlain));
     out->push_back(RouteLine(depth + 1, "IF ITS PROGRAM PASSES IT ON (NOT FOLLOWED)",
                              AutoMapTipCondition));
@@ -1437,7 +1548,7 @@ static void RouteStep(const AutoMapDrawList &drawList, const AutoMapEffect &effe
       step += " BIT " + std::to_string(effect.via.targetPos);
     }
   }
-  out->push_back(RouteLine(depth, step + RouteStepTail(effect), AutoMapTipPlain));
+  out->push_back(RouteLine(depth, step + RouteStepTail(effect, parentDelay), AutoMapTipPlain));
   // State: what this message does to it, then fixed facts
   std::string state;
   char text[64];
@@ -1457,6 +1568,7 @@ static void RouteStep(const AutoMapDrawList &drawList, const AutoMapEffect &effe
     state = text;
   }
   out->push_back(RouteLine(depth + 1, state, AutoMapTipState));
+  if (gate) RouteGateInputs(route, effect, depth + 1, out);
   // A once-only relay this press already spent, the path waiting on it, is inert by then.
   // When the step above is blocked, the block may be that one's: then only ONCE ONLY.
   bool blocked = effect.passes.status == AutoMapGoalBlocked;
@@ -1469,29 +1581,31 @@ static void RouteStep(const AutoMapDrawList &drawList, const AutoMapEffect &effe
   if (effect.next.empty()) return;
   // Condition: when it passes the message on, then what it sends, one further in. A
   // CONSTPRESSURE relay reports on every message it takes, whatever its count or bits.
-  std::string condition = gate ? (relay != NULL && relay->normallyClosed ? "ON NO MATCH:"
-                                                                         : "ON MATCH:")
+  // A gate's filter holds for a held gate too: it reports only the messages that pass it.
+  std::string filter = gate && relay != NULL ? AutoMapScene_GateFilterWords(relay->edgeMode) : "";
+  std::string condition = gate ? (relay != NULL ? GateConditionWords(*relay) : "ON MATCH") + ":"
                                : "AT 0:";
   bool held = relay != NULL && relay->signal == AutoMapSignalPressure;
-  if (held) condition = gate ? "EACH MESSAGE:" : "EACH COUNT:";
+  if (held) condition = gate ? "EACH MESSAGE" + filter + ":" : "EACH COUNT:";
   std::string note = AutoMapScene_WhenNote(effect.passes);
   if (!note.empty()) condition += " " + note;
   out->push_back(RouteLine(depth + 1, condition, AutoMapTipCondition));
   // What it sends now, or (waiting for more messages) once it fires: closed then
-  RouteSteps(drawList, effect.next, depth + 2, blocked,
+  RouteSteps(route, effect.next, depth + 2, effect.delayTicks, blocked,
              !effect.fires || RouteStepClosed(effect, relay), out);
 }
 
 // Siblings of the route in the walk's order; identical ones fold as 2X
-static void RouteSteps(const AutoMapDrawList &drawList, const std::vector<AutoMapEffect> &effects,
-                       int depth, bool upstreamBlocked, bool closed, PressLines *out)
+static void RouteSteps(const RouteContext &route, const std::vector<AutoMapEffect> &effects,
+                       int depth, int parentDelay, bool upstreamBlocked, bool closed,
+                       PressLines *out)
 {
   std::vector<PressLines> blocks(effects.size());
   for (size_t i = 0; i < effects.size(); i++)
   {
     // From the source itself: pressing closes it, or opens a normally-closed one
     bool sender = depth == 1 ? !effects[i].via.sourceNormallyClosed : closed;
-    RouteStep(drawList, effects[i], depth, upstreamBlocked, sender, &blocks[i]);
+    RouteStep(route, effects[i], depth, parentDelay, upstreamBlocked, sender, &blocks[i]);
   }
   FoldStyledBlocks(blocks, out);
 }
@@ -1504,7 +1618,10 @@ std::vector<AutoMapTipLine> AutoMapScene_PressBlock(const AutoMapDrawList &drawL
   if (shift && AutoMapScene_PressHasSteps(source))
   {
     lines.push_back(MakePressLine("ROUTE:", true, false));
-    RouteSteps(drawList, source.effects, 1, false, true, &lines);
+    RouteContext route;
+    route.drawList = &drawList;
+    RouteLinks(source.effects, &route.links);
+    RouteSteps(route, source.effects, 1, 0, false, true, &lines);
   }
   else
   {
@@ -1666,7 +1783,7 @@ std::vector<std::string> AutoMapScene_RelayHoverLines(const AutoMapDrawList &dra
       }
       else if (relay.kind == AutoMapRelayGate && link.signal != AutoMapSignalPressure)
       {
-        target += " ON MATCH";
+        target += " " + GateConditionWords(relay);
       }
       lines.push_back(head + " -> " + target + DelayWord(link.delay));
     }
@@ -1679,31 +1796,7 @@ std::vector<std::string> AutoMapScene_RelayHoverLines(const AutoMapDrawList &dra
   for (size_t i = 0; i < incoming.size(); i++)
   {
     const AutoMapLink &link = incoming[i];
-    std::string name;
-    const AutoMapShownCell *from = FindShownCell(drawList, link.srcX, link.srcY);
-    if (from != NULL && link.source != AUTOMAP_NO_RECORD)
-    {
-      for (size_t r = 0; r < from->cell.wallRelays.size(); r++)
-      {
-        if (from->cell.wallRelays[r].record != link.source) continue;
-        const AutoMapRelay &relay = from->cell.wallRelays[r];
-        name = relay.kind == AutoMapRelayCounter ? "COUNTER"
-               : relay.kind == AutoMapRelayGate ? "GATE" : "DSA";
-      }
-      for (size_t a = 0; a < drawList.actuators.size(); a++)
-      {
-        const AutoMapFloorActuator &cog = drawList.actuators[a];
-        if (cog.x != link.srcX || cog.y != link.srcY || cog.relay.record != link.source) continue;
-        if (cog.kind != AutoMapActuatorCog) continue;
-        name = cog.relay.kind == AutoMapRelayCounter ? "COUNTER" : "DSA";
-      }
-    }
-    if (name.empty())
-    {
-      if (!link.srcIsWall) name = "PAD";
-      else if (link.srcSide < AutoMapNorth || link.srcSide > AutoMapWest) name = "SWITCH";
-      else name = std::string("SWITCH (") + FacingInitial(link.srcSide) + ")";
-    }
+    std::string name = PressFeederName(drawList, link);
     std::string feeder = PressLocation(drawList, link.srcX, link.srcY) + " " + name;
     size_t found = feeders.size();
     for (size_t f = 0; f < feeders.size(); f++)

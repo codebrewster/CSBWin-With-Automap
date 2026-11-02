@@ -1386,9 +1386,12 @@ std::vector<const AutoMapEffect *> AutoMapScene_PressGoalsByCell(
 // RESULT: every goal behind them and how far it is (AutoMapTipResult), a delay at the end
 // (", AFTER 6 TICKS"). Shift with steps (AutoMapScene_PressHasSteps): ROUTE: and the
 // route, two spaces per depth, where a line one step further in only happens when the line
-// above passes the signal on: a step (COUNTER A L11 (47, 27), AFTER 6 TICKS), its state
-// lines (COUNTS 3 -> 2, ONCE ONLY; AutoMapTipState), its condition with the when-note
-// (AT 0: (IN 2 MORE); AutoMapTipCondition) and what it sends under that; goals
+// above passes the signal on: a step (COUNTER A L11 (47, 27), AFTER 6 TICKS: its own
+// message's delay, after the step above), its state lines (COUNTS 3 -> 2, BITS 0101 -> 0111,
+// NEEDS 0111, a gate's other inputs BIT 2 FROM: SWITCH (W) L11 (50, 24), ONCE ONLY;
+// AutoMapTipState), its condition with the gate's filter and the when-note (AT 0: (IN 2 MORE),
+// ON NO MATCH, ONLY WHEN THE MATCH CHANGES: (NEXT PRESS); AutoMapTipCondition) and what it
+// sends under that; goals
 // (AutoMapTipResult), a DSA (IF ITS PROGRAM PASSES IT ON (NOT FOLLOWED)), a local action,
 // LOOPS BACK TO COUNTER A. Shift without steps: the full RESULT list. The font is ASCII:
 // arrows read 4->3, identical siblings fold as 3X .... Compact keeps at most
@@ -1412,6 +1415,13 @@ std::vector<AutoMapLink> AutoMapScene_PressChainLinks(const std::vector<AutoMapP
 // (1 BIT OFF, IN 2 MORE)), (NEEDS OTHER SOURCES), (BLOCKED: COUNTER AT 0), (EVERY PRESS)
 // for a held message, (IF DSA PASSES); "" for already done or unknown.
 std::string AutoMapScene_WhenNote(const AutoMapGoalDistance &distance);
+
+// A gate's andOrEdge filter (CSB edgeMode 1..7) after a comma, as the route and the relay
+// hover put it behind ON MATCH / ON NO MATCH: ", ONLY WHEN A BIT CHANGES", ", ONLY WHEN THE
+// MATCH CHANGES", ", ONLY WHEN A BIT CHANGES BUT THE MATCH DOES NOT", ", ONLY ON SET",
+// ", ONLY ON CLEAR", ", ONLY WHEN THE BIT TURNS ON", ", ONLY WHEN THE BIT TURNS OFF"; ""
+// without a filter.
+std::string AutoMapScene_GateFilterWords(int edgeMode);
 
 // Short goal badge for the map: NOW, 2 MORE, 1 BIT OFF, NEEDS OTHERS, BLOCKED, HOLD, DSA, DONE;
 // empty for Unknown. Within the tooltip font.

@@ -236,21 +236,38 @@ line above lets the signal through:
 
 ```
 ROUTE:
-  COUNTER A L11 (47, 27), AFTER 1 TICK
+  COUNTER A L11 (47, 27)
     COUNTS 3 -> 2
     AT 0: (IN 2 MORE)
-      FALSE WALL L11 (47, 26) OPENS, AFTER 2 TICKS
+      FALSE WALL L11 (47, 26) OPENS
+      GATE A L11 (48, 25), SETS BIT 1, AFTER 6 TICKS
+        BITS 0101 -> 0111, NEEDS 0111
+        BIT 2 FROM: SWITCH (W) L11 (50, 24)
+        ON MATCH: (IN 2 MORE)
+          DOOR L11 (49, 25) OPENS
 ```
 
+The door sits under the gate's `ON MATCH:`, which sits under the counter's `AT 0:`: it needs both.
 Under each counter or gate come, one step in, what this press does to it (grey: `COUNTS 3 -> 2`,
 `BITS 0101 -> 0111, NEEDS 0111`, `ONCE ONLY`), then when it passes the signal on (cyan: `AT 0:`,
 `ON MATCH:`), with the same words RESULT and the badges use: `(THIS PRESS)`, `(NEXT PRESS)`,
 `(IN 2 MORE)`, `(NEEDS OTHER SOURCES)`, `(BLOCKED: COUNTER AT 0)`. What it sends sits one further in;
-goals are gold. A DSA reads `IF ITS PROGRAM PASSES IT ON (NOT FOLLOWED)` with nothing below it, and
+goals are gold.
+
+A gate also lists, in grey, the other inputs that reach it and are not on this route
+(`BIT 2 FROM: SWITCH (W) L11 (50, 24)`; a pad, counter, gate or DSA is named the same way). A
+normally-closed gate sends `ON NO MATCH:`. A gate that only reacts to some messages says so after a
+comma: `ONLY WHEN A BIT CHANGES`, `ONLY WHEN THE MATCH CHANGES`, `ONLY WHEN A BIT CHANGES BUT THE
+MATCH DOES NOT`, `ONLY ON SET`, `ONLY ON CLEAR`, `ONLY WHEN THE BIT TURNS ON` or `ONLY WHEN THE BIT
+TURNS OFF`, for example `ON NO MATCH, ONLY WHEN THE MATCH CHANGES: (NEXT PRESS)`.
+
+A DSA reads `IF ITS PROGRAM PASSES IT ON (NOT FOLLOWED)` with nothing below it, and
 steps after it in the same cell end in `(IF DSA PASSES)`. A message that comes back to a step on the
-route reads `LOOPS BACK TO COUNTER A`. A switch or pad wired straight to its goals has no route and
-shows no hint; when its RESULT list is too long for the tooltip (`+3 MORE (SHIFT)`), Shift shows all
-of it. Delays are in the game's ticks (about six a second): `AFTER 6 TICKS`.
+route reads `LOOPS BACK TO COUNTER A L11 (47, 27)`. A switch or pad wired straight to its goals has no
+route and shows no hint; when its RESULT list is too long for the tooltip (`+3 MORE (SHIFT)`), Shift
+shows all of it. Delays are in the game's ticks (about six a second): `AFTER 6 TICKS`. In the route a
+line's delay is the wait after the line above lets the signal through; RESULT gives the total from
+the press.
 
 ![Hovering a pad at spoiler level All: two more presses open the false wall](images/automap-press.png)
 
