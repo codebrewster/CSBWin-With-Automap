@@ -98,10 +98,22 @@ static std::string ItemArr(ExportPictures &sp, const AutoMapItem &item)
          JsonText(named) + "," + std::to_string((int)AutoMapScene_KindOfItem(item)) + "]";
 }
 
-static std::string StrArr(const std::vector<std::string> &v)
+// Tooltip lines as {"t":text,"s":style,"i":[item pictures]}; the text keeps its glyph codes
+// (\x01\x01 party, \x02\x02 claw, \x03\x03 box, \x04<n> item n of "i", \x05<facing> turned arrow)
+static std::string TipArr(ExportPictures &sp, const std::vector<AutoMapTipLine> &v)
 {
   std::string s = "[";
-  for (size_t i = 0; i < v.size(); i++) s += (i ? "," : "") + JsonText(v[i]);
+  for (size_t i = 0; i < v.size(); i++)
+  {
+    s += (i ? "," : "") + std::string("{\"t\":") + JsonText(v[i].text) + ",\"s\":" + std::to_string((int)v[i].style);
+    if (!v[i].items.empty())
+    {
+      s += ",\"i\":[";
+      for (size_t k = 0; k < v[i].items.size(); k++) s += (k ? "," : "") + ItemArr(sp, v[i].items[k]);
+      s += "]";
+    }
+    s += "}";
+  }
   return s + "]";
 }
 
@@ -223,17 +235,14 @@ static void WriteDrawList(FILE *f, ExportPictures &sp, const AutoMapDrawList &l,
     std::vector<AutoMapTooltipEntry> tip, tipFull;
     AutoMapWindow_TooltipFor(l, x, y, false, &tipLines, &tip);
     AutoMapWindow_TooltipFor(l, x, y, true, &tipLinesFull, &tipFull);
-    // The text of each line only, glyph codes included; the styles are not exported yet
-    std::vector<std::string> lines, linesFull;
-    for (size_t k = 0; k < tipLines.size(); k++) lines.push_back(tipLines[k].text);
-    for (size_t k = 0; k < tipLinesFull.size(); k++) linesFull.push_back(tipLinesFull[k].text);
+    std::string lines = TipArr(sp, tipLines), linesFull = TipArr(sp, tipLinesFull);
     std::vector<AutoMapLink> from = AutoMapScene_LinksFrom(l, x, y), to = AutoMapScene_LinksTo(l, x, y);
     std::ostringstream o;
     bool any = false;
-    if (!lines.empty())
+    if (!tipLines.empty())
     {
-      o << "\"tip\":" << StrArr(lines);
-      if (linesFull != lines) o << ",\"tipFull\":" << StrArr(linesFull);
+      o << "\"tip\":" << lines;
+      if (linesFull != lines) o << ",\"tipFull\":" << linesFull;
       o << ",\"icons\":[";
       for (size_t k = 0; k < tip.size(); k++)
         o << (k ? "," : "") << "[" << ItemArr(sp, tip[k].item) << "," << tip[k].count << "," << tip[k].nested << "," << tip[k].predicted << "," << tip[k].required << "," << tip[k].carried << "," << tip[k].side << "]";

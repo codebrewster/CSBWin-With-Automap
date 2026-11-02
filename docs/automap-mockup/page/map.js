@@ -401,10 +401,29 @@ function dedupe(ls) { const s = new Set(); return ls.filter(l => { const k = l.s
 // ============================================================================================
 // Tooltip: the game's own lines, presented the new way
 // ============================================================================================
-const TOK = /(\{party\}|\{claw\}|\{box\})/;
+// Lines are {t, s, i}: text with glyph codes (\x01\x01 party, \x02\x02 claw, \x03\x03 box, \x04<n> item n of i,
+// \x05<facing> gold turned arrow) and a style (the game's AutoMapTipStyle); older data and the page's own lines are plain strings
+const TOK = /(\{party\}|\{claw\}|\{box\}|\x01\x01|\x02\x02|\x03\x03|\x04[0-9]|\x05[0-3])/;
+const TIPCOL = ['#fff', '#e0b64a', '#a8b8bc', '#a8b8bc', '#a8b8bc', '#6ad8e8', '#ffcc33', '#8a8a9a', '#ffc83a'];
+const isGlyph = t => t[0] === '{' || t.charCodeAt(0) < 6;
 function richParts(s) { return s.split(TOK).filter(t => t !== ''); }
-function richW(s, p) { return richParts(s).reduce((n, t) => n + (t[0] === '{' ? 8 * p + 2 : textW(t, p) + p), 0); }
-function richText(x, y, s, col, p) { for (const t of richParts(s)) { if (t[0] === '{') { const sz = 7 * p; rect(x, y - p, sz, sz, '#0d0c0a'); frame(x, y - p, sz, sz, '#6b6255'); if (t === '{party}') partyArrow(x + sz / 2, y - p + sz / 2, sz * .36, 0, '#ff4d4d'); if (t === '{claw}') claw(x, y - p, sz, '#d8cfbd'); if (t === '{box}') frame(x + sz * .25, y - p + sz * .25, sz * .5, sz * .5, '#d8cfbd', 1); x += 8 * p + 2; } else { text(g, x, y, t, col, p); x += textW(t, p) + p; } } }
+function richW(s, p) { return richParts(s).reduce((n, t) => n + (isGlyph(t) ? 8 * p + 2 : textW(t, p) + p), 0); }
+function richText(x, y, s, col, p, items) {
+  for (const t of richParts(s)) {
+    if (isGlyph(t)) {
+      const sz = 7 * p, k = t[0] === '{' ? { '{party}': 1, '{claw}': 2, '{box}': 3 }[t] : t.charCodeAt(0), arg = t.length > 1 && k >= 4 ? t.charCodeAt(1) - 48 : 0;
+      if (k === 4) { const it = items && items[arg]; if (it) spr(it[1] || it[0], x, y - p, sz, sz, 1); }
+      else {
+        rect(x, y - p, sz, sz, '#0d0c0a'); frame(x, y - p, sz, sz, k === 5 ? '#e0b64a' : '#6b6255');
+        if (k === 1) partyArrow(x + sz / 2, y - p + sz / 2, sz * .36, 0, '#ff4d4d');
+        if (k === 5) partyArrow(x + sz / 2, y - p + sz / 2, sz * .36, arg, '#e0b64a');
+        if (k === 2) claw(x, y - p, sz, '#d8cfbd');
+        if (k === 3) frame(x + sz * .25, y - p + sz * .25, sz * .5, sz * .5, '#d8cfbd', 1);
+      }
+      x += 8 * p + 2;
+    } else { text(g, x, y, t, col, p); x += textW(t, p) + p; }
+  }
+}
 const TAKES = { 'PARTY+OBJECTS': '{party} PARTY {box} OBJECTS', 'OBJECTS': '{box} OBJECTS', 'MONSTERS': '{claw} MONSTERS', 'ANYTHING': 'ANYTHING' };
 function presentLine(s) {
   let m;
@@ -415,19 +434,20 @@ function presentLine(s) {
 }
 function tooltipLines() {
   const h = V.hover[hover.x + ',' + hover.y]; const lines = [];
-  const raw = h && h.tip ? ((shiftHeld && h.tipFull) ? h.tipFull : h.tip) : [];
+  const raw = (h && h.tip ? ((shiftHeld && h.tipFull) ? h.tipFull : h.tip) : []).map(l => typeof l === 'string' ? { t: l } : l);
   // The game's tooltip names the group right after POS (gold); older exports lacked it, so the page adds it then
   const m = monAt[hover.x + ',' + hover.y];
   const nameLine = m && m.name ? nice(m.name) + (m.m.length > 1 ? ' X' + m.m.length : '') : '';
-  const hasName = nameLine && raw.length > 1 && raw[1].toUpperCase() === (m.name.toUpperCase() + (m.m.length > 1 ? ' X' + m.m.length : ''));
+  const hasName = nameLine && raw.length > 1 && raw[1].t.toUpperCase() === (m.name.toUpperCase() + (m.m.length > 1 ? ' X' + m.m.length : ''));
   raw.forEach((s, i) => {
-    if (i === 1 && hasName) { if (SHOW.MONSTERS) lines.push('#' + nameLine); return; }
-    lines.push(presentLine(s));
-    if (i === 0 && !hasName && nameLine && SHOW.MONSTERS) lines.push('#' + nameLine);
+    if (s.s === 8 && !SHOW.MONSTERS) return;
+    if (i === 1 && hasName) { if (SHOW.MONSTERS) lines.push({ t: nameLine, s: 8 }); return; }
+    lines.push(s.s === undefined ? { t: presentLine(s.t) } : s);
+    if (i === 0 && !hasName && nameLine && SHOW.MONSTERS) lines.push({ t: nameLine, s: 8 });
   });
   const key = hover.x + ',' + hover.y, N = noteOf();
-  if (key in N.pits) lines.push(N.pits[key] ? 'YOUR MARK: HIDDEN PIT OPEN' : 'YOUR MARK: HIDDEN PIT CLOSED');
-  N.links.filter(l => l[0] === hover.x && l[1] === hover.y).forEach(l => lines.push(`YOUR LINK TO (${l[2] + OX}, ${l[3] + OY})`));
+  if (key in N.pits) lines.push({ t: N.pits[key] ? 'YOUR MARK: HIDDEN PIT OPEN' : 'YOUR MARK: HIDDEN PIT CLOSED' });
+  N.links.filter(l => l[0] === hover.x && l[1] === hover.y).forEach(l => lines.push({ t: `YOUR LINK TO (${l[2] + OX}, ${l[3] + OY})` }));
   return { lines, icons: h && h.icons ? h.icons : [] };
 }
 function drawTooltip(L) {
@@ -437,8 +457,8 @@ function drawTooltip(L) {
   const T = 36, PER = 6, MAXT = 12; const tiles = icons.length > MAXT ? icons.slice(0, MAXT - 1) : icons; const more = icons.length - tiles.length;
   const nt = tiles.length + (more ? 1 : 0), cols = Math.min(PER, nt), rowsT = Math.ceil(nt / PER), gridW = cols * (T + 4), gridH = nt ? rowsT * (T + 4) + 4 : 0;
   const maxLines = Math.max(4, Math.floor((cv.height - 2 * RUL - gridH - 40) / lh)); const scrollMax = Math.max(0, lines.length - maxLines); tipScroll = Math.min(tipScroll, scrollMax);
-  const shown = lines.slice(tipScroll, tipScroll + maxLines); if (tipScroll > 0) shown[0] = `-${tipScroll} MORE`; if (tipScroll + maxLines < lines.length) shown[shown.length - 1] = `+${lines.length - tipScroll - maxLines + 1} MORE, SHIFT+WHEEL`;
-  const w = Math.max(gridW + 4, ...shown.map(s => richW(s.replace(/^#/, ''), p))) + 10, h = gridH + shown.length * lh + 8;
+  const shown = lines.slice(tipScroll, tipScroll + maxLines); if (tipScroll > 0) shown[0] = { t: `-${tipScroll} MORE`, s: 7 }; if (tipScroll + maxLines < lines.length) shown[shown.length - 1] = { t: `+${lines.length - tipScroll - maxLines + 1} MORE, SHIFT+WHEEL`, s: 7 };
+  const w = Math.max(gridW + 4, ...shown.map(l => richW(l.t, p))) + 10, h = gridH + shown.length * lh + 8;
   let lx = 0, ly = 0; [...L.gold, ...L.cyan, ...L.feed].forEach(l => { lx += l[2] + l[0] - 2 * hover.x; ly += l[3] + l[1] - 2 * hover.y; });
   let x = lx > 0 ? px(hover.x) - w - cs * .2 : px(hover.x) + cs * 1.2, y = ly > 0 ? py(hover.y) - h + cs * .2 : py(hover.y) + cs * .8;
   x = Math.round(Math.max(RUL, Math.min(x, cv.width - RUL - w))); y = Math.round(Math.max(RUL, Math.min(y, cv.height - RUL - h)));
@@ -452,7 +472,7 @@ function drawTooltip(L) {
     spr(item[1] || item[0], tx + inset + 2, ty + inset + 2, T - 2 * inset - 4, T - 2 * inset - 4, predicted ? .5 : 1);
     if (count > 1) { const s = String(count), bw = textW(s, 2) + 4; rect(tx + T - bw - 1, ty + T - 15, bw, 14, '#0d0c0a'); text(g, tx + T - bw + 1, ty + T - 13, s, COL.item, 2); }
   }
-  shown.forEach((s, i) => { const gold = s[0] === '#'; const t = gold ? s.slice(1) : s; const muted = /^(WOULD|DORMANT)/.test(t); richText(x + 5, y + gridH + 6 + i * lh, t, gold ? '#ffcc33' : muted ? '#a8b8bc' : '#fff', p); });
+  shown.forEach((l, i) => { const muted = l.s === undefined && /^(WOULD|DORMANT)/.test(l.t); richText(x + 5, y + gridH + 6 + i * lh, l.t, l.s === undefined ? (muted ? '#a8b8bc' : '#fff') : TIPCOL[l.s] || '#fff', p, l.i); });
 }
 
 // ============================================================================================

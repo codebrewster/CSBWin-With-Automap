@@ -199,6 +199,33 @@ allows.
 A tooltip that does not fit the window shows a `+N MORE` line. Hold **Shift**
 and turn the wheel to scroll it.
 
+### How the tooltip is laid out
+
+The tooltip is grouped by what is in the cell. The `POS:` line comes first, then the monster
+names, then one **header** per thing in the cell, in gold: `TELEPORTER`, `PAD`, `SWITCH (E)`,
+`GATE A`, `COUNTER B`. A thing the party cannot use yet is a *dormant* one: its header
+(`DORMANT TELEPORTER`) and its `WOULD ...` lines are in pale blue-grey. Everything that belongs to a
+header sits under it, indented by the one rule: **every line is two spaces further in than the
+header or line it belongs to.** So a teleporter's `TAKES:`, `SENDS:` and `TURN:` lines are two in,
+and the lines under `RESULT:` or `THIS PRESS:` are two further in again. Pads with the same
+trigger share **one** `PAD` group: the trigger is written once and all their results follow under
+it.
+
+Lines have a colour for what they say:
+
+| Colour | What it is |
+| --- | --- |
+| white | facts: position, trigger, what a teleporter takes and sends, health |
+| gold | headers, and the goals under `RESULT:` (what the press finally opens, closes or toggles) |
+| grey | the state of a counter or gate, `HOLD: ...`, `ONCE ONLY`, the gate's filter |
+| cyan | the condition on which a step passes the signal on (`AT 0:`, `ON MATCH:`) |
+| dim | hints: `SHIFT: ROUTE`, `+N MORE` |
+
+Small pictures stand in for words, as on the map: the party's red arrow is **PARTY**, the claw is
+**MONSTERS**, the square is **OBJECTS**. An item a pad needs is drawn as its own picture
+(`CARRY` the Firestaff, `OBJECT` a green gem). A pad that needs the party to face a direction
+shows a gold-framed arrow turned that way, followed by `PARTY FACING N`.
+
 ![Hovering a pile: item names and the contents the map remembers](images/automap-items.png)
 
 ![Hovering a monster generator at spoiler level All: what it creates, its hit points, and lines from the pads that trigger it](images/automap-incoming-links.png)
@@ -230,8 +257,12 @@ On the map each goal gets a frame and a badge: `NOW`, `2 MORE`, `1 BIT OFF`, `NE
 `BLOCKED`, `HOLD`, `DSA` or `DONE`. Goals that happen now, soon or already are gold; those that wait
 on something else are orange. Hovering a relay draws what feeds it in blue and what it feeds in gold.
 
+A goal has one badge. When several presses reach it, the badge shows the most imminent state:
+`NOW`, then `2 MORE` (the fewest more presses first), `HOLD`, `DSA`, `NEEDS OTHERS`, `DONE`,
+and `BLOCKED` last.
+
 When a counter, gate, DSA or local action sits between the press and a goal, the tooltip ends with
-`SHIFT: ROUTE`: hold **Shift** to see the ROUTE. A line one step further in only happens when the
+`SHIFT: ROUTE`: hold **Shift** to see the ROUTE instead of THIS PRESS and RESULT. A line one step further in only happens when the
 line above lets the signal through:
 
 ```
@@ -293,7 +324,7 @@ shows all of it. Delays are in the game's ticks (about six a second): `AFTER 6 T
 line's delay is the wait after the line above lets the signal through; RESULT gives the total from
 the press.
 
-![Hovering a pad at spoiler level All: two more presses open the false wall](images/automap-press.png)
+![Hovering a pad at spoiler level All: one PAD group with its trigger, THIS PRESS in white, RESULT with the goal in gold, and the dim SHIFT: ROUTE hint](images/automap-press.png)
 
 ## Searching
 
