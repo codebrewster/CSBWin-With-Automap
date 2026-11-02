@@ -238,6 +238,7 @@ static AutoMapMonsterRecord GroupAt(int x, int y)
   monster.kind.hasSidePicture = false;
   monster.kind.hasBackPicture = false;
   monster.kind.transparentColour = 4;
+  monster.kind.size = 0;
   monster.memberCount = 1;
   for (int member = 0; member < AUTOMAP_LARGEST_GROUP; member++) monster.memberFacings[member] = AutoMapWest;
   return monster;

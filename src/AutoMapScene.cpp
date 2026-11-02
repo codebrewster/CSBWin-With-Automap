@@ -724,6 +724,8 @@ static AutoMapShownMonster ShowMonster(const AutoMapMonsterRecord &monster,
   shown.x = monster.x;
   shown.y = monster.y;
   shown.transparentColour = monster.kind.transparentColour;
+  shown.size = monster.kind.size;
+  shown.positions = monster.positions;
   shown.name = monster.name;
   shown.record = monster.record;
   shown.memberCount = std::min(monster.memberCount, AUTOMAP_LARGEST_GROUP);

@@ -383,6 +383,10 @@ struct AutoMapMonsterKind
   bool hasSidePicture;
   bool hasBackPicture;
   int transparentColour;
+  // MONSTERDESC horizontalSize(): 0 small, 1 medium, 2 large. No initialiser, so the
+  // brace-initialised kinds stay aggregates in C++11 (the omitted member is zero); a kind
+  // built field by field sets it.
+  int size;
 };
 
 struct AutoMapMonsterRecord
@@ -392,6 +396,9 @@ struct AutoMapMonsterRecord
   AutoMapMonsterKind kind;
   int memberCount;
   AutoMapDirection memberFacings[AUTOMAP_LARGEST_GROUP];
+  // Where the members stand on the tile: four 2-bit fields, member m at (positions >> 2m) & 3;
+  // AUTOMAP_CENTRE_POSITIONS when the group stands in the middle.
+  int positions = AUTOMAP_CENTRE_POSITIONS;
   // Current hit points per group member in group order (DB4 hitPoints6).
   // No max exists per instance: spawn max is not stored after damage.
   std::vector<int> memberHealth;
@@ -720,6 +727,9 @@ struct AutoMapShownMonster
   int x;
   int y;
   int transparentColour;
+  // Copied from the record's kind and positions
+  int size = 0;
+  int positions = AUTOMAP_CENTRE_POSITIONS;
   int memberCount;
   AutoMapMonsterPicture memberPictures[AUTOMAP_LARGEST_GROUP];
   AutoMapDirection memberFacings[AUTOMAP_LARGEST_GROUP];

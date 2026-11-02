@@ -63,6 +63,7 @@ static AutoMapMonsterRecord MummyAt(int x, int y)
   monster.kind.hasSidePicture = true;
   monster.kind.hasBackPicture = true;
   monster.kind.transparentColour = 4;
+  monster.kind.size = 0;
   monster.memberCount = 1;
   for (int member = 0; member < AUTOMAP_LARGEST_GROUP; member++) monster.memberFacings[member] = AutoMapWest;
   return monster;
@@ -5465,8 +5466,30 @@ static void MonsterHitsKnowTheirGroup(void)
   CHECK(hits.size() == 1 && hits[0].group == 0x40011u);
 }
 
+static void AGroupKeepsWhereItsMembersStandAndItsSize(void)
+{
+  AutoMapLevelSnapshot corridor = Corridor();
+  AutoMapMonsterRecord group = MummyAt(2, 1);
+  group.memberCount = 2;
+  group.kind.size = 1;
+  group.positions = 1 | (3 << 2);
+  corridor.monsters.push_back(group);
+  corridor.monsters.push_back(MummyAt(1, 1));
+  AutoMapExplored explored = NothingExplored();
+  AutoMapVisibleCells visibleNow;
+  AutoMapDrawList drawList = AutoMapScene_BuildDrawList(corridor, NoFog(explored, visibleNow));
+  CHECK(drawList.monsters.size() == 2);
+  const AutoMapShownMonster &pair = drawList.monsters[0].x == 2 ? drawList.monsters[0] : drawList.monsters[1];
+  const AutoMapShownMonster &lone = drawList.monsters[0].x == 2 ? drawList.monsters[1] : drawList.monsters[0];
+  CHECK(pair.size == 1);
+  CHECK(pair.positions == (1 | (3 << 2)));
+  CHECK(lone.size == 0);
+  CHECK(lone.positions == AUTOMAP_CENTRE_POSITIONS);
+}
+
 void TestAutoMapScene(void)
 {
+  AGroupKeepsWhereItsMembersStandAndItsSize();
   SearchSelectionStartsOnTheFirstListedHit();
   MonsterHitsKnowTheirGroup();
   SearchFindsMonstersAndGenerators();

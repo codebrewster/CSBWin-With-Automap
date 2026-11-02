@@ -557,6 +557,7 @@ static AutoMapMonsterKind KindOfType(int monsterType)
   kind.hasSidePicture = type->word4.HasSideGraphic();
   kind.hasBackPicture = type->word4.HasBackGraphic();
   kind.transparentColour = pictures->uByte10 & 15;
+  kind.size = type->horizontalSize();
   return kind;
 }
 
@@ -849,6 +850,7 @@ static void ReadMonster(RN monster, int x, int y, AutoMapLevelSnapshot *snapshot
   record.name = DisplayNameOf(group->monsterType(), group->alternateGraphics());
   record.record = RecordIdOf(monster);
   record.memberCount = group->numMonM1() + 1;
+  record.positions = MonsterPositionByte(group, snapshot->level, false) & 255;
   for (int member = 0; member < AUTOMAP_LARGEST_GROUP; member++)
   {
     record.memberFacings[member] = FacingOfMember(group, member, snapshot->level);
