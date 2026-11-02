@@ -210,7 +210,7 @@ static void WriteDrawList(FILE *f, ExportPictures &sp, const AutoMapDrawList &l,
     o << "{\"x\":" << m.x << ",\"y\":" << m.y << ",\"name\":" << JsonText(m.name) << ",\"m\":[";
     for (int k = 0; k < m.memberCount; k++)
       o << (k ? "," : "") << "[" << JsonText(sp.Plain(m.memberPictures[k].picture, m.transparentColour)) << "," << m.memberPictures[k].isMirrored << "," << (int)m.memberFacings[k] << "]";
-    o << "]}";
+    o << "],\"size\":" << m.size << ",\"pos\":" << m.positions << "}";
     fprintf(f, "%s%s", i ? "," : "", o.str().c_str());
   }
   fprintf(f, "],\"missiles\":[");

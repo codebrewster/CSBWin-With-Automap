@@ -266,19 +266,44 @@ function drawGlimpses() {
   for (const [x, y] of V.glimpses) glimpseMark(Math.max(1, Math.round(cs / 9)), px(x), py(y), cs, cs);
   for (const [x, y, side] of V.gfaces) { let ax = px(x), ay = py(y), aw = cs, ah = cs; if (side === 0 || side === 2) ah = cs / 3; else aw = cs / 3; if (side === 2) ay += cs - ah; if (side === 1) ax += cs - aw; glimpseMark(Math.max(1, Math.round(cs / 16)), ax, ay, aw, ah); }
 }
+// Where a member stands on its tile, as AutoMapLayout_MemberArea: its corner (a quarter), its half, or the whole tile
+function memberArea(pos, member, size, facing0, c) {
+  let a = { x: 0, y: 0, w: c, h: c };
+  if (pos === 255 || size < 0 || size > 1) return a;
+  const corner = (pos >> (2 * member)) & 3, half = Math.floor(c / 2), rest = c - half, east = corner === 1 || corner === 2, south = corner === 2 || corner === 3, ns = (facing0 & 1) !== 0;
+  if (size === 0 || !ns) { a.x = east ? half : 0; a.w = east ? rest : half; }
+  if (size === 0 || ns) { a.y = south ? half : 0; a.h = south ? rest : half; }
+  return a;
+}
+function figureFeet(a, c) { return [a.x + a.w * .5, (a.w === c && a.h === c) ? c * .72 : a.y + a.h * .94]; }
+// The facing mark sits against the side of the area the member faces, in a square of the area's shorter side; a black rim keeps it apart from a pale figure
+function facingMark(a, facing, x, y) {
+  const side = Math.min(a.w, a.h); let sx = x + a.x + (a.w - side) / 2, sy = y + a.y + (a.h - side) / 2;
+  if (facing === 0) sy = y + a.y; if (facing === 1) sx = x + a.x + a.w - side; if (facing === 2) sy = y + a.y + a.h - side; if (facing === 3) sx = x + a.x;
+  const turn = ([fx, fy]) => { fx -= .5; fy -= .5; const [tx, ty] = facing === 2 ? [-fy, fx] : facing === 3 ? [-fx, -fy] : facing === 0 ? [fy, -fx] : [fx, fy]; return [sx + (tx + .5) * side, sy + (ty + .5) * side]; };
+  const pts = [[1, .5], [.82, .36], [.82, .64]].map(turn);
+  tri(pts, '#fff'); g.strokeStyle = '#000'; g.lineWidth = 1; g.beginPath(); g.moveTo(...pts[0]); g.lineTo(...pts[1]); g.lineTo(...pts[2]); g.closePath(); g.stroke();
+}
 function drawMonsters() {
   if (!SHOW.MONSTERS) return;
   const ms = [...V.monsters].sort((a, b) => a.y - b.y);
   for (const m of ms) {
-    const x = px(m.x), y = py(m.y), n = m.m.length;
-    m.m.forEach((mb, i) => {
-      const im = img[mb[0]]; const cx = x + cs * (2 * i + 1) / (2 * n), feet = y + cs * .62;
-      if (!im || !im.width) { rect(cx - cs * .12, feet - cs * .25, cs * .24, cs * .24, '#c05050'); return; }
+    const x = px(m.x), y = py(m.y), n = m.m.length, formed = m.size !== undefined; // old data has no size and pos: a line across the tile
+    const areas = m.m.map((mb, i) => formed ? memberArea(m.pos === undefined ? 255 : m.pos, i, m.size, m.m[0][2], cs) : null);
+    const feetOf = i => formed ? y + figureFeet(areas[i], cs)[1] : y + cs * .62;
+    const order = m.m.map((_, i) => i).sort((a, b) => feetOf(a) - feetOf(b) || a - b); // the back row first
+    for (const i of order) {
+      const mb = m.m[i], im = img[mb[0]]; const cx = formed ? x + figureFeet(areas[i], cs)[0] : x + cs * (2 * i + 1) / (2 * n), feet = feetOf(i);
+      if (!im || !im.width) { rect(cx - cs * .12, feet - cs * .25, cs * .24, cs * .24, '#c05050'); continue; }
       const sc = .5 * cs / 60, w = im.width * sc, h = im.height * sc;
       g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(Math.round(cx - w * .38), Math.round(feet - 4), Math.round(w * .76), 4);
       g.save(); if (mb[1]) { g.translate(cx, 0); g.scale(-1, 1); g.translate(-cx, 0); } g.imageSmoothingEnabled = false; g.drawImage(im, Math.round(cx - w / 2), Math.round(feet - h), Math.round(w), Math.round(h)); g.restore();
-    });
-    m.m.forEach(mb => { const [dx, dy] = [[0, -1], [1, 0], [0, 1], [-1, 0]][mb[2] & 3]; const tx = x + cs / 2 + dx * cs / 2, ty = y + cs / 2 + dy * cs / 2, qx = -dy, qy = dx; tri([[tx, ty], [tx - dx * cs * .18 + qx * cs * .14, ty - dy * cs * .18 + qy * cs * .14], [tx - dx * cs * .18 - qx * cs * .14, ty - dy * cs * .18 - qy * cs * .14]], '#e9e2d2'); });
+    }
+  }
+  for (const m of ms) { // over the figures, so a tall one does not hide a mark
+    const x = px(m.x), y = py(m.y);
+    if (m.size !== undefined) m.m.forEach((mb, i) => facingMark(memberArea(m.pos === undefined ? 255 : m.pos, i, m.size, m.m[0][2], cs), mb[2] & 3, x, y));
+    else m.m.forEach(mb => { const [dx, dy] = [[0, -1], [1, 0], [0, 1], [-1, 0]][mb[2] & 3]; const tx = x + cs / 2 + dx * cs / 2, ty = y + cs / 2 + dy * cs / 2, qx = -dy, qy = dx; tri([[tx, ty], [tx - dx * cs * .18 + qx * cs * .14, ty - dy * cs * .18 + qy * cs * .14], [tx - dx * cs * .18 - qx * cs * .14, ty - dy * cs * .18 - qy * cs * .14]], '#e9e2d2'); });
   }
 }
 function drawParty() { const p = party(); if (!p) return; partyArrow(px(p.x) + cs / 2, py(p.y) + cs / 2, cs * .38, p.f, '#ff4d4d', '#fff'); }
