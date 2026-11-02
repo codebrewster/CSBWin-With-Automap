@@ -2165,6 +2165,7 @@ static void TriggerLinesFoldDuplicatesAndNameContraptions(void)
   CHECK(machineLines[0] == "GENERATES 3X Mummy");
 }
 
+// A party pad and a monster pad want different things: two presses
 static void EachPadOfACellIsItsOwnPress(void)
 {
   AutoMapLevelSnapshot snapshot = Corridor();
@@ -2193,6 +2194,53 @@ static void EachPadOfACellIsItsOwnPress(void)
   CHECK(sources[1].source == 102);
   CHECK(sources[1].effects.size() == 1);
   CHECK(sources[1].effects[0].x == 1 && sources[1].effects[0].y == 0);
+}
+
+// Two party pads fire on the same step: one press with both their doors
+static void SameTriggerPadsAreOnePress(void)
+{
+  AutoMapLevelSnapshot snapshot = Corridor();
+  snapshot.cells[1 * 4 + 1].kind = AutoMapCellFloor;
+  snapshot.cells[1 * 4 + 2].kind = AutoMapCellDoor;
+  snapshot.cells[0 * 4 + 1].kind = AutoMapCellDoor;
+  snapshot.actuators.push_back(PadWithOp(1, 1, AutoMapPadParty));
+  snapshot.actuators.push_back(PadWithOp(1, 1, AutoMapPadParty));
+  snapshot.actuators[0].record = 101;
+  snapshot.actuators[1].record = 102;
+  AutoMapLink toFirst = {1, 1, 2, 1, false, -1};
+  toFirst.source = 101;
+  AutoMapLink toSecond = {1, 1, 1, 0, false, -1};
+  toSecond.source = 102;
+  snapshot.links.push_back(toFirst);
+  snapshot.links.push_back(toSecond);
+  AutoMapExplored explored = NothingExplored();
+  AutoMapVisibleCells visibleNow;
+  AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
+  std::vector<AutoMapPressSource> sources = AutoMapScene_PressEffects(drawList, 1, 1);
+  CHECK(sources.size() == 1);
+  if (sources.size() != 1) return;
+  CHECK(sources[0].source == 101);
+  CHECK(sources[0].effects.size() == 2);
+  CHECK(AutoMapScene_PressGoalsByCell(sources).size() == 2);
+  // Facing pads are one press only when they want the same facing
+  AutoMapLevelSnapshot facing = snapshot;
+  facing.actuators[0].op = AutoMapPadPartyFacing;
+  facing.actuators[0].requiredFacing = AutoMapEast;
+  facing.actuators[1].op = AutoMapPadPartyFacing;
+  facing.actuators[1].requiredFacing = AutoMapWest;
+  AutoMapDrawList facingList = AutoMapScene_BuildDrawList(facing, NoFog(explored, visibleNow));
+  CHECK(AutoMapScene_PressEffects(facingList, 1, 1).size() == 2);
+  facing.actuators[1].requiredFacing = AutoMapEast;
+  facingList = AutoMapScene_BuildDrawList(facing, NoFog(explored, visibleNow));
+  CHECK(AutoMapScene_PressEffects(facingList, 1, 1).size() == 1);
+  // Object pads only when they want the same object
+  AutoMapLevelSnapshot objects = snapshot;
+  objects.actuators[0].op = AutoMapPadObject;
+  objects.actuators[0].object = ItemPicture(360);
+  objects.actuators[1].op = AutoMapPadObject;
+  objects.actuators[1].object = ItemPicture(361);
+  AutoMapDrawList objectList = AutoMapScene_BuildDrawList(objects, NoFog(explored, visibleNow));
+  CHECK(AutoMapScene_PressEffects(objectList, 1, 1).size() == 2);
 }
 
 static void PadsReachingOneDoorGetOneBadge(void)
@@ -3048,6 +3096,43 @@ static void MachineryGroupsTeleporterAndPad(void)
   CHECK(lines[4].style == AutoMapTipHeader);
   CHECK(lines[7].style == AutoMapTipResult);
   for (size_t i = 0; i < lines.size(); i++) CHECK(lines[i].text.find("SHIFT") == std::string::npos);
+}
+
+// The user's L12 tile has several party pads, each wired to a generator: one PAD, one
+// TRIGGER, every generator under one RESULT
+static void SameTriggerPadsShareOnePadGroup(void)
+{
+  AutoMapLevelSnapshot snapshot = TeleporterOnAPartyPad();
+  snapshot.width = 5;
+  snapshot.cells.assign(15, AutoMapCellRecord());
+  AutoMapLevelSnapshot narrow = TeleporterOnAPartyPad();
+  for (int y = 0; y < 3; y++)
+  {
+    for (int x = 0; x < 4; x++) snapshot.cells[y * 5 + x] = narrow.cells[y * 4 + x];
+  }
+  snapshot.cells[1 * 5 + 3].kind = AutoMapCellFloor;
+  AutoMapFloorActuator pad = PadWithOp(1, 1, AutoMapPadParty);
+  pad.record = 103;
+  snapshot.actuators.push_back(pad);
+  AutoMapFloorActuator generator(3, 1, AutoMapActuatorGenerator);
+  generator.record = 104;
+  snapshot.actuators.push_back(generator);
+  AutoMapLink padToGenerator = {1, 1, 3, 1, false, -1};
+  padToGenerator.source = 103;
+  snapshot.links.push_back(padToGenerator);
+  AutoMapExplored explored = NothingExplored();
+  AutoMapVisibleCells visibleNow;
+  AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
+  CHECK(JoinedTip(AutoMapTooltip_Machinery(drawList, 1, 1, false, TestItemName))
+        == "TELEPORTER\n"
+           "  TAKES: \x02\x02 MONSTERS\n"
+           "  SENDS: L0 (2, 1)\n"
+           "  TURN: STRAIGHT\n"
+           "PAD\n"
+           "  TRIGGER: \x01\x01 PARTY\n"
+           "  RESULT:\n"
+           "    GENERATOR L0 (2, 1) OPENS ON THIS PRESS\n"
+           "    GENERATOR L0 (3, 1) OPENS ON THIS PRESS");
 }
 
 static void DormantTeleporterKeepsItsWouldLines(void)
@@ -5933,6 +6018,7 @@ void TestAutoMapScene(void)
   TriggerLinesFoldDuplicatesAndNameContraptions();
   TriggerLinesStaySilentWithoutTheCell();
   EachPadOfACellIsItsOwnPress();
+  SameTriggerPadsAreOnePress();
   PadsReachingOneDoorGetOneBadge();
   GeneratorHealthRangeFollowsEngineFormula();
   GeneratorHealthLinesNameEachValueOnItsOwnLine();
@@ -6007,6 +6093,7 @@ void TestAutoMapScene(void)
   DormantDestinationHidesWithItsCell();
   LiveDestinationHidesWithItsCell();
   MachineryGroupsTeleporterAndPad();
+  SameTriggerPadsShareOnePadGroup();
   DormantTeleporterKeepsItsWouldLines();
   TriggerIconsForEveryPadKind();
   BelowAllTheMachineryShowsNoRouteOrRelays();

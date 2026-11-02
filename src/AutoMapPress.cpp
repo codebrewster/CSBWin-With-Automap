@@ -697,12 +697,18 @@ static bool SentByOwnRelay(const AutoMapDrawList &drawList, const AutoMapShownCe
   return false;
 }
 
-// A link sent from the face (or, on a floor, the pad) a press source stands for
-static bool SamePressFace(const AutoMapPressSource &source, const AutoMapLink &link)
+// A link sent from the face (or, on a floor, a pad with the same trigger) a press source
+// stands for. One step fires every pad of the cell that wants what stepped on it, so pads
+// with one trigger are one press; a pad the draw list does not know is its own.
+static bool SamePressFace(const AutoMapDrawList &drawList, int x, int y,
+                          const AutoMapPressSource &source, const AutoMapLink &link)
 {
   if (source.srcIsWall != link.srcIsWall) return false;
   if (link.srcIsWall) return source.srcSide == link.srcSide;
-  return source.source == link.source;
+  if (source.source == link.source) return true;
+  const AutoMapFloorActuator *first = AutoMapScene_PadOfRecord(drawList, x, y, source.source);
+  const AutoMapFloorActuator *other = AutoMapScene_PadOfRecord(drawList, x, y, link.source);
+  return first != NULL && other != NULL && AutoMapScene_SamePadTrigger(*first, *other);
 }
 
 std::vector<AutoMapPressSource> AutoMapScene_PressEffects(const AutoMapDrawList &drawList,
@@ -712,9 +718,9 @@ std::vector<AutoMapPressSource> AutoMapScene_PressEffects(const AutoMapDrawList 
   // Below All the relay machinery is stripped and the links are the learned ones
   if (drawList.spoilers != AutoMapSpoilersAll) return sources;
   // One click fires every actuator on the touched face (TouchWall walks them all), so a
-  // face is one press: its links share one state in link order. Each pad of a cell is
-  // its own press, as pads react to different things (party, monster, object). Each
-  // press starts from the live state.
+  // face is one press: its links share one state in link order. The pads of a cell are
+  // one press per trigger, as pads react to different things (party, monster, object);
+  // pads with the same trigger fire together. Each press starts from the live state.
   std::vector<PressState> states;
   const AutoMapShownCell *own = FindShownCell(drawList, x, y);
   PressWalk walk;
@@ -728,7 +734,7 @@ std::vector<AutoMapPressSource> AutoMapScene_PressEffects(const AutoMapDrawList 
     if (FindShownCell(drawList, link.dstX, link.dstY) == NULL) continue;
     if (SentByOwnRelay(drawList, own, x, y, link)) continue;
     size_t group = 0;
-    while (group < sources.size() && !SamePressFace(sources[group], link)) group++;
+    while (group < sources.size() && !SamePressFace(drawList, x, y, sources[group], link)) group++;
     if (group == sources.size())
     {
       AutoMapPressSource source;

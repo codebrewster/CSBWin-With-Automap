@@ -154,13 +154,28 @@ std::vector<AutoMapTipLine> AutoMapTooltip_Machinery(const AutoMapDrawList &draw
   {
     const AutoMapFloorActuator &actuator = drawList.actuators[a];
     if (actuator.x != x || actuator.y != y || actuator.kind == AutoMapActuatorCog) continue;
+    // Pads with one trigger are one press (AutoMapScene_PressEffects): one group, said once
+    bool pad = actuator.kind == AutoMapActuatorPad;
+    bool said = false;
+    for (size_t e = 0; e < a && pad && !said; e++)
+    {
+      const AutoMapFloorActuator &earlier = drawList.actuators[e];
+      said = earlier.x == x && earlier.y == y && AutoMapScene_SamePadTrigger(earlier, actuator);
+    }
+    if (said) continue;
     std::vector<AutoMapTipLine> children =
         AutoMapScene_ActuatorLines(drawList, actuator, nameForIndex);
     bool pressed = false;
     for (size_t s = 0; s < sources.size(); s++)
     {
-      if (placed[s] || sources[s].srcIsWall || sources[s].source != actuator.record) continue;
-      if (actuator.record == AUTOMAP_NO_RECORD) continue;
+      if (placed[s] || sources[s].srcIsWall) continue;
+      // A source is its first pad's record; a pad without one claims the source without one
+      bool mine = sources[s].source == actuator.record
+          && (pad || actuator.record != AUTOMAP_NO_RECORD);
+      const AutoMapFloorActuator *first =
+          AutoMapScene_PadOfRecord(drawList, x, y, sources[s].source);
+      if (!mine && pad && first != NULL) mine = AutoMapScene_SamePadTrigger(*first, actuator);
+      if (!mine) continue;
       AddPressBlock(drawList, sources[s], shift, &children, &wantsHint);
       placed[s] = true;
       pressed = true;

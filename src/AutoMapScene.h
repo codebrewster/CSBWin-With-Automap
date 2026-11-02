@@ -1352,14 +1352,23 @@ struct AutoMapPressSource
 // counter just reads 0, and what it would send is followed as later once per path, so
 // the goals behind it read blocked). Each goal carries its distance, worked out from
 // its path once the source's tree is complete. Sources are grouped by face (srcIsWall,
-// srcSide; every pad of a floor cell is its own, by record) in link order, and the
-// links of one share its state. The walk stops after 1000 effects and marks the source it was on
-// truncated. Links sent by the relays of (x, y) itself (stone relays, floor cogs) are no
+// srcSide; the pads of a floor cell by trigger, AutoMapScene_SamePadTrigger) in link
+// order, and the links of one share its state. The walk stops after 1000 effects and
+// marks the source it was on truncated. Links sent by the relays of (x, y) itself (stone relays, floor cogs) are no
 // press and are left out: a relay cell reads through AutoMapScene_RelayHoverLines. Empty
 // below All, or when (x, y) has no outgoing link with an explored target; unexplored
 // cells are neither named nor followed.
 std::vector<AutoMapPressSource> AutoMapScene_PressEffects(const AutoMapDrawList &drawList,
                                                           int x, int y);
+
+// The pad actuator (kind Pad) of record at (x, y), NULL when there is none or record is
+// AUTOMAP_NO_RECORD
+const AutoMapFloorActuator *AutoMapScene_PadOfRecord(const AutoMapDrawList &drawList, int x, int y,
+                                                     AutoMapRecordId record);
+
+// Two pads want the same thing: same operator, and the same required object or facing
+// where the operator names one. One step fires both together.
+bool AutoMapScene_SamePadTrigger(const AutoMapFloorActuator &a, const AutoMapFloorActuator &b);
 
 // One goal effect per goal cell over all sources, the most imminent status winning:
 // on this press, more (fewest first), holds, through a DSA, needs others, already

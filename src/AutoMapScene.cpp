@@ -1615,6 +1615,29 @@ std::vector<std::string> AutoMapScene_GeneratorHealthLines(int levelMultiplier,
   return lines;
 }
 
+const AutoMapFloorActuator *AutoMapScene_PadOfRecord(const AutoMapDrawList &drawList, int x, int y,
+                                                     AutoMapRecordId record)
+{
+  if (record == AUTOMAP_NO_RECORD) return NULL;
+  for (size_t i = 0; i < drawList.actuators.size(); i++)
+  {
+    const AutoMapFloorActuator &pad = drawList.actuators[i];
+    if (pad.x == x && pad.y == y && pad.kind == AutoMapActuatorPad && pad.record == record)
+    {
+      return &pad;
+    }
+  }
+  return NULL;
+}
+
+bool AutoMapScene_SamePadTrigger(const AutoMapFloorActuator &a, const AutoMapFloorActuator &b)
+{
+  if (a.kind != b.kind || a.op != b.op) return false;
+  if (a.op == AutoMapPadPartyFacing) return a.requiredFacing == b.requiredFacing;
+  if (a.op == AutoMapPadObject || a.op == AutoMapPadPossession) return a.object == b.object;
+  return true;
+}
+
 std::vector<AutoMapTipLine> AutoMapScene_TriggerLines(const AutoMapDrawList &drawList, int x, int y,
                                                       AutoMapItemNameFn nameForIndex)
 {
