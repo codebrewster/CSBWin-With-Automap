@@ -5074,11 +5074,12 @@ static void HeldSourceAgreesInRouteResultAndBadge(void)
 {
   // A normally-closed held lever counts the counter down on press and up again on release:
   // at 4 press and release never get it to 0, so ROUTE, RESULT and badge say it needs other
-  // sources; at 1 every step fires on this press, which holds while pressed
+  // sources; at 1 the press takes it to 0 and the door opens, but the release's SET finds a
+  // dead counter (OperateCounterActuator), so the door stays open: this press, not a hold
   std::string result, badge;
   for (int count = 1; count <= 4; count += 3)
   {
-    AutoMapLevelSnapshot snapshot = MachineRoom();
+    AutoMapLevelSnapshot snapshot = ShutMachineRoom();
     PutRelay(&snapshot, 2, 0, CounterRelay(count), 200);
     AutoMapLink held = Message(0, 1, 2, 0, LEVER_RECORD, AutoMapSignalPressure, 0, 0);
     held.sourceNormallyClosed = true;
@@ -5097,11 +5098,39 @@ static void HeldSourceAgreesInRouteResultAndBadge(void)
     else
     {
       CHECK(route == "ROUTE:\n  COUNTER A L0 (2, 0)\n    COUNTS 1 -> 0\n"
-                     "    AT 0: (EVERY PRESS)\n      DOOR L0 (5, 1) OPENS");
-      CHECK(result == "  DOOR L0 (5, 1) HOLDS WHILE PRESSED");
-      CHECK(badge == "HOLD");
+                     "    AT 0: (THIS PRESS)\n      DOOR L0 (5, 1) OPENS");
+      CHECK(result == "  DOOR L0 (5, 1) OPENS ON THIS PRESS");
+      CHECK(badge == "NOW");
     }
   }
+  // Held into a plain gate that needs bit 0: the press sets it and the gate opens the door;
+  // the release clears it, no match, and a plain gate sends nothing. The door stays open.
+  AutoMapLevelSnapshot plainGate = ShutMachineRoom();
+  PutRelay(&plainGate, 2, 0, GateRelay(0x1 << 4, false), 200);
+  plainGate.links.push_back(Message(0, 1, 2, 0, LEVER_RECORD, AutoMapSignalPressure, 0, 0));
+  plainGate.links.push_back(Message(2, 0, 5, 1, 200, AutoMapSignalSet, 0, 0));
+  AutoMapDrawList plainList = DrawAll(plainGate);
+  LeverResultAndBadge(plainList, &result, &badge);
+  CHECK(result == "  DOOR L0 (5, 1) OPENS ON THIS PRESS");
+  CHECK(badge == "NOW");
+  std::string plainRoute = JoinedTip(RouteBlock(plainList, 0, 1));
+  CHECK(plainRoute.find("ON MATCH: (THIS PRESS)") != std::string::npos);
+  CHECK(plainRoute.find("EVERY PRESS") == std::string::npos);
+  // A held gate instead reports the release too: the press matches (SET, the door opens),
+  // the release unmatches (CLEAR, it closes). That holds while pressed.
+  AutoMapLevelSnapshot heldGate = ShutMachineRoom();
+  AutoMapRelay held = GateRelay(0x1 << 4, false);
+  held.signal = AutoMapSignalPressure;
+  PutRelay(&heldGate, 2, 0, held, 200);
+  heldGate.links.push_back(Message(0, 1, 2, 0, LEVER_RECORD, AutoMapSignalPressure, 0, 0));
+  heldGate.links.push_back(Message(2, 0, 5, 1, 200, AutoMapSignalPressure, 0, 0));
+  LeverResultAndBadge(DrawAll(heldGate), &result, &badge);
+  CHECK(result == "  DOOR L0 (5, 1) HOLDS WHILE PRESSED");
+  CHECK(badge == "HOLD");
+  // ... unless the bit was already set: the press changes nothing, so neither does the release
+  heldGate.cells[0 * 6 + 2].wallRelays[0].value = 0x1 | (0x1 << 4);
+  LeverResultAndBadge(DrawAll(heldGate), &result, &badge);
+  CHECK(result.find("HOLDS") == std::string::npos && badge != "HOLD");
   // Held straight into the door: HOLD everywhere (no steps, so no route)
   AutoMapLevelSnapshot direct = MachineRoom();
   direct.links.push_back(Message(0, 1, 5, 1, LEVER_RECORD, AutoMapSignalPressure, 0, 0));
@@ -5126,6 +5155,199 @@ static void HeldRelayMidPathIsNoHold(void)
   LeverResultAndBadge(LeverHeldCounterGate(3), &result, &badge);
   CHECK(result.find("HOLD") == std::string::npos && badge != "HOLD");
   CHECK(result.find("NEEDS OTHER SOURCES") != std::string::npos);
+}
+
+static void GoalBadgePrefersHoldAndDoneOverMore(void)
+{
+  // Two faces of the lever's wall reach one door: the south one counts a counter at 3 down (3 MORE),
+  // the other is held straight into the door (HOLD), or a plain SET into the open door (DONE).
+  // An open or held door is more imminent than one three presses away.
+  for (int held = 0; held < 2; held++)
+  {
+    AutoMapLevelSnapshot snapshot = ShutMachineRoom();
+    if (!held) snapshot.cells[1 * 6 + 5].doorState = AutoMapDoorOpen;
+    snapshot.cells[1 * 6 + 0].wallSides[AutoMapSouth].picture = LEVER_PICTURE;
+    PutRelay(&snapshot, 2, 0, CounterRelay(3), 200);
+    AutoMapLink counted = Message(0, 1, 2, 0, 101, AutoMapSignalClear, 0, 0);
+    counted.srcSide = AutoMapSouth;
+    snapshot.links.push_back(counted);
+    snapshot.links.push_back(Message(2, 0, 5, 1, 200, AutoMapSignalSet, 0, 0));
+    snapshot.links.push_back(Message(0, 1, 5, 1, LEVER_RECORD,
+                                     held ? AutoMapSignalPressure : AutoMapSignalSet, 0, 0));
+    AutoMapDrawList drawList = DrawAll(snapshot);
+    std::vector<AutoMapPressSource> sources = AutoMapScene_PressEffects(drawList, 0, 1);
+    CHECK(sources.size() == 2);
+    std::vector<const AutoMapEffect *> goals = AutoMapScene_PressGoalsByCell(sources);
+    CHECK(goals.size() == 1);
+    if (goals.size() != 1) continue;
+    CHECK(AutoMapScene_GoalBadge(goals[0]->distance) == (held ? "HOLD" : "DONE"));
+  }
+}
+
+static void NormallyClosedGateHasNoBitsOff(void)
+{
+  // A normally-closed gate needing 0011 sends on no match, only on SET. The lever clears
+  // bit 0: 0001 -> 0000, a mismatch, but the filter drops the CLEAR. It wants a mismatch,
+  // so "2 BITS OFF" would mislead: nothing reads bits off.
+  AutoMapLevelSnapshot snapshot = ShutMachineRoom();
+  AutoMapRelay gate = GateRelay(0x1 | (0x3 << 4), false);
+  gate.normallyClosed = true;
+  gate.edgeMode = 4;
+  PutRelay(&snapshot, 2, 0, gate, 200);
+  snapshot.links.push_back(Message(0, 1, 2, 0, LEVER_RECORD, AutoMapSignalClear, 0, 0));
+  snapshot.links.push_back(Message(2, 0, 5, 1, 200, AutoMapSignalSet, 0, 0));
+  AutoMapDrawList drawList = DrawAll(snapshot);
+  std::string result, badge;
+  LeverResultAndBadge(drawList, &result, &badge);
+  CHECK(result == "  DOOR L0 (5, 1) NEEDS OTHER SOURCES");
+  CHECK(badge == "NEEDS OTHERS");
+  std::string route = JoinedTip(RouteBlock(drawList, 0, 1));
+  CHECK(route.find("ON NO MATCH, ONLY ON SET: (NEEDS OTHER SOURCES)") != std::string::npos);
+  CHECK(route.find("BIT OFF") == std::string::npos && route.find("BITS OFF") == std::string::npos);
+  // The same gate normally open still counts them
+  snapshot.cells[0 * 6 + 2].wallRelays[0].normallyClosed = false;
+  LeverResultAndBadge(DrawAll(snapshot), &result, &badge);
+  CHECK(result == "  DOOR L0 (5, 1) 2 BITS OFF, NEEDS OTHER SOURCES");
+}
+
+// A floor cell (1, 1) of the corridor with pads, a gate at (0, 1) needing 0001 that opens the
+// closed door at (2, 1). Each pad (record 101, 102, ...) sets one bit of the gate.
+static AutoMapLevelSnapshot PadGateRoom(void)
+{
+  AutoMapLevelSnapshot snapshot = Corridor();
+  snapshot.cells[1 * 4 + 2].kind = AutoMapCellDoor;
+  snapshot.cells[1 * 4 + 2].doorState = AutoMapDoorClosed;
+  PutRelay(&snapshot, 0, 1, GateRelay(0x1 << 4, false), 200);
+  return snapshot;
+}
+
+static void AddPad(AutoMapLevelSnapshot *snapshot, AutoMapPadOperator op, AutoMapRecordId record,
+                   int bit)
+{
+  AutoMapFloorActuator pad = PadWithOp(1, 1, op);
+  pad.record = record;
+  if (op == AutoMapPadPartyFacing) pad.requiredFacing = AutoMapEast;
+  snapshot->actuators.push_back(pad);
+  AutoMapLink link = {1, 1, 0, 1, false, -1};
+  link.source = record;
+  link.targetPos = bit;
+  snapshot->links.push_back(link);
+}
+
+static void FinishPadGateRoom(AutoMapLevelSnapshot *snapshot)
+{
+  AutoMapLink open = {0, 1, 2, 1, true, AutoMapEast};
+  open.source = 200;
+  snapshot->links.push_back(open);
+}
+
+// The RESULT lines of every source of the pad cell, and the door's badge
+static void PadResults(const AutoMapDrawList &drawList, std::vector<std::string> *texts,
+                       std::string *badge)
+{
+  std::vector<AutoMapPressSource> sources = AutoMapScene_PressEffects(drawList, 1, 1);
+  *texts = PressText(drawList, sources, false);
+  std::vector<const AutoMapEffect *> goals = AutoMapScene_PressGoalsByCell(sources);
+  *badge = goals.size() == 1 ? AutoMapScene_GoalBadge(goals[0]->distance) : std::string("?");
+}
+
+static void OverlappingPadsFireTogether(void)
+{
+  // The reviewer's probe: a PARTY OR MONSTER pad sets bit 1, then a PARTY pad bit 0. Alone
+  // the party pad would read 0000 -> 0001, a match. But a party step fires both, in order:
+  // 0000 -> 0010 -> 0011, never a match. Nothing reads ON THIS PRESS or NOW.
+  AutoMapLevelSnapshot snapshot = PadGateRoom();
+  AddPad(&snapshot, AutoMapPadPartyOrMonster, 101, 1);
+  AddPad(&snapshot, AutoMapPadParty, 102, 0);
+  FinishPadGateRoom(&snapshot);
+  AutoMapDrawList drawList = DrawAll(snapshot);
+  std::vector<std::string> texts;
+  std::string badge;
+  PadResults(drawList, &texts, &badge);
+  std::string joined = Joined(texts);
+  CHECK(joined == "THIS PRESS:\n  L0 (0, 1) GATE A 0000->0010 (NEEDS 0001) NO MATCH\nRESULT:\n"
+                  "  DOOR L0 (2, 1) NEEDS OTHER SOURCES\n"
+                  "THIS PRESS:\n  L0 (0, 1) GATE A 0010->0011 (NEEDS 0001) NO MATCH\nRESULT:\n"
+                  "  DOOR L0 (2, 1) NEEDS OTHER SOURCES");
+  CHECK(joined.find("ON THIS PRESS") == std::string::npos);
+  CHECK(badge == "NEEDS OTHERS");
+  // The other order: the party pad's bit comes first and matches, so the gate opens the door
+  // before the second message unmatches it (a plain gate sends nothing then). That is what
+  // the game does, and the party pad's RESULT says so.
+  AutoMapLevelSnapshot partyFirst = PadGateRoom();
+  AddPad(&partyFirst, AutoMapPadParty, 102, 0);
+  AddPad(&partyFirst, AutoMapPadPartyOrMonster, 101, 1);
+  FinishPadGateRoom(&partyFirst);
+  PadResults(DrawAll(partyFirst), &texts, &badge);
+  CHECK(texts.size() == 8 && texts[3] == "  DOOR L0 (2, 1) OPENS ON THIS PRESS");
+  CHECK(texts.size() == 8 && texts[7] == "  DOOR L0 (2, 1) NEEDS OTHER SOURCES");
+  CHECK(badge == "NOW");
+}
+
+static void FacingPadOverlapNeedsOtherSources(void)
+{
+  // A PARTY FACING pad sets bit 1, a PARTY pad bit 0. A step facing east fires both (0011,
+  // no match), a step facing elsewhere only the party pad (0001, a match): whether the door
+  // opens depends on the facing. Neither pad alone is known to open it.
+  AutoMapLevelSnapshot snapshot = PadGateRoom();
+  AddPad(&snapshot, AutoMapPadPartyFacing, 101, 1);
+  AddPad(&snapshot, AutoMapPadParty, 102, 0);
+  FinishPadGateRoom(&snapshot);
+  std::vector<std::string> texts;
+  std::string badge;
+  PadResults(DrawAll(snapshot), &texts, &badge);
+  CHECK(texts.size() == 8);
+  if (texts.size() != 8) return;
+  CHECK(texts[3] == "  DOOR L0 (2, 1) NEEDS OTHER SOURCES");
+  // The party pad's own message still matches: the facing pad may or may not come too
+  CHECK(texts[5] == "  L0 (0, 1) GATE A 0000->0001 (NEEDS 0001) MATCH");
+  CHECK(texts[7] == "  DOOR L0 (2, 1) NEEDS OTHER SOURCES");
+  CHECK(badge == "NEEDS OTHERS");
+  // A MONSTER pad never fires on the party's step: the party pad keeps its match
+  AutoMapLevelSnapshot monster = PadGateRoom();
+  AddPad(&monster, AutoMapPadMonster, 101, 1);
+  AddPad(&monster, AutoMapPadParty, 102, 0);
+  FinishPadGateRoom(&monster);
+  PadResults(DrawAll(monster), &texts, &badge);
+  CHECK(texts.size() == 8 && texts[7] == "  DOOR L0 (2, 1) OPENS ON THIS PRESS");
+  CHECK(badge == "NOW");
+}
+
+static void MixedTriggerPadsGroupByTrigger(void)
+{
+  // Two party pads and a monster pad on one floor: one PAD group for the party pads with
+  // both their doors, one for the monster pad with its own
+  AutoMapLevelSnapshot snapshot = Corridor();
+  snapshot.cells[1 * 4 + 2].kind = AutoMapCellDoor;
+  snapshot.cells[1 * 4 + 2].doorState = AutoMapDoorClosed;
+  snapshot.cells[0 * 4 + 1].kind = AutoMapCellDoor;
+  snapshot.cells[0 * 4 + 1].doorState = AutoMapDoorClosed;
+  snapshot.cells[2 * 4 + 1].kind = AutoMapCellDoor;
+  snapshot.cells[2 * 4 + 1].doorState = AutoMapDoorClosed;
+  const int doors[3][2] = {{2, 1}, {1, 0}, {1, 2}};
+  const AutoMapPadOperator ops[3] = {AutoMapPadParty, AutoMapPadMonster, AutoMapPadParty};
+  for (int i = 0; i < 3; i++)
+  {
+    AutoMapFloorActuator pad = PadWithOp(1, 1, ops[i]);
+    pad.record = 101 + i;
+    snapshot.actuators.push_back(pad);
+    AutoMapLink link = {1, 1, doors[i][0], doors[i][1], false, -1};
+    link.source = 101 + i;
+    snapshot.links.push_back(link);
+  }
+  AutoMapDrawList drawList = DrawAll(snapshot);
+  std::vector<std::string> tip =
+      Texts(AutoMapTooltip_Machinery(drawList, 1, 1, false, TestItemName));
+  CHECK(tip.size() == 9);
+  if (tip.size() != 9) return;
+  CHECK(tip[0] == "PAD" && tip[5] == "PAD");
+  CHECK(tip[1].find("TRIGGER: ") == 2 && tip[1].find("PARTY") != std::string::npos);
+  CHECK(tip[2] == "  RESULT:");
+  CHECK(tip[3] == "    DOOR L0 (2, 1) OPENS ON THIS PRESS");
+  CHECK(tip[4] == "    DOOR L0 (1, 2) OPENS ON THIS PRESS");
+  CHECK(tip[6].find("TRIGGER: ") == 2 && tip[6].find("MONSTER") != std::string::npos);
+  CHECK(tip[7] == "  RESULT:");
+  CHECK(tip[8] == "    DOOR L0 (1, 0) OPENS ON THIS PRESS");
 }
 
 static void HeldGateWaitingOnItsFilterNeedsAMatch(void)
@@ -6833,6 +7055,11 @@ void TestAutoMapScene(void)
   RouteCounterThenGoal();
   RouteDeadCounterIsBlocked();
   HeldSourceAgreesInRouteResultAndBadge();
+  GoalBadgePrefersHoldAndDoneOverMore();
+  NormallyClosedGateHasNoBitsOff();
+  OverlappingPadsFireTogether();
+  FacingPadOverlapNeedsOtherSources();
+  MixedTriggerPadsGroupByTrigger();
   HeldRelayMidPathIsNoHold();
   HeldGateWaitingOnItsFilterNeedsAMatch();
   RouteAfterADSANeverSaysThisPress();

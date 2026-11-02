@@ -430,12 +430,52 @@ const char *PressPathBlock(const PressPath &path, const PressState &spentBy)
   return NULL;
 }
 
-// The press itself is held (its source sends CONSTPRESSURE): the release takes back what the
-// press sent, so what it reaches holds only while pressed. A held relay further on is not
-// that: it reports what it really sends, and a counter it drives to 0 stays dead there.
-bool PressPathHolds(const PressPath &path)
+// The relay record behind an effect, NULL for goals, loops and an index out of range
+const AutoMapRelay *EffectRelay(const AutoMapDrawList &drawList, const AutoMapEffect &effect)
 {
-  return !path.empty() && path[0]->via.signal == AutoMapSignalPressure;
+  if (effect.relay < 0) return NULL;
+  if (effect.floorRelay)
+  {
+    if (effect.relay >= (int)drawList.actuators.size()) return NULL;
+    return &drawList.actuators[effect.relay].relay;
+  }
+  const AutoMapShownCell *cell = FindShownCell(drawList, effect.x, effect.y);
+  if (cell == NULL || effect.relay >= (int)cell->cell.wallRelays.size()) return NULL;
+  return &cell->cell.wallRelays[effect.relay];
+}
+
+// The press itself is held (its source sends CONSTPRESSURE), and the release takes back
+// what the press sent all the way to the end of the path, so what it reaches holds only
+// while pressed. That is so straight from the source, and through held gates (CONSTPRESSURE)
+// that this press turns (match to no match or back) and the release, the opposite message
+// on the same bit, turns back past their filter. Nothing else carries the release:
+// - a plain gate sends only when it closes, so the release finds it silent;
+// - a counter driven to 0 is dead (OperateCounterActuator ignores every later message), and
+//   one above 0 sends the same both times, held or not;
+// - a held relay further on, after a plain one, reports what it really sends.
+// Such a goal is the press's own (THIS PRESS) or comes later; it does not hold.
+bool PressPathHolds(const AutoMapDrawList &drawList, const PressPath &path)
+{
+  if (path.empty() || path[0]->via.signal != AutoMapSignalPressure) return false;
+  for (size_t i = 0; i + 1 < path.size(); i++)
+  {
+    const AutoMapEffect &step = *path[i];
+    const AutoMapRelay *relay = EffectRelay(drawList, step);
+    if (step.kind != AutoMapEffectGate || relay == NULL || relay->signal != AutoMapSignalPressure
+        || path[i + 1]->via.signal != AutoMapSignalPressure || !step.fires || step.later)
+    {
+      return false;
+    }
+    AutoMapSignal pressed = PressCarried(step);
+    if (pressed != AutoMapSignalSet && pressed != AutoMapSignalClear) return false;
+    AutoMapSignal released = pressed == AutoMapSignalSet ? AutoMapSignalClear : AutoMapSignalSet;
+    bool closedNow = false, firesNow = false, closedBack = false, firesBack = false;
+    GateReceives(*relay, step.before, step.via.targetPos, pressed, &closedNow, &firesNow);
+    int back = GateReceives(*relay, step.after, step.via.targetPos, released, &closedBack,
+                            &firesBack);
+    if (back != step.before || !firesBack || closedBack == closedNow) return false;
+  }
+  return true;
 }
 
 // Any held link on the path, source or relay: a held relay's later messages swing with its
@@ -552,6 +592,61 @@ int PressesToFireGate(const std::vector<PressGateMessage> &messages, const AutoM
   return fire;
 }
 
+// What the other pads of the cell do on the step that fires this source (pads of one
+// cell with different triggers are separate sources, AutoMapScene_PressEffects). Pads
+// sure to fire on that step are walked with the source, in the cell's link order and on
+// its state; pads that may fire on it, or may not, are walked alone, only to see what
+// they reach. Neither kind's goals are the source's own.
+struct PressRivals
+{
+  PressRivals(void) : all(false)
+  {
+  }
+  // A rival walk ran out of budget: what the rivals reach is not known
+  bool all;
+  // Counters and gates, and goal cells, a pad that may fire reaches (any message)
+  std::set<PressRelayKey> mayRelays;
+  std::set<std::pair<int, int> > mayCells;
+  // Counters and gates a pad sure to fire reaches (any message), and the goal cells its
+  // messages reach on the step itself
+  std::set<PressRelayKey> sureRelays;
+  std::set<std::pair<int, int> > sureCellsNow;
+};
+
+// Whether a rival pad leaves a goal less certain than the source's own walk says. A goal
+// cell a rival reaches on the step (a sure pad) or at all (a maybe pad) may get a second,
+// other message. A counter or gate on the path that a maybe pad reaches may hold other
+// bits or another count than the walk assumed. One a sure pad reaches is simulated
+// exactly up to this goal's message on this step (the sure pads are walked on the same
+// state), so an ON THIS PRESS or ALREADY goal keeps its word there; a held goal or one
+// that waits on further presses does not, as the gate search and the presses count only
+// this source's own messages. Through a DSA stays as it is, and so do the blocks no
+// message undoes: a dead counter and a spent once-only relay.
+bool PressRivalsContest(const PressRivals &rivals, const PressPath &path,
+                        const AutoMapGoalDistance &distance)
+{
+  if (distance.status == AutoMapGoalThroughDSA || distance.status == AutoMapGoalUnknown) return false;
+  if (distance.status == AutoMapGoalBlocked && distance.blocked != NULL
+      && std::string(distance.blocked) != "COUNTS UP")
+  {
+    return false;
+  }
+  if (rivals.all) return true;
+  const AutoMapEffect &goal = *path.back();
+  std::pair<int, int> cell(goal.x, goal.y);
+  if (rivals.mayCells.count(cell) != 0 || rivals.sureCellsNow.count(cell) != 0) return true;
+  bool exact = distance.status == AutoMapGoalOnThisPress || distance.status == AutoMapGoalAlreadyDone;
+  for (size_t i = 0; i + 1 < path.size(); i++)
+  {
+    const AutoMapEffect &step = *path[i];
+    if (step.kind != AutoMapEffectCounter && step.kind != AutoMapEffectGate) continue;
+    PressRelayKey key = {step.x, step.y, step.relay, step.floorRelay};
+    if (rivals.mayRelays.count(key) != 0) return true;
+    if (!exact && rivals.sureRelays.count(key) != 0) return true;
+  }
+  return false;
+}
+
 // A message that leaves its goal as it stands: SET into an open false wall, CLEAR into a
 // closed one (ProcessTT_FALSEWALL), or a door already where the message puts it
 bool PressGoalAlreadyDone(const AutoMapDrawList &drawList, const AutoMapEffect &goal)
@@ -573,7 +668,8 @@ bool PressGoalAlreadyDone(const AutoMapDrawList &drawList, const AutoMapEffect &
 
 AutoMapGoalDistance PressGoalDistance(const AutoMapDrawList &drawList, const PressPath &path,
                                       const PressState &state,
-                                      const std::vector<PressGateMessage> &messages)
+                                      const std::vector<PressGateMessage> &messages,
+                                      const PressRivals &rivals)
 {
   AutoMapGoalDistance distance;
   const AutoMapEffect &goal = *path.back();
@@ -587,7 +683,8 @@ AutoMapGoalDistance PressGoalDistance(const AutoMapDrawList &drawList, const Pre
     const AutoMapShownCell *cell = FindShownCell(drawList, gate.x, gate.y);
     if (cell == NULL || gate.relay < 0 || gate.relay >= (int)cell->cell.wallRelays.size()) continue;
     const AutoMapRelay &relay = cell->cell.wallRelays[gate.relay];
-    int off = (gate.after ^ (relay.value >> 4)) & 15;
+    // A normally-closed gate wants a mismatch, so its bits are never "off"
+    int off = relay.normallyClosed ? 0 : (gate.after ^ (relay.value >> 4)) & 15;
     for (int bit = 0; bit < 4; bit++)
     {
       if ((off & (1 << bit)) != 0) distance.bitsOff++;
@@ -600,10 +697,12 @@ AutoMapGoalDistance PressGoalDistance(const AutoMapDrawList &drawList, const Pre
   for (size_t i = 0; i < path.size(); i++) afterDSA = afterDSA || path[i]->afterDSA;
   const char *blocked = PressPathBlock(path, state);
   // A held message (CONSTPRESSURE) is taken back on release. It holds the goal only when
-  // every step on the way fires on this press; a goal that waits on further messages is
-  // not reached by press and release swinging the path between two states, so the source
-  // alone is not known to get it there (it may under-promise, never over-promise).
-  bool holds = PressPathHolds(path);
+  // the release carries back to it (PressPathHolds); otherwise a goal of this press is
+  // the press's own like any other. A goal that waits on further messages is not reached
+  // by press and release swinging a held source between two states, so the source alone
+  // is not known to get it there (it may under-promise, never over-promise).
+  bool heldSource = !path.empty() && path[0]->via.signal == AutoMapSignalPressure;
+  bool holds = PressPathHolds(drawList, path);
   if (afterDSA) distance.status = AutoMapGoalThroughDSA;
   else if (holds && !goal.later) distance.status = AutoMapGoalHolds;
   else if (!goal.later)
@@ -623,7 +722,7 @@ AutoMapGoalDistance PressGoalDistance(const AutoMapDrawList &drawList, const Pre
     // The first counter fed by the source counts this source's presses; any other
     // first relay passes every press on
     int more = path[0]->kind == AutoMapEffectCounter ? path[0]->after : 1;
-    if (holds || fixPresses < 0 || PressPathNeedsOthers(path)) more = -1;
+    if (heldSource || fixPresses < 0 || PressPathNeedsOthers(path)) more = -1;
     else more = std::max(more, fixPresses);
     if (more > 0)
     {
@@ -631,6 +730,12 @@ AutoMapGoalDistance PressGoalDistance(const AutoMapDrawList &drawList, const Pre
       distance.more = more;
     }
     else distance.status = AutoMapGoalNeedsOthers;
+  }
+  if (PressRivalsContest(rivals, path, distance))
+  {
+    // Other pads of the cell have a say: this source alone is not known to get it there
+    distance = AutoMapGoalDistance();
+    distance.status = AutoMapGoalNeedsOthers;
   }
   return distance;
 }
@@ -642,7 +747,7 @@ AutoMapGoalDistance PressGoalDistance(const AutoMapDrawList &drawList, const Pre
 AutoMapGoalDistance PressStepPasses(const AutoMapDrawList &drawList, const AutoMapEffect &step,
                                     const PressState &state,
                                     const std::vector<PressGateMessage> &messages,
-                                    PressPath *path)
+                                    const PressRivals &rivals, PressPath *path)
 {
   AutoMapEffect behind;
   behind.kind = AutoMapEffectGoal;
@@ -653,14 +758,14 @@ AutoMapGoalDistance PressStepPasses(const AutoMapDrawList &drawList, const AutoM
   behind.via = step.next.empty() ? step.via : step.next[0].via;
   behind.delayTicks = step.delayTicks;
   path->push_back(&behind);
-  AutoMapGoalDistance passes = PressGoalDistance(drawList, *path, state, messages);
+  AutoMapGoalDistance passes = PressGoalDistance(drawList, *path, state, messages, rivals);
   path->pop_back();
   return passes;
 }
 
 void AssessPressGoals(const AutoMapDrawList &drawList, const PressState &state,
-                      const std::vector<PressGateMessage> &messages, PressPath *path,
-                      std::vector<AutoMapEffect> *effects)
+                      const std::vector<PressGateMessage> &messages, const PressRivals &rivals,
+                      PressPath *path, std::vector<AutoMapEffect> *effects)
 {
   for (size_t i = 0; i < effects->size(); i++)
   {
@@ -668,13 +773,13 @@ void AssessPressGoals(const AutoMapDrawList &drawList, const PressState &state,
     path->push_back(&effect);
     if (effect.kind == AutoMapEffectGoal)
     {
-      effect.distance = PressGoalDistance(drawList, *path, state, messages);
+      effect.distance = PressGoalDistance(drawList, *path, state, messages, rivals);
     }
     if (effect.kind == AutoMapEffectCounter || effect.kind == AutoMapEffectGate)
     {
-      effect.passes = PressStepPasses(drawList, effect, state, messages, path);
+      effect.passes = PressStepPasses(drawList, effect, state, messages, rivals, path);
     }
-    AssessPressGoals(drawList, state, messages, path, &effect.next);
+    AssessPressGoals(drawList, state, messages, rivals, path, &effect.next);
     path->pop_back();
   }
 }
@@ -713,9 +818,9 @@ void DropSupersededWaits(const std::set<PressRelayKey> &fired, std::vector<AutoM
 // Fills the distance of every goal of one source's finished tree. It runs once the
 // walk is done because a gate's wrong bit may be put right by any message of the tree,
 // and a once-only relay may be spent by a message after the path that waits on it;
-// state is what the whole press left.
+// state is what the whole press left, rivals what the cell's other pads do.
 void AssessPressSource(const AutoMapDrawList &drawList, const PressState &state,
-                       AutoMapPressSource *source)
+                       const PressRivals &rivals, AutoMapPressSource *source)
 {
   std::set<PressRelayKey> fired;
   CollectFiredNow(source->effects, &fired);
@@ -723,7 +828,97 @@ void AssessPressSource(const AutoMapDrawList &drawList, const PressState &state,
   PressPath path;
   std::vector<PressGateMessage> messages;
   CollectGateMessages(source->effects, state, &path, &messages);
-  AssessPressGoals(drawList, state, messages, &path, &source->effects);
+  AssessPressGoals(drawList, state, messages, rivals, &path, &source->effects);
+}
+
+// The counters and gates a rival's tree reaches, any message, and its goal cells: all of
+// them, or (now) only those reached on the step itself
+void CollectRivalReach(const std::vector<AutoMapEffect> &effects, bool now,
+                       std::set<PressRelayKey> *relays, std::set<std::pair<int, int> > *cells)
+{
+  for (size_t i = 0; i < effects.size(); i++)
+  {
+    const AutoMapEffect &effect = effects[i];
+    if (effect.kind == AutoMapEffectCounter || effect.kind == AutoMapEffectGate)
+    {
+      PressRelayKey key = {effect.x, effect.y, effect.relay, effect.floorRelay};
+      relays->insert(key);
+    }
+    if (effect.kind == AutoMapEffectGoal && !(now && effect.later))
+    {
+      cells->insert(std::make_pair(effect.x, effect.y));
+    }
+    CollectRivalReach(effect.next, now, relays, cells);
+  }
+}
+
+// Who can set a pad off (PressurePadOrAlcove, open-room branch): the party, a monster
+// group, a dropped or thrown item. An object pad compares the moved thing's basic type
+// with its value, and a monster is a moved thing too, so it is not ruled out for one.
+const int PAD_BY_PARTY = 1;
+const int PAD_BY_MONSTER = 2;
+const int PAD_BY_ITEM = 4;
+
+int PadActors(AutoMapPadOperator op)
+{
+  switch (op)
+  {
+  case AutoMapPadAnything: return PAD_BY_PARTY | PAD_BY_MONSTER | PAD_BY_ITEM;
+  case AutoMapPadPartyOrMonster: return PAD_BY_PARTY | PAD_BY_MONSTER;
+  case AutoMapPadParty:
+  case AutoMapPadPartyFacing:
+  case AutoMapPadPossession: return PAD_BY_PARTY;
+  case AutoMapPadMonster: return PAD_BY_MONSTER;
+  case AutoMapPadObject: return PAD_BY_ITEM | PAD_BY_MONSTER;
+  default: return PAD_BY_PARTY | PAD_BY_MONSTER | PAD_BY_ITEM;
+  }
+}
+
+// The actors a pad answers whatever else is true: a PARTY OR MONSTER pad answers the party
+// (no monster shares its square) and a monster group (it checks for monsters other than
+// the one moving); a PARTY pad the party; a MONSTER pad a monster. ANYTHING keeps still
+// while items lie on it, FACING wants a facing, CARRY a possession, OBJECT an object type:
+// none of them is sure.
+int PadSureActors(AutoMapPadOperator op)
+{
+  switch (op)
+  {
+  case AutoMapPadPartyOrMonster: return PAD_BY_PARTY | PAD_BY_MONSTER;
+  case AutoMapPadParty: return PAD_BY_PARTY;
+  case AutoMapPadMonster: return PAD_BY_MONSTER;
+  default: return 0;
+  }
+}
+
+enum PadCoFire
+{
+  PadCoFireNever,
+  PadCoFireMay,
+  PadCoFireSure
+};
+
+// Whether pad q (sending link qLink) fires on the step that fires pad p (sending pLink).
+// A plain normally-open pad fires on the step on, a plain normally-closed one on the step
+// off, a held pad on both (switchClosed = pressed ^ NC, PressurePadOrAlcove). Sure means q
+// answers every actor that sets p off, on p's step, sending what the walk gives it:
+// PressSourceSignal on the step on; on the step off only a plain normally-closed pad sends
+// what the walk gives it, and a plain normally-closed PARTY pad may be the place-only kind
+// (type 9) that never fires. A pad the draw list does not know may do anything.
+PadCoFire PadsCoFire(const AutoMapFloorActuator *p, const AutoMapLink &pLink,
+                     const AutoMapFloorActuator *q, const AutoMapLink &qLink)
+{
+  if (p == NULL || q == NULL) return PadCoFireMay;
+  int actors = PadActors(p->op);
+  if ((actors & PadActors(q->op)) == 0) return PadCoFireNever;
+  bool pHeld = pLink.signal == AutoMapSignalPressure;
+  bool qHeld = qLink.signal == AutoMapSignalPressure;
+  bool stepOn = pHeld || !pLink.sourceNormallyClosed;
+  bool qOn = qHeld || !qLink.sourceNormallyClosed;
+  bool qOff = qHeld || qLink.sourceNormallyClosed;
+  if (stepOn ? !qOn : !qOff) return PadCoFireNever;
+  if ((PadSureActors(q->op) & actors) != actors) return PadCoFireMay;
+  if (stepOn) return PadCoFireSure;
+  return !qHeld && q->op != AutoMapPadParty ? PadCoFireSure : PadCoFireMay;
 }
 
 }
@@ -771,13 +966,14 @@ std::vector<AutoMapPressSource> AutoMapScene_PressEffects(const AutoMapDrawList 
   // face is one press: its links share one state in link order. The pads of a cell are
   // one press per trigger, as pads react to different things (party, monster, object);
   // pads with the same trigger fire together. Each press starts from the live state.
-  std::vector<PressState> states;
   const AutoMapShownCell *own = FindShownCell(drawList, x, y);
   PressWalk walk;
   walk.drawList = &drawList;
   walk.nodes = 0;
   walk.truncated = false;
   std::vector<AutoMapLink> outgoing = AutoMapScene_LinksFrom(drawList, x, y);
+  // The source each link belongs to, -1 for a link no press sends
+  std::vector<int> groupOf(outgoing.size(), -1);
   for (size_t i = 0; i < outgoing.size(); i++)
   {
     const AutoMapLink &link = outgoing[i];
@@ -792,20 +988,69 @@ std::vector<AutoMapPressSource> AutoMapScene_PressEffects(const AutoMapDrawList 
       source.srcIsWall = link.srcIsWall;
       source.srcSide = link.srcSide;
       sources.push_back(source);
-      states.push_back(PressState());
     }
-    if (walk.truncated)
-    {
-      sources[group].truncated = true;
-      continue;
-    }
-    // A press closes the source: a CONSTPRESSURE switch or pad sends SET
-    // (Code11f52.cpp, Mouse.cpp queue swclosed ? 0 : 1)
-    DeliverPressMessage(&walk, link, PressSourceSignal(link), 0, false, &states[group],
-                        &sources[group].effects);
-    if (walk.truncated) sources[group].truncated = true;
+    groupOf[i] = (int)group;
   }
-  for (size_t i = 0; i < sources.size(); i++) AssessPressSource(drawList, states[i], &sources[i]);
+  for (size_t g = 0; g < sources.size(); g++)
+  {
+    PressState state;
+    PressRivals rivals;
+    // The rivals get their own budget, so they never cut the source's own walk short
+    PressWalk rivalWalk = walk;
+    rivalWalk.nodes = 0;
+    rivalWalk.truncated = false;
+    std::vector<AutoMapEffect> sureEffects;
+    std::vector<AutoMapEffect> mayEffects;
+    for (size_t i = 0; i < outgoing.size(); i++)
+    {
+      const AutoMapLink &link = outgoing[i];
+      if (groupOf[i] < 0) continue;
+      if (groupOf[i] == (int)g)
+      {
+        if (walk.truncated)
+        {
+          sources[g].truncated = true;
+          continue;
+        }
+        // A press closes the source: a CONSTPRESSURE switch or pad sends SET
+        // (Code11f52.cpp, Mouse.cpp queue swclosed ? 0 : 1)
+        DeliverPressMessage(&walk, link, PressSourceSignal(link), 0, false, &state,
+                            &sources[g].effects);
+        if (walk.truncated) sources[g].truncated = true;
+        continue;
+      }
+      // Another face of a wall is not touched; another pad of the floor may be stepped on too
+      if (sources[g].srcIsWall || link.srcIsWall) continue;
+      // Sure only when sure for every pad of the source, never only when never for all
+      const AutoMapFloorActuator *pad = AutoMapScene_PadOfRecord(drawList, x, y, link.source);
+      bool sure = true, never = true;
+      for (size_t m = 0; m < outgoing.size(); m++)
+      {
+        if (groupOf[m] != (int)g) continue;
+        PadCoFire co = PadsCoFire(AutoMapScene_PadOfRecord(drawList, x, y, outgoing[m].source),
+                                  outgoing[m], pad, link);
+        sure = sure && co == PadCoFireSure;
+        never = never && co == PadCoFireNever;
+      }
+      if (never) continue;
+      if (sure)
+      {
+        DeliverPressMessage(&rivalWalk, link, PressSourceSignal(link), 0, false, &state,
+                            &sureEffects);
+      }
+      else
+      {
+        // Whatever it finds, from the live state: a fresh state leaves no relay spent
+        PressState alone;
+        DeliverPressMessage(&rivalWalk, link, PressSourceSignal(link), 0, false, &alone,
+                            &mayEffects);
+      }
+    }
+    rivals.all = rivalWalk.truncated;
+    CollectRivalReach(sureEffects, true, &rivals.sureRelays, &rivals.sureCellsNow);
+    CollectRivalReach(mayEffects, false, &rivals.mayRelays, &rivals.mayCells);
+    AssessPressSource(drawList, state, rivals, &sources[g]);
+  }
   return sources;
 }
 
@@ -815,11 +1060,11 @@ static int GoalImminence(const AutoMapGoalDistance &d)
   switch (d.status)
   {
   case AutoMapGoalOnThisPress: return 0;
-  case AutoMapGoalMore: return 1;
-  case AutoMapGoalHolds: return 2;
-  case AutoMapGoalThroughDSA: return 3;
-  case AutoMapGoalNeedsOthers: return 4;
-  case AutoMapGoalAlreadyDone: return 5;
+  case AutoMapGoalHolds: return 1;
+  case AutoMapGoalAlreadyDone: return 2;
+  case AutoMapGoalMore: return 3;
+  case AutoMapGoalThroughDSA: return 4;
+  case AutoMapGoalNeedsOthers: return 5;
   case AutoMapGoalBlocked: return 6;
   default: return 7;
   }
@@ -871,15 +1116,7 @@ static std::string PressLocation(const AutoMapDrawList &drawList, int x, int y)
 static const AutoMapRelay *PressEffectRelay(const AutoMapDrawList &drawList,
                                             const AutoMapEffect &effect)
 {
-  if (effect.relay < 0) return NULL;
-  if (effect.floorRelay)
-  {
-    if (effect.relay >= (int)drawList.actuators.size()) return NULL;
-    return &drawList.actuators[effect.relay].relay;
-  }
-  const AutoMapShownCell *cell = FindShownCell(drawList, effect.x, effect.y);
-  if (cell == NULL || effect.relay >= (int)cell->cell.wallRelays.size()) return NULL;
-  return &cell->cell.wallRelays[effect.relay];
+  return EffectRelay(drawList, effect);
 }
 
 // What a goal cell is called: the noun the tooltip puts before or after its place

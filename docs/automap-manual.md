@@ -258,8 +258,25 @@ On the map each goal gets a frame and a badge: `NOW`, `2 MORE`, `1 BIT OFF`, `NE
 on something else are orange. Hovering a relay draws what feeds it in blue and what it feeds in gold.
 
 A goal has one badge. When several presses reach it, the badge shows the most imminent state:
-`NOW`, then `2 MORE` (the fewest more presses first), `HOLD`, `DSA`, `NEEDS OTHERS`, `DONE`,
+`NOW`, then `HOLD`, `DONE`, `2 MORE` (the fewest more presses first), `DSA`, `NEEDS OTHERS`,
 and `BLOCKED` last.
+
+`HOLDS WHILE PRESSED` (badge `HOLD`, route `(EVERY PRESS)`) is for a hold-type switch or pad whose
+release takes the goal back: wired straight to it, or through hold-type gates that the press turns
+and the release turns back. A plain counter or gate in between does not carry the release back (a
+counter at 0 ignores every later message, a plain gate only sends on a match), so such a goal reads
+`ON THIS PRESS` and stays. `BITS OFF` counts the gate bits that still differ from what the gate
+needs; a normally-closed gate wants a mismatch, so it has none.
+
+A pad does not fire alone: a party step also fires the cell's `PARTY OR MONSTER` pads, and a
+monster's its `MONSTER` and `PARTY OR MONSTER` pads. A pad's RESULT is worked out with those pads
+fired on the same step, in the cell's order, but lists only its own goals (the others' goals are
+under their own `PAD`). When another pad of the cell may or may not fire on the same step (an
+`ANYTHING` pad keeps still while items lie on it; `PARTY FACING`, `CARRY` and `OBJECT` pads depend
+on the party or the item) and reaches a counter, gate or goal on the way, the goal reads
+`NEEDS OTHER SOURCES`: this pad alone is not known to get it there. So does a goal that a pad firing
+with it also reaches on that step, and one that holds or waits on more presses through a counter or
+gate such a pad also feeds.
 
 When a counter, gate, DSA or local action sits between the press and a goal, the tooltip ends with
 `SHIFT: ROUTE`: hold **Shift** to see the ROUTE instead of THIS PRESS and RESULT. A line one step further in only happens when the

@@ -1236,9 +1236,9 @@ std::vector<AutoMapTipLine> AutoMapScene_RelayLines(const AutoMapDrawList &drawL
 // How far a goal is from happening, from the path of the press tree that reaches it:
 // it happens on this press (or already has: OPEN on an open door), needs more presses
 // of this source, needs other sources too, is blocked (a SET into a counter, a counter
-// at 0, a once-only relay this press spent), only holds while a CONSTPRESSURE source or
-// relay stays pressed, or runs through a DSA the walk does not simulate. Unknown on
-// anything but a goal.
+// at 0, a once-only relay this press spent), only holds while a CONSTPRESSURE source
+// stays pressed (straight, or through held gates the release turns back), or runs
+// through a DSA the walk does not simulate. Unknown on anything but a goal.
 enum AutoMapGoalStatus
 {
   AutoMapGoalUnknown,
@@ -1259,7 +1259,8 @@ struct AutoMapGoalDistance
   AutoMapGoalStatus status;
   // Presses of this source still needed after this one; -1 unless More
   int more;
-  // Mismatched gate bits on the path after this press; 0 without a gate
+  // Mismatched gate bits on the path after this press; 0 without a gate, and never
+  // counted for a normally-closed gate (it wants a mismatch)
   int bitsOff;
   // "COUNTER AT 0", "COUNTS UP", "SPENT"; NULL otherwise
   const char *blocked;
@@ -1360,7 +1361,12 @@ struct AutoMapPressSource
 // the goals behind it read blocked). Each goal carries its distance, worked out from
 // its path once the source's tree is complete. Sources are grouped by face (srcIsWall,
 // srcSide; the pads of a floor cell by trigger, AutoMapScene_SamePadTrigger) in link
-// order, and the links of one share its state. The walk stops after 1000 effects and
+// order, and the links of one share its state. A pad source is walked together with the
+// cell's other pads that surely fire on the same step (a PARTY pad with PARTY OR MONSTER
+// pads, a MONSTER pad likewise), in link order on the same state, but its effects hold
+// only its own links' trees. A goal the other pads may change (a pad that may fire on
+// that step reaches a counter, gate or the goal; a sure one reaches the goal on the step,
+// or a counter or gate on the path of a goal that holds or waits) reads NeedsOthers. The walk stops after 1000 effects and
 // marks the source it was on truncated. Links sent by the relays of (x, y) itself (stone relays, floor cogs) are no
 // press and are left out: a relay cell reads through AutoMapScene_RelayBlock. Empty
 // below All, or when (x, y) has no outgoing link with an explored target; unexplored
@@ -1378,8 +1384,8 @@ const AutoMapFloorActuator *AutoMapScene_PadOfRecord(const AutoMapDrawList &draw
 bool AutoMapScene_SamePadTrigger(const AutoMapFloorActuator &a, const AutoMapFloorActuator &b);
 
 // One goal effect per goal cell over all sources, the most imminent status winning:
-// on this press, more (fewest first), holds, through a DSA, needs others, already
-// done, blocked, unknown. For the badges, so a cell never gets two.
+// on this press, holds, already done, more (fewest first), through a DSA, needs
+// others, blocked, unknown. For the badges, so a cell never gets two.
 std::vector<const AutoMapEffect *> AutoMapScene_PressGoalsByCell(
     const std::vector<AutoMapPressSource> &sources);
 
