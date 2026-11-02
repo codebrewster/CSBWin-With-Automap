@@ -4059,6 +4059,7 @@ static std::string SearchTag(const AutoMapSearchHit &hit, SDL_Color *colour)
   case AutoMapHitGenerator: *colour = GEN_TEXT; return "GENERATOR";
   case AutoMapHitFeature:
   {
+    if (hit.stairsTarget != AUTOMAP_NO_LEVEL) return "TO L" + std::to_string(hit.stairsTarget);
     char side = SideInitial(hit.slot.side);
     return side ? std::string("(") + side + ")" : "";
   }
@@ -4088,6 +4089,19 @@ static void DrawSearchIcon(const SDL_Rect &box, const AutoMapSearchHit &hit)
       AutoMapPaint_Plate(tag, GENERATOR);
       AutoMapPaint_Text(tag.x + 3, tag.y + 1, "G", GEN_TEXT, 1);
     }
+    return;
+  }
+  if (hit.wallFeature == AutoMapWallFeatureStairsUp || hit.wallFeature == AutoMapWallFeatureStairsDown)
+  {
+    // The stairs as the map draws them, too small for their plate: the stripes in their colours
+    AutoMapCellRecord stairs;
+    stairs.kind = AutoMapCellStairs;
+    stairs.stairsLeadUp = hit.wallFeature == AutoMapWallFeatureStairsUp;
+    stairs.runsNorthSouth = true;
+    stairs.stairsTargetLevel = AUTOMAP_NO_LEVEL;
+    int side = std::min(box.w, box.h);
+    SDL_Rect square = {box.x + (box.w - side) / 2, box.y + (box.h - side) / 2, side, side};
+    DrawStairs(square, stairs);
     return;
   }
   if (hit.kind == AutoMapHitFeature)
@@ -4187,14 +4201,16 @@ static void DrawSearchPanel(void)
   }
 }
 
-// Every hit on the shown level gets a pixel frame, the selected one a light one; while a hit on
-// the shown level is selected the map outside the hits dims, as for links
+// Every hit on the shown level gets a pixel frame, the selected one a light one; while a hit is
+// selected the map outside the shown level's hits dims, as for links
 static void DrawSearchMarkers(const AutoMapView &view)
 {
   if (!searchOpen || searchQuery.empty() || collectingSpotlight) return;
-  bool selectedHere = searchSelected >= 0 && searchSelected < (int)searchHits.size()
-                      && searchHits[(size_t)searchSelected].level == shownDrawList.level;
-  if (selectedHere)
+  // Once a hit was picked, every level with hits dims around them, also one stepped to later
+  bool picked = searchSelected >= 0 && searchSelected < (int)searchHits.size();
+  bool hitsHere = false;
+  for (size_t i = 0; i < searchHits.size() && !hitsHere; i++) hitsHere = searchHits[i].level == shownDrawList.level;
+  if (picked && hitsHere)
   {
     std::vector<SDL_Rect> dim;
     for (size_t i = 0; i < shownDrawList.cells.size(); i++)

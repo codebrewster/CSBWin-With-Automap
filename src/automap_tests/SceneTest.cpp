@@ -5135,6 +5135,29 @@ static void FountainFindsTheFountainFace(void)
   CHECK(!hits[0].monsterCarried);
 }
 
+// Stairs are found as their cell, with the way they lead and where to
+static void StairsFindsBothWays(void)
+{
+  AutoMapLevelSnapshot snapshot = Corridor();
+  AutoMapCellRecord &down = snapshot.cells[1 * 4 + 1];
+  down.kind = AutoMapCellStairs;
+  down.stairsLeadUp = false;
+  down.stairsTargetLevel = 4;
+  AutoMapCellRecord &up = snapshot.cells[1 * 4 + 2];
+  up.kind = AutoMapCellStairs;
+  up.stairsLeadUp = true;
+  AutoMapExplored explored = NothingExplored();
+  AutoMapVisibleCells visibleNow;
+  AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
+  std::vector<AutoMapSearchHit> hits = AutoMapScene_SearchItems(drawList, "stairs", WaterItemName, NULL);
+  CHECK(hits.size() == 2);
+  if (hits.size() != 2) return;
+  CHECK(hits[0].name == "STAIRS DOWN" && hits[0].x == 1 && hits[0].y == 1);
+  CHECK(hits[0].kind == AutoMapHitFeature && hits[0].stairsTarget == 4);
+  CHECK(hits[1].name == "STAIRS UP" && hits[1].x == 2);
+  CHECK(AutoMapScene_SearchItems(drawList, "stairs up", WaterItemName, NULL).size() == 1);
+}
+
 static void WaterFindsFlasksAndFountains(void)
 {
   std::vector<AutoMapSearchHit> hits = AutoMapScene_SearchItems(
@@ -5670,6 +5693,7 @@ void TestAutoMapScene(void)
   HitsOnOneCellKeepOneOrder();
   SortingHitsIgnoresTheirOrderBefore();
   FountainFindsTheFountainFace();
+  StairsFindsBothWays();
   WaterFindsFlasksAndFountains();
   AltarAndViFindTheAltar();
   APlainFaceIsNoFeature();

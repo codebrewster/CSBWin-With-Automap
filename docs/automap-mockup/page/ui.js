@@ -79,6 +79,7 @@ function buildIndex() {
       (c.alc || []).forEach(a => { if (a[1][2]) add(c.x, c.y, a[1][2], 'ALCOVE', a[1][1] || a[1][0], 'item'); });
       (c.locks || []).forEach(k => { if (k[1] && k[2][2]) add(c.x, c.y, k[2][2], 'NEEDS', k[2][1] || k[2][0], 'needs'); });
       (c.sides || []).forEach((s, i) => { if (s && s[7] === 1) add(c.x, c.y, 'FOUNTAIN', 'NESW'[i], s[0], 'feature'); if (s && s[7] === 2) add(c.x, c.y, 'ALTAR OF VI', 'NESW'[i], s[0], 'feature'); });
+      if (c.k === 3 && c.st) { const up = !!c.st[0]; add(c.x, c.y, up ? 'STAIRS UP' : 'STAIRS DOWN', 'TO L' + (l + (up ? -1 : 1)), null, up ? 'stairs-up' : 'stairs-down'); }
       const h = v.hover[c.x + ',' + c.y];
       if (h && h.icons) h.icons.forEach(ic => { if (!ic[2] || ic[3] || !ic[0][2]) return; const m = monsterAt[c.x + ',' + c.y]; add(c.x, c.y, ic[0][2], m ? 'CARRIED BY ' + nice(m.name) : 'IN CHEST', ic[0][1] || ic[0][0], 'item'); });
     }
@@ -114,7 +115,7 @@ function drawSearchPanel() {
   for (let i = sTop; i < Math.min(sRows.length, sTop + S_ROWS); i++) { const r = sRows[i];
     if (r.head) { const f = folded.has(r.l); rect(x + 4, yy + 1, w - 16, S_RH - 2, '#1d1a16'); text(g, x + 10, yy + 5, (f ? '+ ' : '- ') + 'L' + r.l, '#ffcc33', p); text(g, x + 10 + textW('- L00', p) + 12, yy + 5, r.n + (r.n > 1 ? ' HITS' : ' HIT'), '#8f8676', p); if (r.l === lvl) text(g, x + w - 16 - textW('SHOWN', p), yy + 5, 'SHOWN', '#8f8676', p); if (r.l === DATA.index.partyLevel) partyArrow(x + w - 16 - textW('SHOWN', p) - 14, yy + S_RH / 2, 5, 1, '#ff4d4d'); }
     else { const hh = r.hit, sel = i === sSel; if (sel) rect(x + 4, yy, w - 16, S_RH, '#ffcc33'); else if (i === sHover) rect(x + 4, yy, w - 16, S_RH, '#2c2822');
-      if (hh.kind === 'needs') { rect(x + 21, yy + 1, 18, 18, '#0c0b09'); frame(x + 21, yy + 1, 18, 18, '#e0b64a'); } spr(hh.icon, x + 22, yy + 2, 16, 16); if (hh.kind === 'gen') { rect(x + 31, yy + 11, 9, 8, '#0d0c0a'); text(g, x + 33, yy + 12, 'G', '#ff8080', 1); }
+      if (hh.kind === 'needs') { rect(x + 21, yy + 1, 18, 18, '#0c0b09'); frame(x + 21, yy + 1, 18, 18, '#e0b64a'); } if (hh.kind.startsWith('stairs')) { const L = hh.kind === 'stairs-up' ? ['#9a9488', '#5e594f'] : ['#6d685f', '#3a3731']; for (let k = 0; k < 4; k++) rect(x + 22, yy + 2 + 4 * k, 16, 4, L[k % 2]); } else spr(hh.icon, x + 22, yy + 2, 16, 16); if (hh.kind === 'gen') { rect(x + 31, yy + 11, 9, 8, '#0d0c0a'); text(g, x + 33, yy + 12, 'G', '#ff8080', 1); }
       text(g, x + 46, yy + 5, `(${hh.gx},${hh.gy})`, sel ? '#1a160f' : '#b8b0a0', p); text(g, x + 46 + textW('(00,00)', p) + 10, yy + 5, hh.name, sel ? '#1a160f' : '#fff', p);
       if (hh.tag) { const tc = sel ? '#1a160f' : hh.kind === 'needs' ? '#e0b64a' : hh.kind === 'gen' ? '#ff8080' : '#8f8676'; text(g, x + w - 16 - textW(hh.tag, p), yy + 5, hh.tag, tc, p); } }
     sRects.push([x, yy, w - 12, S_RH, i]); yy += S_RH; }
@@ -123,7 +124,7 @@ function drawSearchPanel() {
 }
 function drawSearchMarks() {
   if (!searchOpen || !query) return; const sel = sRows[sSel] && sRows[sSel].hit; const mine = sRows.filter(r => r.hit && r.hit.l === lvl).map(r => r.hit);
-  if (sel && sel.l === lvl) spotlight(mine.map(h => h.x + ',' + h.y));
+  if (sel && mine.length) spotlight(mine.map(h => h.x + ',' + h.y));
   for (const h of mine) { const x = px(h.x), y = py(h.y), t = Math.max(2, Math.round(cs / 14)); frame(x + 1, y + 1, cs - 2, cs - 2, '#0b0a08', t + 2); frame(x + 2, y + 2, cs - 4, cs - 4, h === sel ? '#fff6dc' : '#ffcc33', t); }
 }
 function searchClick(mx, my) { const P = panelRects.search; if (!P || !inRect(mx, my, P)) return false; for (const [rx, ry, rw, rh, i] of sRects) if (inRect(mx, my, [rx, ry, rw, rh])) { const r = sRows[i]; if (r.head) { folded.has(r.l) ? folded.delete(r.l) : folded.add(r.l); rebuild(true); keepVisible(); } else goTo(i); } return true; }

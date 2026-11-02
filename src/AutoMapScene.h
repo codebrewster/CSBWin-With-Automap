@@ -62,7 +62,10 @@ enum AutoMapWallFeature
 {
   AutoMapWallFeatureNone = 0,
   AutoMapWallFeatureFountain = 1,
-  AutoMapWallFeatureViAltar = 2
+  AutoMapWallFeatureViAltar = 2,
+  // Never on a wall: the search lists stairs as features of their cell
+  AutoMapWallFeatureStairsUp = 3,
+  AutoMapWallFeatureStairsDown = 4
 };
 
 // What a wall decoration is: random dressing with no object behind it (flavour), a real
@@ -1073,6 +1076,8 @@ struct AutoMapSearchHit
   // The colour schemes of the hit's level, which may not be the one on screen
   int paletteScheme9 = AUTOMAP_DEFAULT_SCHEME9;
   int paletteScheme10 = AUTOMAP_DEFAULT_SCHEME10;
+  // Stairs: the level they lead to, AUTOMAP_NO_LEVEL when unknown
+  int stairsTarget = AUTOMAP_NO_LEVEL;
 };
 
 // The rows of the search results: a heading per level (the shown level first, then the others in

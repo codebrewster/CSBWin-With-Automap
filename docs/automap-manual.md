@@ -242,17 +242,19 @@ every level and finds:
 - items a pad or lock `NEEDS`;
 - items `CARRIED` by a monster (at spoiler level All only);
 - monster groups by name, and generators by what they create;
-- water fountains and the Altar of Vi.
+- water fountains and the Altar of Vi;
+- stairs, as `STAIRS UP` and `STAIRS DOWN`.
 
 `FOOD` finds everything edible, `GEN` every generator, and `MON` every monster group.
 
 The results are grouped under a heading per level, the shown level first; a click on a heading
 folds it away. Each hit shows its icon, the cell as the rulers number it, its name and a tag: `X3`,
-`ALCOVE`, `CHEST`, `IN CHEST`, `CARRIED BY …`, `NEEDS`, `PAD NEEDS` or `GENERATOR`. **Up** and **Down** step
+`ALCOVE`, `CHEST`, `IN CHEST`, `CARRIED BY …`, `NEEDS`, `PAD NEEDS`, `GENERATOR`, or for stairs the level
+they lead to (`TO L4`). **Up** and **Down** step
 through the hits and jump the map to each, **Enter** centres the selected hit, a click on a hit
 jumps to it, and **Escape** closes the search. The wheel scrolls a long list. On the map every hit
-of the shown level gets a gold frame, the selected one a light frame, and the rest of the map dims
-while the selected hit is on the shown level. Hovering a trigger or its target shows its links
+of the shown level gets a gold frame, the selected one a light frame. Once a hit is selected, the rest
+of the map dims around the hits, also on any level you step to afterwards. Hovering a trigger or its target shows its links
 instead, until the pointer moves on.
 
 The search follows the same spoiler and fog rules as the map: nothing in an unopened chest and

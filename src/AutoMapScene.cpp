@@ -2142,6 +2142,8 @@ const char *AutoMapScene_WallFeatureName(AutoMapWallFeature feature)
   {
   case AutoMapWallFeatureFountain: return "WATER FOUNTAIN";
   case AutoMapWallFeatureViAltar: return "ALTAR OF VI";
+  case AutoMapWallFeatureStairsUp: return "STAIRS UP";
+  case AutoMapWallFeatureStairsDown: return "STAIRS DOWN";
   default: return "";
   }
 }
@@ -2245,6 +2247,14 @@ std::vector<AutoMapSearchHit> AutoMapScene_SearchItems(const AutoMapDrawList &dr
       AutoMapSearchHit hit;
       hit.slot.side = side;
       hit.wallFeature = feature;
+      candidates.push_back(hit);
+    }
+    const AutoMapCellRecord &record = drawList.cells[i].cell;
+    if (record.kind == AutoMapCellStairs)
+    {
+      AutoMapSearchHit hit;
+      hit.wallFeature = record.stairsLeadUp ? AutoMapWallFeatureStairsUp : AutoMapWallFeatureStairsDown;
+      hit.stairsTarget = record.stairsTargetLevel;
       candidates.push_back(hit);
     }
     for (size_t c = 0; c < candidates.size(); c++)
