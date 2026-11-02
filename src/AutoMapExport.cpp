@@ -89,8 +89,13 @@ struct ExportPictures
 static std::string ItemArr(ExportPictures &sp, const AutoMapItem &item)
 {
   const char *name = item.nameIndex >= 0 ? AutoMapLevelReader_ItemName(item.nameIndex) : NULL;
+  // A potion's power rune goes first, as in the window's tooltip
+  std::string named = name ? name : "";
+  const char *rune = AutoMapScene_PotionPowerName(item.potionPower);
+  if (rune[0] != '\0' && !named.empty()) named = std::string(rune) + " " + named;
+  // The kind last, for the mockup's show choices (an AutoMapItemKind)
   return "[" + JsonText(sp.Plain(item.worldPicture, 10)) + "," + JsonText(sp.Icon(item)) + "," +
-         JsonText(name ? name : "") + "]";
+         JsonText(named) + "," + std::to_string((int)AutoMapScene_KindOfItem(item)) + "]";
 }
 
 static std::string StrArr(const std::vector<std::string> &v)
@@ -169,7 +174,7 @@ static void WriteDrawList(FILE *f, ExportPictures &sp, const AutoMapDrawList &l,
       {
         const AutoMapWallSide &w = c.wallSides[s];
         o << (s ? "," : "") << "[" << JsonText(sp.Plain(w.picture, 10)) << "," << (w.picture != AUTOMAP_NO_PICTURE) << "," << w.hasWriting << "," << w.functional << ","
-          << w.hidden << "," << w.isAlcove << "," << JsonText(sp.Portrait(w.portrait)) << "," << (int)w.feature << "]";
+          << w.hidden << "," << w.isAlcove << "," << JsonText(sp.Portrait(w.portrait)) << "," << (int)w.feature << "," << w.isTorchHolder << "]";
       }
       o << "]";
     }
@@ -177,7 +182,9 @@ static void WriteDrawList(FILE *f, ExportPictures &sp, const AutoMapDrawList &l,
     {
       o << ",\"items\":[";
       for (size_t k = 0; k < c.itemPictures.size(); k++) o << (k ? "," : "") << ItemArr(sp, c.itemPictures[k]);
-      o << "],\"more\":" << sc.hasMoreItems << ",\"all\":" << sc.allItemPictures.size();
+      o << "],\"more\":" << sc.hasMoreItems << ",\"all\":" << sc.allItemPictures.size() << ",\"allKinds\":[";
+      for (size_t k = 0; k < sc.allItemPictures.size(); k++) o << (k ? "," : "") << (int)AutoMapScene_KindOfItem(sc.allItemPictures[k]);
+      o << "]";
     }
     if (!c.alcoveContents.empty())
     {

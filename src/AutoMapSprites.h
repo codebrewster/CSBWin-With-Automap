@@ -30,6 +30,11 @@ struct AutoMapSpriteRequest
   // repaints them per level. Icons must use the portrait palette to look the
   // way they do in the inventory; world sprites use the shown level's schemes.
   bool portraitPalette;
+  // The colour schemes for entries 9 and 10 plus one, for a picture of another level than the
+  // shown one (a search hit); 0 takes the shown level's. Plus one so that a request that leaves
+  // them out gets the shown level's.
+  int scheme9PlusOne;
+  int scheme10PlusOne;
 };
 
 // Turns pictures of the game's graphics file into textures of the map window.

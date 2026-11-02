@@ -105,12 +105,20 @@ static int ColourNumberAt(const PlanarPicture &picture, int x, int y)
 static int s_scheme9 = 8;
 static int s_scheme10 = 12;
 
+// specialColors holds 13 schemes; a damaged dungeon could name one beyond that
+static int SchemeOrDefault(int scheme, int fallback)
+{
+  return scheme < 0 || scheme > 12 ? fallback : scheme;
+}
+
 static int PackedColour(int colourNumber, const AutoMapSpriteRequest &request)
 {
   if (!request.portraitPalette)
   {
-    if (colourNumber == 9) return LE16(d.specialColors[s_scheme9][0]);
-    if (colourNumber == 10) return LE16(d.specialColors[s_scheme10][0]);
+    int scheme9 = request.scheme9PlusOne > 0 ? SchemeOrDefault(request.scheme9PlusOne - 1, 8) : s_scheme9;
+    int scheme10 = request.scheme10PlusOne > 0 ? SchemeOrDefault(request.scheme10PlusOne - 1, 12) : s_scheme10;
+    if (colourNumber == 9) return LE16(d.specialColors[scheme9][0]);
+    if (colourNumber == 10) return LE16(d.specialColors[scheme10][0]);
     return d.Palette552[0].color[colourNumber];
   }
   // The portrait palette is byte-swapped at load like the rest of Palette552,
@@ -131,6 +139,43 @@ static SDL_Color ColourOfTheGame(int colourNumber, const AutoMapSpriteRequest &r
   return colour;
 }
 
+// The pictures are drawn scaled with linear filtering, which mixes the colour of a transparent
+// pixel into its opaque neighbours. That colour is the palette entry left out (often 10, which
+// every level repaints for its monsters), so edges would take a tint of the level: purple on one,
+// blue on the next. A transparent pixel takes the mean colour of its opaque neighbours instead,
+// black when it has none.
+static void BleedIntoTransparentPixels(std::vector<Uint8> *pixels, int width, int height)
+{
+  std::vector<Uint8> &p = *pixels;
+  std::vector<Uint8> source(p);
+  for (int y = 0; y < height; y++)
+  {
+    for (int x = 0; x < width; x++)
+    {
+      size_t at = ((size_t)y * width + x) * 4;
+      if (source[at + 3] != SDL_ALPHA_TRANSPARENT) continue;
+      int r = 0, g = 0, b = 0, opaque = 0;
+      for (int dy = -1; dy <= 1; dy++)
+      {
+        for (int dx = -1; dx <= 1; dx++)
+        {
+          int nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+          size_t n = ((size_t)ny * width + nx) * 4;
+          if (source[n + 3] == SDL_ALPHA_TRANSPARENT) continue;
+          r += source[n];
+          g += source[n + 1];
+          b += source[n + 2];
+          opaque++;
+        }
+      }
+      p[at] = (Uint8)(opaque ? r / opaque : 0);
+      p[at + 1] = (Uint8)(opaque ? g / opaque : 0);
+      p[at + 2] = (Uint8)(opaque ? b / opaque : 0);
+    }
+  }
+}
+
 static std::vector<Uint8> ToRgba(const PlanarPicture &picture,
                              const AutoMapSpriteRequest &request)
 {
@@ -149,6 +194,7 @@ static std::vector<Uint8> ToRgba(const PlanarPicture &picture,
       pixels.push_back(colour.a);
     }
   }
+  BleedIntoTransparentPixels(&pixels, picture.width, picture.height);
   return pixels;
 }
 
@@ -178,6 +224,7 @@ static long long KeyOf(const AutoMapSpriteRequest &request)
         + request.tileH;
   }
   key = key * 2 + (request.portraitPalette ? 1 : 0);
+  key = (key * 14 + request.scheme9PlusOne) * 14 + request.scheme10PlusOne;
   return key;
 }
 
@@ -187,11 +234,8 @@ AutoMapSprites::AutoMapSprites(void) : m_renderer(NULL)
 
 void AutoMapSprites::UseColourSchemes(int scheme9, int scheme10)
 {
-  // specialColors holds 13 schemes; a damaged dungeon could name one beyond that
-  if (scheme9 < 0 || scheme9 > 12) scheme9 = 8;
-  if (scheme10 < 0 || scheme10 > 12) scheme10 = 12;
-  s_scheme9 = scheme9;
-  s_scheme10 = scheme10;
+  s_scheme9 = SchemeOrDefault(scheme9, 8);
+  s_scheme10 = SchemeOrDefault(scheme10, 12);
 }
 
 void AutoMapSprites::UseRenderer(SDL_Renderer *renderer)

@@ -287,6 +287,18 @@ static void ReadWallSides(const SUMMARIZEROOMDATA &summary, AutoMapDirection vie
   }
 }
 
+// A torch holder (actuator type 13) on this side of the cell
+static bool SideHasTorchHolder(int x, int y, int side)
+{
+  for (RN object = FindFirstObject(x, y); object != RNeof; object = GetDBRecordLink(object))
+  {
+    if (object.dbType() != dbACTUATOR || object.pos() != side) continue;
+    DB3 *actuator = GetRecordAddressDB3(object);
+    if (actuator != NULL && actuator->actuatorType() == 13) return true;
+  }
+  return false;
+}
+
 // Champion portrait on one side of a wall cell (actuator type 127, e.g. the
 // Hall of Champions on DM L0): the champion index 0..511 the 3D view draws,
 // AUTOMAP_NO_PICTURE when none or hidden. Mirrors Codea59a.cpp: the portrait
@@ -318,6 +330,7 @@ static void ReadWall(int x, int y, const SUMMARIZEROOMDATA &seenFromSouth, AutoM
   for (int side = 0; side < AUTOMAP_SIDE_COUNT; side++)
   {
     record->wallSides[side].portrait = PortraitOnSide(x, y, side);
+    record->wallSides[side].isTorchHolder = SideHasTorchHolder(x, y, side);
     record->wallSides[side].actuators = actuatorRecords[side];
   }
 }
@@ -691,6 +704,11 @@ static AutoMapItem ItemForRN(RN object)
   int names = (int)(sizeof(d.ObjectNames) / sizeof(d.ObjectNames[0]));
   if (displayType < 0 || displayType >= names) return item;
   item.nameIndex = displayType;
+  // The inventory names a potion with its power rune in front (Character.cpp), flasks without
+  if (object.dbType() == dbPOTION && displayType != objNI_WaterFlask && displayType != objNI_EmptyFlask)
+  {
+    item.potionPower = GetRecordAddressDB8(object)->strength() / 40;
+  }
   int graphic = AUTOMAP_NO_PICTURE;
   int tile = 0;
   if (!IconForType(displayType, &graphic, &tile))

@@ -20,7 +20,7 @@ static const int MOST_STEPS_EVER = 200;
 static AutoMapWallSide PlainWallSide(void)
 {
   AutoMapWallSide side = {AUTOMAP_NO_PICTURE, false, false, false, false, AUTOMAP_NO_PICTURE,
-                          std::string(), std::vector<AutoMapRecordId>(), AutoMapWallFeatureNone};
+                          std::string(), std::vector<AutoMapRecordId>(), AutoMapWallFeatureNone, false};
   return side;
 }
 
@@ -1442,6 +1442,12 @@ AutoMapSpinnerGeometry AutoMapScene_SpinnerGeometry(int spinnerFacing, int spinn
   return geometry;
 }
 
+const char *AutoMapScene_PotionPowerName(int power)
+{
+  static const char *const RUNES[] = {"LO", "UM", "ON", "EE", "PAL", "MON"};
+  return power >= 1 && power <= 6 ? RUNES[power - 1] : "";
+}
+
 static std::string RequiredObjectName(AutoMapItemNameFn nameForIndex, const AutoMapItem &object)
 {
   if (nameForIndex != NULL && object.nameIndex >= 0)
@@ -1681,16 +1687,11 @@ const char *SignalWord(AutoMapSignal signal)
 }
 
 // How long the engine waits before the message lands (DB3 delay added to
-// d.Time in QueueSwitchAction). Ticks run ~6/s (512 ticks ≈ 85 s, CSBCode.cpp),
-// so 0..15 ticks read ~0..2.5 s: one decimal, trimmed.
+// d.Time in QueueSwitchAction), in the engine's own ticks (0..15, ~6 a second)
 std::string DelayWord(int delay)
 {
   if (delay <= 0) return "";
-  int tenths = (delay * 10 + 3) / 6;
-  char word[32];
-  if (tenths % 10 == 0) std::snprintf(word, sizeof(word), " AFTER %dS", tenths / 10);
-  else std::snprintf(word, sizeof(word), " AFTER %d.%dS", tenths / 10, tenths % 10);
-  return std::string(word);
+  return " AFTER " + std::to_string(delay) + (delay == 1 ? " TICK" : " TICKS");
 }
 
 std::vector<std::string> AutoMapScene_RelayLines(const AutoMapDrawList &drawList, int x, int y)
@@ -2215,6 +2216,16 @@ std::vector<AutoMapSearchHit> AutoMapScene_SearchItems(const AutoMapDrawList &dr
       AutoMapSearchHit hit;
       hit.slot = slots[s];
       candidates.push_back(hit);
+      // What an opened chest holds: the draw list only has it once the party may know it
+      for (size_t c = 0; slots[s].isChest && c < slots[s].contents.size(); c++)
+      {
+        AutoMapSearchHit inside;
+        inside.slot.item = slots[s].contents[c].item;
+        inside.slot.count = slots[s].contents[c].count;
+        inside.slot.side = slots[s].side;
+        inside.kind = AutoMapHitInChest;
+        candidates.push_back(inside);
+      }
     }
     std::vector<AutoMapItemStack> carried = AutoMapScene_MonsterPossessions(drawList, x, y);
     for (size_t s = 0; s < carried.size(); s++)
@@ -2240,6 +2251,8 @@ std::vector<AutoMapSearchHit> AutoMapScene_SearchItems(const AutoMapDrawList &dr
     {
       AutoMapSearchHit hit = candidates[c];
       hit.level = drawList.level;
+      hit.paletteScheme9 = drawList.paletteScheme9;
+      hit.paletteScheme10 = drawList.paletteScheme10;
       hit.x = x;
       hit.y = y;
       AutoMapScene_GlobalPosition(drawList, x, y, &hit.globalX, &hit.globalY);
@@ -2253,10 +2266,14 @@ std::vector<AutoMapSearchHit> AutoMapScene_SearchItems(const AutoMapDrawList &dr
       }
       hit.name = RequiredObjectName(nameForIndex, hit.slot.item);
       hit.count = hit.slot.count;
-      if (hit.monsterCarried) hit.kind = AutoMapHitCarried;
-      else if (hit.slot.required) hit.kind = AutoMapHitNeeds;
-      else if (hit.slot.isChest) hit.kind = AutoMapHitChest;
-      else if (hit.slot.side >= 0) hit.kind = AutoMapHitAlcove;
+      // An item in a chest got its kind with the candidate
+      if (hit.kind != AutoMapHitInChest)
+      {
+        if (hit.monsterCarried) hit.kind = AutoMapHitCarried;
+        else if (hit.slot.required) hit.kind = AutoMapHitNeeds;
+        else if (hit.slot.isChest) hit.kind = AutoMapHitChest;
+        else if (hit.slot.side >= 0) hit.kind = AutoMapHitAlcove;
+      }
       if (hit.monsterCarried) hit.carriedBy = AutoMapScene_MonsterNameLine(drawList, x, y);
       // An item of no known name is no food the player could tell either
       hit.isFood = isFood != NULL && hit.slot.item.nameIndex >= 0 && hit.name != ""
@@ -2272,6 +2289,8 @@ std::vector<AutoMapSearchHit> AutoMapScene_SearchItems(const AutoMapDrawList &dr
     AutoMapSearchHit hit;
     hit.kind = AutoMapHitMonster;
     hit.level = drawList.level;
+    hit.paletteScheme9 = drawList.paletteScheme9;
+    hit.paletteScheme10 = drawList.paletteScheme10;
     hit.x = group.x;
     hit.y = group.y;
     AutoMapScene_GlobalPosition(drawList, group.x, group.y, &hit.globalX, &hit.globalY);
@@ -2290,6 +2309,8 @@ std::vector<AutoMapSearchHit> AutoMapScene_SearchItems(const AutoMapDrawList &dr
     AutoMapSearchHit hit;
     hit.kind = AutoMapHitGenerator;
     hit.level = drawList.level;
+    hit.paletteScheme9 = drawList.paletteScheme9;
+    hit.paletteScheme10 = drawList.paletteScheme10;
     hit.x = generator.x;
     hit.y = generator.y;
     AutoMapScene_GlobalPosition(drawList, generator.x, generator.y, &hit.globalX, &hit.globalY);

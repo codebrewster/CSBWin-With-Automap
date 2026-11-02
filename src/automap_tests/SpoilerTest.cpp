@@ -990,9 +990,13 @@ static void ChestContentsOnlyOnceOpened(void)
   AutoMapDrawList before = Build(snapshot, AutoMapSpoilersLearned, &knowledge);
   CHECK(FindCell(before, 1, 1)->cell.chestContents.empty());
   CHECK(FindCell(before, 1, 1)->cell.itemPictures.size() == 1);
+  CHECK(AutoMapScene_SearchItems(before, "sword", FakeName, NULL).empty());
   knowledge.Learn(AutoMapFact_OfRecord(AutoMapFactChestOpened, CHEST_RECORD));
   AutoMapDrawList opened = Build(snapshot, AutoMapSpoilersLearned, &knowledge);
   CHECK(FindCell(opened, 1, 1)->cell.chestContents.size() == 1);
+  std::vector<AutoMapSearchHit> found = AutoMapScene_SearchItems(opened, "sword", FakeName, NULL);
+  CHECK(found.size() == 1 && found[0].kind == AutoMapHitInChest && found[0].x == 1 && found[0].y == 1);
+  CHECK(AutoMapScene_SearchItems(opened, "chest", FakeName, NULL).size() == 1);
   const AutoMapChestContents &contents = FindCell(opened, 1, 1)->cell.chestContents[0];
   CHECK(contents.pictures.size() == 2);
   CHECK(contents.pictureTexts[1] == "");

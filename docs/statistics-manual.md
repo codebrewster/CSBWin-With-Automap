@@ -27,7 +27,7 @@ save.
 
 ## Opening the window
 
-In the menu bar of the game window, choose **Misc → Statistics → Window**. Choose it again to
+In the menu bar of the game window, choose **Misc → Statistics**. Choose it again to
 close the window, or use the window's own close button. If the window was open when you left the
 game, it opens again at the same place and size the next time.
 

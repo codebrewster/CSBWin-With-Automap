@@ -170,15 +170,25 @@ void AutoMapPaint_PartyArrow(float centreX, float centreY, float radius, int fac
   SDL_RenderDrawLine(painter, (int)rightX, (int)rightY, (int)tipX, (int)tipY);
 }
 
+// Three slanted strokes of four dots each, kept inside the box with a margin on every side
 void AutoMapPaint_Claw(const AutoMapRect &box, SDL_Color colour)
 {
-  int p = std::max(1, (int)std::lround(box.w / 7.0));
+  int side = std::min(box.w, box.h);
+  int margin = std::max(1, side * 15 / 100);
+  int inner = side - 2 * margin;
+  int p = std::max(1, inner * 2 / 13);
+  int down = p + p / 2;
+  int across = p / 2;
+  int height = 3 * down + 2 * p;
+  int gap = std::max(0, (inner - 3 * across - p) / 2);
+  int width = 2 * gap + 3 * across + p;
+  int left = box.x + (box.w - width) / 2;
+  int top = box.y + (box.h - height) / 2;
   for (int mark = 0; mark < 3; mark++)
   {
     for (int step = 0; step < 4; step++)
     {
-      AutoMapRect dot = {box.x + (int)(box.w * 0.2 + mark * box.w * 0.25 + step * p * 0.6),
-                         box.y + (int)(box.h * 0.15 + step * p * 1.6), p, p * 2};
+      AutoMapRect dot = {left + mark * gap + step * across, top + step * down, p, p * 2};
       AutoMapPaint_Fill(dot, colour);
     }
   }

@@ -2533,7 +2533,7 @@ static void PressLinesNameBothTriggersOnOneTarget(void)
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
   CHECK(Joined(AutoMapScene_PressLines(drawList, AutoMapScene_PressEffects(drawList, 1, 0), true))
-        == "PRESS:\n L2 (14, 23) DOOR ALREADY OPEN\n L2 (14, 23) DOOR CLOSE AFTER 1S");
+        == "PRESS:\n L2 (14, 23) DOOR ALREADY OPEN\n L2 (14, 23) DOOR CLOSE AFTER 6 TICKS");
 }
 
 static void RelayLinesStaySilentWithoutTheCell(void)
@@ -4423,7 +4423,7 @@ static void PressLinesTree(void)
       drawList, AutoMapScene_PressEffects(drawList, 0, 3), true);
   CHECK(Joined(lines) == "PRESS:\n L5 (18, 28) COUNTER A 4->3\n  AT 0: L5 (25, 26) GATE A BIT 2 SET\n"
                          "   GATE A 1011->1111 (NEEDS 1111) MATCH\n"
-                         "    MATCH: L5 (26, 26) DOOR OPEN AFTER 1S\n"
+                         "    MATCH: L5 (26, 26) DOOR OPEN AFTER 6 TICKS\n"
                          " L5 (18, 28) COUNTER B 3->2\n  AT 0: L5 (20, 29) DOOR OPEN");
 }
 
@@ -4644,7 +4644,7 @@ static void PressLinesTreeMarks(void)
   CHECK(TreeLineOf(once, CounterEffect(2, 1), false) == " L0 (2, 0) COUNTER A 2->1 ONCE NC");
   AutoMapEffect delayed = CounterEffect(2, 1);
   delayed.delayTicks = 3;
-  CHECK(TreeLineOf(CounterRelay(2), delayed, false) == " L0 (2, 0) COUNTER A 2->1 AFTER 0.5S");
+  CHECK(TreeLineOf(CounterRelay(2), delayed, false) == " L0 (2, 0) COUNTER A 2->1 AFTER 3 TICKS");
   AutoMapEffect guarded = CounterEffect(2, 1);
   guarded.afterDSA = true;
   CHECK(TreeLineOf(CounterRelay(2), guarded, false)
@@ -4803,7 +4803,7 @@ static void RelayHoverLinesLetterRelays(void)
            " L5 (16, 28) SWITCH (E) A-1 B-1\n L5 (19, 28) PAD A-1 B-1");
   // A gate shows its bits and what the counter feeding it does to which bit
   CHECK(Joined(AutoMapScene_RelayHoverLines(drawList, 9, 1, false))
-        == "STONE: 1 GATE\n A GATE 1011 (NEEDS 1111) -> L5 (26, 26) DOOR OPEN ON MATCH AFTER 1S\n"
+        == "STONE: 1 GATE\n A GATE 1011 (NEEDS 1111) -> L5 (26, 26) DOOR OPEN ON MATCH AFTER 6 TICKS\n"
            "FED BY:\n L5 (18, 28) COUNTER A BIT 2 SET");
   // A mixed cell names each kind
   AutoMapLevelSnapshot mixed = L5Machine();

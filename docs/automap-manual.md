@@ -24,7 +24,7 @@ How to use the automap while you play. For how it is built, see
 
 ## Opening the map
 
-In the menu bar at the top of the game window, choose **Misc → Map → Window**. The map opens in a
+In the menu bar at the top of the game window, choose **Misc → Map**. The map opens in a
 second window that you can move and resize, and it updates while you play. If the window was open
 when you left the game, it opens again the next time, at the same place and size.
 
@@ -78,7 +78,6 @@ click outside closes the list.
 | Left-drag | Pans the view; the map stops following the party |
 | Mouse wheel | Zooms towards the pointer, from the whole level down to about three cells across |
 | Middle-click | Centres the view on the party again and follows it |
-| Middle-drag | Pans too |
 | Mouse side buttons | Back goes down a level, forward goes up, centred on the tile under the pointer |
 | Page Down / Page Up | Goes down / up a level over the middle of the view |
 | Ctrl+Page Down / Ctrl+Page Up | The same from the game window, where the plain keys pick up items in the default `csb.cfg` |
@@ -172,7 +171,8 @@ spoiler level.
 At every level:
 
 - **Items**, stacked by name (`3X SKELETON KEY`), and what a chest or alcove
-  holds once the party has looked.
+  holds once the party has looked. A brewed potion has its power rune in front, as in the
+  inventory: `UM VEN POTION`.
 - **Monsters**, with the damage the game showed for each group member.
 - **Doors and stairs.**
 
@@ -228,7 +228,8 @@ On the map each goal gets a frame and a badge: `NOW`, `2 MORE`, `1 BIT OFF`, `NE
 `BLOCKED`, `HOLD`, `DSA` or `DONE`. Goals that happen now, soon or already are gold; those that wait
 on something else are orange. Hovering a relay draws what feeds it in blue and what it feeds in gold.
 
-Hold **Shift** to see the whole relay tree, indented by depth, with delays and gate modes.
+Hold **Shift** to see the whole relay tree, indented by depth, with delays and gate modes. Delays are
+in the game's ticks (about six a second): `AFTER 6 TICKS`.
 
 ![Hovering a pad at spoiler level All: two more presses open the false wall](images/automap-press.png)
 
@@ -247,10 +248,12 @@ every level and finds:
 
 The results are grouped under a heading per level, the shown level first; a click on a heading
 folds it away. Each hit shows its icon, the cell as the rulers number it, its name and a tag: `X3`,
-`ALCOVE`, `CHEST`, `CARRIED BY …`, `NEEDS`, `PAD NEEDS` or `GENERATOR`. **Up** and **Down** step
+`ALCOVE`, `CHEST`, `IN CHEST`, `CARRIED BY …`, `NEEDS`, `PAD NEEDS` or `GENERATOR`. **Up** and **Down** step
 through the hits and jump the map to each, **Enter** centres the selected hit, a click on a hit
 jumps to it, and **Escape** closes the search. The wheel scrolls a long list. On the map every hit
-of the shown level gets a gold frame, the selected one a light frame.
+of the shown level gets a gold frame, the selected one a light frame, and the rest of the map dims
+while the selected hit is on the shown level. Hovering a trigger or its target shows its links
+instead, until the pointer moves on.
 
 The search follows the same spoiler and fog rules as the map: nothing in an unopened chest and
 nothing beyond the explored cells is found.

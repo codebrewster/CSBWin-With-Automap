@@ -97,6 +97,9 @@ struct AutoMapWallSide
   std::vector<AutoMapRecordId> actuators;
   // What the face is for, for the search. Hidden with the side, like the picture.
   AutoMapWallFeature feature;
+  // A torch holder (actuator type 13): its picture already shows whether it holds a torch,
+  // so the map draws no goods on this face
+  bool isTorchHolder;
 };
 
 // One item as the game knows it: the small sprite the 3D view draws plus, when the
@@ -106,7 +109,7 @@ struct AutoMapItem
 {
   AutoMapItem(void)
     : worldPicture(AUTOMAP_NO_PICTURE), hasIcon(false),
-      iconGraphic(AUTOMAP_NO_PICTURE), iconTile(0), nameIndex(-1), descIndex(-1)
+      iconGraphic(AUTOMAP_NO_PICTURE), iconTile(0), nameIndex(-1), descIndex(-1), potionPower(0)
   {
   }
   int worldPicture;
@@ -119,6 +122,9 @@ struct AutoMapItem
   int nameIndex;
   // The object description (d.ObjDesc), -1 when unknown; tells the kind of item
   int descIndex;
+  // A brewed potion's power, its strength / 40 the way the inventory picks its rune: 1 LO .. 6 MON;
+  // 0 for everything else, water and empty flasks included
+  int potionPower;
 };
 
 inline bool operator==(const AutoMapItem &left, const AutoMapItem &right)
@@ -126,8 +132,12 @@ inline bool operator==(const AutoMapItem &left, const AutoMapItem &right)
   return left.worldPicture == right.worldPicture && left.hasIcon == right.hasIcon
       && (!left.hasIcon || (left.iconGraphic == right.iconGraphic
                             && left.iconTile == right.iconTile))
-      && left.nameIndex == right.nameIndex;
+      && left.nameIndex == right.nameIndex && left.potionPower == right.potionPower;
 }
+
+// The power rune of a potion, as the inventory shows it before the name: "LO", "UM", "ON", "EE",
+// "PAL", "MON"; "" for no power
+const char *AutoMapScene_PotionPowerName(int power);
 
 // One chest's contents: which full-list item it belongs to plus its items.
 // pictureTexts runs parallel to pictures: the scroll excerpt of each contained
@@ -536,7 +546,7 @@ struct AutoMapLink
   // Fires once, then the engine deletes the actuator: a dashed, one-shot arrow
   bool onceOnly;
   // Ticks the engine waits before the message lands (DB3 delay, 0..15 at ~6
-  // ticks/s): a delayed close reads "AFTER 1S" in the tooltip.
+  // ticks/s): a delayed close reads "AFTER 6 TICKS" in the tooltip.
   int delay;
   // The source actuator is itself a counter (type 48, or type 6 in stone):
   // it only fires when its count reaches zero, so its trigger reads "WHEN 0".
@@ -1022,6 +1032,8 @@ enum AutoMapHitKind
   AutoMapHitNeeds,
   AutoMapHitCarried,
   AutoMapHitChest,
+  // An item inside a chest on the floor (a chest in an alcove lists its items as the alcove's)
+  AutoMapHitInChest,
   AutoMapHitAlcove,
   AutoMapHitFeature,
   AutoMapHitMonster,
@@ -1058,6 +1070,9 @@ struct AutoMapSearchHit
   // A monster group's or a generator's monster picture, for the results' icon
   int monsterPicture = AUTOMAP_NO_PICTURE;
   int monsterTransparentColour = 0;
+  // The colour schemes of the hit's level, which may not be the one on screen
+  int paletteScheme9 = AUTOMAP_DEFAULT_SCHEME9;
+  int paletteScheme10 = AUTOMAP_DEFAULT_SCHEME10;
 };
 
 // The rows of the search results: a heading per level (the shown level first, then the others in

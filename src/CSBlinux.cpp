@@ -2486,20 +2486,14 @@ void post_render() {
 		show_keys = true;
 	    }
 	    ImGui::MenuItem(_("Party coordinates"), NULL,&show_coords);
-	    if (ImGui::BeginMenu(_("Map"))) {
-		if (ImGui::MenuItem(_("Window"), NULL, AutoMapWindow_IsShown())) {
-		    if (AutoMapWindow_IsShown()) AutoMapWindow_Hide();
-		    else AutoMapWindow_Show();
-		}
-		// Every other map setting lives on the bar in the map window
-		ImGui::EndMenu();
+	    // Each opens or closes its own window; every map setting lives on the bar in the map window
+	    if (ImGui::MenuItem(_("Map"), NULL, AutoMapWindow_IsShown())) {
+		if (AutoMapWindow_IsShown()) AutoMapWindow_Hide();
+		else AutoMapWindow_Show();
 	    }
-	    if (ImGui::BeginMenu(_("Statistics"))) {
-		if (ImGui::MenuItem(_("Window"), NULL, HeroStatsWindow_IsShown())) {
-		    if (HeroStatsWindow_IsShown()) HeroStatsWindow_Hide();
-		    else HeroStatsWindow_Show();
-		}
-		ImGui::EndMenu();
+	    if (ImGui::MenuItem(_("Statistics"), NULL, HeroStatsWindow_IsShown())) {
+		if (HeroStatsWindow_IsShown()) HeroStatsWindow_Hide();
+		else HeroStatsWindow_Show();
 	    }
 	    bool enabled = (ItemsRemainingOK
 		    && (encipheredDataFile==NULL)

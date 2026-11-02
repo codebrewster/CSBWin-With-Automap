@@ -87,7 +87,8 @@ function tri(pts, col) { g.fillStyle = col; g.beginPath(); g.moveTo(...pts[0]); 
 function spr(name, x, y, w, h, alpha) { const i = img[name]; if (!name || !i || !i.complete || !i.width) return false; g.globalAlpha = alpha ?? 1; g.imageSmoothingEnabled = false; const s = Math.min(w / i.width, h / i.height); const dw = i.width * s, dh = i.height * s; g.drawImage(i, Math.round(x + (w - dw) / 2), Math.round(y + (h - dh) / 2), Math.round(dw), Math.round(dh)); g.globalAlpha = 1; return true; }
 const px = x => Math.round(RUL + panX + x * cs), py = y => Math.round(RUL + panY + y * cs);
 function partyArrow(cx, cy, r, f, col, outline) { const [dx, dy] = [[0, -1], [1, 0], [0, 1], [-1, 0]][f & 3], qx = -dy, qy = dx; const P = (a, b) => [cx + dx * a * r + qx * b * r, cy + dy * a * r + qy * b * r]; const pts = [P(1, 0), P(-.8, .8), P(-.3, 0), P(-.8, -.8)]; g.fillStyle = col; g.beginPath(); g.moveTo(...pts[0]); pts.slice(1).forEach(p => g.lineTo(...p)); g.closePath(); g.fill(); if (outline) { g.strokeStyle = outline; g.lineWidth = 1; g.stroke(); } }
-function claw(x, y, s, col) { const p = Math.max(1, Math.round(s / 7)); g.fillStyle = col; for (let k = 0; k < 3; k++) for (let i = 0; i < 4; i++) g.fillRect(Math.round(x + s * .2 + k * s * .25 + i * p * .6), Math.round(y + s * .15 + i * p * 1.6), p, p * 2); }
+// three slanted strokes of four dots, inside the box with a margin, as AutoMapPaint_Claw
+function claw(x, y, s, col) { x = Math.round(x); y = Math.round(y); s = Math.floor(s); const m = Math.max(1, Math.floor(s * 15 / 100)), inner = s - 2 * m, p = Math.max(1, Math.floor(inner * 2 / 13)), down = p + (p >> 1), across = p >> 1, h = 3 * down + 2 * p, gap = Math.max(0, (inner - 3 * across - p) >> 1), w = 2 * gap + 3 * across + p, l = x + ((s - w) >> 1), t = y + ((s - h) >> 1); g.fillStyle = col; for (let k = 0; k < 3; k++) for (let i = 0; i < 4; i++) g.fillRect(l + k * gap + i * across, t + i * down, p, p * 2); }
 // The "who" tag: lower-left corner, one square per kind of trigger
 function chip(x, y, who, border) {
   const s = Math.max(10, Math.round(cs * .36)), pad = 1; const pTxt = Math.max(1, Math.floor(s / 9));
@@ -159,7 +160,7 @@ function breakMarks(c, x, y) {
   const bx = x + cs * .08, by = y + cs * .58, bw = cs * .3, bh = cs * .34;
   g.strokeStyle = '#fff'; g.lineWidth = 1;
   const X = (a, b, w, h) => { g.beginPath(); g.moveTo(a, b); g.lineTo(a + w, b + h); g.moveTo(a, b + h); g.lineTo(a + w, b); g.stroke(); };
-  const O = (a, b, w, h) => { g.beginPath(); g.arc(a + w / 2, b + h / 2, Math.min(w, h) / 2 - 1, 0, 2 * Math.PI); g.stroke(); };
+  const O = (a, b, w, h) => { g.beginPath(); g.arc(a + w / 2, b + h / 2, Math.max(0, Math.min(w, h) / 2 - 1), 0, 2 * Math.PI); g.stroke(); };
   if (axe && fire) { X(bx, by, bw * .45, bh); O(bx + bw * .55, by, bw * .45, bh); } else if (axe) X(bx, by, bw, bh); else O(bx, by, bw, bh);
 }
 function drawStairs(c, x, y) {
@@ -174,9 +175,9 @@ function spinner(c, x, y, col) {
   const P = a => [cx + r * Math.cos(a), cy - r * Math.sin(a)];
   const arc = (st, sw, colr, w) => { g.strokeStyle = colr; g.lineWidth = w; g.lineCap = 'square'; g.beginPath(); const n = Math.max(2, Math.ceil(24 * Math.abs(sw) / (2 * Math.PI))); for (let i = 0; i <= n; i++) { const p = P(st + sw * i / n); i ? g.lineTo(...p) : g.moveTo(...p); } g.stroke(); };
   const tang = (a, cw, colr, k) => { const sg = cw ? -1 : 1, ax = sg * -Math.sin(a), ay = sg * -Math.cos(a), ox = Math.cos(a), oy = -Math.sin(a); const [hx, hy] = P(a); tri([[hx + ax * r * .75 * k, hy + ay * r * .75 * k], [hx - ax * r * .2 * k + ox * r * .45 * k, hy - ay * r * .2 * k + oy * r * .45 * k], [hx - ax * r * .2 * k - ox * r * .45 * k, hy - ay * r * .2 * k - oy * r * .45 * k]], colr); };
-  const radial = (a, colr, w, k) => { const [hx, hy] = P(a); g.strokeStyle = colr; g.lineWidth = w; g.beginPath(); g.moveTo(cx, cy); g.lineTo(hx, hy); g.stroke(); const ox = Math.cos(a), oy = -Math.sin(a), qx = -Math.sin(a), qy = -Math.cos(a); tri([[hx + ox * r * .8 * k, hy + oy * r * .8 * k], [hx - ox * r * .05 * k + qx * r * .48 * k, hy - oy * r * .05 * k + qy * r * .48 * k], [hx - ox * r * .05 * k - qx * r * .48 * k, hy - oy * r * .05 * k - qy * r * .48 * k]], colr); };
   for (const [colr, w, k] of [['#0b0a08', lw + 2, 1.18], [col, lw, 1]]) {
-    if (G.glyph === 'abs') { g.strokeStyle = colr; g.lineWidth = w; g.beginPath(); g.arc(cx, cy, r * .55, 0, 2 * Math.PI); g.stroke(); radial(G.head, colr, w, k); }
+    // a compass dial: ring, centre dot, and a head on the rim at the facing it sets
+    if (G.glyph === 'abs') { arc(0, 2 * Math.PI, colr, w); const d = Math.max(2, cs / 12) + (k > 1 ? 2 : 0); rect(cx - d / 2, cy - d / 2, d, d, colr); const [hx, hy] = P(G.head), ox = Math.cos(G.head), oy = -Math.sin(G.head), qx = -oy, qy = ox, tx = hx + ox * r * .6, ty = hy + oy * r * .6, bx = tx - ox * r * .85 * k, by = ty - oy * r * .85 * k, h = r * .5 * k; tri([[tx + ox * (k - 1) * 4, ty + oy * (k - 1) * 4], [bx + qx * h, by + qy * h], [bx - qx * h, by - qy * h]], colr); }
     else if (G.glyph === 'turn') { arc(G.start, G.sweep, colr, w); tang(G.head, G.sweep < 0, colr, k); }
     else if (G.glyph === 'straight') { const gap = Math.PI / 3; arc(Math.PI / 2 + gap / 2, 2 * Math.PI - gap, colr, w); const d = Math.max(2, cs / 12) * (k > 1 ? 1.6 : 1); rect(cx - d / 2, cy - d / 2, d, d, colr); }
     else { arc(0, 2 * Math.PI, colr, w); tang(0, false, colr, k); }
@@ -206,17 +207,19 @@ function drawWallFaces(c) {
   if (!c.sides || (c.k !== 0 && c.k !== 6)) return; const x = px(c.x), y = py(c.y);
   for (let side = 0; side < 4; side++) {
     const s = c.sides[side]; if (!sideHas(s)) continue;
-    const [pic, hasPic, writing, functional, hidden, , portrait] = s;
+    const [pic, hasPic, writing, functional, hidden, isAlcove, portrait, , torchHolder] = s;
     const showPic = SHOW['WALL DECORATIONS'] && (hasPic || portrait), showText = SHOW['WALL WRITING'] && writing;
     const r = slotRect(c, side, x, y);
     if (hidden) { g.save(); g.setLineDash([3, 3]); g.strokeStyle = '#e8e2d2'; g.strokeRect(r[0] + .5, r[1] + .5, r[2] - 1, r[3] - 1); g.restore(); const cx = r[0] + r[2] / 2, cy = r[1] + r[3] / 2, rr = r[2] * .28; g.strokeStyle = '#ff8a2b'; g.beginPath(); g.moveTo(cx, cy - rr); g.lineTo(cx + rr, cy); g.lineTo(cx, cy + rr); g.lineTo(cx - rr, cy); g.closePath(); g.stroke(); faceLine(side, r, x, y, '#ff8a2b'); continue; }
     if (!showPic && !showText) { if (functional) faceLine(side, r, x, y, '#fff6dc'); continue; }
     if (showPic && hasPic && !spr(pic, r[0] + 1, r[1] + 1, r[2] - 2, r[3] - 2)) rect(r[0] + r[2] * .3, r[1] + r[3] * .3, r[2] * .4, r[3] * .4, '#ff8a2b');
-    if (showPic && portrait) spr(portrait, r[0], r[1], r[2], r[3]);
+    // the face sits inside its mirror frame, as DrawPortrait insets it
+    if (showPic && portrait) { const m = Math.floor(r[2] * 28 / 100); spr(portrait, r[0] + m, r[1] + m, r[2] - 2 * m, r[3] - 2 * m); }
     if (showText) { const t = Math.max(1, Math.round(r[3] / 10)); for (let l = 0; l < 3; l++) rect(r[0] + r[2] * .25, r[1] + r[3] * (2 * l + 1) / 6, r[2] * .5, t, '#e8e2d2'); }
     faceLine(side, r, x, y, functional ? '#fff6dc' : '#3b3128');
     const b = Math.max(8, Math.round(r[2] * .5));
-    const al = (c.alc || []).filter(a => a[0] === side), lk = (c.locks || []).filter(l => l[0] === side && l[1]);
+    // goods show on a switch, and below All in an alcove; a torch holder's torch is in its picture already
+    const al = (c.alc || []).filter(a => a[0] === side && !torchHolder && kindShown(a[1][3]) && (functional || (isAlcove && spoil !== 0))), lk = (c.locks || []).filter(l => l[0] === side && l[1]);
     if (al.length) { rect(r[0] + r[2] - b - 1, r[1] + r[3] - b - 1, b + 2, b + 2, '#0c0b09'); spr(al[0][1][1] || al[0][1][0], r[0] + r[2] - b, r[1] + r[3] - b, b, b); }
     if (lk.length) { rect(r[0] - 1, r[1] + r[3] - b - 1, b + 2, b + 2, '#0c0b09'); frame(r[0] - 1, r[1] + r[3] - b - 1, b + 2, b + 2, '#e0b64a'); spr(lk[0][2][1] || lk[0][2][0], r[0], r[1] + r[3] - b, b, b); }
   }
@@ -246,11 +249,15 @@ function drawActuators(c) {
 // ============================================================================================
 // Items, clouds, missiles, glimpses, monsters, party
 // ============================================================================================
-function itemsShown() { return ITEM_KINDS.some(k => SHOW[k]); }
+// The SHOW choice of each AutoMapItemKind, in the enum's order
+const KIND_SHOW = ['SCROLLS', 'CHESTS', 'POTIONS', 'WEAPONS', 'ARMOUR', 'OTHER ITEMS', 'FOOD', 'KEYS'];
+function kindShown(k) { return SHOW[KIND_SHOW[k] || 'OTHER ITEMS']; }
 function drawItems(c) {
-  if (!c.items || !itemsShown()) return; const x = px(c.x), y = py(c.y); const n = Math.min(3, c.items.length);
-  c.items.slice(0, 3).forEach((it, i) => { if (!spr(it[0], x + cs * i / n + cs * .1 / n, y + cs * .3, cs / n * .8, cs * .4)) rect(x + cs * i / n + cs * .3 / n, y + cs * .4, cs * .4 / n, cs * .2, COL.item); });
-  if (c.all > 3) { const p = Math.max(1, Math.floor(cs / 24)), s = String(c.all), w = textW(s, p) + 4 * p, h = 9 * p; rect(x + cs - w - 2, y + 2, w, h, '#0d0c0a'); frame(x + cs - w - 2, y + 2, w, h, COL.item); text(g, x + cs - w - 2 + 2 * p, y + 2 + 2 * p, s, COL.item, p); }
+  if (!c.items) return; const items = c.items.filter(it => kindShown(it[3])); if (!items.length) return;
+  const all = c.allKinds ? c.allKinds.filter(kindShown).length : c.all;
+  const x = px(c.x), y = py(c.y); const n = Math.min(3, items.length);
+  items.slice(0, 3).forEach((it, i) => { if (!spr(it[0], x + cs * i / n + cs * .1 / n, y + cs * .3, cs / n * .8, cs * .4)) rect(x + cs * i / n + cs * .3 / n, y + cs * .4, cs * .4 / n, cs * .2, COL.item); });
+  if (all > 3) { const p = Math.max(1, Math.floor(cs / 24)), s = String(all), w = textW(s, p) + 4 * p, h = 9 * p; rect(x + cs - w - 2, y + 2, w, h, '#0d0c0a'); frame(x + cs - w - 2, y + 2, w, h, COL.item); text(g, x + cs - w - 2 + 2 * p, y + 2 + 2 * p, s, COL.item, p); }
 }
 function drawClouds() { for (const [x, y, s] of V.clouds) if (!spr(s, px(x), py(y), cs, cs)) { g.fillStyle = 'rgba(80,200,120,.45)'; g.fillRect(px(x) + cs * .05, py(y) + cs * .05, cs * .9, cs * .9); } }
 function drawMissiles() { const n = {}; V.missiles.forEach(m => n[m[0] + ',' + m[1]] = (n[m[0] + ',' + m[1]] || 0) + 1); const k = {}; for (const [x, y, s, sc] of V.missiles) { const key = x + ',' + y, i = (k[key] = (k[key] || 0) + 1) - 1, cnt = n[key]; const w = cs / cnt; if (!spr(s, px(x) + w * i + w * (1 - sc) / 2, py(y) + cs * .6 * (1 - sc) / 2, w * sc, cs * .6 * sc)) rect(px(x) + w * i + w * .35, py(y) + cs * .2, w * .3, cs * .2, '#ff6a2b'); } }
@@ -330,7 +337,7 @@ function hoverLines() { // what hovering shows: {gold, blue, violet, cyan, dorma
 }
 function drawHover() {
   const L = hoverLines(); const all = [...L.gold, ...L.feed, ...L.violet, ...L.cyan, ...L.dormant];
-  if (!all.length && !L.goals.length) return L;
+  if (!all.length && !L.goals.length) return L; L.lit = true;
   const keep = new Set(); all.forEach(l => { keep.add(l[0] + ',' + l[1]); keep.add(l[2] + ',' + l[3]); }); L.goals.forEach(gl => keep.add(gl[0] + ',' + gl[1])); keep.add(hover.x + ',' + hover.y);
   spotlight([...keep]);
   const w = Math.max(2, Math.round(cs / 12)), hs = Math.max(7, cs * .26);

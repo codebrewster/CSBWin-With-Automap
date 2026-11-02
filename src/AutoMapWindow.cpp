@@ -188,10 +188,13 @@ static double MicrosecondsPerTick(void)
 static const int RULER = 30;
 // The ruler numbers are drawn with the 3x5 bitmap font of AutoMapScene_DigitPixel
 static const int DIGIT_SCALE = 2;
-// A middle-drag pans the zoomed view: the exact centre (fractions included) freezes where
-// the drag started and the view stops following the party until a middle-click without a
-// drag recentres it. Fractions keep re-pans continuous and zooming centred on the same spot.
+// A left-drag pans the zoomed view: the exact centre (fractions included) freezes where
+// the drag started and the view stops following the party until a middle-click recentres it.
+// Fractions keep re-pans continuous and zooming centred on the same spot.
 static bool viewFollowsParty = true;
+// Following asked for while another level is on screen: the view keeps still until a draw list
+// with the party arrives, or the old level would be centred for a few frames (a ghost image)
+static bool followWhenPartyShown = false;
 // Set only while AutoMapWindow_RenderToFile draws: a fixed cell size centred on the hovered cell,
 // and Shift as if held
 static int renderCellSize = 0;
@@ -200,12 +203,7 @@ static float viewCenterX = 0;
 // The centre for a level asked for but not on screen yet (Page Down, a search hit elsewhere)
 static AutoMapPendingCentre pendingCentre = AutoMapScene_NoPendingCentre();
 static float viewCenterY = 0;
-static bool middleDragging = false;
-static bool dragLeftTheStart = false;
-static bool dragNeedsResync = false;
-static int dragDistance = 0;
 static const int DRAG_START_DISTANCE = 4;
-static void CancelMiddleDrag(void);
 static void EndLeftDrag(void);
 // Hovered cell for action-link arrows: the cell under the pointer, or nothing when the
 // pointer is off the level. Forward mode draws outgoing edges, reverse mode incoming ones.
@@ -499,7 +497,6 @@ void AutoMapWindow_Hide(void)
   if (!isShown) return;
   RememberPlacement();
   GiveThePointerBackToTheGame();
-  CancelMiddleDrag();
   EndLeftDrag();
   ClearHover();
   if (searchOpen)
@@ -556,8 +553,14 @@ void AutoMapWindow_ShowDrawList(const AutoMapDrawList &drawList)
   shownDrawList = drawList;
   // The level asked for is here: only now does the view move to the spot asked for on it
   float x = 0, y = 0;
+  if (followWhenPartyShown && (drawList.partyIsOnShownLevel || AutoMap_PartyLevel() == drawList.level))
+  {
+    followWhenPartyShown = false;
+    viewFollowsParty = true;
+  }
   if (AutoMapScene_TakeCentre(&pendingCentre, drawList.level, &x, &y))
   {
+    followWhenPartyShown = false;
     viewFollowsParty = false;
     viewCenterX = x;
     viewCenterY = y;
@@ -719,6 +722,8 @@ static void SearchCenterOnSelected(void)
     return;
   }
   pendingCentre = AutoMapScene_NoPendingCentre();
+  followWhenPartyShown = false;
+
   viewFollowsParty = false;
   viewCenterX = (float)hit.x;
   viewCenterY = (float)hit.y;
@@ -863,14 +868,12 @@ bool AutoMapWindow_HandleWindowEvent(const SDL_Event &event)
   case SDL_WINDOWEVENT_CLOSE: AutoMapWindow_Hide(); break;
   case SDL_WINDOWEVENT_ENTER:
     TakeThePointerFromTheGame();
-    if (middleDragging) dragNeedsResync = true;
     break;
   case SDL_WINDOWEVENT_LEAVE:
     GiveThePointerBackToTheGame();
     ClearHover();
-    if (middleDragging) dragNeedsResync = true;
     break;
-  case SDL_WINDOWEVENT_FOCUS_LOST: CancelMiddleDrag(); EndLeftDrag(); ClearHover(); break;
+  case SDL_WINDOWEVENT_FOCUS_LOST: EndLeftDrag(); ClearHover(); break;
   default: isDirty = true; break;
   }
   return true;
@@ -890,7 +893,16 @@ static bool IsPointerEventOfMapWindow(const SDL_Event &event)
 
 static void RecenterViewOnParty(void)
 {
-  viewFollowsParty = true;
+  pendingCentre = AutoMapScene_NoPendingCentre();
+  if (shownDrawList.partyIsOnShownLevel || AutoMap_PartyLevel() == shownDrawList.level)
+  {
+    followWhenPartyShown = false;
+    viewFollowsParty = true;
+  }
+  else
+  {
+    followWhenPartyShown = true;
+  }
   isDirty = true;
 }
 
@@ -947,84 +959,10 @@ static void FreezeExactViewCenter(const AutoMapView &view)
   viewCenterY = (mapHeight / 2.0f - (view.originY - RULER)) / view.cellSize - 0.5f;
 }
 
-static int gestureMotions = 0;
-
-static void ReportGesture(const char *outcome)
-{
-  if (!MapTimingOn()) return;
-  printf("Automap gesture: %s after %d motions, centre %.2f,%.2f, following %d\n", outcome,
-         gestureMotions, viewCenterX, viewCenterY, viewFollowsParty ? 1 : 0);
-}
-
-// A drag that ends anywhere but on the map (release outside, focus lost, window hidden)
-// ends silently: the view stays where the drag left it
-static void LeaveRelativeMode(void)
-{
-  SDL_SetRelativeMouseMode(SDL_FALSE);
-  SDL_CaptureMouse(SDL_FALSE);
-}
-
-static void CancelMiddleDrag(void)
-{
-  if (!middleDragging) return;
-  ReportGesture("cancelled");
-  middleDragging = false;
-  LeaveRelativeMode();
-}
-
 static void UpdateHoverFromPixel(int pixelX, int pixelY);
 static bool CellAtPixel(int pixelX, int pixelY, int *cellX, int *cellY);
 
 static void StepLevelCenteredOn(int delta, int cellX, int cellY);
-
-static void StartMiddleDrag(void)
-{
-  // A bouncing wheel button sends DOWN twice: never restart a live drag
-  if (middleDragging)
-  {
-    if (MapTimingOn()) printf("Automap gesture: down ignored, already dragging\n");
-    return;
-  }
-  ClearHover();
-  middleDragging = true;
-  dragLeftTheStart = false;
-  dragNeedsResync = true;
-  dragDistance = 0;
-  gestureMotions = 0;
-  // Relative deltas never pin at the screen edge the way an absolute cursor does:
-  // circles stay circles even against the edge or in a corner. The cursor hides meanwhile.
-  SDL_SetRelativeMouseMode(SDL_TRUE);
-  // The cursor roams off the window mid-drag: keep the motion events flowing
-  SDL_CaptureMouse(SDL_TRUE);
-}
-
-static void DragMiddle(int deltaX, int deltaY)
-{
-  if (!middleDragging) return;
-  gestureMotions++;
-  // A gap in the motion stream (re-enter without capture) carries a stale jump
-  if (dragNeedsResync)
-  {
-    dragNeedsResync = false;
-    return;
-  }
-  AutoMapView view = ViewOfShownLevel();
-  if (view.cellSize <= 0) return;
-  dragDistance += (deltaX < 0 ? -deltaX : deltaX) + (deltaY < 0 ? -deltaY : deltaY);
-  if (!dragLeftTheStart && dragDistance < DRAG_START_DISTANCE) return;
-  if (!dragLeftTheStart)
-  {
-    dragLeftTheStart = true;
-    FreezeExactViewCenter(view);
-    viewFollowsParty = false;
-    // Stay on the level on screen while roaming elsewhere: panning locks the level,
-    // a middle-click without a drag hands both back to the party
-    if (shownDrawList.level != AUTOMAP_NO_LEVEL) AutoMap_ShowLevel(shownDrawList.level);
-  }
-  viewCenterX -= (float)deltaX / view.cellSize;
-  viewCenterY -= (float)deltaY / view.cellSize;
-  isDirty = true;
-}
 
 // Left-drag pans like a web map; the cursor stays visible, no relative mode
 static bool leftDragging = false;
@@ -1033,7 +971,6 @@ static int leftDragDistance = 0;
 
 static void StartLeftDrag(void)
 {
-  if (middleDragging) return;
   leftDragging = true;
   leftDragMoved = false;
   leftDragDistance = 0;
@@ -1052,6 +989,8 @@ static void DragLeft(int deltaX, int deltaY)
     leftDragMoved = true;
     ClearHover();
     FreezeExactViewCenter(view);
+    followWhenPartyShown = false;
+
     viewFollowsParty = false;
     if (shownDrawList.level != AUTOMAP_NO_LEVEL) AutoMap_ShowLevel(shownDrawList.level);
   }
@@ -1065,19 +1004,6 @@ static void EndLeftDrag(void)
   if (!leftDragging) return;
   leftDragging = false;
   SDL_CaptureMouse(SDL_FALSE);
-}
-
-static void EndMiddleDrag(void)
-{
-  if (!middleDragging) return;
-  ReportGesture(dragLeftTheStart ? "panned" : "reclicked");
-  middleDragging = false;
-  LeaveRelativeMode();
-  if (!dragLeftTheStart)
-  {
-    RecenterViewOnParty();
-    AutoMap_FollowParty();
-  }
 }
 
 // The wheel zooms towards the pointer: the spot under it stays where it is, so a zoom that
@@ -1103,7 +1029,7 @@ static void ZoomTowardsPointer(int notches)
   }
   int mapWidth = 0, mapHeight = 0;
   MapAreaSize(&mapWidth, &mapHeight);
-  bool pointerOnMap = pointerPixelKnown && !middleDragging && pointerPixelX >= RULER &&
+  bool pointerOnMap = pointerPixelKnown && pointerPixelX >= RULER &&
                       pointerPixelY >= RULER && pointerPixelX < RULER + mapWidth &&
                       pointerPixelY < RULER + mapHeight;
   // Off the map (rulers, unknown position) the zoom stays on the centre, as before
@@ -1120,6 +1046,8 @@ static void ZoomTowardsPointer(int notches)
                                                      after.cellSize);
   if (viewFollowsParty)
   {
+    followWhenPartyShown = false;
+
     viewFollowsParty = false;
     // As for a pan: the level on screen stays while the view roams
     if (shownDrawList.level != AUTOMAP_NO_LEVEL) AutoMap_ShowLevel(shownDrawList.level);
@@ -1151,6 +1079,8 @@ static void StepLevelCenteredOn(int delta, int cellX, int cellY)
     return;
   }
   pendingCentre = AutoMapScene_NoPendingCentre();
+  followWhenPartyShown = false;
+
   viewFollowsParty = false;
   viewCenterX = centerX;
   viewCenterY = centerY;
@@ -1190,20 +1120,8 @@ static bool LevelPanelHandlePointerEvent(const SDL_Event &event);
 
 static bool HandleMapPointerEvent(const SDL_Event &event)
 {
-  // A release outside the map ends the drag silently and belongs to the game
-  if (event.type == SDL_MOUSEBUTTONUP && event.button.button == SDL_BUTTON_MIDDLE &&
-      !IsPointerEventOfMapWindow(event))
-  {
-    CancelMiddleDrag();
-    return false;
-  }
-  if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_MIDDLE &&
-      !IsPointerEventOfMapWindow(event) && !middleDragging && MapTimingOn())
-  {
-    printf("Automap gesture: down outside the map window\n");
-  }
   if (!IsPointerEventOfMapWindow(event)) return false;
-  if (event.type == SDL_MOUSEMOTION && !middleDragging)
+  if (event.type == SDL_MOUSEMOTION)
   {
     pointerPixelKnown = true;
     pointerPixelX = event.motion.x;
@@ -1276,24 +1194,21 @@ static bool HandleMapPointerEvent(const SDL_Event &event)
     // Side buttons step one level, centred on the hovered tile: back (X1) goes
     // down a level, forward (X2) goes up. At the top or bottom level the view
     // still recentres on the tile.
-    if (!middleDragging)
+    UpdateHoverFromPixel(event.button.x, event.button.y);
+    int cellX = -1, cellY = -1;
+    if (hoverValid)
     {
-      UpdateHoverFromPixel(event.button.x, event.button.y);
-      int cellX = -1, cellY = -1;
-      if (hoverValid)
-      {
-        cellX = hoverX;
-        cellY = hoverY;
-      }
-      else
-      {
-        CellAtPixel(event.button.x, event.button.y, &cellX, &cellY);
-      }
-      if (cellX >= 0 && cellY >= 0 && shownDrawList.level != AUTOMAP_NO_LEVEL)
-      {
-        int delta = event.button.button == SDL_BUTTON_X1 ? 1 : -1;
-        StepLevelCenteredOn(delta, cellX, cellY);
-      }
+      cellX = hoverX;
+      cellY = hoverY;
+    }
+    else
+    {
+      CellAtPixel(event.button.x, event.button.y, &cellX, &cellY);
+    }
+    if (cellX >= 0 && cellY >= 0 && shownDrawList.level != AUTOMAP_NO_LEVEL)
+    {
+      int delta = event.button.button == SDL_BUTTON_X1 ? 1 : -1;
+      StepLevelCenteredOn(delta, cellX, cellY);
     }
     return true;
   }
@@ -1335,17 +1250,11 @@ static bool HandleMapPointerEvent(const SDL_Event &event)
   }
   else if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_MIDDLE)
   {
-    StartMiddleDrag();
+    // A middle-click centres on the party again and follows it
+    RecenterViewOnParty();
+    AutoMap_FollowParty();
   }
-  else if (event.type == SDL_MOUSEBUTTONUP && event.button.button == SDL_BUTTON_MIDDLE)
-  {
-    EndMiddleDrag();
-  }
-  else if (event.type == SDL_MOUSEMOTION && middleDragging)
-  {
-    DragMiddle(event.motion.xrel, event.motion.yrel);
-  }
-  else if (event.type == SDL_MOUSEMOTION && !middleDragging)
+  else if (event.type == SDL_MOUSEMOTION)
   {
     UpdateHoverFromPixel(event.motion.x, event.motion.y);
   }
@@ -1356,7 +1265,7 @@ static bool HandleMapPointerEvent(const SDL_Event &event)
 // everything else reaches the map shifted into the map's own coordinates, below the bar
 bool AutoMapWindow_HandlePointerEvent(const SDL_Event &event)
 {
-  // A left release ends a pan wherever it happens, like the middle button's
+  // A left release ends a pan wherever it happens
   if (event.type == SDL_MOUSEBUTTONUP && event.button.button == SDL_BUTTON_LEFT && leftDragging)
   {
     EndLeftDrag();
@@ -1364,7 +1273,7 @@ bool AutoMapWindow_HandlePointerEvent(const SDL_Event &event)
   }
   int bar = AutoMapBar_Height();
   bool onMapWindow = IsPointerEventOfMapWindow(event) && mapRenderer != NULL;
-  if (onMapWindow && !middleDragging && !leftDragging)
+  if (onMapWindow && !leftDragging)
   {
     int width = 0, height = 0;
     SDL_GetRendererOutputSize(mapRenderer, &width, &height);
@@ -1885,6 +1794,8 @@ static void GoodsOfFaces(const AutoMapCellRecord &record, FaceGoods goods[AUTOMA
     if (entry.item.worldPicture == AUTOMAP_NO_PICTURE) continue;
     if (entry.side < 0 || entry.side >= AUTOMAP_SIDE_COUNT) continue;
     if (!Shows(ShownEntryOfItemKind(AutoMapScene_KindOfItem(entry.item)))) continue;
+    // A torch holder's picture shows its torch already; a second one in the corner doubles it
+    if (!isDoor && record.wallSides[entry.side].isTorchHolder) continue;
     // Below all, `functional` is cleared for unknown switches, but goods in an alcove show
     if (!isDoor && !record.wallSides[entry.side].functional
         && (shownDrawList.spoilers == AutoMapSpoilersAll || !record.wallSides[entry.side].isAlcove))
@@ -2104,16 +2015,12 @@ static void DrawDormantTeleporterDot(const SDL_Rect &cell)
   Fill(dot, DORMANT_TELEPORTER);
 }
 
-// A teleporter to its own cell: absolute spinners force an exit facing, so they
-// draw a full ring with a straight radial arrow out to that facing; relative
-// spinners turn the victim, so they draw only the arc of the turn itself with
-// a tangential head (right runs clockwise, left counter-clockwise, around a
-// half circle). A straight spin keeps the facing: a gapped ring with a dot
-// and no head. Unknown rotations keep the old full ring with an east head.
-// Spinners keep the map's glyphs (AutoMapScene_SpinnerGeometry): a quarter arc for right and left,
-// a half circle for around, a gapped ring with a dot for straight, and for a forced facing a small
-// ring with a spoke running out of it to a head outside. Lines and heads have a dark rim; heads are
-// large enough that their tip reads at any zoom.
+// A teleporter to its own cell is a spinner (AutoMapScene_SpinnerGeometry). One that forces an exit
+// facing is a compass dial: a ring, its centre, and a head sitting on the rim at that facing. One
+// that turns the party draws only the arc of the turn with a tangential head: a quarter arc for
+// right (clockwise) and left, a half circle for around. A straight spin keeps the facing: a gapped
+// ring with a dot and no head. Unknown rotations keep a full ring with an east head. Lines and heads
+// have a dark rim; heads are large enough that their tip reads at any zoom.
 static void SpinnerArc(float centreX, float centreY, float radius, float startAngle, float sweepAngle,
                        const SDL_Color &colour, int width)
 {
@@ -2162,11 +2069,17 @@ static void DrawSpinnerMark(const SDL_Rect &cell, int facing, int rotation,
   {
   case AutoMapSpinnerAbsolute:
   {
-    SpinnerArc(centreX, centreY, radius * 0.55f, 0.0f, 2.0f * PI, colour, width);
+    // A compass dial: the ring, its centre, and a head sitting on the rim at the facing it sets
+    SpinnerArc(centreX, centreY, radius, 0.0f, 2.0f * PI, colour, width);
+    int size = std::max(2, cell.w / 12);
+    SDL_Rect rim = {(int)(centreX - size / 2.0f) - 1, (int)(centreY - size / 2.0f) - 1, size + 2, size + 2};
+    SDL_Color dark = {0x0b, 0x0a, 0x08, 0xff};
+    Fill(rim, dark);
+    SDL_Rect dot = {rim.x + 1, rim.y + 1, size, size};
+    Fill(dot, colour);
     float outX = cos(geometry.headAngle), outY = -sin(geometry.headAngle);
-    AutoMapPaint_Line(centreX, centreY, headX, headY, colour, width, false);
-    SpinnerHead(headX + outX * radius * 0.8f, headY + outY * radius * 0.8f, outX, outY, radius * 0.85f,
-                radius * 0.48f, colour);
+    SpinnerHead(headX + outX * radius * 0.6f, headY + outY * radius * 0.6f, outX, outY, radius * 0.85f,
+                radius * 0.5f, colour);
     break;
   }
   case AutoMapSpinnerRight:
@@ -2908,9 +2821,14 @@ static bool CellAtPixel(int pixelX, int pixelY, int *cellX, int *cellY)
 static void UpdateHoverFromPixel(int pixelX, int pixelY)
 {
   int x = -1, y = -1;
-  if (!CellAtPixel(pixelX, pixelY, &x, &y))
+  // The open results panel covers the map: nothing under it is hovered, but the wheel still
+  // needs to know the pointer is over the panel
+  bool overPanel = searchOpen && PointInRect(pixelX, pixelY, SearchPanelRect());
+  if (overPanel || !CellAtPixel(pixelX, pixelY, &x, &y))
   {
     ClearHover();
+    hoverPixelX = pixelX;
+    hoverPixelY = pixelY;
     return;
   }
   if (hoverValid && hoverX == x && hoverY == y)
@@ -3600,8 +3518,12 @@ static std::vector<std::string> BuildTooltipNameLines(const std::vector<TooltipC
     const char *name = AutoMapLevelReader_ItemName(cells[i].item.nameIndex);
     if (name == NULL || name[0] == '\0') continue;
     char line[64];
-    // "COPPER COIN X5", "NEEDS ON PAD COIN X2": the count follows the name
-    std::string what = AutoMapScene_StackLine(name, cells[i].count);
+    // "COPPER COIN X5", "NEEDS ON PAD COIN X2": the count follows the name; "UM VEN POTION": a
+    // potion's power rune goes first, as in the inventory
+    std::string named = name;
+    const char *rune = AutoMapScene_PotionPowerName(cells[i].item.potionPower);
+    if (rune[0] != '\0') named = std::string(rune) + " " + named;
+    std::string what = AutoMapScene_StackLine(named, cells[i].count);
     const char *need = "";
     if (cells[i].required && cells[i].side == -1) need = cells[i].carried ? "NEEDS CARRIED " : "NEEDS ON PAD ";
     else if (cells[i].required) need = "NEEDS ";
@@ -3709,7 +3631,7 @@ static void DrawTileTooltip(const AutoMapView &view)
   // Set again below once the footer is known; early returns must not leave a stale max
   // that would swallow the zoom
   tooltipScrollMax = 0;
-  if (!hoverValid || middleDragging) return;
+  if (!hoverValid) return;
   std::vector<TooltipCell> cells = FlattenTooltipSlots(BuildTooltipSlots(hoverX, hoverY));
   std::vector<std::string> hpLines = BuildTooltipHealthLines(hoverX, hoverY);
   std::vector<std::string> scrolls = AutoMapScene_ScrollTexts(shownDrawList, hoverX, hoverY);
@@ -3945,7 +3867,7 @@ static void DrawColumnRulers(const AutoMapView &view, int mapWidth, int windowHe
   {
     int edge = view.originX + x * view.cellSize;
     int global = x + shownDrawList.offsetX;
-    bool isHovered = hoverValid && !middleDragging && x == hoverX && x <= last;
+    bool isHovered = hoverValid && x == hoverX && x <= last;
     bool isLabelled = (x <= last && global % step == 0) || isHovered;
     if (isHovered)
     {
@@ -3994,7 +3916,7 @@ static void DrawRowRulers(const AutoMapView &view, int mapHeight, int windowWidt
   {
     int edge = view.originY + y * view.cellSize;
     int global = y + shownDrawList.offsetY;
-    bool isHovered = hoverValid && !middleDragging && y == hoverY && y <= last;
+    bool isHovered = hoverValid && y == hoverY && y <= last;
     bool isLabelled = (y <= last && global % step == 0) || isHovered;
     if (isHovered)
     {
@@ -4132,6 +4054,7 @@ static std::string SearchTag(const AutoMapSearchHit &hit, SDL_Color *colour)
     return "NEEDS";
   case AutoMapHitCarried: return "CARRIED BY " + WithoutGroupCount(hit.carriedBy);
   case AutoMapHitChest: return "CHEST";
+  case AutoMapHitInChest: return hit.count > 1 ? "X" + std::to_string(hit.count) + " IN CHEST" : "IN CHEST";
   case AutoMapHitAlcove: return "ALCOVE";
   case AutoMapHitGenerator: *colour = GEN_TEXT; return "GENERATOR";
   case AutoMapHitFeature:
@@ -4154,6 +4077,9 @@ static void DrawSearchIcon(const SDL_Rect &box, const AutoMapSearchHit &hit)
   if (hit.kind == AutoMapHitMonster || hit.kind == AutoMapHitGenerator)
   {
     AutoMapSpriteRequest request = {hit.monsterPicture, hit.monsterTransparentColour};
+    // The hit may lie on another level, whose monsters have colours of their own
+    request.scheme9PlusOne = hit.paletteScheme9 + 1;
+    request.scheme10PlusOne = hit.paletteScheme10 + 1;
     const AutoMapSprite *sprite = hit.monsterPicture == AUTOMAP_NO_PICTURE ? NULL : sprites.Find(request);
     if (sprite != NULL) DrawSprite(*sprite, FitInto(box, *sprite));
     if (hit.kind == AutoMapHitGenerator)
@@ -4261,14 +4187,14 @@ static void DrawSearchPanel(void)
   }
 }
 
-// Every hit on the shown level gets a pixel frame, the selected one a light one; with nothing
-// hovered the map outside the hits dims, as for links
+// Every hit on the shown level gets a pixel frame, the selected one a light one; while a hit on
+// the shown level is selected the map outside the hits dims, as for links
 static void DrawSearchMarkers(const AutoMapView &view)
 {
   if (!searchOpen || searchQuery.empty() || collectingSpotlight) return;
   bool selectedHere = searchSelected >= 0 && searchSelected < (int)searchHits.size()
                       && searchHits[(size_t)searchSelected].level == shownDrawList.level;
-  if (selectedHere && !hoverValid)
+  if (selectedHere)
   {
     std::vector<SDL_Rect> dim;
     for (size_t i = 0; i < shownDrawList.cells.size(); i++)
@@ -5099,12 +5025,13 @@ static void DrawDynamicLayer(const AutoMapView &view)
   }
   if (shownDrawList.partyIsOnShownLevel) DrawParty(view, shownDrawList.party);
   if (Shows(AutoMapShowMonsters)) DrawMonsters(view, shownDrawList);
-  DrawSearchMarkers(view);
   spotlightCells.clear();
   spotlightLines.clear();
   collectingSpotlight = true;
   DrawLinkArrows(view);
   collectingSpotlight = false;
+  // A hovered trigger or target owns the spotlight; the search marks wait until it is gone
+  if (spotlightCells.empty()) DrawSearchMarkers(view);
   DrawSpotlight(view);
   DrawLinkArrows(view);
   DrawLinkModeHighlights(view);

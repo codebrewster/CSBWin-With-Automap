@@ -123,7 +123,7 @@ function drawSearchPanel() {
 }
 function drawSearchMarks() {
   if (!searchOpen || !query) return; const sel = sRows[sSel] && sRows[sSel].hit; const mine = sRows.filter(r => r.hit && r.hit.l === lvl).map(r => r.hit);
-  if (sel && sel.l === lvl && !hover) spotlight(mine.map(h => h.x + ',' + h.y));
+  if (sel && sel.l === lvl) spotlight(mine.map(h => h.x + ',' + h.y));
   for (const h of mine) { const x = px(h.x), y = py(h.y), t = Math.max(2, Math.round(cs / 14)); frame(x + 1, y + 1, cs - 2, cs - 2, '#0b0a08', t + 2); frame(x + 2, y + 2, cs - 4, cs - 4, h === sel ? '#fff6dc' : '#ffcc33', t); }
 }
 function searchClick(mx, my) { const P = panelRects.search; if (!P || !inRect(mx, my, P)) return false; for (const [rx, ry, rw, rh, i] of sRects) if (inRect(mx, my, [rx, ry, rw, rh])) { const r = sRows[i]; if (r.head) { folded.has(r.l) ? folded.delete(r.l) : folded.add(r.l); rebuild(true); keepVisible(); } else goTo(i); } return true; }
@@ -186,14 +186,14 @@ function debugClick(mx, my) { const P = panelRects.debug; if (!P) return false; 
 // Frame
 // ============================================================================================
 function draw() {
-  if (!DATA) return; g.fillStyle = '#0c0b09'; g.fillRect(0, 0, cv.width, cv.height);
+  if (!DATA) return; clampPan(); g.fillStyle = '#0c0b09'; g.fillRect(0, 0, cv.width, cv.height);
   g.save(); g.beginPath(); g.rect(RUL, RUL, cv.width - 2 * RUL, cv.height - 2 * RUL); g.clip();
   for (const c of V.cells) drawCellBase(c);
   for (const c of V.cells) drawWallFaces(c);
   drawClouds();
   for (const c of V.cells) { drawCellOverlay(c); drawActuators(c); drawItems(c); }
   drawNotes(); drawGlimpses(); drawMissiles(); drawMonsters(); drawParty();
-  const L = drawHover(); drawSearchMarks(); drawLinkMode();
+  const L = drawHover(); if (!L.lit) drawSearchMarks(); drawLinkMode();
   g.restore(); rulers(); drawTooltip(L); drawSearchPanel(); drawShowPanel(); drawHelp(); drawLevels(); drawDebugPanel(); drawMenu(); drawBar();
 }
 // ============================================================================================
@@ -206,6 +206,9 @@ function maxCs() { return Math.floor(Math.max(96, Math.min(cv.width - 2 * RUL, c
 function minCs() { return Math.max(1, Math.floor(Math.min((cv.width - 2 * RUL) / W, (cv.height - 2 * RUL) / H))); }
 function fitLevel() { cs = minCs(); panX = Math.round(((cv.width - 2 * RUL) - W * cs) / 2); panY = Math.round(((cv.height - 2 * RUL) - H * cs) / 2); }
 function centreOn(x, y) { let top = RUL; if (panelRects.search) top = panelRects.search[1] + panelRects.search[3]; panX = Math.round((cv.width - 2 * RUL) / 2 - (x + .5) * cs); panY = Math.round(((top + cv.height - RUL) / 2 - RUL) - (y + .5) * cs); }
+// as in the game: a level smaller than the map stays centred, a larger one never leaves a gap at an edge
+function clampAxis(pan, room, cells) { const size = cells * cs; return size <= room ? Math.round((room - size) / 2) : Math.max(room - size, Math.min(pan, 0)); }
+function clampPan() { panX = clampAxis(panX, cv.width - 2 * RUL, W); panY = clampAxis(panY, cv.height - 2 * RUL, H); }
 function centreOnParty() { const p = party(); if (p && cs > minCs() + .01) centreOn(p.x, p.y); }
 function cellAt(mx, my) { const x = Math.floor((mx - RUL - panX) / cs), y = Math.floor((my - RUL - panY) / cs); return (x >= 0 && x < W && y >= 0 && y < H && mx > RUL && my > RUL && mx < cv.width - RUL && my < cv.height - RUL) ? { x, y } : null; }
 
