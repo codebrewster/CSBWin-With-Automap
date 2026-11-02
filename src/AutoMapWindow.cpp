@@ -50,6 +50,7 @@ static const SDL_Color PIT_MARKER = {0x00, 0x00, 0x00, 0xff};
 static const SDL_Color PIT_MARKER_EDGE = {0x8a, 0x4a, 0x4a, 0xff};
 static const SDL_Color PARTY = {0xff, 0x4d, 0x4d, 0xff};
 static const SDL_Color WHITE = {0xff, 0xff, 0xff, 0xff};
+static const SDL_Color FACING_MARK_EDGE = {0x00, 0x00, 0x00, 0xff};
 static const SDL_Color RULER_BACKGROUND = {0x24, 0x22, 0x1f, 0xff};
 static const SDL_Color RULER_TEXT = {0xb8, 0xb0, 0xa0, 0xff};
 static const SDL_Color RULER_TICK = {0x6e, 0x68, 0x5c, 0xff};
@@ -2671,19 +2672,47 @@ static void DrawParty(const AutoMapView &view, const AutoMapParty &party)
   SDL_RenderDrawLines(mapRenderer, outline, 5);
 }
 
-static void DrawFacingMark(const SDL_Rect &cell, AutoMapDirection facing)
+// The mark sits against the side of the area the member faces. A half tile is twice as long as it
+// is wide, so the mark is drawn in a square of the shorter side, flush with that side and centred
+// along it, and keeps the proportions it has in a whole tile. It lies on the figure's own body, so
+// a dark rim keeps it apart from a pale figure (a mummy, a skeleton)
+static void DrawFacingMark(const SDL_Rect &area, AutoMapDirection facing)
 {
   static const FloatPoint TIP = {1.00f, 0.50f};
   static const FloatPoint UPPER_CORNER = {0.82f, 0.36f};
   static const FloatPoint LOWER_CORNER = {0.82f, 0.64f};
-  FillTriangle(TurnedPointInCell(cell, TIP, facing), TurnedPointInCell(cell, UPPER_CORNER, facing),
-               TurnedPointInCell(cell, LOWER_CORNER, facing), WHITE);
+  int side = std::min(area.w, area.h);
+  SDL_Rect square = {area.x + (area.w - side) / 2, area.y + (area.h - side) / 2, side, side};
+  if (facing == AutoMapNorth) square.y = area.y;
+  if (facing == AutoMapEast) square.x = area.x + area.w - side;
+  if (facing == AutoMapSouth) square.y = area.y + area.h - side;
+  if (facing == AutoMapWest) square.x = area.x;
+  FloatPoint tip = TurnedPointInCell(square, TIP, facing);
+  FloatPoint upperCorner = TurnedPointInCell(square, UPPER_CORNER, facing);
+  FloatPoint lowerCorner = TurnedPointInCell(square, LOWER_CORNER, facing);
+  FillTriangle(tip, upperCorner, lowerCorner, WHITE);
+  SDL_Point rim[] = {{(int)tip.x, (int)tip.y}, {(int)upperCorner.x, (int)upperCorner.y},
+                     {(int)lowerCorner.x, (int)lowerCorner.y}, {(int)tip.x, (int)tip.y}};
+  UseColour(FACING_MARK_EDGE);
+  SDL_RenderDrawLines(mapRenderer, rim, 4);
+}
+
+// The part of its tile in which a member stands, on screen
+static SDL_Rect AreaOfMember(const SDL_Rect &cell, const AutoMapShownMonster &monster, int member)
+{
+  AutoMapRect area =
+      AutoMapLayout_MemberArea(monster.positions, member, monster.size, (int)monster.memberFacings[0], cell.w);
+  SDL_Rect onScreen = {cell.x + area.x, cell.y + area.y, area.w, area.h};
+  return onScreen;
 }
 
 static void DrawFacingMarks(const AutoMapView &view, const AutoMapShownMonster &monster)
 {
   SDL_Rect cell = CellArea(view, monster.x, monster.y);
-  for (int member = 0; member < monster.memberCount; member++) DrawFacingMark(cell, monster.memberFacings[member]);
+  for (int member = 0; member < monster.memberCount; member++)
+  {
+    DrawFacingMark(AreaOfMember(cell, monster, member), monster.memberFacings[member]);
+  }
 }
 
 // Every figure is drawn at the same zoom, alone or in a group of four: the pictures already
@@ -2698,13 +2727,17 @@ struct FigurePlace
   float scale;
 };
 
-// The figures of a group stand side by side just below the middle of their cell, where the
-// engine stands a lone monster and the map draws a floor picture (a fire pit, say)
-static FigurePlace PlaceOfFigure(const SDL_Rect &cell, int memberCount, int member)
+// Each member stands where the game stands it: in its corner of the tile (small), in its half
+// (medium) or in the middle (large, or a group the game keeps centred). The figure keeps its zoom
+// and may reach out of its area, into the tile above for a tall one
+static FigurePlace PlaceOfFigure(const SDL_Rect &cell, const AutoMapShownMonster &monster, int member)
 {
+  AutoMapRect area =
+      AutoMapLayout_MemberArea(monster.positions, member, monster.size, (int)monster.memberFacings[0], cell.w);
+  AutoMapPointF feet = AutoMapLayout_FigureFeet(area, cell.w);
   FigurePlace place;
-  place.centreX = cell.x + cell.w * (2 * member + 1) / (2 * memberCount);
-  place.feetY = cell.y + cell.h * 62 / 100;
+  place.centreX = cell.x + (int)feet.x;
+  place.feetY = cell.y + (int)feet.y;
   place.scale = FIGURE_SCALE * cell.w / MONSTER_PIXELS_PER_CELL;
   return place;
 }
@@ -2731,9 +2764,25 @@ static void DrawFigure(const FigurePlace &place, const AutoMapSprite &sprite, bo
 static void DrawMonster(const AutoMapView &view, const AutoMapShownMonster &monster)
 {
   SDL_Rect cell = CellArea(view, monster.x, monster.y);
+  FigurePlace places[AUTOMAP_LARGEST_GROUP];
+  int backToFront[AUTOMAP_LARGEST_GROUP];
   for (int member = 0; member < monster.memberCount; member++)
   {
-    FigurePlace place = PlaceOfFigure(cell, monster.memberCount, member);
+    places[member] = PlaceOfFigure(cell, monster, member);
+    backToFront[member] = member;
+  }
+  // The back row first, so the front row stands in front of it; a row keeps the group's order
+  for (int i = 1; i < monster.memberCount; i++)
+  {
+    for (int j = i; j > 0 && places[backToFront[j]].feetY < places[backToFront[j - 1]].feetY; j--)
+    {
+      std::swap(backToFront[j], backToFront[j - 1]);
+    }
+  }
+  for (int i = 0; i < monster.memberCount; i++)
+  {
+    int member = backToFront[i];
+    const FigurePlace &place = places[member];
     const AutoMapMonsterPicture &picture = monster.memberPictures[member];
     AutoMapSpriteRequest request = {picture.picture, monster.transparentColour};
     const AutoMapSprite *sprite = sprites.Find(request);
