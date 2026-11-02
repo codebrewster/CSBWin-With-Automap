@@ -1562,7 +1562,7 @@ std::vector<AutoMapTipLine> AutoMapScene_ActuatorLines(const AutoMapDrawList &dr
   }
   default:
     // A dormant pad and a spent generator are named by their header alone. Cogs are drawn
-    // at All only, where the relay hover block (RelayHoverLines) names each counter with
+    // at All only, where the relay hover block (RelayBlock) names each counter with
     // its live count and each DSA: a line here would say it twice
     break;
   }

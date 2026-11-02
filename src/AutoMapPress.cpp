@@ -1,5 +1,5 @@
 // AutoMapPress.cpp : what a press does down the relay chain, and the tooltip lines that
-// tell it (AutoMapScene_PressEffects, PressBlock, RelayHoverLines and their helpers).
+// tell it (AutoMapScene_PressEffects, PressBlock, RelayBlock and their helpers).
 #include "AutoMapScene.h"
 #include "AutoMapSceneInternal.h"
 
@@ -710,7 +710,7 @@ void AssessPressSource(const AutoMapDrawList &drawList, const PressState &state,
 }
 
 // A link a relay of (x, y) sends: a stone relay's or a floor cog's. Hovering the relay
-// cell presses nothing, so these are no press of it; RelayHoverLines lists them.
+// cell presses nothing, so these are no press of it; RelayBlock lists them.
 static bool SentByOwnRelay(const AutoMapDrawList &drawList, const AutoMapShownCell *own,
                            int x, int y, const AutoMapLink &link)
 {
@@ -886,17 +886,6 @@ static const char *PressGoalNoun(const AutoMapDrawList &drawList, const AutoMapE
   }
 }
 
-// What the message does to the goal, the way the arrows and RelayLines word it
-static std::string PressGoalWord(const AutoMapDrawList &drawList, const AutoMapEffect &goal)
-{
-  const AutoMapShownCell *cell = FindShownCell(drawList, goal.x, goal.y);
-  bool opens = cell != NULL && !goal.target && (cell->cell.kind == AutoMapCellDoor
-                                || cell->cell.kind == AutoMapCellFalseWall
-                                || cell->cell.kind == AutoMapCellOpenFalseWall
-                                || PressCellIsPit(cell->cell));
-  return opens ? DoorEffectWord(goal.via.signal) : SignalWord(goal.via.signal);
-}
-
 // A bare target has nothing to open, so it takes the signal's own verb. A toggle on a pit
 // says which way the pit goes, since a closed one looks like floor and TOGGLES tells nothing.
 static const char *PressGoalVerb(const AutoMapDrawList &drawList, const AutoMapEffect &goal)
@@ -975,6 +964,26 @@ static std::string GateConditionWords(const AutoMapRelay &relay)
 {
   return std::string(relay.normallyClosed ? "ON NO MATCH" : "ON MATCH")
          + AutoMapScene_GateFilterWords(relay.edgeMode);
+}
+
+// A held relay (CONSTPRESSURE) reports on every message it takes: SET while closed, CLEAR
+// otherwise (PressSentSignal). Closed is a counter at 0 or a gate whose bits match, the
+// other way round when normally closed. The words for one side, by what it sends: AT 0 or
+// ABOVE 0 for a counter, WHILE MATCHING or WHILE NOT MATCHING for a gate.
+static std::string HeldSideWords(const AutoMapRelay &relay, bool sendsSet)
+{
+  bool atZeroOrMatching = sendsSet != relay.normallyClosed;
+  if (relay.kind == AutoMapRelayGate)
+  {
+    return atZeroOrMatching ? "WHILE MATCHING" : "WHILE NOT MATCHING";
+  }
+  return atZeroOrMatching ? "AT 0" : "ABOVE 0";
+}
+
+// A held relay's holding words in the state lines
+static const char *HeldReportsWords(const AutoMapRelay &relay)
+{
+  return relay.kind == AutoMapRelayGate ? "HOLD: REPORTS EVERY MESSAGE" : "HOLD: REPORTS EVERY COUNT";
 }
 
 // What sends a link: the relay of its source record (COUNTER, GATE, DSA), else a PAD on the
@@ -1118,7 +1127,7 @@ static std::string PressGoalTreeText(const AutoMapDrawList &drawList, const Auto
   {
     return noun + (goal.via.signal == AutoMapSignalClear ? " ALREADY CLOSED" : " ALREADY OPEN");
   }
-  return noun + PressGoalWord(drawList, goal);
+  return noun + " " + PressGoalVerb(drawList, goal);
 }
 
 // The compact view lists a goal wherever it sits in the tree
@@ -1259,16 +1268,6 @@ static PressLines CapStyledLines(const PressLines &lines, const char *moreSuffix
     taken++;
   }
   if (!moreSaid) result.push_back(more);
-  return result;
-}
-
-// CapStyledLines, as text
-static std::vector<std::string> CapPressLines(const PressLines &lines, const char *moreSuffix,
-                                              bool uncapped)
-{
-  PressLines capped = CapStyledLines(lines, moreSuffix, uncapped);
-  std::vector<std::string> result;
-  for (size_t i = 0; i < capped.size(); i++) result.push_back(capped[i].text);
   return result;
 }
 
@@ -1417,6 +1416,26 @@ static std::string RouteGoalText(const AutoMapDrawList &drawList, AutoMapEffect 
     return text + (goal.via.signal == AutoMapSignalClear ? "ALREADY CLOSED" : "ALREADY OPEN");
   }
   return text + PressGoalVerb(drawList, goal);
+}
+
+// A goal a held relay feeds, with both sides: DOOR L9 (16, 4) OPENS AT 0, CLOSES ABOVE 0, or
+// OPENS WHILE MATCHING, CLOSES OTHERWISE for a gate. The verbs are those of the SET and the
+// CLEAR the held link carries.
+static std::string HeldGoalText(const AutoMapDrawList &drawList, const AutoMapEffect &goal,
+                                const AutoMapRelay &relay)
+{
+  if (goal.via.signal != AutoMapSignalPressure || goal.distance.status == AutoMapGoalAlreadyDone)
+  {
+    return RouteGoalText(drawList, goal, true);
+  }
+  AutoMapEffect set = goal;
+  set.via.signal = AutoMapSignalSet;
+  AutoMapEffect clear = goal;
+  clear.via.signal = AutoMapSignalClear;
+  return std::string(PressGoalNoun(drawList, goal)) + " " + PressLocation(drawList, goal.x, goal.y)
+         + " " + PressGoalVerb(drawList, set) + " " + HeldSideWords(relay, true) + ", "
+         + PressGoalVerb(drawList, clear) + " "
+         + (relay.kind == AutoMapRelayGate ? "OTHERWISE" : HeldSideWords(relay, false));
 }
 
 // What a message did to a gate's bit. A held message (CONSTPRESSURE) arrives as SET or
@@ -1578,21 +1597,62 @@ static void RouteStep(const RouteContext &route, const AutoMapEffect &effect, in
                  && std::string(effect.passes.blocked) == "SPENT";
     out->push_back(RouteLine(depth + 1, spent ? "SPENT" : "ONCE ONLY", AutoMapTipState));
   }
+  // A CONSTPRESSURE relay reports on every message it takes, whatever its count or bits
+  bool held = relay != NULL && relay->signal == AutoMapSignalPressure;
+  if (held) out->push_back(RouteLine(depth + 1, HeldReportsWords(*relay), AutoMapTipState));
   if (effect.next.empty()) return;
-  // Condition: when it passes the message on, then what it sends, one further in. A
-  // CONSTPRESSURE relay reports on every message it takes, whatever its count or bits.
-  // A gate's filter holds for a held gate too: it reports only the messages that pass it.
+  // Condition: when it passes the message on, then what it sends, one further in. A gate's
+  // filter holds for a held gate too: it reports only the messages that pass it.
   std::string filter = gate && relay != NULL ? AutoMapScene_GateFilterWords(relay->edgeMode) : "";
+  std::string note = AutoMapScene_WhenNote(effect.passes);
+  // What it sends now, or (waiting for more messages) once it fires: closed then
+  bool closedNow = !effect.fires || RouteStepClosed(effect, relay);
+  if (held)
+  {
+    bool goalsOnly = true;
+    for (size_t i = 0; i < effect.next.size(); i++)
+    {
+      goalsOnly = goalsOnly && effect.next[i].kind == AutoMapEffectGoal;
+    }
+    if (goalsOnly)
+    {
+      // Every message reaches the goals, so each goal line names both sides
+      std::string condition = gate ? "EACH MESSAGE" + filter + ":" : "EACH COUNT:";
+      out->push_back(RouteLine(depth + 1, note.empty() ? condition : condition + " " + note,
+                               AutoMapTipCondition));
+      std::vector<PressLines> goals(effect.next.size());
+      for (size_t i = 0; i < effect.next.size(); i++)
+      {
+        const AutoMapEffect &goal = effect.next[i];
+        goals[i].push_back(RouteLine(depth + 2, HeldGoalText(drawList, goal, *relay)
+                                                    + RouteStepTail(goal, effect.delayTicks),
+                                     AutoMapTipResult));
+      }
+      FoldStyledBlocks(goals, out);
+      return;
+    }
+    // Feeding a counter or gate, the walk follows one side, the one this message gives
+    // (or, when the relay waits on further messages, the closed one): that side's
+    // condition and what it sends, then the other side, said not to be followed. A side
+    // that comes on this press holds only for this press: the next message may turn it.
+    std::string side = HeldSideWords(*relay, closedNow);
+    if (!gate && side == "AT 0") side = "WHILE AT 0";
+    if (effect.passes.status == AutoMapGoalHolds) note = "(THIS PRESS)";
+    out->push_back(RouteLine(depth + 1, side + filter + ":" + (note.empty() ? "" : " " + note),
+                             AutoMapTipCondition));
+    RouteSteps(route, effect.next, depth + 2, effect.delayTicks, blocked, closedNow, out);
+    std::string other = HeldSideWords(*relay, !closedNow);
+    if (!gate && other == "AT 0") other = "WHILE AT 0";
+    out->push_back(RouteLine(depth + 1, other + filter + ": SENDS "
+                                            + (closedNow ? "CLEAR" : "SET") + " (NOT FOLLOWED)",
+                             AutoMapTipCondition));
+    return;
+  }
   std::string condition = gate ? (relay != NULL ? GateConditionWords(*relay) : "ON MATCH") + ":"
                                : "AT 0:";
-  bool held = relay != NULL && relay->signal == AutoMapSignalPressure;
-  if (held) condition = gate ? "EACH MESSAGE" + filter + ":" : "EACH COUNT:";
-  std::string note = AutoMapScene_WhenNote(effect.passes);
   if (!note.empty()) condition += " " + note;
   out->push_back(RouteLine(depth + 1, condition, AutoMapTipCondition));
-  // What it sends now, or (waiting for more messages) once it fires: closed then
-  RouteSteps(route, effect.next, depth + 2, effect.delayTicks, blocked,
-             !effect.fires || RouteStepClosed(effect, relay), out);
+  RouteSteps(route, effect.next, depth + 2, effect.delayTicks, blocked, closedNow, out);
 }
 
 // Siblings of the route in the walk's order; identical ones fold as 2X
@@ -1674,15 +1734,10 @@ std::vector<AutoMapTipLine> AutoMapScene_PressBlock(const AutoMapDrawList &drawL
   return block;
 }
 
-static std::string HoverCount(int count, const char *singular, const char *plural)
-{
-  char text[48];
-  std::snprintf(text, sizeof(text), "%d %s", count, count == 1 ? singular : plural);
-  return std::string(text);
-}
-
-// What a link's message does in the cell it reaches: the relays that take it, then the goal
-static std::string HoverTarget(const AutoMapDrawList &drawList, const AutoMapLink &link)
+// What a link's message does in the cell it reaches: the relays that take it, then the goal.
+// signal is what the message carries (a held relay's SET or CLEAR).
+static std::string HoverTarget(const AutoMapDrawList &drawList, const AutoMapLink &link,
+                               AutoMapSignal signal)
 {
   const AutoMapShownCell *dst = FindShownCell(drawList, link.dstX, link.dstY);
   if (dst == NULL) return "";
@@ -1699,12 +1754,9 @@ static std::string HoverTarget(const AutoMapDrawList &drawList, const AutoMapLin
     {
       std::snprintf(bit, sizeof(bit), " BIT %d", link.targetPos);
     }
-    parts.push_back(gates + bit + SignalWord(PressSourceSignal(link)));
+    parts.push_back(gates + bit + SignalWord(signal));
   }
-  if (!counters.empty())
-  {
-    parts.push_back(counters + (PressSourceSignal(link) == AutoMapSignalSet ? " +1" : " -1"));
-  }
+  if (!counters.empty()) parts.push_back(counters + (signal == AutoMapSignalSet ? " +1" : " -1"));
   if (!dsas.empty()) parts.push_back(dsas);
   bool reaches = PressReachesGoal(drawList, *dst, link);
   if (reaches || receivers.empty())
@@ -1713,6 +1765,7 @@ static std::string HoverTarget(const AutoMapDrawList &drawList, const AutoMapLin
     goal.x = link.dstX;
     goal.y = link.dstY;
     goal.via = link;
+    goal.via.signal = signal;
     goal.target = !reaches;
     parts.push_back(PressGoalTreeText(drawList, goal));
   }
@@ -1721,83 +1774,132 @@ static std::string HoverTarget(const AutoMapDrawList &drawList, const AutoMapLin
   return text;
 }
 
-std::vector<std::string> AutoMapScene_RelayHoverLines(const AutoMapDrawList &drawList, int x, int y,
-                                                     bool full)
+// A relay line of the block at depth (one space per depth here; the block doubles it)
+static PressLine RelayBlockLine(int depth, const std::string &text, AutoMapTipStyle style)
 {
-  std::vector<std::string> lines;
-  if (drawList.spoilers != AutoMapSpoilersAll) return lines;
+  PressLine line = MakePressLine(std::string((size_t)depth, ' ') + text, false, false);
+  line.style = style;
+  return line;
+}
+
+// One lettered relay: its header, its state lines, then what it sends, one line per link
+// (two for a held relay, one per side); identical sends fold as 2X
+static void RelayBlockOf(const AutoMapDrawList &drawList, int x, int y, const AutoMapRelay &relay,
+                         const std::string &letter, PressLines *out)
+{
+  const char *kind = relay.kind == AutoMapRelayCounter ? "COUNTER"
+                     : relay.kind == AutoMapRelayGate ? "GATE" : "DSA";
+  PressLines children;
+  if (relay.kind == AutoMapRelayCounter)
+  {
+    children.push_back(RelayBlockLine(1, "COUNT " + std::to_string(relay.value), AutoMapTipState));
+  }
+  else if (relay.kind == AutoMapRelayGate)
+  {
+    children.push_back(RelayBlockLine(1, "BITS " + GateBits(relay.value & 15) + ", NEEDS "
+                                             + GateBits((relay.value >> 4) & 15),
+                                      AutoMapTipState));
+  }
+  bool held = relay.kind != AutoMapRelayDSA && relay.signal == AutoMapSignalPressure;
+  if (relay.onceOnly) children.push_back(RelayBlockLine(1, "ONCE ONLY", AutoMapTipState));
+  if (held) children.push_back(RelayBlockLine(1, HeldReportsWords(relay), AutoMapTipState));
+  if (relay.kind == AutoMapRelayGate)
+  {
+    std::string filter = AutoMapScene_GateFilterWords(relay.edgeMode);
+    if (!filter.empty()) children.push_back(RelayBlockLine(1, filter.substr(2), AutoMapTipState));
+    if (relay.normallyClosed)
+    {
+      children.push_back(RelayBlockLine(1, "NORMALLY CLOSED", AutoMapTipState));
+    }
+  }
+  std::vector<std::vector<std::string> > sends;
+  if (relay.localActionType >= 0)
+  {
+    std::string delay = DelayWord(relay.delay);
+    sends.push_back(std::vector<std::string>(
+        1, " -> " + std::string(PressLocalActionWord(relay.localActionType))
+           + (delay.empty() ? "" : "," + delay)));
+  }
+  const std::vector<AutoMapLink> &links = drawList.links;
+  for (size_t l = 0; relay.record != AUTOMAP_NO_RECORD && l < links.size(); l++)
+  {
+    const AutoMapLink &link = links[l];
+    if (link.source != relay.record || link.srcX != x || link.srcY != y) continue;
+    std::string delay = DelayWord(link.delay);
+    if (!delay.empty()) delay = "," + delay;
+    if (held && link.signal == AutoMapSignalPressure)
+    {
+      // What it sends while closed, then what it sends otherwise
+      for (int set = 1; set >= 0; set--)
+      {
+        std::string target = HoverTarget(drawList, link,
+                                          set ? AutoMapSignalSet : AutoMapSignalClear);
+        if (target.empty()) continue;
+        sends.push_back(std::vector<std::string>(
+            1, " -> " + target + " " + HeldSideWords(relay, set != 0) + delay));
+      }
+      continue;
+    }
+    std::string target = HoverTarget(drawList, link, PressSourceSignal(link));
+    if (target.empty()) continue;
+    if (relay.kind == AutoMapRelayCounter) target += " AT 0";
+    else if (relay.kind == AutoMapRelayGate) target += " " + GateConditionWords(relay);
+    sends.push_back(std::vector<std::string>(1, " -> " + target + delay));
+  }
+  FoldPressBlocks(sends, &children);
+  // A header with nothing under it counts as a line, so the cap never drops it alone
+  PressLine header = MakePressLine(std::string(kind) + " " + letter, !children.empty(), false);
+  header.style = AutoMapTipHeader;
+  out->push_back(header);
+  out->insert(out->end(), children.begin(), children.end());
+}
+
+// What a feeder does to one relay of the cell: A-1, A+1, A BIT 2 TOGGLE, A? for a DSA. A held
+// relay feeding it sends SET or CLEAR by its own state: A+1/-1, A BIT 2 SET/CLEAR.
+static std::string FeederDoing(const AutoMapDrawList &drawList, const AutoMapLink &link,
+                               const AutoMapRelay &relay, const std::string &letter)
+{
+  std::string name = PressFeederName(drawList, link);
+  bool heldRelay = link.signal == AutoMapSignalPressure
+      && (name == "COUNTER" || name == "GATE" || name == "DSA");
+  AutoMapSignal signal = PressSourceSignal(link);
+  std::string doing = letter;
+  if (relay.kind == AutoMapRelayCounter)
+  {
+    if (heldRelay) return doing + "+1/-1";
+    return doing + (signal == AutoMapSignalSet ? "+1" : "-1");
+  }
+  if (relay.kind != AutoMapRelayGate) return doing + "?";
+  if (link.targetPos >= 0 && link.targetPos <= 3) doing += " BIT " + std::to_string(link.targetPos);
+  if (heldRelay) return doing + " SET/CLEAR";
+  return doing + SignalWord(signal);
+}
+
+std::vector<AutoMapTipLine> AutoMapScene_RelayBlock(const AutoMapDrawList &drawList, int x, int y,
+                                                    bool full)
+{
+  std::vector<AutoMapTipLine> block;
+  if (drawList.spoilers != AutoMapSpoilersAll) return block;
   const AutoMapShownCell *shown = FindShownCell(drawList, x, y);
-  if (shown == NULL) return lines;
+  if (shown == NULL) return block;
   std::vector<HoverReceiver> receivers;
   HoverReceivers(drawList, *shown, &receivers);
-  if (receivers.empty()) return lines;
-  int counters = 0;
-  int gates = 0;
-  int dsas = 0;
-  for (size_t i = 0; i < receivers.size(); i++)
-  {
-    if (receivers[i].relay->kind == AutoMapRelayCounter) counters++;
-    else if (receivers[i].relay->kind == AutoMapRelayGate) gates++;
-    else dsas++;
-  }
-  std::string header = shown->cell.kind == AutoMapCellWall ? "STONE: " : "FLOOR: ";
-  std::string kinds;
-  if (counters > 0) kinds += HoverCount(counters, "COUNTER", "COUNTERS");
-  if (gates > 0) kinds += (kinds.empty() ? "" : ", ") + HoverCount(gates, "GATE", "GATES");
-  if (dsas > 0) kinds += (kinds.empty() ? "" : ", ") + HoverCount(dsas, "DSA", "DSAS");
-  lines.push_back(header + kinds);
-  // Each lettered relay with what it feeds: a line per target
-  const std::vector<AutoMapLink> &links = drawList.links;
+  if (receivers.empty()) return block;
+  PressLines lines;
   for (size_t r = 0; r < receivers.size(); r++)
   {
-    const AutoMapRelay &relay = *receivers[r].relay;
-    std::string state;
-    char text[48];
-    if (relay.kind == AutoMapRelayCounter)
-    {
-      std::snprintf(text, sizeof(text), "COUNT %d", relay.value);
-      state = text;
-    }
-    else if (relay.kind == AutoMapRelayGate)
-    {
-      state = "GATE " + GateBits(relay.value & 15) + " (NEEDS " + GateBits((relay.value >> 4) & 15)
-              + ")";
-    }
-    else state = "DSA";
-    std::string head = " " + HoverLetter(r) + " " + state;
-    size_t before = lines.size();
-    if (relay.localActionType >= 0)
-    {
-      lines.push_back(head + " -> " + PressLocalActionWord(relay.localActionType)
-                      + DelayWord(relay.delay));
-    }
-    for (size_t l = 0; relay.record != AUTOMAP_NO_RECORD && l < links.size(); l++)
-    {
-      const AutoMapLink &link = links[l];
-      if (link.source != relay.record || link.srcX != x || link.srcY != y) continue;
-      std::string target = HoverTarget(drawList, link);
-      if (target.empty()) continue;
-      if (relay.kind == AutoMapRelayCounter && link.signal != AutoMapSignalPressure)
-      {
-        target += " AT 0";
-      }
-      else if (relay.kind == AutoMapRelayGate && link.signal != AutoMapSignalPressure)
-      {
-        target += " " + GateConditionWords(relay);
-      }
-      lines.push_back(head + " -> " + target + DelayWord(link.delay));
-    }
-    if (lines.size() == before) lines.push_back(head);
+    RelayBlockOf(drawList, x, y, *receivers[r].relay, HoverLetter(r), &lines);
   }
-  // The sources that reach the cell, and what a press does to which letter
+  // The sources that reach the cell, and what a press does to which letter: every relay
+  // of the cell takes their message, so they are the cell's, after the relays
   std::vector<AutoMapLink> incoming = AutoMapScene_LinksTo(drawList, x, y);
   std::vector<std::string> feeders;
   std::vector<std::string> doings;
   for (size_t i = 0; i < incoming.size(); i++)
   {
     const AutoMapLink &link = incoming[i];
-    std::string name = PressFeederName(drawList, link);
-    std::string feeder = PressLocation(drawList, link.srcX, link.srcY) + " " + name;
+    std::string feeder = PressLocation(drawList, link.srcX, link.srcY) + " "
+                         + PressFeederName(drawList, link);
     size_t found = feeders.size();
     for (size_t f = 0; f < feeders.size(); f++)
     {
@@ -1814,38 +1916,26 @@ std::vector<std::string> AutoMapScene_RelayHoverLines(const AutoMapDrawList &dra
     }
     for (size_t r = 0; r < receivers.size(); r++)
     {
-      const AutoMapRelay &relay = *receivers[r].relay;
-      std::string doing = HoverLetter(r);
-      if (relay.kind == AutoMapRelayCounter)
-      {
-        doing += PressSourceSignal(link) == AutoMapSignalSet ? "+1" : "-1";
-      }
-      else if (relay.kind == AutoMapRelayGate)
-      {
-        if (link.targetPos >= 0 && link.targetPos <= 3)
-        {
-          char bit[32];
-          std::snprintf(bit, sizeof(bit), " BIT %d", link.targetPos);
-          doing += bit;
-        }
-        doing += SignalWord(PressSourceSignal(link));
-      }
-      else doing += "?";
+      std::string doing = FeederDoing(drawList, link, *receivers[r].relay, HoverLetter(r));
       doings[found] += (doings[found].empty() ? "" : " ") + doing;
     }
   }
-  // Fold identical lines, then cap like the press block; the two headers stay outside it
-  std::vector<PressLine> capped;
-  capped.push_back(MakePressLine(lines[0], true, false));
   std::vector<std::vector<std::string> > blocks;
-  for (size_t i = 1; i < lines.size(); i++) blocks.push_back(std::vector<std::string>(1, lines[i]));
-  FoldPressBlocks(blocks, &capped);
-  blocks.clear();
   for (size_t f = 0; f < feeders.size(); f++)
   {
     blocks.push_back(std::vector<std::string>(1, " " + feeders[f] + " " + doings[f]));
   }
-  if (!blocks.empty()) capped.push_back(MakePressLine("FED BY:", true, false));
-  FoldPressBlocks(blocks, &capped);
-  return CapPressLines(capped, "", full);
+  if (!blocks.empty()) lines.push_back(MakePressLine("FED BY:", true, false));
+  FoldPressBlocks(blocks, &lines);
+  // The cap counts the lines under the headers, as the press block's does
+  PressLines capped = CapStyledLines(lines, "", full);
+  for (size_t i = 0; i < capped.size(); i++)
+  {
+    const std::string &line = capped[i].text;
+    size_t depth = line.find_first_not_of(' ');
+    if (depth == std::string::npos) continue;
+    block.push_back(AutoMapScene_TipLine(std::string(2 * depth, ' ') + line.substr(depth),
+                                         capped[i].style));
+  }
+  return block;
 }

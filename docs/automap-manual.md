@@ -261,6 +261,30 @@ comma: `ONLY WHEN A BIT CHANGES`, `ONLY WHEN THE MATCH CHANGES`, `ONLY WHEN A BI
 MATCH DOES NOT`, `ONLY ON SET`, `ONLY ON CLEAR`, `ONLY WHEN THE BIT TURNS ON` or `ONLY WHEN THE BIT
 TURNS OFF`, for example `ON NO MATCH, ONLY WHEN THE MATCH CHANGES: (NEXT PRESS)`.
 
+A hold-type counter or gate reports on every message it takes, not just on reaching 0 or a match:
+SET while it is at 0 (a gate: while it matches), CLEAR otherwise, the other way round when it is
+normally closed. It says `HOLD: REPORTS EVERY COUNT` (or `EVERY MESSAGE`) in grey. Feeding only
+goals, it reads `EACH COUNT:` and each goal names both sides: `DOOR L9 (16, 4) OPENS AT 0, CLOSES
+ABOVE 0` (a gate: `OPENS WHILE MATCHING, CLOSES OTHERWISE`). Feeding another counter or gate, the
+route follows the side this message gives and says that the other side is not followed:
+
+```
+COUNTER A L9 (15, 3)
+  COUNTS 1 -> 0
+  HOLD: REPORTS EVERY COUNT
+  WHILE AT 0: (THIS PRESS)
+    GATE A L9 (16, 3), SETS BIT 0
+      ...
+  ABOVE 0: SENDS CLEAR (NOT FOLLOWED)
+```
+
+Hovering a stone or floor cell with relays gives one header per relay, lettered in record order
+(`COUNTER A`, `GATE B`, `DSA C`). Under it, in grey, its state (`COUNT 2`, `BITS 0101, NEEDS 0111`,
+`ONCE ONLY`, `HOLD: ...`, the gate's filter, `NORMALLY CLOSED`), then what it sends
+(`-> L5 (20, 29) DOOR OPENS AT 0`; a hold-type relay gets one line per side). `FED BY:` follows,
+listing the switches, pads and relays that reach the cell and what each does to which letter
+(`L5 (16, 28) SWITCH (E) A-1 B-1`): every relay of the cell takes their message.
+
 A DSA reads `IF ITS PROGRAM PASSES IT ON (NOT FOLLOWED)` with nothing below it, and
 steps after it in the same cell end in `(IF DSA PASSES)`. A message that comes back to a step on the
 route reads `LOOPS BACK TO COUNTER A L11 (47, 27)`. A switch or pad wired straight to its goals has no

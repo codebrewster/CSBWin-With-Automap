@@ -526,7 +526,7 @@ static void RelayMachineryNeverShowsBelowAll(void)
   CHECK(!HasLineStartingWith(lines, "DSA"));
   // At All the same snapshot still reads its machinery
   AutoMapDrawList all = Build(snapshot, AutoMapSpoilersAll, NULL);
-  CHECK(HasLineStartingWith(AutoMapScene_RelayHoverLines(all, 3, 0, false), "STONE:"));
+  CHECK(HasLineStartingWith(Texts(AutoMapScene_RelayBlock(all, 3, 0, false)), "COUNTER A"));
 }
 
 static void BreakableDoorLooksLikeAPlainDoor(void)

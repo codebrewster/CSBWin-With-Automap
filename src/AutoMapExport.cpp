@@ -245,7 +245,7 @@ static void WriteDrawList(FILE *f, ExportPictures &sp, const AutoMapDrawList &l,
     if (l.spoilers == AutoMapSpoilersAll)
     {
       std::vector<AutoMapPressSource> sources = AutoMapScene_PressEffects(l, x, y);
-      bool relayCell = !AutoMapScene_RelayHoverLines(l, x, y, false).empty();
+      bool relayCell = !AutoMapScene_RelayBlock(l, x, y, false).empty();
       if (!sources.empty() || relayCell)
       {
         std::vector<AutoMapLink> chain = AutoMapScene_PressChainLinks(sources);

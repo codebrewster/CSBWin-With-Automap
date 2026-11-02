@@ -3198,7 +3198,7 @@ static void DrawTeleporterTarget(const AutoMapView &view);
 static bool DrawChainArrows(const AutoMapView &view, const std::vector<AutoMapLink> &playerEdges)
 {
   std::vector<AutoMapPressSource> sources = AutoMapScene_PressEffects(shownDrawList, hoverX, hoverY);
-  bool relayCell = !AutoMapScene_RelayHoverLines(shownDrawList, hoverX, hoverY, false).empty();
+  bool relayCell = !AutoMapScene_RelayBlock(shownDrawList, hoverX, hoverY, false).empty();
   if (sources.empty() && !relayCell) return false;
   std::vector<AutoMapLink> chain = AutoMapScene_PressChainLinks(sources);
   std::vector<AutoMapLink> direct = AutoMapScene_LinksFrom(shownDrawList, hoverX, hoverY);

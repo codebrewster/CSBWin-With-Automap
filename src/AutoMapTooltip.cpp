@@ -201,12 +201,9 @@ std::vector<AutoMapTipLine> AutoMapTooltip_Machinery(const AutoMapDrawList &draw
     AddGroup(&out, generatorHeaders[g], spent ? AutoMapTipDormantHeader : AutoMapTipHeader,
              generators[g]);
   }
-  // The relays of the cell, as today's hover block until they get headers of their own
-  std::vector<std::string> relays = AutoMapScene_RelayHoverLines(drawList, x, y, shift);
-  for (size_t i = 0; i < relays.size(); i++)
-  {
-    out.push_back(AutoMapScene_TipLine(relays[i], AutoMapTipPlain));
-  }
+  // The relays of the cell last: a header per lettered relay, then what feeds the cell
+  std::vector<AutoMapTipLine> relays = AutoMapScene_RelayBlock(drawList, x, y, shift);
+  out.insert(out.end(), relays.begin(), relays.end());
   if (hint != NULL && wantsHint && !shift)
   {
     hint->push_back(AutoMapScene_TipLine(SHIFT_HINT, AutoMapTipHint));

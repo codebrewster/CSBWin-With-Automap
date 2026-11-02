@@ -1206,7 +1206,7 @@ std::vector<std::string> AutoMapScene_GeneratorHealthLines(int levelMultiplier,
 // "GENERATES 3X <monster>" plus its spawn range on separate lines (the multipliers and
 // "HP RANGE", when resolved). A dormant pad, a spent generator and a cog have none: the header
 // names the first two, and cogs (counters, DSAs) are drawn at All only, where
-// AutoMapScene_RelayHoverLines names them. Below All a pad prints no line: what a pad wants
+// AutoMapScene_RelayBlock names them. Below All a pad prints no line: what a pad wants
 // is not found out by stepping on it. A known generator still reads "GENERATES ...".
 std::vector<AutoMapTipLine> AutoMapScene_ActuatorLines(const AutoMapDrawList &drawList,
                                                        const AutoMapFloorActuator &actuator,
@@ -1219,7 +1219,7 @@ std::vector<AutoMapTipLine> AutoMapScene_TriggerLines(const AutoMapDrawList &dra
                                                       AutoMapItemNameFn nameForIndex);
 
 // Tooltip lines for what a cell is, not what a press does (that is AutoMapScene_PressBlock
-// and AutoMapScene_RelayHoverLines), already grouped: a header (AutoMapTipHeader) with its
+// and AutoMapScene_RelayBlock), already grouped: a header (AutoMapTipHeader) with its
 // lines two spaces in. "ADDED ROCK: OUTSIDE THE LEVEL" (plain, first); "FALSE WALL" with
 // "SWITCHED" under it when something operates it; a stone-embedded missile launcher reads
 // "LAUNCHER (N)" with "LAUNCHES POISON CLOUD" ("2X" for paired types 9/10/15) under it;
@@ -1359,7 +1359,7 @@ struct AutoMapPressSource
 // srcSide; the pads of a floor cell by trigger, AutoMapScene_SamePadTrigger) in link
 // order, and the links of one share its state. The walk stops after 1000 effects and
 // marks the source it was on truncated. Links sent by the relays of (x, y) itself (stone relays, floor cogs) are no
-// press and are left out: a relay cell reads through AutoMapScene_RelayHoverLines. Empty
+// press and are left out: a relay cell reads through AutoMapScene_RelayBlock. Empty
 // below All, or when (x, y) has no outgoing link with an explored target; unexplored
 // cells are neither named nor followed.
 std::vector<AutoMapPressSource> AutoMapScene_PressEffects(const AutoMapDrawList &drawList,
@@ -1427,13 +1427,17 @@ std::string AutoMapScene_GateFilterWords(int edgeMode);
 // empty for Unknown. Within the tooltip font.
 std::string AutoMapScene_GoalBadge(const AutoMapGoalDistance &distance);
 
-// Hovering a relay: the lettered relays of (x, y) in record order with what each feeds,
-// then FED BY, the sources that reach the cell with what a press does to which letter
-// (A-1 counts down, A+1 up, A BIT 2 TOGGLE flips a gate bit). Empty below All, for an
-// unexplored cell, or when the cell holds no relay. At most AUTOMAP_PRESS_MAX_LINES lines
-// below the headers, the last one +N MORE; full (Shift held) lifts that cap.
-std::vector<std::string> AutoMapScene_RelayHoverLines(const AutoMapDrawList &drawList, int x, int y,
-                                                     bool full);
+// Hovering a relay: one header per lettered relay of (x, y) in record order (COUNTER A,
+// GATE B, DSA C, AutoMapTipHeader), with two spaces in its state lines (AutoMapTipState:
+// COUNT 2 or BITS 0101, NEEDS 0111, then ONCE ONLY, HOLD: REPORTS EVERY COUNT/MESSAGE, the
+// gate filter, NORMALLY CLOSED) and what it sends (-> L5 (20, 29) DOOR OPENS AT 0; a held
+// relay gets one line per side). Then FED BY: flush left, the sources that reach the cell
+// with what a press does to which letter (A-1 counts down, A+1 up, A BIT 2 TOGGLE flips a
+// gate bit), two spaces in. Empty below All, for an unexplored cell, or when the cell holds
+// no relay. At most AUTOMAP_PRESS_MAX_LINES lines below the headers, the last one +N MORE;
+// full (Shift held) lifts that cap.
+std::vector<AutoMapTipLine> AutoMapScene_RelayBlock(const AutoMapDrawList &drawList, int x, int y,
+                                                    bool full);
 
 // How a spinner reads on the map: an absolute spinner forces its exit facing
 // no matter how the victim entered, a relative one turns it (right / around /
