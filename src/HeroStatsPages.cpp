@@ -513,6 +513,12 @@ static XpNode &Child(XpNode &parent, const std::string &key, const std::string &
 }
 
 static const char *const SOURCE_NAMES[5] = {"Attacks", "Monsters attacking you", "Other actions", "Spells", "Other"};
+static const char *const SOURCE_HELP[5] = {
+    "Blows, shots and throws, by weapon: each action with the class and hidden skill it trained.",
+    "Each time a monster attacks a champion, hit or miss, the champion gains Parry (Fighter).",
+    "War Cry, Calm, Brandish, Blow Horn and the like: they train Influence (Priest).",
+    "Every cast, the failed ones too, by the class it trained.",
+    "Items and scripts of the dungeon that raise a skill."};
 
 static void AddXpRow(XpNode &root, const HeroXpRow &row, int column, size_t columns, const HeroStatsNames &names)
 {
@@ -565,7 +571,8 @@ static void WriteXpLines(const XpNode &node, int depth, const std::string &path,
     if (depth > 0 && child.amount <= 0) continue;
     std::string childPath = path + "/" + keys[i];
     HeroStatsXpLine line = {child.name, child.note, depth, (int)(std::hash<std::string>()(childPath) & 0x7fffffff),
-                            child.amount, child.byColumn, !child.children.empty()};
+                            child.amount, child.byColumn, !child.children.empty(), ""};
+    if (depth == 0) line.help = SOURCE_HELP[std::stoi(keys[i])];
     out->push_back(line);
     WriteXpLines(child, depth + 1, childPath, out);
   }
@@ -765,6 +772,10 @@ static std::vector<HeroStatsRecordLine> RecordLines(const HeroStats &stats, cons
       line.who = ChampionName(columns, entry.who);
       line.level = entry.level;
       line.when = "tick " + HeroStatsView_Number((int)entry.time);
+      // A streak or chain: where and when it began and ended
+      if (kind == HeroRecKillStreak || kind == HeroRecLongestFall || kind == HeroRecLongestTeleportChain || kind == HeroRecLongestSleep)
+        line.when = "Lv " + std::to_string(entry.firstLevel) + ", tick " + HeroStatsView_Number((int)entry.firstTime) + " \xe2\x86\x92 Lv " +
+                    std::to_string(entry.level) + ", tick " + HeroStatsView_Number((int)entry.time);
       DescribeRecord(kind, entry, names, &line);
     }
     HeroRecordEntry party;

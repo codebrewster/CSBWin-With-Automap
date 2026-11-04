@@ -97,7 +97,8 @@ enum HeroStatsDetail { HeroDetailWeapons, HeroDetailSpells, HeroDetailHarm, Hero
 // Spells the classes and their spells. note: dim text after the name ("Fighter · Swing", "Fire").
 // id: the same for the same line on every page, for its fold state. byColumn: the Party's page,
 // each column's amount; a champion's page: the party's amount.
-struct HeroStatsXpLine { std::string name, note; int depth; int id; int amount; std::vector<int> byColumn; bool hasChildren; };
+// help: what a top line counts, for the hover
+struct HeroStatsXpLine { std::string name, note; int depth; int id; int amount; std::vector<int> byColumn; bool hasChildren; std::string help; };
 // A class: its experience, ranks and hidden skills (depth 1; "<class> itself" for gains straight to
 // it). rankNow: the champion's (the Party's: the best champion's, best), with percentToNext;
 // startRank: when the statistics first knew the champion (-1 unknown, and on the Party's page).

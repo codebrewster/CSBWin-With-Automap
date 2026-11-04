@@ -660,6 +660,25 @@ static void RecordLinesShowTheirBlow(void)
   CHECK(own != NULL && own->held);
 }
 
+// Hover texts the spec asks for: what the actions that cannot hit train, where a streak began
+static void SourcesAndStreaksSayMore(void)
+{
+  HeroStats stats = ExperiencedParty();
+  HeroStatsTopicPage page = XpPage(stats, HERO_STATS_PARTY, RankFive);
+  const HeroStatsXpLine *actions = NULL;
+  for (size_t i = 0; i < page.sources.size(); i++)
+    if (page.sources[i].depth == 0 && page.sources[i].name == "Other actions") actions = &page.sources[i];
+  CHECK(actions != NULL && actions->help.find("Influence") != std::string::npos);
+  stats.Records().CountKill(7, 2, 100, 6);
+  stats.Records().CountKill(7, 4, 300, 6);
+  HeroStatsTopicPage records = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroTopicRecords, NAMES);
+  const HeroStatsRecordLine *streak = NULL;
+  for (size_t i = 0; i < records.records.size(); i++)
+    if (records.records[i].kind == HeroRecKillStreak) streak = &records.records[i];
+  CHECK(streak != NULL && streak->when.find("Lv 2") != std::string::npos && streak->when.find("100") != std::string::npos);
+  CHECK(streak != NULL && streak->when.find("Lv 4") != std::string::npos && streak->when.find("300") != std::string::npos);
+}
+
 static void RecordsPerLevelHaveNoShare(void)
 {
   HeroStats stats = ExperiencedParty();
@@ -694,6 +713,7 @@ void TestHeroStatsPages(void)
   RankOfAGoneChampionIsTheLastKnown();
   RecordLinesShowTheirBlow();
   RecordsPerLevelHaveNoShare();
+  SourcesAndStreaksSayMore();
   PerLevelEndsWithTheWholeRun();
   ManyLevelsAllListed();
   ChampionTotalsSkipPartyNumbers();

@@ -258,7 +258,8 @@ void HeroStats_OnPartyOnLevel(void)
   store.Records().CountSleepTick(d.partyLevel, (uint32_t)d.Time, d.PartySleeping != 0);
   for (int slot = 0; slot < d.NumCharacter && slot < 4; slot++)
   {
-    if (d.hero[slot].HP() <= 0) continue;
+    // A candidate in a mirror is in a slot already, but not in the party until taken
+    if (d.hero[slot].HP() <= 0 || (d.PotentialCharacterOrdinal != 0 && slot == d.PotentialCharacterOrdinal - 1)) continue;
     HeroRecordEntry load = HeroRecordEntry_Empty();
     load.value = d.hero[slot].load;
     load.who = d.hero[slot].fingerPrint;
@@ -530,6 +531,7 @@ static void SetLastBlow(const HeroStatsBlow &blow)
 // HeroStats_EndMonsterBlow: its kills are "at once", a cloud tick's hit points add up.
 
 static int killsInBlow = 0;
+static int firstKillType = -1;  // the monster the blow killed first, for Most kills at once
 static int cloudTickTotal = 0, cloudTickType = -1;
 
 // How a champion's (or a monster's) blow was made, as a record keeps it
@@ -833,7 +835,8 @@ void HeroStats_EndMonsterBlow(void)
 {
   if (lastBlowSet && lastBlow.by == HeroBlowByChampion)
   {
-    if (killsInBlow > 0) OfferRecord(HeroRecMostKillsAtOnce, lastBlow.champion, killsInBlow, HowOf(lastBlow), -1, killsInBlow);
+    if (killsInBlow > 0)
+      OfferRecord(HeroRecMostKillsAtOnce, lastBlow.champion, killsInBlow, HowOf(lastBlow), firstKillType, killsInBlow);
     if (cloudBlowActive && cloudTickTotal > 0)
       OfferRecord(HeroRecBiggestSpellTotal, lastBlow.champion, cloudTickTotal, HowOf(lastBlow), cloudTickType, 0);
   }
@@ -851,7 +854,7 @@ void HeroStats_OnMonsterDied(int monsterType, int variant, int why)
   store.CountMonsterKill(PartyLevel(), monsterType, variant, blow);
   if (blow.by == HeroBlowByChampion)
   {
-    killsInBlow++;
+    if (killsInBlow++ == 0) firstKillType = monsterType;
     store.Records().CountKill(blow.champion, PartyLevel(), (uint32_t)d.Time, monsterType);
   }
 }

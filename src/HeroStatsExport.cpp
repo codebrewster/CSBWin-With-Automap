@@ -22,7 +22,7 @@
 //       "deaths": [text, ...], "eaten": [[text, amount, [by hero]], ...], "drunk": [...], "eatenTotal", "drunkTotal",
 //       "xp": {"classes": [[name, rank now, rank at the start, % to next, next rank, experience, ranks gained,
 //                           best hero (the party's), [by hero], [[skill, experience, [by hero]], ...]], ...],
-//              "sources": [[name, note, depth, experience, [by hero; a hero's page: the party's], has children], ...],
+//              "sources": [[name, note, depth, experience, [by hero; a hero's page: the party's], has children, help], ...],
 //              "rankups": [[hero, class, rank, with, level], ...]},
 //       "records": [[kind, group, label, value, who, how, whom, when, level, has, held, party value, party's hero], ...] },
 //     "monsters": [[name, [kills per hero], door, pit, other, total], ...] most killed first,
@@ -213,7 +213,8 @@ static std::string XpJson(const HeroStatsTopicPage &xp, const std::vector<HeroSt
   {
     const HeroStatsXpLine &line = xp.sources[i];
     out += std::string(i > 0 ? "," : "") + "[" + HeroStatsExport_JsonString(line.name) + "," + HeroStatsExport_JsonString(line.note) +
-           "," + Number(line.depth) + "," + Number(line.amount) + "," + Ints(line.byColumn) + "," + Bool(line.hasChildren) + "]";
+           "," + Number(line.depth) + "," + Number(line.amount) + "," + Ints(line.byColumn) + "," + Bool(line.hasChildren) + "," +
+           HeroStatsExport_JsonString(line.help) + "]";
   }
   out += "],\"rankups\":[";
   for (size_t i = 0; i < xp.rankUps.size(); i++)
@@ -563,7 +564,7 @@ function numbersTable(t) {
   else head += H.map((h, i) => `<th class="${h.left ? 'left' : ''}">${dotOf(i)} ${esc(h.name)}</th>`).join('') + '<th>Party</th><th>Share</th>';
   let body = '';
   for (const [n, depth] of rows) {
-    const info = NUM[n], summable = !info.ratio && !info.party;
+    const info = NUM[n], summable = !info.ratio && !info.party && !info.rec;
     body += `<tr class="d${depth}"><td${info.help ? ` title="${esc(info.help)}"` : ''}>${esc(info.label)}</td>`;
     if (one) {
       const mine = rec(st.who, st.level)[n];
@@ -739,7 +740,7 @@ function xpSources(p) {
   let body = '', hideBelow = -1, top = '';
   lines.forEach((l, i) => {
     // [name, note, depth, experience, [by hero; a hero's page: the party's], has children]
-    const [name, note, depth, amount, by, kids] = l;
+    const [name, note, depth, amount, by, kids, help] = l;
     if (depth === 0) top = name;
     if (hideBelow >= 0 && depth > hideBelow) return;
     hideBelow = -1;
@@ -749,7 +750,7 @@ function xpSources(p) {
     if (kids && !open) hideBelow = depth;
     const arrow = kids ? (open ? '&#9662; ' : '&#9656; ') : '';
     const act = kids ? ` onclick="st.open[${JSON.stringify(key).replace(/"/g, '&quot;')}]=${!open};draw()"` : '';
-    body += `<tr class="d${Math.min(depth, 2)}${kids ? ' xrow' : ''}"${act}><td>${arrow}${esc(name)}${note ? ` <span class="nt">${esc(note)}</span>` : ''}</td>`;
+    body += `<tr class="d${Math.min(depth, 2)}${kids ? ' xrow' : ''}"${act}><td${help ? ` title="${esc(help)}"` : ''}>${arrow}${esc(name)}${note ? ` <span class="nt">${esc(note)}</span>` : ''}</td>`;
     if (isParty()) body += plain(amount) + `<td class="whobar">${shareBar(by)}</td>`;
     else body += plain(amount) + plain(by[0] || 0) + `<td class="bar">${by[0] > 0 ? partBar(amount, by[0], st.who) : ''}</td>`;
     body += '</tr>';

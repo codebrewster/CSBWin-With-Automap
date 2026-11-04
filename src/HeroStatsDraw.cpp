@@ -1487,6 +1487,7 @@ static void DrawXpSources(HeroStatsDrawState *state, const std::vector<HeroStats
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetTreeNodeToLabelSpacing());
         ImGui::TextColored(Colour(line.depth > 0 ? DIM_RGB : TEXT_RGB), "%s", line.name.c_str());
       }
+      if (!line.help.empty() && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", line.help.c_str());
       if (!line.note.empty())
       {
         ImGui::SameLine();
