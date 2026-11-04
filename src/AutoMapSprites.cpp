@@ -283,8 +283,7 @@ void AutoMapSprites::ForgetAll(void)
   m_spritesByRequest.clear();
 }
 
-// One picture as a 32-bit BMP with alpha, for the export (AutoMapExport.cpp)
-bool AutoMapSprites_SaveBmp(const AutoMapSpriteRequest &request, const char *path)
+bool AutoMapSprites_Pixels(const AutoMapSpriteRequest &request, std::vector<Uint8> *rgba, int *outW, int *outH)
 {
   PlanarPicture picture;
   if (!DecodePicture(request.picture, &picture)) return false;
@@ -295,9 +294,21 @@ bool AutoMapSprites_SaveBmp(const AutoMapSpriteRequest &request, const char *pat
     x0 = request.tileX; y0 = request.tileY; w = request.tileW; h = request.tileH;
     if (x0 + w > picture.width || y0 + h > picture.height) return false;
   }
-  std::vector<Uint8> cut((size_t)w * h * 4);
+  if (w <= 0 || h <= 0) return false;
+  rgba->assign((size_t)w * h * 4, 0);
   for (int y = 0; y < h; y++)
-    memcpy(&cut[(size_t)y * w * 4], &pixels[((size_t)(y + y0) * picture.width + x0) * 4], (size_t)w * 4);
+    memcpy(&(*rgba)[(size_t)y * w * 4], &pixels[((size_t)(y + y0) * picture.width + x0) * 4], (size_t)w * 4);
+  *outW = w;
+  *outH = h;
+  return true;
+}
+
+// One picture as a 32-bit BMP with alpha, for the export (AutoMapExport.cpp)
+bool AutoMapSprites_SaveBmp(const AutoMapSpriteRequest &request, const char *path)
+{
+  std::vector<Uint8> cut;
+  int w = 0, h = 0;
+  if (!AutoMapSprites_Pixels(request, &cut, &w, &h)) return false;
   SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormatFrom(cut.data(), w, h, 32, w * 4, SDL_PIXELFORMAT_RGBA32);
   if (surface == NULL) return false;
   bool ok = SDL_SaveBMP(surface, path) == 0;

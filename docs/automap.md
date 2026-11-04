@@ -23,6 +23,9 @@ the engine or SDL. The `src/makefile` makes the split explicit: the units in
 | `AutoMapSight` | The line-of-sight rule over the cells the 3D view paints (`AutoMapSight.h`) |
 | `AutoMapFile` | The `.map` file: loading/saving explored cells, seen faces and learned facts, keyed by the save signature (`AutoMapFile.h:41`) |
 | `AutoMapScene` | The drawing *rules*: turns plain level records into a draw list, tooltip slots, trigger text, search hits and rows, the zoom steps (`AutoMapScene.h`) |
+| `AutoMapHtml` | The pieces of the exported page: gzip, base64, PNG, which views the limits keep, and the page around the data with the code of `AutoMapExportPage.inc` (`AutoMapHtml.h`) |
+| `AutoMapExportChoice` | The EXPORT dialog's rules: the levels a choice takes, PICK's buttons, the file name and URL, the size estimate, typing a name (`AutoMapExportChoice.h`) |
+| `AutoMapZip` | The zip archive around the `.map` file's data, and the bare files from before it (`AutoMapZip.h`) |
 | `AutoMapLayout` | The window's geometry and drawing decisions: wall slots, the who-badge of pads and teleporters, where a line ends, the tooltip's side and icon grid, the bar's packing, the level list (`AutoMapLayout.h`) |
 
 `ShotMissiles` is tested alongside them (it also needs neither the engine nor SDL).
@@ -35,7 +38,8 @@ the engine or SDL. The `src/makefile` makes the split explicit: the units in
 | `AutoMapRecorder` | Keeps what the party has seen, sees now and has learned, fed by the 3D view and the hooks (`AutoMapRecorder.h`) |
 | `AutoMapHooks` | The functions the engine and platform layer call (declare-only header, safe after `CSB.h`) |
 | `AutoMapSprites` | Decodes the game pictures into SDL textures for the window |
-| `AutoMapExport` | `CSB_MAP_EXPORT` and `CSB_MAP_RENDER`, run with `--visibility-test`: writes what the map shows for the reference mockup, or draws the window off screen into a picture |
+| `AutoMapExport` | What the map shows, as JSON draw lists with their pictures: into a folder for the reference mockup (`CSB_MAP_EXPORT`), or into the one web page of the bar's EXPORT (`AutoMapExport_Html*`, `CSB_MAP_HTML`); and `CSB_MAP_RENDER`, the window drawn off screen into a picture |
+| `AutoMapExportDialog` | The EXPORT dialog over the map: the choices, the file, writing the page level by level with the window showing the progress, STOP, OPEN, and the system's Save dialog through `tinyfiledialogs` |
 
 **The window itself:** `AutoMapWindow.cpp` — the SDL window, painting, input,
 the tooltip, the search panel and the `csb.cfg` settings. `AutoMapBar.cpp` draws the bar above the
@@ -52,8 +56,21 @@ CSB_MAP_RENDER=out.bmp,<level>,<vision 0..2>,<spoilers 0 seen..2 all>,<cell>,<x>
   <repo>/src/csb --visibility-test case.txt
 ```
 
-draws the window as it would look with cell (x, y) hovered. `CSB_MAP_EXPORT=<dir>` writes the data
-of the reference mockup in `docs/automap-mockup/` (steps in its `pack-data.py`).
+draws the window as it would look with cell (x, y) hovered; `export`, `export-pick`, `export-busy`
+or `export-done` in place of `shift` draws the EXPORT dialog over it. `CSB_MAP_EXPORT=<dir>` writes
+the data of the reference mockup in `docs/automap-mockup/` (steps in its `pack-data.py`), and
+`CSB_MAP_HTML=<out.html>,<vision 0..2>,<spoilers 0..2>[,<levels>]` the page EXPORT writes, with
+`all` levels or their numbers joined by `+`.
+
+**The exported page** is the mockup's own code: `docs/automap-mockup/page/map.js` and `ui.js`, with
+`page/export-head.html` in place of the mockup's header. `pack-data.py` copies them into
+`src/AutoMapExportPage.inc` on every run, so rebuild the game after changing the page. The game
+puts in the data block the mockup gets from `pack-data.py` (one save, gzip and base64; pictures
+as PNG, one copy of each), plus an `export` entry in its index: the vision and spoiler limits
+(`maxVision`, `minSpoil` in the scene's numbering, 0 All to 2 Seen), where the page starts, the
+bar's look (`bar`, as `map_bar_style`), and `absent` on each level left out. The page draws the bar
+with the window's packing and the five looks of `AutoMapBar.cpp`; the mockup takes `?bar=<look>`. The page greys out the buttons beyond the limits and skips the
+levels left out.
 
 ## How it flows
 
@@ -83,7 +100,8 @@ What the party has explored, seen, learned and left lying on the floor is kept i
 the savegame (see [data-formats.md](data-formats.md)). It is keyed by the saved
 game's identity — the two words `Signature()` computes over the save file
 (`AutoMapSaveSignature`, `AutoMapFile.h:10`) — so a save and its map stay
-together. The automap writes its own settings (window size, whether it was open)
+together. On disk the data sits in a zip archive of one entry (`AutoMapZip`), which cuts
+the file to about a sixth. The automap writes its own settings (window size, whether it was open)
 into `csb.cfg` via `AutoMapWindow_ReadSettings`/`AutoMapWindow_WriteSettings`
 (`AutoMapWindow.h`).
 
@@ -629,6 +647,7 @@ make -C src test
 
 runs `automap_tests/TestMain.cpp`, which calls `TestAutoMapExplored`,
 `TestAutoMapKnowledge`, `TestAutoMapSight`, `TestAutoMapFile`, `TestAutoMapScene`,
-`TestAutoMapSpoilers`, `TestAutoMapLinkWatch`, `TestAutoMapVision` and `TestShotMissiles`
+`TestAutoMapSpoilers`, `TestAutoMapLinkWatch`, `TestAutoMapVision`, `TestAutoMapZip`, `TestAutoMapHtml`,
+`TestAutoMapExportChoice` and `TestShotMissiles`
 and prints `All tests passed`. The tests live in `src/automap_tests/`; the
 largest, `SceneTest.cpp`, covers the draw-list and tooltip rules.

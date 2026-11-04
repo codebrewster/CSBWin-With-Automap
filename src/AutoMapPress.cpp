@@ -2193,8 +2193,9 @@ std::vector<AutoMapTipLine> AutoMapScene_RelayBlock(const AutoMapDrawList &drawL
   }
   if (!blocks.empty()) lines.push_back(MakePressLine("FED BY:", true, false));
   FoldPressBlocks(blocks, &lines);
-  // The cap counts the lines under the headers, as the press block's does
-  PressLines capped = CapStyledLines(lines, "", full);
+  // The cap counts the lines under the headers, as the press block's does, and says how to see
+  // the rest
+  PressLines capped = CapStyledLines(lines, full ? "" : " (SHIFT)", full);
   for (size_t i = 0; i < capped.size(); i++)
   {
     const std::string &line = capped[i].text;

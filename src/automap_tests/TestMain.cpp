@@ -20,6 +20,10 @@ int main(void)
   TestAutoMapVision();
   TestAutoMapVisibilityCases();
   TestAutoMapLayout();
+  TestAutoMapZip();
+  TestAutoMapHtml();
+  TestAutoMapExportChoice();
+  TestAutoMapTickRate();
   TestShotMissiles();
   TestHeroStats();
   TestHeroStatsOrigins();

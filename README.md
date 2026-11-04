@@ -111,6 +111,14 @@ A legend behind the **?** button explains every mark on the map.
 - Notes are drawn in their own colour at every spoiler level, and saved with the
   map.
 
+### Share the map as a web page
+
+- **EXPORT** on the bar writes the map into one `.html` file that works offline in any browser:
+  pan, zoom, the level list, tooltips, links, SHOW and the search, like the map window.
+- Take every level, the visited ones, the one on screen or a pick; limit vision and spoilers,
+  and nothing beyond the limit is in the file. See the
+  [manual](docs/automap-manual.md#exporting-the-map-as-a-web-page).
+
 ### Statistics for the whole run
 
 ![The Statistics window: the Party's overview with a card per champion and the key numbers](docs/images/statistics-overview.png)
@@ -129,7 +137,8 @@ A legend behind the **?** button explains every mark on the map.
   earlier save of the same game.
 - **Export as HTML** writes the whole window into one file to share or post on the forum: every
   topic, champion and level, sortable and foldable, with nothing loaded from the internet.
-- Kept in the save's `.map` file; saves from before the statistics load with empty statistics.
+- Kept in the save's `.map` file (a zip archive, about a sixth of the size it had before);
+  saves from before the statistics load with empty statistics.
 
 ### Testing aids
 
@@ -261,8 +270,11 @@ nor those optional files.
 - Automap, statistics, Windows build and documentation:
   [codebrewster](https://github.com/codebrewster).
 - Bundled libraries: [Dear ImGui](https://github.com/ocornut/imgui),
-  [SDL_sound](https://github.com/icculus/SDL_sound) and
-  [dr_mp3](https://github.com/mackron/dr_libs), under their own licenses.
+  [SDL_sound](https://github.com/icculus/SDL_sound),
+  [dr_mp3](https://github.com/mackron/dr_libs) and
+  [miniz](https://github.com/richgel999/miniz) (3.0.2, for the zipped `.map` files and the exported map) and
+  [tinyfiledialogs](https://sourceforge.net/projects/tinyfiledialogs/) (3.22.1, the Save dialog of the map's EXPORT),
+  under their own licenses.
 
 ## License
 

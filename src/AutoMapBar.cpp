@@ -8,6 +8,7 @@
 #include "AutoMapLayout.h"
 #include "AutoMapPaint.h"
 #include "AutoMapBar.h"
+#include "AutoMapExportDialog.h"
 #include "AutoMapHooks.h"
 #include "AutoMapWindow.h"
 
@@ -44,6 +45,7 @@ enum BarAction
   ActionShow,
   ActionSearch,
   ActionHelp,
+  ActionExport,
   ActionDebug
 };
 
@@ -105,7 +107,9 @@ static std::vector<BarItem> ItemsNow(void)
       {"?", ActionHelp, helpOpen},
   };
   list.insert(list.end(), rest, rest + sizeof(rest) / sizeof(rest[0]));
+  // The testing aids sit with / and ?, EXPORT in a group of its own behind them
   if (AutoMapWindow_DebugIsOn()) list.push_back(BarItem{"+", ActionDebug, AutoMapWindow_DebugPanelIsOpen()});
+  list.push_back(BarItem{"|EXPORT", ActionExport, AutoMapExportDialog_IsOpen()});
   return list;
 }
 
@@ -256,6 +260,28 @@ static void Bevel(const AutoMapRect &r, SDL_Color light, SDL_Color dark)
   AutoMapPaint_Fill(left, light);
   AutoMapPaint_Fill(bottom, dark);
   AutoMapPaint_Fill(right, dark);
+}
+
+void AutoMapBar_DrawWell(const AutoMapRect &r)
+{
+  DrawGroupBack(r);
+}
+
+int AutoMapBar_ButtonWidth(const std::string &label)
+{
+  return AutoMapPaint_TextWidth(label, PIXEL) + 5 * PIXEL;
+}
+
+int AutoMapBar_ButtonHeight(void)
+{
+  return 9 * PIXEL;
+}
+
+static void DrawButton(const AutoMapRect &r, const std::string &label, bool on);
+
+void AutoMapBar_DrawButton(const AutoMapRect &r, const std::string &label, bool on)
+{
+  DrawButton(r, label, on);
 }
 
 static void DrawButton(const AutoMapRect &r, const std::string &label, bool on)
@@ -563,11 +589,12 @@ void AutoMapBar_DrawPanels(int width, int height)
   if (showOpen) DrawShowPanel(width);
   if (helpOpen) DrawHelp(width);
   if (levelListOpen) DrawLevelList();
+  if (AutoMapExportDialog_IsOpen()) AutoMapExportDialog_Draw(width, height);
 }
 
 bool AutoMapBar_PanelIsOpen(void)
 {
-  return showOpen || helpOpen || levelListOpen;
+  return showOpen || helpOpen || levelListOpen || AutoMapExportDialog_IsOpen();
 }
 
 void AutoMapBar_ClosePanels(void)
@@ -619,6 +646,11 @@ static void Carry(BarAction action)
     helpOpen = open;
     break;
   }
+  case ActionExport:
+    AutoMapBar_ClosePanels();
+    if (AutoMapExportDialog_IsOpen()) AutoMapExportDialog_Close();
+    else AutoMapExportDialog_Open();
+    break;
   case ActionDebug: AutoMapWindow_ToggleDebugPanel(); break;
   default: break;
   }
@@ -633,6 +665,8 @@ bool AutoMapBar_HandlePress(int x, int y, int width)
   }
   if (showOpen && y >= AutoMapBar_Height()) return ShowPanelPress(x, y, width);
   if (levelListOpen && y >= AutoMapBar_Height()) return LevelListPress(x, y);
+  // The export dialog takes every press below the bar, and on the bar only its own button
+  if (AutoMapExportDialog_IsOpen() && y >= AutoMapBar_Height()) return AutoMapExportDialog_HandlePress(x, y);
   if (y >= AutoMapBar_Height()) return false;
   int arrowW = 9 * PIXEL;
   if (scrollLeft && x < arrowW)
@@ -651,6 +685,7 @@ bool AutoMapBar_HandlePress(int x, int y, int width)
     if (items[i].action == ActionNone) continue;
     if (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h)
     {
+      if (AutoMapExportDialog_IsOpen() && items[i].action != ActionExport) return true;
       Carry(items[i].action);
       return true;
     }
@@ -678,6 +713,8 @@ bool AutoMapBar_HandleWheel(int x, int y, int notches)
 bool AutoMapBar_HandleKey(int sym)
 {
   if (!AutoMapBar_PanelIsOpen()) return false;
+  // The dialog's keys come with their modifiers and its typing (AutoMapWindow_HandleKeyEvent)
+  if (AutoMapExportDialog_IsOpen()) return false;
   if (sym == SDLK_ESCAPE)
   {
     AutoMapBar_ClosePanels();

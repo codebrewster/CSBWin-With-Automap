@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>@TITLE@</title>
+<style>
+  :root{--bg:#15130f;--fg:#cfc6b4;--muted:#9a917f;--line:#2c2822;--gold:#e0b64a}
+  body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.45 system-ui,sans-serif}
+  header{padding:10px 16px;border-bottom:1px solid var(--line)}
+  h2{margin:0 0 4px;font-size:16px;color:#eee3c8}
+  .sub{color:var(--muted);margin:0;max-width:1200px}
+  .sub b{color:#ffcc33}
+  .bar{display:flex;flex-wrap:wrap;gap:14px;padding:8px 16px;align-items:center;border-bottom:1px solid var(--line)}
+  #wrap{margin:10px 16px}
+  canvas{display:block;image-rendering:pixelated;background:#0c0b09}
+  #c{cursor:grab} #c.drag{cursor:grabbing}
+  #status{color:var(--muted);font-size:12px}
+</style></head><body>
+<header>
+  <h2>@TITLE@</h2>
+  <p class="sub">@SUBTITLE@<br>
+  <b>Mouse:</b> left-drag pans, the wheel zooms, middle-click centres on the party, Shift shows the whole press chain at spoilers ALL, Shift+wheel scrolls a long tooltip, Ctrl+wheel sizes it, the side buttons or Page Up/Down change level. <b>Keys:</b> / or Ctrl+F searches, Escape closes. Right-click a cell for your own marks; they are not kept when the page is closed.</p>
+</header>
+<div class="bar"><span id="status">loading…</span></div>
+<div id="wrap"><canvas id="tb"></canvas><canvas id="c"></canvas></div>

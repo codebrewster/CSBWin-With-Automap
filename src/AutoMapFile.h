@@ -33,7 +33,7 @@ enum AutoMapFileResult
 const char *AutoMapFile_Describe(AutoMapFileResult result);
 
 // The companion file of one saved game: what the party has explored, seen and learned, bound to
-// that save by its signature.
+// that save by its signature. On disk this data is the one entry of a zip archive (AutoMapZip.h).
 //
 //   4 bytes  "CSBM"
 //   2 bytes  format version

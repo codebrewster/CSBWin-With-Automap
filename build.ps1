@@ -64,7 +64,7 @@ $CppSources = @(
     'AutoMapItemMemory', 'AutoMapCellMemory', 'AutoMapPlayerNotes',
     'AutoMapMonsterDamage', 'AutoMapVisibilityCases', 'AutoMapWindow',
     'AutoMapHooks', 'AutoMapRecorder',
-    'AutoMapLevelReader', 'AutoMapSprites', 'AutoMapMeasure', 'AutoMapExport', 'AutoMapPaint', 'AutoMapLayout', 'AutoMapBar',
+    'AutoMapLevelReader', 'AutoMapSprites', 'AutoMapMeasure', 'AutoMapExport', 'AutoMapPaint', 'AutoMapLayout', 'AutoMapBar', 'AutoMapZip', 'AutoMapHtml', 'AutoMapExportChoice', 'AutoMapExportDialog', 'AutoMapTickRate',
     'ShotMissiles',
     'HeroStats', 'HeroStatsCatalogue', 'HeroStatsOrigins', 'HeroStatsPending',
     'HeroStatsRunes', 'HeroStatsDump', 'HeroStatsGame', 'HeroStatsView',
@@ -80,7 +80,7 @@ $ImguiSources = @(
 $SdlSoundSources = @('SDL_sound', 'SDL_sound_mp3', 'SDL_sound_raw', 'SDL_sound_wav')
 
 # Compiled as C, not C++.
-$CSources = @('confile.c', 'fnmatch\fnmatch.c')
+$CSources = @('confile.c', 'fnmatch\fnmatch.c', 'miniz\miniz.c', 'tinyfiledialogs\tinyfiledialogs.c')
 
 # ---------------------------------------------------------------- flags --
 
@@ -92,7 +92,7 @@ $Includes = @(
 
 $CxxFlags = @('-O2', '-std=c++11') + $Defines + $Includes
 $CFlags   = @('-O2')             + $Defines + $Includes
-$LdFlags  = @("-L$SDL\lib", '-lmingw32', '-lSDL2main', '-lSDL2', '-mwindows')
+$LdFlags  = @("-L$SDL\lib", '-lmingw32', '-lSDL2main', '-lSDL2', '-lcomdlg32', '-lole32', '-mwindows')
 
 # ---------------------------------------------------------------- clean --
 

@@ -208,17 +208,41 @@ static void BundlesSpreadOverlappingLines(void)
   CHECK(lanes.size() == 3 && lanes[0] == 0.0f && lanes[1] == 0.0f && lanes[2] == 0.0f);
 }
 
-// The tooltip's icon grid: six to a row, two rows; with more kinds the twelfth tile reads +N
-static void TooltipGridHasTwoRowsOfSix(void)
+// The tooltip's icon grid: six to a row, every entry in it
+static void TooltipGridHasRowsOfSix(void)
 {
   AutoMapTooltipGrid five = AutoMapLayout_TooltipGrid(5);
-  CHECK(five.tiles == 5 && five.columns == 5 && five.rows == 1 && five.plusMore == 0);
+  CHECK(five.tiles == 5 && five.columns == 5 && five.rows == 1);
   AutoMapTooltipGrid twelve = AutoMapLayout_TooltipGrid(12);
-  CHECK(twelve.tiles == 12 && twelve.columns == 6 && twelve.rows == 2 && twelve.plusMore == 0);
-  AutoMapTooltipGrid fourteen = AutoMapLayout_TooltipGrid(14);
-  CHECK(fourteen.tiles == 11 && fourteen.columns == 6 && fourteen.rows == 2 && fourteen.plusMore == 3);
+  CHECK(twelve.tiles == 12 && twelve.columns == 6 && twelve.rows == 2);
+  AutoMapTooltipGrid thirty = AutoMapLayout_TooltipGrid(31);
+  CHECK(thirty.tiles == 31 && thirty.columns == 6 && thirty.rows == 6);
   AutoMapTooltipGrid none = AutoMapLayout_TooltipGrid(0);
-  CHECK(none.tiles == 0 && none.columns == 0 && none.rows == 0 && none.plusMore == 0);
+  CHECK(none.tiles == 0 && none.columns == 0 && none.rows == 0);
+}
+
+// Too many rows for the tooltip: a window of them, scrolled, with markers at the cut edges
+static void TooltipGridWindowScrolls(void)
+{
+  AutoMapTooltipGridWindow fits = AutoMapLayout_TooltipGridWindow(12, 6, 4, 3);
+  CHECK(fits.firstRow == 0 && fits.rows == 2 && fits.hiddenRows == 0 && fits.above == 0 && fits.below == 0);
+  // 31 tiles, 6 rows of 6; room for 3 rows
+  AutoMapTooltipGridWindow top = AutoMapLayout_TooltipGridWindow(31, 6, 3, 0);
+  CHECK(top.firstRow == 0 && top.rows == 3 && top.hiddenRows == 3);
+  CHECK(top.above == 0 && top.below == 31 - 18 + 1);
+  AutoMapTooltipGridWindow middle = AutoMapLayout_TooltipGridWindow(31, 6, 3, 1);
+  CHECK(middle.firstRow == 1 && middle.above == 7 && middle.below == 31 - 24 + 1);
+  // Scrolled past the end: held at the last rows, nothing below
+  AutoMapTooltipGridWindow end = AutoMapLayout_TooltipGridWindow(31, 6, 3, 9);
+  CHECK(end.firstRow == 3 && end.above == 19 && end.below == 0);
+  // One tile in view: no room for markers, but it still scrolls
+  AutoMapTooltipGridWindow narrow = AutoMapLayout_TooltipGridWindow(5, 1, 1, 2);
+  CHECK(narrow.firstRow == 2 && narrow.rows == 1 && narrow.hiddenRows == 4 && narrow.above == 0 && narrow.below == 0);
+  // Scrolled to a last row of one tile: that tile shows, with no marker over it
+  AutoMapTooltipGridWindow lastTile = AutoMapLayout_TooltipGridWindow(13, 6, 1, 2);
+  CHECK(lastTile.firstRow == 2 && lastTile.rows == 1 && lastTile.above == 0 && lastTile.below == 0);
+  AutoMapTooltipGridWindow none = AutoMapLayout_TooltipGridWindow(0, 6, 3, 0);
+  CHECK(none.rows == 0 && none.hiddenRows == 0);
 }
 
 static std::vector<std::string> BarLabels(void)
@@ -367,7 +391,8 @@ void TestAutoMapLayout(void)
   LevelListClamps();
   BarFitsNarrowWindow();
   SegmentedBarLeavesRoomForFrames();
-  TooltipGridHasTwoRowsOfSix();
+  TooltipGridHasRowsOfSix();
+  TooltipGridWindowScrolls();
   LineStopsAtTheTargetEdge();
   TooltipOpensAwayFromTheLines();
   TooltipFindsTheFreeCorner();

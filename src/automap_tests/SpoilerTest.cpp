@@ -877,9 +877,11 @@ static void KnownLauncherHasNoLaunchesLineBelowAll(void)
 
 // A generator that fired and waits on its reactivation timer is type 0, like a dormant pad; the
 // reader tells it by the timer. Learned, it stays a sleeping generator with the time it wakes in
-// (the game's ticks, about six a second), and the tooltip says what it makes and when.
+// (the game's ticks, six a second here), and the tooltip says what it makes and when.
 static void KnownSleepingGeneratorSaysWhenItWakes(void)
 {
+  double rateBefore = AutoMapScene_TicksPerSecond();
+  AutoMapScene_SetTicksPerSecond(6.0);
   AutoMapLevelSnapshot snapshot = Corridor();
   AutoMapFloorActuator sleeping(1, 1, AutoMapActuatorSleepingGenerator);
   sleeping.record = 6;
@@ -907,6 +909,7 @@ static void KnownSleepingGeneratorSaysWhenItWakes(void)
   CHECK(AutoMapScene_WakeLine(5) == "WAKES IN 5 TICKS, ABOUT 0:01");
   CHECK(AutoMapScene_WakeLine(6 * 3600) == "WAKES IN 21600 TICKS, ABOUT 1:00:00");
   CHECK(AutoMapScene_WakeLine(0) == "WAKES NOW");
+  AutoMapScene_SetTicksPerSecond(rateBefore);
 }
 
 static void KnownSpentGeneratorShowsAsAGenerator(void)
@@ -1042,6 +1045,22 @@ static AutoMapLevelSnapshot WithChestAt11(void)
   contents.pictureScrolls.push_back(SCROLL_RECORD);
   cell.chestContents.push_back(contents);
   return snapshot;
+}
+
+// Two chests on a cell, one opened: one row CHEST X2, told as an item on the floor, not "CHEST"
+static void TwoChestsAreOneHit(void)
+{
+  AutoMapLevelSnapshot snapshot = WithChestAt11();
+  At(&snapshot, 1, 1).itemPictures.push_back(ItemOf(CHEST, 1));
+  AutoMapKnowledge knowledge;
+  knowledge.Learn(AutoMapFact_OfRecord(AutoMapFactChestOpened, CHEST_RECORD));
+  AutoMapDrawList drawList = Build(snapshot, AutoMapSpoilersLearned, &knowledge);
+  std::vector<AutoMapSearchHit> found = AutoMapScene_SearchItems(drawList, "chest", FakeName, NULL);
+  CHECK(found.size() == 1);
+  if (found.size() == 1) CHECK(found[0].count == 2 && found[0].kind == AutoMapHitItem);
+  // What one of them holds is still found as in a chest
+  std::vector<AutoMapSearchHit> sword = AutoMapScene_SearchItems(drawList, "sword", FakeName, NULL);
+  CHECK(sword.size() == 1 && sword[0].kind == AutoMapHitInChest);
 }
 
 static void ChestContentsOnlyOnceOpened(void)
@@ -2348,6 +2367,7 @@ void TestAutoMapSpoilers(void)
   NoLinkWithoutAFact();
   LinkOfADeletedActuatorDrawsNothing();
   LinkTargetFollowsTheBoundaryMargin();
+  TwoChestsAreOneHit();
   ChestContentsOnlyOnceOpened();
   ScrollTextOnlyOnceRead();
   MonsterCarriesNothingBelowAll();

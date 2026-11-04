@@ -73,8 +73,15 @@ version string at startup (`CSBlinux.cpp:1309`).
 
 The automap keeps its own state — the explored cells, the wall faces the 3D view has
 shown, the facts the party has learned, the floor items it has seen and how it last saw each cell — in a `.map` file alongside the save, not in
-the savegame itself. The glue is described in [automap.md](automap.md). Numbers are
-stored lowest byte first. Layout of version 20 (`AutoMapFile.h`):
+the savegame itself. The glue is described in [automap.md](automap.md).
+
+On disk the `.map` file is a zip archive with one entry, named like the `.map` file itself,
+that holds the data laid out below (`AutoMapZip.h`, built on miniz in `src/miniz`). Renamed to
+`.zip`, it opens in any zip tool. A file written before the map was zipped holds the data
+bare; it starts with `CSBM` instead of `PK`, still loads and is zipped at the next save. A zip
+whose entry cannot be read is ignored like any other bad map file.
+
+Numbers are stored lowest byte first. Layout of version 20 (`AutoMapFile.h`):
 
 | Size | Content |
 |------|---------|

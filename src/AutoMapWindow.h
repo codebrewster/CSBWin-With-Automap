@@ -64,6 +64,11 @@ bool AutoMapWindow_HandleKeyEvent(const SDL_Event &event);
 // Page Up / Page Down show the level above or below; true when the key was one of them and
 // the map is open. The game window calls it too, for keys the player has not bound.
 bool AutoMapWindow_HandleLevelKey(SDL_Keycode sym);
+// For the export dialog, which writes the page while the window shows its progress: paint at
+// once, the window's id (0 while it has none), and a paint at the next chance
+void AutoMapWindow_PaintNow(void);
+Uint32 AutoMapWindow_WindowId(void);
+void AutoMapWindow_Repaint(void);
 // The game hides the system pointer because it draws its own; over the map there is none
 bool AutoMapWindow_PointerIsOverMap(void);
 

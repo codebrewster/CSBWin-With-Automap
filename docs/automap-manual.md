@@ -18,6 +18,7 @@ How to use the automap while you play. For how it is built, see
 - [Searching](#searching)
 - [Controls help](#controls-help)
 - [Your own notes](#your-own-notes)
+- [Exporting the map as a web page](#exporting-the-map-as-a-web-page)
 - [Saving](#saving)
 - [Settings in csb.cfg](#settings-in-csbcfg)
 - [Testing aids (debug mode)](#testing-aids-debug-mode)
@@ -60,6 +61,7 @@ A strip above the map holds every map setting:
 | **/** | The search |
 | **?** | The controls help |
 | **+** | The testing aids, only with `map_debug = 1` |
+| **EXPORT** | Writes the map into a web page; see [Exporting the map as a web page](#exporting-the-map-as-a-web-page) |
 
 In a narrow window the long labels shorten (`EXPL`, `LRND`); if the bar still does not fit, the
 wheel over it scrolls it.
@@ -197,8 +199,10 @@ At **All**, also:
 - **Monster generators**: what they create and its hit point range.
 
 A generator the map knows that has fired and sleeps for a while is headed `SLEEPING GENERATOR`, with
-when it wakes: `WAKES IN 380 TICKS, ABOUT 1:03`. The time is at the game's normal speed, about six
-ticks a second, and counts down as you watch.
+when it wakes: `WAKES IN 380 TICKS, ABOUT 1:30`. The time is measured: the map counts how many ticks
+the game runs a second on your machine at the speed you set (at **Normal** about 4, at **Slow** about 3,
+at **Fast** about 6), and counts down as you watch. Asleep the game runs far faster, so the time
+holds for when the party is awake.
 - **The monsters' hit points**, under the damage lines.
 - **The whole press chain** of a switch or pad; see
   [Tracing switches and pads](#tracing-switches-and-pads).
@@ -214,6 +218,12 @@ The tooltip goes where it hides the least of the lines, squares and goal frames
 the hover lights up: beside the hovered cell or beside the whole lit group,
 above, below or level with it. A tooltip that does not fit the window shows a
 `+N MORE` line. Hold **Shift** and turn the wheel to scroll it.
+
+The tooltip shows a picture of every stack on the tile, six to a row, however many there are; on a
+big pile the pictures get smaller. If there are still too many rows for the window, the pictures
+come first when you scroll with **Shift** and the wheel, then the lines: the first and last picture
+then read `+N` with an arrow to how many stacks are above or below, and the tooltip says
+`SHIFT+WHEEL: MORE ITEMS`.
 
 Hold **Ctrl** and turn the wheel to make the tooltip bigger or smaller, up to four times its size,
 without zooming the map. Its last line says so: `CTRL+WHEEL: SIZE (2X)`. The size is kept in
@@ -371,8 +381,8 @@ listing the switches, pads and relays that reach the cell and what each does to 
 A DSA reads `IF ITS PROGRAM PASSES IT ON (NOT FOLLOWED)` with nothing below it, and
 steps after it in the same cell end in `(IF DSA PASSES)`. A message that comes back to a step on the
 route reads `LOOPS BACK TO COUNTER A L11 (47, 27)`. A switch or pad wired straight to its goals has no
-route and shows no hint; when its RESULT list is too long for the tooltip (`+3 MORE (SHIFT)`), Shift
-shows all of it. Delays are in the game's ticks (about six a second): `AFTER 6 TICKS`. In the route a
+route and shows no hint; when its RESULT list, or the list of a relay cell (its counters, gates and
+what feeds them), is too long for the tooltip (`+3 MORE (SHIFT)`), Shift shows all of it. Delays are in the game's ticks (about four a second at Normal speed): `AFTER 6 TICKS`. In the route a
 line's delay is the wait after the line above lets the signal through; RESULT gives the total from
 the press.
 
@@ -394,8 +404,10 @@ every level and finds:
 
 The results are grouped under a heading per level, the shown level first; a click on a heading
 folds it away. Each hit shows its icon, the cell as the rulers number it, its name and a tag: `X3`,
-`ALCOVE`, `CHEST`, `IN CHEST`, `CARRIED BY …`, `NEEDS`, `PAD NEEDS`, `GENERATOR`, or for stairs the level
-they lead to (`TO L4`). **Up** and **Down** step
+`ALCOVE`, `IN CHEST`, `CARRIED BY …`, `NEEDS`, `PAD NEEDS`, `GENERATOR`, or for stairs the level
+they lead to (`TO L4`). A stack of more than one says how many in front of where it lies: `X2 ALCOVE`,
+`X3 IN CHEST`; hits of one cell that read the same are one row, so two chests there, opened or not,
+are `CHEST X2`. **Up** and **Down** step
 through the hits and jump the map to each, **Enter** centres the selected hit, a click on a hit
 jumps to it, and **Escape** closes the search. The wheel scrolls a long list. On the map every hit
 of the shown level gets a gold frame, the selected one a light frame. Once a hit is selected, the rest
@@ -431,12 +443,51 @@ knows, so at All a guess sits beside the truth. The map never checks or
 corrects them. Hovering a noted cell lists them at the end of its tooltip, for
 example `YOUR MARK: HIDDEN PIT OPEN`.
 
+## Exporting the map as a web page
+
+Click **EXPORT** on the bar to write the map into one `.html` file. It opens in any browser,
+also offline, and can be mailed or put on a website. The page works like the map window: drag
+to pan, wheel to zoom, the level list, hover for the tooltips and links, **Ctrl**+wheel for the
+tooltip's size (the browser keeps it), **SHOW**, the search and your own marks with a right-click
+(the page forgets those when it is closed).
+
+The dialog asks for:
+
+| Choice | What it does |
+|---|---|
+| **LEVELS** | **ALL** (the default), the **VISITED** levels, **THIS LEVEL** on screen, or **PICK**: click the levels to take. **CLEAR**, **ALL**, **INVERT** and **VISITED** start a pick quickly. The party's level is red. The levels left out are in the page's level list as `NOT EXPORTED` |
+| **VISION UP TO** | The most the page may draw: **FOG**, **EXPLORED** or **ALL**. ALL puts the unexplored parts of each level in the file |
+| **SPOILERS UP TO** | The most the page may tell: **SEEN**, **LEARNED** or **ALL** |
+| **BAR LOOK** | The look of the page's bar: **STONE**, **SEGMENTED**, **CYAN**, **BRASS** or **CLASSIC**, as `map_bar_style`. It starts at the map window's own |
+| **FILE** | The name of the page, beside the saved game and named after it (`csbgame-map.html`). Type to change it; **BROWSE...** opens the system's Save dialog for another folder |
+| **OPEN IN THE BROWSER WHEN DONE** | Shows the page when it is written |
+
+Inside the page the reader switches vision and spoilers like on the bar, up to what the dialog
+allowed; the buttons beyond it are greyed out. Nothing beyond that is in the file, so a map
+exported at **SEEN** gives away no secrets, even to someone who reads the file itself. The page
+starts on the level, vision and spoilers the map window shows.
+
+**EXPORT** writes the page and shows each level as it goes; the game waits meanwhile.
+**STOP** or **Escape** ends it without a file. A file that is there already is replaced only after a
+second click on **EXPORT** (it then reads **REPLACE**). When it is done, **OPEN** shows the page
+and **SHOW FOLDER** the folder it is in. The whole of Chaos Strikes Back, every level at ALL and
+ALL, comes to about 1 MB.
+
+The dialog's font has only capital letters, so it shows the file name in capitals; the file gets
+the name as you typed it. **BROWSE...** needs a Save dialog of the system: on Windows and macOS
+there always is one, on Linux it takes `zenity` or `kdialog` (GNOME and KDE come with one of
+them). Without one the button is greyed out, and the page is written beside the saved game.
+
 ## Saving
 
 The map keeps its memory in a `.map` file beside each saved game, for example
 `csbgame.dat.map`. It is written whenever you save the game and read when you
 load it. Saved games without a `.map` file still load: the map simply starts
 empty. Map files from older versions are upgraded when they are loaded.
+
+The `.map` file is compressed: it is a zip archive with one file in it, about a sixth of its
+size before. Renamed to `.zip`, any zip tool opens it. Uncompressed `.map` files from earlier
+versions still load and are compressed the next time you save.
 
 ## Settings in csb.cfg
 

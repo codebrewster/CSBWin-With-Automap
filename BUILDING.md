@@ -1,7 +1,7 @@
 # Building CSB on macOS and Linux
 
 One makefile in `src/` builds the game on both systems. It needs a C++11 compiler, GNU make,
-pkg-config and the development files of SDL2. Everything else (Dear ImGui, SDL_sound) is part of
+pkg-config and the development files of SDL2. Everything else (Dear ImGui, SDL_sound, miniz, tinyfiledialogs) is part of
 this repository.
 
 For Windows see [BUILDING-WINDOWS.md](BUILDING-WINDOWS.md).

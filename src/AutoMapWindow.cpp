@@ -11,6 +11,7 @@
 #include "AutoMapScene.h"
 #include "AutoMapTooltip.h"
 #include "AutoMapBar.h"
+#include "AutoMapExportDialog.h"
 #include "AutoMapLayout.h"
 #include "AutoMapPaint.h"
 #include "AutoMapSprites.h"
@@ -243,6 +244,9 @@ static int hoverY = -1;
 // the max; a new hovered cell or a released Shift puts the scroll back to the top.
 static int tooltipScrollLines = 0;
 static int tooltipScrollMax = 0;
+// The icon grid's rows that did not fit the last time the tooltip was drawn: the scroll takes
+// them first, then the footer lines (the footer is laid out before the grid knows its rows)
+static int tooltipGridHiddenRows = 0;
 // Window pixel of the pointer when the hover was last updated: the icon tooltip
 // parks next to the cursor, not on top of the hovered cell.
 static int hoverPixelX = 0;
@@ -806,6 +810,15 @@ static bool SearchHitAtPixel(int pixelX, int pixelY, int *hitIndex);
 
 bool AutoMapWindow_HandleKeyEvent(const SDL_Event &event)
 {
+  // The export dialog takes every key and all typing of the map window while it is open
+  if (AutoMapExportDialog_IsOpen() && (event.type == SDL_KEYDOWN || event.type == SDL_TEXTINPUT)
+      && KeyWindowOf(event) != 0 && BelongsToMapWindow(KeyWindowOf(event)))
+  {
+    if (event.type == SDL_TEXTINPUT) AutoMapExportDialog_HandleText(event.text.text);
+    else AutoMapExportDialog_HandleKey(event.key.keysym.sym, event.key.keysym.mod);
+    isDirty = true;
+    return true;
+  }
   if (event.type == SDL_KEYDOWN && KeyWindowOf(event) != 0 && BelongsToMapWindow(KeyWindowOf(event))
       && AutoMapBar_HandleKey(event.key.keysym.sym))
   {
@@ -1343,6 +1356,13 @@ bool AutoMapWindow_HandlePointerEvent(const SDL_Event &event)
         && AutoMapBar_HandlePress(event.button.x, event.button.y, width))
     {
       isDirty = true;
+      return true;
+    }
+    // Under the export dialog the map takes no pointer: no hover, pan, zoom or menu
+    if (AutoMapExportDialog_IsOpen() && event.type != SDL_MOUSEBUTTONUP)
+    {
+      if (hoverValid) isDirty = true;
+      ClearHover();
       return true;
     }
     if (event.type == SDL_MOUSEWHEEL && event.wheel.y != 0
@@ -2534,6 +2554,9 @@ static void DrawSleepingGenerator(const SDL_Rect &cell, const AutoMapFloorActuat
 static void DrawFloorActuators(const SDL_Rect &cell, const AutoMapShownCell &shown,
                                const AutoMapDrawList &drawList)
 {
+  // A hidden pad's plate is see-through: drawn once per cell, so that a cell of five pads does
+  // not look brighter than one of a single pad
+  bool plateDrawn = shown.cell.floorPicture != AUTOMAP_NO_PICTURE;
   for (size_t i = 0; i < drawList.actuators.size(); i++)
   {
     if (drawList.actuators[i].x != shown.x || drawList.actuators[i].y != shown.y) continue;
@@ -2541,7 +2564,8 @@ static void DrawFloorActuators(const SDL_Rect &cell, const AutoMapShownCell &sho
     {
     case AutoMapActuatorPad:
     case AutoMapActuatorDormantPad:
-      DrawPadMark(cell, drawList.actuators[i], shown.cell.floorPicture != AUTOMAP_NO_PICTURE);
+      DrawPadMark(cell, drawList.actuators[i], plateDrawn);
+      if (drawList.actuators[i].kind == AutoMapActuatorPad) plateDrawn = true;
       break;
     case AutoMapActuatorGenerator: DrawGeneratedMonster(cell, drawList.actuators[i]); break;
     case AutoMapActuatorSpentGenerator: DrawGeneratorMark(cell, true); break;
@@ -3016,6 +3040,7 @@ static void UpdateHoverFromPixel(int pixelX, int pixelY)
   {
     tooltipScrollLines = 0;
     tooltipScrollMax = 0;
+    tooltipGridHiddenRows = 0;
   }
   hoverValid = true;
   hoverX = x;
@@ -3509,7 +3534,8 @@ static void DrawNumberCentred(int centreX, int y, int value)
 // Tile-contents tooltip: an icon grid of what the hovered cell shows. Each slot is
 // sized like a map tile (a single stack reads exactly like a single-item cell).
 // When the plate would outgrow the map area the slots shrink first, then narrow
-// columns and finally the stack list give way (leftovers fold into the "+N" slot).
+// columns, and finally only a window of the rows shows, scrolled by Shift+wheel with a "+N"
+// marker at each cut edge (AutoMapLayout_TooltipGridWindow).
 // Items come grouped from the full (untruncated) pile; pad requirements arrive
 // as NEEDS slots from the scene, monsters, missiles and clouds join from the
 // same filtered draw list, so the tooltip never shows what the map itself
@@ -3887,6 +3913,26 @@ static std::string TooltipSizeHint(void)
   return hint;
 }
 
+// A tile at the cut edge of a scrolled icon grid: "+N" and a triangle pointing to the stacks
+// out of view, up or down
+static void DrawGridMarker(const SDL_Rect &icon, int count, bool up)
+{
+  Fill(icon, TOOLTIP_TILE_FILL);
+  Outline(icon, TOOLTIP_TILE_FRAME);
+  std::string more = "+" + std::to_string(count);
+  int moreW = AutoMapPaint_TextWidth(more, DIGIT_SCALE);
+  int textH = 5 * DIGIT_SCALE;
+  int arrow = std::max(3, icon.w / 8);
+  int blockH = textH + 2 + arrow;
+  int top = icon.y + (icon.h - blockH) / 2;
+  int textY = up ? top + arrow + 2 : top;
+  float cx = icon.x + icon.w / 2.0f;
+  float tipY = up ? (float)top : (float)(top + blockH);
+  float baseY = up ? tipY + arrow : tipY - arrow;
+  AutoMapPaint_Triangle(cx, tipY, cx - arrow, baseY, cx + arrow, baseY, ITEM_MARKER);
+  AutoMapPaint_Text(icon.x + (icon.w - moreW) / 2, textY, more, ITEM_MARKER, DIGIT_SCALE);
+}
+
 static void DrawTileTooltip(const AutoMapView &view)
 {
   // Set again below once the footer is known; early returns must not leave a stale max
@@ -3943,10 +3989,15 @@ static void DrawTileTooltip(const AutoMapView &view)
   // The player's own notes come after what the map knows; the hints are the last lines
   AppendTipLines(footerLines, notes);
   footerLines.insert(footerLines.end(), hint.begin(), hint.end());
+  // Items past the grid's room are scrolled to as long text is
+  if (tooltipGridHiddenRows > 0 && !fullChain)
+    footerLines.push_back(AutoMapScene_TipLine("SHIFT+WHEEL: MORE ITEMS", AutoMapTipHint));
   footerLines.push_back(AutoMapScene_TipLine(TooltipSizeHint(), AutoMapTipHint));
   int footerTextH = 5 * DIGIT_SCALE;
   int footerLineGap = 4;
   int footerTextW = 0;
+  int footerScroll = std::max(0, tooltipScrollLines - tooltipGridHiddenRows);
+  int footerScrollMax = 0;
   if (fullChain && !footerLines.empty())
   {
     // The uncapped footer may be taller than the window allows next to a minimal icon
@@ -3972,12 +4023,12 @@ static void DrawTileTooltip(const AutoMapView &view)
       std::snprintf(widest, sizeof(widest), "+%d MORE ABOVE", total);
       noteW = AutoMapScene_TextWidth(widest) * DIGIT_SCALE;
       if (noteW > footerTextW) footerTextW = noteW;
-      tooltipScrollMax = total - visible;
-      if (tooltipScrollLines > tooltipScrollMax) tooltipScrollLines = tooltipScrollMax;
-      std::vector<AutoMapTipLine> window(footerLines.begin() + tooltipScrollLines,
-                                      footerLines.begin() + tooltipScrollLines + visible);
+      footerScrollMax = total - visible;
+      if (footerScroll > footerScrollMax) footerScroll = footerScrollMax;
+      std::vector<AutoMapTipLine> window(footerLines.begin() + footerScroll,
+                                      footerLines.begin() + footerScroll + visible);
       char note[32];
-      int below = total - tooltipScrollLines - visible;
+      int below = total - footerScroll - visible;
       // The notes replace content lines, so only a window of 3 or more takes them; a
       // smaller one shows content only and every line stays reachable by scrolling.
       if (visible >= 3 && below > 0)
@@ -3985,9 +4036,9 @@ static void DrawTileTooltip(const AutoMapView &view)
         std::snprintf(note, sizeof(note), "+%d MORE BELOW", below + 1);
         window.back() = AutoMapScene_TipLine(note, AutoMapTipHint);
       }
-      if (visible >= 3 && tooltipScrollLines > 0)
+      if (visible >= 3 && footerScroll > 0)
       {
-        std::snprintf(note, sizeof(note), "+%d MORE ABOVE", tooltipScrollLines + 1);
+        std::snprintf(note, sizeof(note), "+%d MORE ABOVE", footerScroll + 1);
         window.front() = AutoMapScene_TipLine(note, AutoMapTipHint);
       }
       footerLines = window;
@@ -4004,15 +4055,13 @@ static void DrawTileTooltip(const AutoMapView &view)
   if (iconMaxH < 60 && !cells.empty()) iconMaxH = 60;
   // Start at full map-tile size so one stack reads like a single-item cell at any
   // zoom. Oversized multi-stack plates shrink back down to the map area below.
-  // Inventory-slot tiles, six to a row, two rows; with more kinds the last tile is "+N"
+  // Inventory-slot tiles, six to a row, every stack; rows past the room scroll
   int slot = TOOLTIP_TILE;
   AutoMapTooltipGrid grid = AutoMapLayout_TooltipGrid((int)cells.size());
-  bool capped = grid.plusMore > 0;
-  size_t shown = (size_t)grid.tiles;
-  int leftover = grid.plusMore;
-  size_t slots = shown + (capped ? 1 : 0);
+  size_t slots = cells.size();
   int columns = 0;
   int rows = 0;
+  AutoMapTooltipGridWindow gridWindow = {0, 0, 0, 0, 0};
   if (!cells.empty())
   {
     columns = grid.columns;
@@ -4029,23 +4078,14 @@ static void DrawTileTooltip(const AutoMapView &view)
       columns--;
       rows = ((int)slots + columns - 1) / columns;
     }
-    // Still too tall: drop rows, folding them into the "+N" slot.
+    // Still too tall: a window of the rows, scrolled first by Shift+wheel
     int maxRows = (iconMaxH - 2 * TOOLTIP_PAD) / slot;
-    if (maxRows < 1) maxRows = 1;
-    if (rows > maxRows)
-    {
-      size_t capacity = (size_t)maxRows * (size_t)columns;
-      if (capacity < 1) capacity = 1;
-      size_t keep = capacity - 1;
-      if (keep > shown) keep = shown;
-      leftover += (int)(shown - keep);
-      shown = keep;
-      capped = true;
-      slots = shown + 1;
-      rows = maxRows;
-    }
+    gridWindow = AutoMapLayout_TooltipGridWindow((int)cells.size(), columns, maxRows, tooltipScrollLines);
+    rows = gridWindow.rows;
   }
-  bool truncated = capped;
+  tooltipGridHiddenRows = gridWindow.hiddenRows;
+  tooltipScrollMax = gridWindow.hiddenRows + footerScrollMax;
+  if (tooltipScrollLines > tooltipScrollMax) tooltipScrollLines = tooltipScrollMax;
   int iconW = cells.empty() ? 0 : columns * slot + 2 * TOOLTIP_PAD;
   int iconH = cells.empty() ? 0 : rows * slot + 2 * TOOLTIP_PAD;
   int plateW = iconW;
@@ -4079,11 +4119,21 @@ static void DrawTileTooltip(const AutoMapView &view)
   SDL_Rect plate = {x, y, plateW, plateH};
   Fill(plate, BACKGROUND);
   Outline(plate, ITEM_MARKER);
-  for (size_t i = 0; i < shown; i++)
+  size_t firstShown = (size_t)gridWindow.firstRow * (size_t)columns;
+  size_t endShown = std::min(cells.size(), firstShown + (size_t)rows * (size_t)columns);
+  for (size_t i = firstShown; i < endShown; i++)
   {
-    int col = (int)i % columns;
-    int row = (int)i / columns;
+    int col = (int)(i - firstShown) % columns;
+    int row = (int)(i - firstShown) / columns;
     SDL_Rect icon = {x + TOOLTIP_PAD + col * slot, y + TOOLTIP_PAD + row * slot, slot - 2, slot - 2};
+    // The window's cut edges: how many stacks lie above and below, and which way
+    bool aboveMark = i == firstShown && gridWindow.above > 0;
+    bool belowMark = i + 1 == endShown && gridWindow.below > 0;
+    if (aboveMark || belowMark)
+    {
+      DrawGridMarker(icon, aboveMark ? gridWindow.above : gridWindow.below, aboveMark);
+      continue;
+    }
     // A nested tile (chest contents, what a monster carries) is smaller; a predicted drop is dim
     SDL_Rect tile = cells[i].nested ? Inset(icon, 16) : icon;
     Fill(tile, cells[i].predicted ? TOOLTIP_TILE_DIM : TOOLTIP_TILE_FILL);
@@ -4091,18 +4141,6 @@ static void DrawTileTooltip(const AutoMapView &view)
                                     : (cells[i].nested && !cells[i].predicted ? ITEM_MARKER : TOOLTIP_TILE_FRAME));
     DrawTooltipIcon(tile, cells[i].item);
     DrawCountBadge(icon, cells[i].count);
-  }
-  if (truncated && columns > 0)
-  {
-    int col = (int)shown % columns;
-    int row = (int)shown / columns;
-    SDL_Rect icon = {x + TOOLTIP_PAD + col * slot, y + TOOLTIP_PAD + row * slot, slot - 2, slot - 2};
-    Fill(icon, TOOLTIP_TILE_FILL);
-    Outline(icon, TOOLTIP_TILE_FRAME);
-    std::string more = "+" + std::to_string(leftover);
-    int moreW = AutoMapPaint_TextWidth(more, DIGIT_SCALE);
-    AutoMapPaint_Text(icon.x + (icon.w - moreW) / 2, icon.y + (icon.h - 5 * DIGIT_SCALE) / 2, more, ITEM_MARKER,
-                      DIGIT_SCALE);
   }
   for (size_t i = 0; i < footerLines.size(); i++)
   {
@@ -4348,7 +4386,13 @@ static std::string WithoutGroupCount(const std::string &name)
   return name.substr(0, at);
 }
 
-// The tag at the right of a hit: what kind of find it is
+// A stack of more than one, in front of where it lies: "X2 ALCOVE"
+static std::string Counted(const AutoMapSearchHit &hit, const std::string &tag)
+{
+  return hit.count > 1 ? "X" + std::to_string(hit.count) + " " + tag : tag;
+}
+
+// The tag at the right of a hit: how many, and what kind of find it is
 static std::string SearchTag(const AutoMapSearchHit &hit, SDL_Color *colour)
 {
   *colour = SEARCH_TAG;
@@ -4356,12 +4400,11 @@ static std::string SearchTag(const AutoMapSearchHit &hit, SDL_Color *colour)
   {
   case AutoMapHitNeeds:
     *colour = FACING_BADGE_FRAME;
-    if (hit.slot.side < 0) return hit.slot.carried ? "PAD, CARRIED" : "PAD NEEDS";
-    return "NEEDS";
-  case AutoMapHitCarried: return "CARRIED BY " + WithoutGroupCount(hit.carriedBy);
-  case AutoMapHitChest: return "CHEST";
-  case AutoMapHitInChest: return hit.count > 1 ? "X" + std::to_string(hit.count) + " IN CHEST" : "IN CHEST";
-  case AutoMapHitAlcove: return "ALCOVE";
+    if (hit.slot.side < 0) return Counted(hit, hit.slot.carried ? "PAD, CARRIED" : "PAD NEEDS");
+    return Counted(hit, "NEEDS");
+  case AutoMapHitCarried: return Counted(hit, "CARRIED BY " + WithoutGroupCount(hit.carriedBy));
+  case AutoMapHitInChest: return Counted(hit, "IN CHEST");
+  case AutoMapHitAlcove: return Counted(hit, "ALCOVE");
   case AutoMapHitGenerator: *colour = GEN_TEXT; return "GENERATOR";
   case AutoMapHitFeature:
   {
@@ -5452,6 +5495,24 @@ static void PaintWindow(void)
   if (shownDrawList.level != AUTOMAP_NO_LEVEL) DrawLevel();
   UseWholeWindow();
   AutoMapBar_DrawPanels(width, height);
+}
+
+void AutoMapWindow_PaintNow(void)
+{
+  if (!isShown || mapRenderer == NULL) return;
+  PaintWindow();
+  SDL_RenderPresent(mapRenderer);
+  isDirty = false;
+}
+
+Uint32 AutoMapWindow_WindowId(void)
+{
+  return mapWindow != NULL ? SDL_GetWindowID(mapWindow) : 0;
+}
+
+void AutoMapWindow_Repaint(void)
+{
+  isDirty = true;
 }
 
 void AutoMapWindow_PaintIfDirty(void)

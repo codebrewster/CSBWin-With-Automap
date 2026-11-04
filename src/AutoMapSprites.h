@@ -3,6 +3,7 @@
 
 #include <SDL.h>
 #include <map>
+#include <vector>
 
 struct AutoMapSprite
 {
@@ -63,5 +64,8 @@ private:
 // Writes one picture, as the request would draw it, to a 32-bit BMP with alpha; false when it
 // cannot be decoded or written
 bool AutoMapSprites_SaveBmp(const AutoMapSpriteRequest &request, const char *path);
+// The picture as the request would draw it, 4 bytes a pixel (red, green, blue, alpha), rows
+// from the top; false when it cannot be decoded
+bool AutoMapSprites_Pixels(const AutoMapSpriteRequest &request, std::vector<Uint8> *rgba, int *w, int *h);
 
 #endif

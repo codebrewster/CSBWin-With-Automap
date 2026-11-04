@@ -9,6 +9,10 @@ let saveNo = 0, lvl = 0, vision = 0, spoil = 1 /* 0 All, 1 Learned, 2 Seen */, t
 let follow = true, cs = 36, panX = 0, panY = 0, hover = null, shiftHeld = false, debugOn = true;
 let V = null, grid = {}, actsAt = {}, monAt = {}, W = 0, H = 0, OX = 0, OY = 0;
 let tipScroll = 0;
+// The tooltip's size, 1 to 4 times, as the window's map_tip_scale (Ctrl+wheel); this browser keeps it
+const TIP_SCALE_MOST = 4;
+let tipScale = 1;
+try { tipScale = Math.max(1, Math.min(TIP_SCALE_MOST, +localStorage.getItem('csb-map-tip-scale') || 1)); } catch (e) { }
 const SHOW = {};
 const ITEM_KINDS = ['WEAPONS', 'ARMOUR', 'POTIONS', 'SCROLLS', 'CHESTS', 'FOOD', 'KEYS', 'OTHER ITEMS'];
 [...ITEM_KINDS, 'MONSTERS', 'WALL DECORATIONS', 'WALL WRITING', 'FLOOR DECORATIONS'].forEach(k => SHOW[k] = true);
@@ -41,11 +45,20 @@ async function loadSave(n) {
   saveNo = n;
   if (!SAVES[n]) SAVES[n] = await unpack(MAPDATA.saves[SAVE_NAMES[n]]);
   DATA = SAVES[n];
-  document.getElementById('status').textContent = SAVE_NAMES[n] + ': ' + DATA.index.levels.length + ' levels, party on L' + DATA.index.partyLevel;
+  const X = DATA.index.export;
+  if (X) { vision = X.vision; spoil = X.spoil; debugOn = false; if (BAR_LOOKS.includes(X.bar)) barLook = X.bar; }
+  const shown = DATA.index.levels.filter(L => !L.absent).length;
+  document.getElementById('status').textContent = SAVE_NAMES[n] + ': ' + (shown < DATA.index.levels.length ? shown + ' of ' : '') + DATA.index.levels.length + ' levels, party on L' + DATA.index.partyLevel;
   partyOverride = null; menu = null; linkMode = null;
-  setLevel(DATA.index.partyLevel); follow = true; fitLevel(); cs = Math.max(minCs(), 36); centreOnParty(); buildIndex(); if (query) rebuild(false);
+  setLevel(hasLevel(DATA.index.partyLevel) ? DATA.index.partyLevel : X.level); follow = hasLevel(DATA.index.partyLevel); fitLevel(); cs = Math.max(minCs(), 36); centreOnParty(); buildIndex(); if (query) rebuild(false);
 }
 function noteOf() { const k = saveNo + ':' + lvl; return notes[k] || (notes[k] = { pits: {}, links: [] }); }
+// An exported page may leave levels out, and vision and spoilers beyond what was chosen
+// (index.export: maxVision, and minSpoil in the scene's numbering, 0 All .. 2 Seen)
+function hasLevel(l) { const L = DATA.index.levels[l]; return !!L && !L.absent; }
+function visionAllowed(v) { const X = DATA.index.export; return !X || v <= X.maxVision; }
+function spoilAllowed(s) { const X = DATA.index.export; return !X || s >= X.minSpoil; }
+function followParty() { if (!hasLevel(DATA.index.partyLevel)) return false; follow = true; setLevel(DATA.index.partyLevel); centreOnParty(); return true; }
 function viewOf(l) { return DATA.views[`L${l}_v${vision}_s${spoil}`]; }
 function setLevel(l) {
   lvl = l; const L = DATA.index.levels[l]; W = L.w; H = L.h; OX = L.offsetX; OY = L.offsetY;
@@ -84,7 +97,8 @@ function frame(x, y, w, h, col, t = 1) { rect(x, y, w, t, col); rect(x, y + h - 
 function dashed(x, y, w, h, col, d = 3) { g.save(); g.setLineDash([d, d]); g.strokeStyle = col; g.lineWidth = 1; g.strokeRect(Math.round(x) + .5, Math.round(y) + .5, Math.round(w) - 1, Math.round(h) - 1); g.restore(); }
 function dither(x, y, w, h, col, alpha) { x = Math.round(x); y = Math.round(y); w = Math.round(w); h = Math.round(h); const q = Math.max(2, Math.round(cs / 14)); g.globalAlpha = alpha; g.fillStyle = col; for (let j = 0; j * q < h; j++) for (let i = 0; i * q < w; i++) if ((i + j) % 2 === 0) g.fillRect(x + i * q, y + j * q, Math.min(q, w - i * q), Math.min(q, h - j * q)); g.globalAlpha = 1; }
 function tri(pts, col) { g.fillStyle = col; g.beginPath(); g.moveTo(...pts[0]); g.lineTo(...pts[1]); g.lineTo(...pts[2]); g.closePath(); g.fill(); }
-function spr(name, x, y, w, h, alpha) { const i = img[name]; if (!name || !i || !i.complete || !i.width) return false; g.globalAlpha = alpha ?? 1; g.imageSmoothingEnabled = false; const s = Math.min(w / i.width, h / i.height); const dw = i.width * s, dh = i.height * s; g.drawImage(i, Math.round(x + (w - dw) / 2), Math.round(y + (h - dh) / 2), Math.round(dw), Math.round(dh)); g.globalAlpha = 1; return true; }
+// The game's pictures are softened when scaled, as the window's textures (SDL_ScaleModeLinear)
+function spr(name, x, y, w, h, alpha) { const i = img[name]; if (!name || !i || !i.complete || !i.width) return false; g.globalAlpha = alpha ?? 1; g.imageSmoothingEnabled = true; const s = Math.min(w / i.width, h / i.height); const dw = i.width * s, dh = i.height * s; g.drawImage(i, Math.round(x + (w - dw) / 2), Math.round(y + (h - dh) / 2), Math.round(dw), Math.round(dh)); g.globalAlpha = 1; return true; }
 const px = x => Math.round(RUL + panX + x * cs), py = y => Math.round(RUL + panY + y * cs);
 function partyArrow(cx, cy, r, f, col, outline) { const [dx, dy] = [[0, -1], [1, 0], [0, 1], [-1, 0]][f & 3], qx = -dy, qy = dx; const P = (a, b) => [cx + dx * a * r + qx * b * r, cy + dy * a * r + qy * b * r]; const pts = [P(1, 0), P(-.8, .8), P(-.3, 0), P(-.8, -.8)]; g.fillStyle = col; g.beginPath(); g.moveTo(...pts[0]); pts.slice(1).forEach(p => g.lineTo(...p)); g.closePath(); g.fill(); if (outline) { g.strokeStyle = outline; g.lineWidth = 1; g.stroke(); } }
 // three slanted strokes of four dots, inside the box with a margin, as AutoMapPaint_Claw
@@ -228,13 +242,14 @@ function drawWallFaces(c) {
 // Pads, generators, cogs
 // ============================================================================================
 function drawActuators(c) {
-  const list = actsAt[c.x + ',' + c.y]; if (!list) return; const x = px(c.x), y = py(c.y); const seen = new Set();
+  // A hidden pad's plate is see-through: drawn once per cell, however many pads lie there
+  const list = actsAt[c.x + ',' + c.y]; if (!list) return; const x = px(c.x), y = py(c.y); const seen = new Set(); let plated = !!c.fp;
   for (const a of list) {
     const [, , kind, op, facing, item, genPic] = a; const key = kind + ':' + op; if (seen.has(key)) continue; seen.add(key);
     if (kind === 2) { if (genPic) spr(genPic, x + cs * .1, y + cs * .05, cs * .8, cs * .8, .45); chip(x, y, [['txt', 'GEN']], '#c05050'); continue; }
     if (kind === 3) { const cx = x + cs / 2, cy = y + cs / 2, r = cs * .25; g.strokeStyle = '#8a5a5a'; g.lineWidth = 1; g.beginPath(); g.moveTo(cx, cy - r); g.lineTo(cx + r, cy); g.lineTo(cx, cy + r); g.lineTo(cx - r, cy); g.closePath(); g.stroke(); continue; }
     if (kind === 4) { const cx = x + cs / 2, cy = y + cs / 2, r = cs * .2; g.strokeStyle = '#9a9488'; g.lineWidth = 1; g.beginPath(); for (let i = 0; i <= 8; i++) { const an = 2 * Math.PI * i / 8; i ? g.lineTo(cx + r * Math.cos(an), cy + r * Math.sin(an)) : g.moveTo(cx + r, cy); } g.moveTo(cx - r, cy); g.lineTo(cx + r, cy); g.moveTo(cx, cy - r); g.lineTo(cx, cy + r); g.stroke(); continue; }
-    if (!c.fp) { if (PLATE) spr(PLATE, x + cs * .08, y + cs * .18, cs * .84, cs * .64, kind === 1 ? .2 : .35); dashed(x + cs * .12, y + cs * .22, cs * .76, cs * .56, kind === 1 ? '#8a847a' : COL.pad, 2); }
+    if (!plated) { if (PLATE) spr(PLATE, x + cs * .08, y + cs * .18, cs * .84, cs * .64, kind === 1 ? .2 : .35); dashed(x + cs * .12, y + cs * .22, cs * .76, cs * .56, kind === 1 ? '#8a847a' : COL.pad, 2); if (kind !== 1) plated = true; }
     if (kind === 1) continue;
     const who = []; const icon = item[1] || item[0];
     if (op === 1) who.push(['party', 0], ['claw']);
@@ -252,15 +267,28 @@ function drawActuators(c) {
 // The SHOW choice of each AutoMapItemKind, in the enum's order
 const KIND_SHOW = ['SCROLLS', 'CHESTS', 'POTIONS', 'WEAPONS', 'ARMOUR', 'OTHER ITEMS', 'FOOD', 'KEYS'];
 function kindShown(k) { return SHOW[KIND_SHOW[k] || 'OTHER ITEMS']; }
+// As the window's DrawItem: a small item keeps its size against the cell (64 picture pixels to a
+// cell), a large one is fitted into 92% of its slot's width; centred in the slot. power shrinks a
+// missile that is losing its range. False when the picture is missing.
+const ITEM_PIXELS_PER_CELL = 64;
+function itemSpr(name, sx, sy, sw, sh, power) {
+  const i = img[name]; if (!name || !i || !i.complete || !i.width) return false;
+  const s = Math.min(sw / ITEM_PIXELS_PER_CELL, sw * .92 / i.width) * (power ?? 1);
+  const w = Math.floor(i.width * s), h = Math.floor(i.height * s);
+  g.imageSmoothingEnabled = true; g.drawImage(i, Math.floor(sx + (sw - w) / 2), Math.floor(sy + (sh - h) / 2), w, h); return true;
+}
+// The window's Inset(slot, 35): the fallback mark of a missing picture
+function insetMark(sx, sy, sw, sh, col) { const m = Math.floor(sw * .35); rect(sx + m, sy + m, sw - 2 * m, sh - 2 * m, col); }
 function drawItems(c) {
   if (!c.items) return; const items = c.items.filter(it => kindShown(it[3])); if (!items.length) return;
   const all = c.allKinds ? c.allKinds.filter(kindShown).length : c.all;
   const x = px(c.x), y = py(c.y); const n = Math.min(3, items.length);
-  items.slice(0, 3).forEach((it, i) => { if (!spr(it[0], x + cs * i / n + cs * .1 / n, y + cs * .3, cs / n * .8, cs * .4)) rect(x + cs * i / n + cs * .3 / n, y + cs * .4, cs * .4 / n, cs * .2, COL.item); });
+  items.slice(0, 3).forEach((it, i) => { const sx = x + Math.floor(cs * i / n), sw = Math.floor(cs / n); if (!itemSpr(it[0], sx, y, sw, cs)) insetMark(sx, y, sw, cs, COL.item); });
   if (all > 3) { const p = Math.max(1, Math.floor(cs / 24)), s = String(all), w = textW(s, p) + 4 * p, h = 9 * p; rect(x + cs - w - 2, y + 2, w, h, '#0d0c0a'); frame(x + cs - w - 2, y + 2, w, h, COL.item); text(g, x + cs - w - 2 + 2 * p, y + 2 + 2 * p, s, COL.item, p); }
 }
 function drawClouds() { for (const [x, y, s] of V.clouds) if (!spr(s, px(x), py(y), cs, cs)) { g.fillStyle = 'rgba(80,200,120,.45)'; g.fillRect(px(x) + cs * .05, py(y) + cs * .05, cs * .9, cs * .9); } }
-function drawMissiles() { const n = {}; V.missiles.forEach(m => n[m[0] + ',' + m[1]] = (n[m[0] + ',' + m[1]] || 0) + 1); const k = {}; for (const [x, y, s, sc] of V.missiles) { const key = x + ',' + y, i = (k[key] = (k[key] || 0) + 1) - 1, cnt = n[key]; const w = cs / cnt; if (!spr(s, px(x) + w * i + w * (1 - sc) / 2, py(y) + cs * .6 * (1 - sc) / 2, w * sc, cs * .6 * sc)) rect(px(x) + w * i + w * .35, py(y) + cs * .2, w * .3, cs * .2, '#ff6a2b'); } }
+// What flies crosses the upper three fifths of its cell, as the window's DrawMissiles
+function drawMissiles() { const n = {}; V.missiles.forEach(m => n[m[0] + ',' + m[1]] = (n[m[0] + ',' + m[1]] || 0) + 1); const k = {}; for (const [x, y, s, sc] of V.missiles) { const key = x + ',' + y, i = (k[key] = (k[key] || 0) + 1) - 1, cnt = n[key]; const airH = Math.floor(cs * 3 / 5), sx = px(x) + Math.floor(cs * i / cnt), sw = Math.floor(cs / cnt); if (!itemSpr(s, sx, py(y), sw, airH, sc)) insetMark(sx, py(y), sw, airH, '#ff6a2b'); } }
 function glimpseMark(pp, ax, ay, aw, ah) { const r = PUN['?']; const left = ax + (aw - 3 * pp) / 2, top = ay + (ah - 5 * pp) / 2; g.fillStyle = COL.item; for (let row = 0; row < 5; row++) for (let c = 0; c < 3; c++) if (r[row] & (1 << (2 - c))) g.fillRect(Math.round(left + c * pp), Math.round(top + row * pp), pp, pp); }
 function drawGlimpses() {
   for (const [x, y] of V.glimpses) glimpseMark(Math.max(1, Math.round(cs / 9)), px(x), py(y), cs, cs);
@@ -317,7 +345,7 @@ function drawMonsters() {
       if (!im || !im.width) { rect(cx - cs * .12, feet - cs * .25, cs * .24, cs * .24, '#c05050'); continue; }
       const sc = .5 * cs / 60, w = im.width * sc, h = im.height * sc;
       g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(Math.round(cx - w * .38), Math.round(feet - 4), Math.round(w * .76), 4);
-      g.save(); if (mb[1]) { g.translate(cx, 0); g.scale(-1, 1); g.translate(-cx, 0); } g.imageSmoothingEnabled = false; g.drawImage(im, Math.round(cx - w / 2), Math.round(feet - h), Math.round(w), Math.round(h)); g.restore();
+      g.save(); if (mb[1]) { g.translate(cx, 0); g.scale(-1, 1); g.translate(-cx, 0); } g.imageSmoothingEnabled = true; g.drawImage(im, Math.round(cx - w / 2), Math.round(feet - h), Math.round(w), Math.round(h)); g.restore();
     }
   }
   for (const m of ms) { // over the figures, so a tall one does not hide a mark
@@ -506,6 +534,8 @@ function tooltipLines() {
   const key = hover.x + ',' + hover.y, N = noteOf();
   if (key in N.pits) lines.push({ t: N.pits[key] ? 'YOUR MARK: HIDDEN PIT OPEN' : 'YOUR MARK: HIDDEN PIT CLOSED' });
   N.links.filter(l => l[0] === hover.x && l[1] === hover.y).forEach(l => lines.push({ t: `YOUR LINK TO (${l[2] + OX}, ${l[3] + OY})` }));
+  // The last line of every tooltip, as in the window: how to size it, and its size now
+  if (lines.length || (h && h.icons && h.icons.length)) lines.push({ t: tipScale > 1 ? `CTRL+WHEEL: SIZE (${tipScale}X)` : 'CTRL+WHEEL: SIZE', s: 7 });
   return { lines, icons: h && h.icons ? h.icons : [] };
 }
 // What acts on the hovered cell, under the header of the part it acts on (PIT, DOOR, ...): one
@@ -578,27 +608,54 @@ function tooltipPlace(L, w, h) {
   }
   return [best.x, best.y];
 }
+// As AutoMapLayout_TooltipGridWindow: the rows of the icon grid in view when they need more than
+// mostRows, scrolled; with three tiles or more in view the cut edges give way to markers
+function gridWindow(entries, columns, mostRows, scroll) {
+  const w = { firstRow: 0, rows: 0, hiddenRows: 0, above: 0, below: 0 }; if (entries <= 0 || columns <= 0) return w;
+  const rows = Math.ceil(entries / columns); mostRows = Math.max(1, mostRows);
+  w.rows = Math.min(rows, mostRows); w.hiddenRows = rows - w.rows; w.firstRow = Math.max(0, Math.min(scroll, w.hiddenRows));
+  const first = w.firstRow * columns, end = Math.min(entries, (w.firstRow + w.rows) * columns);
+  if (w.hiddenRows === 0 || end - first < 3) return w;
+  if (first > 0) w.above = first + 1; if (end < entries) w.below = entries - end + 1; return w;
+}
 function drawTooltip(L) {
   if (!hover || menu || drag) return; const { lines, icons } = tooltipLines(); if (!lines.length) return;
-  const p = 2, lh = 8 * p;
-  // icon grid: one tile per stack; nested contents follow their chest or monster, smaller; at most two rows of six
-  const T = 36, PER = 6, MAXT = 12; const tiles = icons.length > MAXT ? icons.slice(0, MAXT - 1) : icons; const more = icons.length - tiles.length;
-  const nt = tiles.length + (more ? 1 : 0), cols = Math.min(PER, nt), rowsT = Math.ceil(nt / PER), gridW = cols * (T + 4), gridH = nt ? rowsT * (T + 4) + 4 : 0;
-  const maxLines = Math.max(4, Math.floor((cv.height - 2 * RUL - gridH - 40) / lh)); const scrollMax = Math.max(0, lines.length - maxLines); tipScroll = Math.min(tipScroll, scrollMax);
-  const shown = lines.slice(tipScroll, tipScroll + maxLines); if (tipScroll > 0) shown[0] = { t: `-${tipScroll} MORE`, s: 7 }; if (tipScroll + maxLines < lines.length) shown[shown.length - 1] = { t: `+${lines.length - tipScroll - maxLines + 1} MORE, SHIFT+WHEEL`, s: 7 };
+  const p = 2, lh = 8 * p, k = tipScale;
+  // icon grid: one tile per stack, six to a row, every stack; nested contents follow their chest or
+  // monster, smaller. As in the window the tiles shrink when the plate would outgrow the map, then
+  // only a window of the rows shows: Shift+wheel scrolls it first, then the lines
+  const PER = 6, nt = icons.length, cols = Math.min(PER, nt);
+  const room = (cv.height - 2 * RUL - 40) / k, textH = lines.length * lh + 8, iconRoom = Math.max(60, room - textH);
+  let T = 36; while (T > 26 && nt && Math.ceil(nt / PER) * (T + 4) + 4 > iconRoom) T -= 2;
+  const GW = gridWindow(nt, cols, Math.floor((iconRoom - 4) / (T + 4)), tipScroll);
+  if (GW.hiddenRows > 0 && !shiftHeld) lines.splice(lines.length - 1, 0, { t: 'SHIFT+WHEEL: MORE ITEMS', s: 7 });
+  const gridW = cols * (T + 4), gridH = nt ? GW.rows * (T + 4) + 4 : 0;
+  // Magnified, the tooltip is laid out at its own size and drawn k times as big
+  const maxLines = Math.max(4, Math.floor((room - gridH) / lh)); const lineMax = Math.max(0, lines.length - maxLines);
+  tipScroll = Math.min(tipScroll, GW.hiddenRows + lineMax); const ls = Math.max(0, tipScroll - GW.hiddenRows);
+  const shown = lines.slice(ls, ls + maxLines); if (ls > 0) shown[0] = { t: `-${ls} MORE`, s: 7 }; if (ls + maxLines < lines.length) shown[shown.length - 1] = { t: `+${lines.length - ls - maxLines + 1} MORE, SHIFT+WHEEL`, s: 7 };
   const w = Math.max(gridW + 4, ...shown.map(l => richW(l.t, p))) + 10, h = gridH + shown.length * lh + 8;
-  const [x, y] = tooltipPlace(L, w, h);
+  const [X0, Y0] = tooltipPlace(L, w * k, h * k);
+  g.save(); g.translate(X0, Y0); g.scale(k, k); const x = 0, y = 0;
   rect(x, y, w, h, '#111'); frame(x, y, w, h, '#ffc83a');
-  for (let i = 0; i < nt; i++) {
-    const tx = x + 6 + (i % PER) * (T + 4), ty = y + 6 + Math.floor(i / PER) * (T + 4);
-    if (i >= tiles.length) { rect(tx, ty, T, T, '#3a3733'); frame(tx, ty, T, T, '#5a554c'); const s = '+' + more; text(g, tx + (T - textW(s, 2)) / 2, ty + (T - 10) / 2, s, COL.item, 2); continue; }
-    const [item, count, nested, predicted, required] = tiles[i];
+  const first = GW.firstRow * cols, end = Math.min(nt, first + GW.rows * cols);
+  for (let i = first; i < end; i++) {
+    const tx = x + 6 + ((i - first) % cols) * (T + 4), ty = y + 6 + Math.floor((i - first) / cols) * (T + 4);
+    const up = i === first && GW.above > 0, down = i === end - 1 && GW.below > 0;
+    if (up || down) {
+      // The cut edge: how many stacks lie that way, and a triangle pointing to them
+      rect(tx, ty, T, T, '#3a3733'); frame(tx, ty, T, T, '#5a554c'); const s = '+' + (up ? GW.above : GW.below), a = Math.max(3, Math.floor(T / 8)), top = ty + Math.floor((T - (12 + a)) / 2), cx = tx + T / 2;
+      const tip = up ? top : top + 12 + a, base = up ? tip + a : tip - a; g.fillStyle = COL.item; g.beginPath(); g.moveTo(cx, tip); g.lineTo(cx - a, base); g.lineTo(cx + a, base); g.closePath(); g.fill();
+      text(g, tx + (T - textW(s, 2)) / 2, up ? top + a + 2 : top, s, COL.item, 2); continue;
+    }
+    const [item, count, nested, predicted, required] = icons[i];
     const inset = nested ? 6 : 0; rect(tx + inset, ty + inset, T - 2 * inset, T - 2 * inset, predicted ? '#24221f' : '#3a3733');
     frame(tx + inset, ty + inset, T - 2 * inset, T - 2 * inset, required ? '#e0b64a' : nested && !predicted ? COL.item : '#5a554c');
     spr(item[1] || item[0], tx + inset + 2, ty + inset + 2, T - 2 * inset - 4, T - 2 * inset - 4, predicted ? .5 : 1);
     if (count > 1) { const s = String(count), bw = textW(s, 2) + 4; rect(tx + T - bw - 1, ty + T - 15, bw, 14, '#0d0c0a'); text(g, tx + T - bw + 1, ty + T - 13, s, COL.item, 2); }
   }
   shown.forEach((l, i) => { const muted = l.s === undefined && /^(WOULD|DORMANT)/.test(l.t); richText(x + 5, y + gridH + 6 + i * lh, l.t, l.s === undefined ? (muted ? '#a8b8bc' : '#fff') : TIPCOL[l.s] || '#fff', p, l.i); });
+  g.restore();
 }
 
 // ============================================================================================

@@ -109,16 +109,28 @@ AutoMapRect AutoMapLayout_TooltipPlace(int hoverX, int hoverY, const std::vector
                                        int originX, int originY, int cellSize, int tabHeight,
                                        const AutoMapRect &area);
 
-// The tooltip's icon grid for this many entries: six to a row, two rows at most; with more, the
-// last tile is "+N" for the rest
+// The tooltip's icon grid for this many entries: six to a row, as many rows as they take
 struct AutoMapTooltipGrid
 {
   int tiles;
   int columns;
   int rows;
-  int plusMore;
 };
 AutoMapTooltipGrid AutoMapLayout_TooltipGrid(int entries);
+
+// The rows of the grid a tooltip has room for, when entries in rows of columns need more than
+// mostRows: scroll rows (Shift+wheel) are scrolled off the top. Tiles above and below the window
+// are counted; with three tiles or more actually in view, the first and the last tile of the
+// window give way to a marker of how many are above and below (the marker's own tile counted).
+struct AutoMapTooltipGridWindow
+{
+  int firstRow;   // the top row in view
+  int rows;       // rows in view
+  int hiddenRows; // rows that do not fit: the most the grid scrolls
+  int above;      // tiles above the window, the marker's included; 0: no marker
+  int below;      // likewise below
+};
+AutoMapTooltipGridWindow AutoMapLayout_TooltipGridWindow(int entries, int columns, int mostRows, int scroll);
 
 // The bar above the map: one rectangle per label, left to right, 4 pixels from the top and 18 high.
 // A label starting with '|' begins a group (a wider gap), one starting with '#' is a caption, not

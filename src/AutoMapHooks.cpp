@@ -9,6 +9,7 @@
 #include <ctime>
 #include <fstream>
 #include <map>
+#include <sstream>
 #include <string>
 #ifdef MINGW
 #include <process.h>
@@ -17,6 +18,8 @@
 #include <unistd.h>
 #endif
 #include "AutoMapExport.h"
+#include "AutoMapTickRate.h"
+#include "AutoMapZip.h"
 #include "AutoMapFile.h"
 #include "AutoMapItemMemory.h"
 #include "AutoMapKnowledge.h"
@@ -924,8 +927,20 @@ static bool ViewOfThePartyIsHidden(void)
 static bool monstersFrozen = false;
 static const int LONGEST_FREEZE = 255;
 
+// The game's ticks a second, for when a sleeping generator wakes
+static AutoMapTickRate tickRate;
+
+static void MeasureTheTick(void)
+{
+  // Asleep, the engine skips the speed's wait between ticks: those ticks run far faster
+  if (d.PartySleeping != 0) tickRate.Interrupt();
+  else tickRate.OnTick(SDL_GetTicks());
+  AutoMapScene_SetTicksPerSecond(tickRate.TicksPerSecond(AutoMapTickRate_OfSpeed(speedTable[gameSpeed].vblPerTick)));
+}
+
 void AutoMap_OnEngineTick(void)
 {
+  MeasureTheTick();
   // The game's own Freeze Life, kept from running out: the main loop counts it down after
   // this hook, so it never reaches zero while the debug switch is on
   if (monstersFrozen) d.freezeLifeTimer = LONGEST_FREEZE;
@@ -950,6 +965,7 @@ void AutoMap_OnEngineTick(void)
 // does on a tick. Nothing in the dungeon moves meanwhile, so a rebuild reads what the party left.
 void AutoMap_OnClockStopped(void)
 {
+  tickRate.Interrupt();
   if (!PartyLevelIsLoaded() || d.newPartyLevel != -1) return;
   RebuildShownLevel();
 }
@@ -2057,12 +2073,29 @@ static std::string MapFileOf(const std::string &savePath)
   return savePath + MAP_FILE_SUFFIX;
 }
 
+// The one entry inside the zipped .map file: the map file's own name, without its folder
+static std::string MapEntryNameOf(const std::string &mapPath)
+{
+  size_t slash = mapPath.find_last_of("/\\");
+  return slash == std::string::npos ? mapPath : mapPath.substr(slash + 1);
+}
+
 // A save without a .map file is normal, so a missing source is not an error
 static void MoveMapFile(const std::string &fromSavePath, const std::string &toSavePath)
 {
   if (fromSavePath.empty() || toSavePath.empty()) return;
   std::remove(MapFileOf(toSavePath).c_str());
   std::rename(MapFileOf(fromSavePath).c_str(), MapFileOf(toSavePath).c_str());
+}
+
+void AutoMapExport_HtmlBeginForTheGame(const AutoMapHtmlChoice &choice)
+{
+  AutoMapExport_HtmlBegin(recorder, d.partyLevel, choice);
+}
+
+std::string AutoMapExport_SavedGamePath(void)
+{
+  return FindSavedGame(d.SaveGameFilename).path;
 }
 
 void AutoMap_BeforeSaveIsRotated(void)
@@ -2080,10 +2113,16 @@ static bool WriteMapFile(const SavedGameFile &save)
 {
   if (save.path.empty()) return false;
   HeroStats_BeforeGameSaved();
-  std::ofstream out(MapFileOf(save.path).c_str(), std::ios::binary | std::ios::trunc);
-  AutoMapFile(save.signature).Write(out, recorder.Explored(), recorder.Knowledge(), recorder.Items(),
-                                        recorder.Cells(), recorder.Notes(), recorder.Damage(), HeroStats_Store(),
-                                        HeroStats_Origins());
+  std::ostringstream data;
+  AutoMapFile(save.signature).Write(data, recorder.Explored(), recorder.Knowledge(), recorder.Items(),
+                                    recorder.Cells(), recorder.Notes(), recorder.Damage(), HeroStats_Store(),
+                                    HeroStats_Origins());
+  if (data.fail()) return false;
+  std::string mapPath = MapFileOf(save.path);
+  std::string packed = AutoMapZip_Pack(MapEntryNameOf(mapPath), data.str());
+  if (packed.empty()) return false;
+  std::ofstream out(mapPath.c_str(), std::ios::binary | std::ios::trunc);
+  out.write(packed.data(), (std::streamsize)packed.size());
   out.close();
   return !out.fail();
 }
@@ -2134,8 +2173,17 @@ static bool ReadMapFile(const SavedGameFile &save)
 {
   if (save.path.empty()) return false;
   std::string mapPath = MapFileOf(save.path);
-  std::ifstream in(mapPath.c_str(), std::ios::binary);
-  if (!in.is_open()) return false;
+  std::ifstream file(mapPath.c_str(), std::ios::binary);
+  if (!file.is_open()) return false;
+  std::ostringstream fileBytes;
+  fileBytes << file.rdbuf();
+  std::string bytes;
+  if (AutoMapZip_Unpack(fileBytes.str(), &bytes) == AutoMapZipIsBroken)
+  {
+    printf("Automap: ignoring %s: the zip archive is damaged\n", mapPath.c_str());
+    return false;
+  }
+  std::istringstream in(bytes);
   bool hadItemMemory = false;
   bool hadCellMemory = false;
   HeroStats statsFromFile;

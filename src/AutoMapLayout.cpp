@@ -381,15 +381,30 @@ AutoMapRect AutoMapLayout_TooltipPlace(int hoverX, int hoverY, const std::vector
 AutoMapTooltipGrid AutoMapLayout_TooltipGrid(int entries)
 {
   static const int COLUMNS = 6;
-  static const int MOST = 12;
-  AutoMapTooltipGrid grid = {0, 0, 0, 0};
+  AutoMapTooltipGrid grid = {0, 0, 0};
   if (entries <= 0) return grid;
-  grid.tiles = entries > MOST ? MOST - 1 : entries;
-  grid.plusMore = entries > MOST ? entries - grid.tiles : 0;
-  int shown = grid.tiles + (grid.plusMore > 0 ? 1 : 0);
-  grid.columns = std::min(COLUMNS, shown);
-  grid.rows = (shown + COLUMNS - 1) / COLUMNS;
+  grid.tiles = entries;
+  grid.columns = std::min(COLUMNS, entries);
+  grid.rows = (entries + COLUMNS - 1) / COLUMNS;
   return grid;
+}
+
+AutoMapTooltipGridWindow AutoMapLayout_TooltipGridWindow(int entries, int columns, int mostRows, int scroll)
+{
+  AutoMapTooltipGridWindow window = {0, 0, 0, 0, 0};
+  if (entries <= 0 || columns <= 0) return window;
+  int rows = (entries + columns - 1) / columns;
+  if (mostRows < 1) mostRows = 1;
+  window.rows = std::min(rows, mostRows);
+  window.hiddenRows = rows - window.rows;
+  window.firstRow = std::max(0, std::min(scroll, window.hiddenRows));
+  int firstTile = window.firstRow * columns;
+  int endTile = std::min(entries, (window.firstRow + window.rows) * columns);
+  // The markers replace tiles: only three or more in view give way, so that none stays unseen
+  if (window.hiddenRows == 0 || endTile - firstTile < 3) return window;
+  if (firstTile > 0) window.above = firstTile + 1;
+  if (endTile < entries) window.below = entries - endTile + 1;
+  return window;
 }
 
 int AutoMapLayout_BarHeight(int pixel)

@@ -1095,7 +1095,6 @@ enum AutoMapHitKind
   AutoMapHitItem,
   AutoMapHitNeeds,
   AutoMapHitCarried,
-  AutoMapHitChest,
   // An item inside a chest on the floor (a chest in an alcove lists its items as the alcove's)
   AutoMapHitInChest,
   AutoMapHitAlcove,
@@ -1222,9 +1221,14 @@ std::vector<std::string> AutoMapScene_GeneratorHealthLines(int levelMultiplier,
 std::vector<AutoMapTipLine> AutoMapScene_ActuatorLines(const AutoMapDrawList &drawList,
                                                        const AutoMapFloorActuator &actuator,
                                                        AutoMapItemNameFn nameForIndex);
-// When a sleeping generator wakes: "WAKES IN 380 TICKS, ABOUT 1:03", the time at about six
-// ticks a second (the game's normal speed), hours added from an hour on; "WAKES NOW" at 0
+// When a sleeping generator wakes: "WAKES IN 380 TICKS, ABOUT 1:03" at six ticks a second, the
+// time at the rate AutoMapScene_SetTicksPerSecond set, hours added from an hour on; "WAKES NOW"
+// at 0
 std::string AutoMapScene_WakeLine(int ticks);
+// The game's ticks a second of real time, for the times above: the hooks keep it at what
+// AutoMapTickRate measures. A rate of 0 or less is ignored. It starts at Normal speed's (4.2).
+void AutoMapScene_SetTicksPerSecond(double ticksPerSecond);
+double AutoMapScene_TicksPerSecond(void);
 
 // AutoMapScene_ActuatorLines of every floor actuator on a cell, in draw-list order with
 // duplicates folded. Empty when the cell is absent from the draw list (unexplored), so

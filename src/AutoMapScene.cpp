@@ -1,5 +1,6 @@
 // AutoMapScene.cpp : turns plain records of a level into the list of things the map window draws.
 #include "AutoMapScene.h"
+#include "AutoMapTickRate.h"
 #include "AutoMapSceneInternal.h"
 #include "AutoMapCellMemory.h"
 #include "AutoMapPlayerNotes.h"
@@ -1574,13 +1575,24 @@ std::vector<AutoMapTipLine> AutoMapScene_ActuatorLines(const AutoMapDrawList &dr
   return lines;
 }
 
-// The engine's ticks at its normal speed, as the route's delays count them
-static const int TICKS_PER_SECOND = 6;
+// The engine's ticks a second of real time: Normal speed's 15 vertical blanks a tick until the
+// hooks measure it (AutoMapTickRate)
+static double ticksPerSecond = AutoMapTickRate_OfSpeed(15);
+
+void AutoMapScene_SetTicksPerSecond(double rate)
+{
+  if (rate > 0) ticksPerSecond = rate;
+}
+
+double AutoMapScene_TicksPerSecond(void)
+{
+  return ticksPerSecond;
+}
 
 std::string AutoMapScene_WakeLine(int ticks)
 {
   if (ticks <= 0) return "WAKES NOW";
-  int seconds = (ticks + TICKS_PER_SECOND / 2) / TICKS_PER_SECOND;
+  int seconds = (int)(ticks / ticksPerSecond + 0.5);
   char line[64];
   if (seconds >= 3600)
   {
@@ -2387,7 +2399,8 @@ std::vector<AutoMapSearchHit> AutoMapScene_SearchItems(const AutoMapDrawList &dr
       {
         if (hit.monsterCarried) hit.kind = AutoMapHitCarried;
         else if (hit.slot.required) hit.kind = AutoMapHitNeeds;
-        else if (hit.slot.isChest) hit.kind = AutoMapHitChest;
+        // A chest is told by where it lies, as any item: an opened one keeps a slot of its own
+        // for its contents in the tooltip, but in the results it joins the others below
         else if (hit.slot.side >= 0) hit.kind = AutoMapHitAlcove;
       }
       if (hit.monsterCarried) hit.carriedBy = AutoMapScene_MonsterNameLine(drawList, x, y);
@@ -2395,7 +2408,23 @@ std::vector<AutoMapSearchHit> AutoMapScene_SearchItems(const AutoMapDrawList &dr
       hit.isFood = isFood != NULL && hit.slot.item.nameIndex >= 0 && hit.name != ""
                    && hit.name != "(UNKNOWN)" && isFood(hit.slot.item.nameIndex);
       if (AutoMapScene_SearchHitRank(hit, trimmed) < 0) continue;
-      hits.push_back(hit);
+      // Hits of the cell that would read the same are one row, their stacks added: two chests,
+      // opened or not, are X2
+      bool joined = false;
+      for (size_t k = hits.size(); k-- > 0 && hits[k].level == hit.level && hits[k].x == x && hits[k].y == y;)
+      {
+        AutoMapSearchHit &same = hits[k];
+        if (same.kind != hit.kind || same.name != hit.name || same.slot.side != hit.slot.side
+            || same.slot.carried != hit.slot.carried || same.carriedBy != hit.carriedBy
+            || same.wallFeature != AutoMapWallFeatureNone)
+        {
+          continue;
+        }
+        same.count += hit.count;
+        joined = true;
+        break;
+      }
+      if (!joined) hits.push_back(hit);
     }
   }
   // Monster groups the map shows, by their names; generators by what they create
@@ -2685,6 +2714,7 @@ static bool PunctuationPixel(char mark, int row, int col)
   case ' ': rows[0] = 0x0; rows[1] = 0x0; rows[2] = 0x0; rows[3] = 0x0; rows[4] = 0x0; break;
   case '+': rows[0] = 0x0; rows[1] = 0x2; rows[2] = 0x7; rows[3] = 0x2; rows[4] = 0x0; break;
   case '-': rows[0] = 0x0; rows[1] = 0x0; rows[2] = 0x7; rows[3] = 0x0; rows[4] = 0x0; break;
+  case '_': rows[0] = 0x0; rows[1] = 0x0; rows[2] = 0x0; rows[3] = 0x0; rows[4] = 0x7; break;
   case '.': rows[0] = 0x0; rows[1] = 0x0; rows[2] = 0x0; rows[3] = 0x0; rows[4] = 0x2; break;
   case ',': rows[0] = 0x0; rows[1] = 0x0; rows[2] = 0x0; rows[3] = 0x2; rows[4] = 0x4; break;
   case ':': rows[0] = 0x0; rows[1] = 0x2; rows[2] = 0x0; rows[3] = 0x2; rows[4] = 0x0; break;

@@ -22,7 +22,7 @@
 <header>
   <h2>Automap redesign: reference mockup</h2>
   <p class="sub">Drawn from what the <b>real map code</b> shows for two real saves: the draw lists at every vision and spoiler level, the tooltips as the game builds them, the press chains, the fog from the saves' <code>.map</code> files, and the game's own pictures. Only the drawing is the mockup. Design: <code>docs/superpowers/specs/2026-11-01-automap-look-and-controls-design.md</code> (local).<br>
-  <b>Mouse:</b> left-drag pans, the wheel zooms (no further out than the whole level), middle-click centres on the party, right-click opens your notes (and the debug rows), Shift shows the whole press chain at ALL, Shift+wheel scrolls a long tooltip, the side buttons or Page Up/Down change level. <b>Keys:</b> / or Ctrl+F searches, Escape closes.<br>
+  <b>Mouse:</b> left-drag pans, the wheel zooms (no further out than the whole level), middle-click centres on the party, right-click opens your notes (and the debug rows), Shift shows the whole press chain at ALL, Shift+wheel scrolls a long tooltip, Ctrl+wheel sizes it, the side buttons or Page Up/Down change level. <b>Keys:</b> / or Ctrl+F searches, Escape closes.<br>
   <b>Places:</b> before the win, L11 has press chains with goal badges, L4 teleporters, L2 and L7 spinners; mid game shows fog and levels not visited yet. Add <code>?save=1&amp;L=4&amp;v=2&amp;s=0&amp;cs=48&amp;hh=x,y</code> to the address for a fixed view.</p>
 </header>
 <div class="bar">
@@ -46,6 +46,10 @@ let saveNo = 0, lvl = 0, vision = 0, spoil = 1 /* 0 All, 1 Learned, 2 Seen */, t
 let follow = true, cs = 36, panX = 0, panY = 0, hover = null, shiftHeld = false, debugOn = true;
 let V = null, grid = {}, actsAt = {}, monAt = {}, W = 0, H = 0, OX = 0, OY = 0;
 let tipScroll = 0;
+// The tooltip's size, 1 to 4 times, as the window's map_tip_scale (Ctrl+wheel); this browser keeps it
+const TIP_SCALE_MOST = 4;
+let tipScale = 1;
+try { tipScale = Math.max(1, Math.min(TIP_SCALE_MOST, +localStorage.getItem('csb-map-tip-scale') || 1)); } catch (e) { }
 const SHOW = {};
 const ITEM_KINDS = ['WEAPONS', 'ARMOUR', 'POTIONS', 'SCROLLS', 'CHESTS', 'FOOD', 'KEYS', 'OTHER ITEMS'];
 [...ITEM_KINDS, 'MONSTERS', 'WALL DECORATIONS', 'WALL WRITING', 'FLOOR DECORATIONS'].forEach(k => SHOW[k] = true);
@@ -78,11 +82,20 @@ async function loadSave(n) {
   saveNo = n;
   if (!SAVES[n]) SAVES[n] = await unpack(MAPDATA.saves[SAVE_NAMES[n]]);
   DATA = SAVES[n];
-  document.getElementById('status').textContent = SAVE_NAMES[n] + ': ' + DATA.index.levels.length + ' levels, party on L' + DATA.index.partyLevel;
+  const X = DATA.index.export;
+  if (X) { vision = X.vision; spoil = X.spoil; debugOn = false; if (BAR_LOOKS.includes(X.bar)) barLook = X.bar; }
+  const shown = DATA.index.levels.filter(L => !L.absent).length;
+  document.getElementById('status').textContent = SAVE_NAMES[n] + ': ' + (shown < DATA.index.levels.length ? shown + ' of ' : '') + DATA.index.levels.length + ' levels, party on L' + DATA.index.partyLevel;
   partyOverride = null; menu = null; linkMode = null;
-  setLevel(DATA.index.partyLevel); follow = true; fitLevel(); cs = Math.max(minCs(), 36); centreOnParty(); buildIndex(); if (query) rebuild(false);
+  setLevel(hasLevel(DATA.index.partyLevel) ? DATA.index.partyLevel : X.level); follow = hasLevel(DATA.index.partyLevel); fitLevel(); cs = Math.max(minCs(), 36); centreOnParty(); buildIndex(); if (query) rebuild(false);
 }
 function noteOf() { const k = saveNo + ':' + lvl; return notes[k] || (notes[k] = { pits: {}, links: [] }); }
+// An exported page may leave levels out, and vision and spoilers beyond what was chosen
+// (index.export: maxVision, and minSpoil in the scene's numbering, 0 All .. 2 Seen)
+function hasLevel(l) { const L = DATA.index.levels[l]; return !!L && !L.absent; }
+function visionAllowed(v) { const X = DATA.index.export; return !X || v <= X.maxVision; }
+function spoilAllowed(s) { const X = DATA.index.export; return !X || s >= X.minSpoil; }
+function followParty() { if (!hasLevel(DATA.index.partyLevel)) return false; follow = true; setLevel(DATA.index.partyLevel); centreOnParty(); return true; }
 function viewOf(l) { return DATA.views[`L${l}_v${vision}_s${spoil}`]; }
 function setLevel(l) {
   lvl = l; const L = DATA.index.levels[l]; W = L.w; H = L.h; OX = L.offsetX; OY = L.offsetY;
@@ -121,7 +134,8 @@ function frame(x, y, w, h, col, t = 1) { rect(x, y, w, t, col); rect(x, y + h - 
 function dashed(x, y, w, h, col, d = 3) { g.save(); g.setLineDash([d, d]); g.strokeStyle = col; g.lineWidth = 1; g.strokeRect(Math.round(x) + .5, Math.round(y) + .5, Math.round(w) - 1, Math.round(h) - 1); g.restore(); }
 function dither(x, y, w, h, col, alpha) { x = Math.round(x); y = Math.round(y); w = Math.round(w); h = Math.round(h); const q = Math.max(2, Math.round(cs / 14)); g.globalAlpha = alpha; g.fillStyle = col; for (let j = 0; j * q < h; j++) for (let i = 0; i * q < w; i++) if ((i + j) % 2 === 0) g.fillRect(x + i * q, y + j * q, Math.min(q, w - i * q), Math.min(q, h - j * q)); g.globalAlpha = 1; }
 function tri(pts, col) { g.fillStyle = col; g.beginPath(); g.moveTo(...pts[0]); g.lineTo(...pts[1]); g.lineTo(...pts[2]); g.closePath(); g.fill(); }
-function spr(name, x, y, w, h, alpha) { const i = img[name]; if (!name || !i || !i.complete || !i.width) return false; g.globalAlpha = alpha ?? 1; g.imageSmoothingEnabled = false; const s = Math.min(w / i.width, h / i.height); const dw = i.width * s, dh = i.height * s; g.drawImage(i, Math.round(x + (w - dw) / 2), Math.round(y + (h - dh) / 2), Math.round(dw), Math.round(dh)); g.globalAlpha = 1; return true; }
+// The game's pictures are softened when scaled, as the window's textures (SDL_ScaleModeLinear)
+function spr(name, x, y, w, h, alpha) { const i = img[name]; if (!name || !i || !i.complete || !i.width) return false; g.globalAlpha = alpha ?? 1; g.imageSmoothingEnabled = true; const s = Math.min(w / i.width, h / i.height); const dw = i.width * s, dh = i.height * s; g.drawImage(i, Math.round(x + (w - dw) / 2), Math.round(y + (h - dh) / 2), Math.round(dw), Math.round(dh)); g.globalAlpha = 1; return true; }
 const px = x => Math.round(RUL + panX + x * cs), py = y => Math.round(RUL + panY + y * cs);
 function partyArrow(cx, cy, r, f, col, outline) { const [dx, dy] = [[0, -1], [1, 0], [0, 1], [-1, 0]][f & 3], qx = -dy, qy = dx; const P = (a, b) => [cx + dx * a * r + qx * b * r, cy + dy * a * r + qy * b * r]; const pts = [P(1, 0), P(-.8, .8), P(-.3, 0), P(-.8, -.8)]; g.fillStyle = col; g.beginPath(); g.moveTo(...pts[0]); pts.slice(1).forEach(p => g.lineTo(...p)); g.closePath(); g.fill(); if (outline) { g.strokeStyle = outline; g.lineWidth = 1; g.stroke(); } }
 // three slanted strokes of four dots, inside the box with a margin, as AutoMapPaint_Claw
@@ -265,13 +279,14 @@ function drawWallFaces(c) {
 // Pads, generators, cogs
 // ============================================================================================
 function drawActuators(c) {
-  const list = actsAt[c.x + ',' + c.y]; if (!list) return; const x = px(c.x), y = py(c.y); const seen = new Set();
+  // A hidden pad's plate is see-through: drawn once per cell, however many pads lie there
+  const list = actsAt[c.x + ',' + c.y]; if (!list) return; const x = px(c.x), y = py(c.y); const seen = new Set(); let plated = !!c.fp;
   for (const a of list) {
     const [, , kind, op, facing, item, genPic] = a; const key = kind + ':' + op; if (seen.has(key)) continue; seen.add(key);
     if (kind === 2) { if (genPic) spr(genPic, x + cs * .1, y + cs * .05, cs * .8, cs * .8, .45); chip(x, y, [['txt', 'GEN']], '#c05050'); continue; }
     if (kind === 3) { const cx = x + cs / 2, cy = y + cs / 2, r = cs * .25; g.strokeStyle = '#8a5a5a'; g.lineWidth = 1; g.beginPath(); g.moveTo(cx, cy - r); g.lineTo(cx + r, cy); g.lineTo(cx, cy + r); g.lineTo(cx - r, cy); g.closePath(); g.stroke(); continue; }
     if (kind === 4) { const cx = x + cs / 2, cy = y + cs / 2, r = cs * .2; g.strokeStyle = '#9a9488'; g.lineWidth = 1; g.beginPath(); for (let i = 0; i <= 8; i++) { const an = 2 * Math.PI * i / 8; i ? g.lineTo(cx + r * Math.cos(an), cy + r * Math.sin(an)) : g.moveTo(cx + r, cy); } g.moveTo(cx - r, cy); g.lineTo(cx + r, cy); g.moveTo(cx, cy - r); g.lineTo(cx, cy + r); g.stroke(); continue; }
-    if (!c.fp) { if (PLATE) spr(PLATE, x + cs * .08, y + cs * .18, cs * .84, cs * .64, kind === 1 ? .2 : .35); dashed(x + cs * .12, y + cs * .22, cs * .76, cs * .56, kind === 1 ? '#8a847a' : COL.pad, 2); }
+    if (!plated) { if (PLATE) spr(PLATE, x + cs * .08, y + cs * .18, cs * .84, cs * .64, kind === 1 ? .2 : .35); dashed(x + cs * .12, y + cs * .22, cs * .76, cs * .56, kind === 1 ? '#8a847a' : COL.pad, 2); if (kind !== 1) plated = true; }
     if (kind === 1) continue;
     const who = []; const icon = item[1] || item[0];
     if (op === 1) who.push(['party', 0], ['claw']);
@@ -289,15 +304,28 @@ function drawActuators(c) {
 // The SHOW choice of each AutoMapItemKind, in the enum's order
 const KIND_SHOW = ['SCROLLS', 'CHESTS', 'POTIONS', 'WEAPONS', 'ARMOUR', 'OTHER ITEMS', 'FOOD', 'KEYS'];
 function kindShown(k) { return SHOW[KIND_SHOW[k] || 'OTHER ITEMS']; }
+// As the window's DrawItem: a small item keeps its size against the cell (64 picture pixels to a
+// cell), a large one is fitted into 92% of its slot's width; centred in the slot. power shrinks a
+// missile that is losing its range. False when the picture is missing.
+const ITEM_PIXELS_PER_CELL = 64;
+function itemSpr(name, sx, sy, sw, sh, power) {
+  const i = img[name]; if (!name || !i || !i.complete || !i.width) return false;
+  const s = Math.min(sw / ITEM_PIXELS_PER_CELL, sw * .92 / i.width) * (power ?? 1);
+  const w = Math.floor(i.width * s), h = Math.floor(i.height * s);
+  g.imageSmoothingEnabled = true; g.drawImage(i, Math.floor(sx + (sw - w) / 2), Math.floor(sy + (sh - h) / 2), w, h); return true;
+}
+// The window's Inset(slot, 35): the fallback mark of a missing picture
+function insetMark(sx, sy, sw, sh, col) { const m = Math.floor(sw * .35); rect(sx + m, sy + m, sw - 2 * m, sh - 2 * m, col); }
 function drawItems(c) {
   if (!c.items) return; const items = c.items.filter(it => kindShown(it[3])); if (!items.length) return;
   const all = c.allKinds ? c.allKinds.filter(kindShown).length : c.all;
   const x = px(c.x), y = py(c.y); const n = Math.min(3, items.length);
-  items.slice(0, 3).forEach((it, i) => { if (!spr(it[0], x + cs * i / n + cs * .1 / n, y + cs * .3, cs / n * .8, cs * .4)) rect(x + cs * i / n + cs * .3 / n, y + cs * .4, cs * .4 / n, cs * .2, COL.item); });
+  items.slice(0, 3).forEach((it, i) => { const sx = x + Math.floor(cs * i / n), sw = Math.floor(cs / n); if (!itemSpr(it[0], sx, y, sw, cs)) insetMark(sx, y, sw, cs, COL.item); });
   if (all > 3) { const p = Math.max(1, Math.floor(cs / 24)), s = String(all), w = textW(s, p) + 4 * p, h = 9 * p; rect(x + cs - w - 2, y + 2, w, h, '#0d0c0a'); frame(x + cs - w - 2, y + 2, w, h, COL.item); text(g, x + cs - w - 2 + 2 * p, y + 2 + 2 * p, s, COL.item, p); }
 }
 function drawClouds() { for (const [x, y, s] of V.clouds) if (!spr(s, px(x), py(y), cs, cs)) { g.fillStyle = 'rgba(80,200,120,.45)'; g.fillRect(px(x) + cs * .05, py(y) + cs * .05, cs * .9, cs * .9); } }
-function drawMissiles() { const n = {}; V.missiles.forEach(m => n[m[0] + ',' + m[1]] = (n[m[0] + ',' + m[1]] || 0) + 1); const k = {}; for (const [x, y, s, sc] of V.missiles) { const key = x + ',' + y, i = (k[key] = (k[key] || 0) + 1) - 1, cnt = n[key]; const w = cs / cnt; if (!spr(s, px(x) + w * i + w * (1 - sc) / 2, py(y) + cs * .6 * (1 - sc) / 2, w * sc, cs * .6 * sc)) rect(px(x) + w * i + w * .35, py(y) + cs * .2, w * .3, cs * .2, '#ff6a2b'); } }
+// What flies crosses the upper three fifths of its cell, as the window's DrawMissiles
+function drawMissiles() { const n = {}; V.missiles.forEach(m => n[m[0] + ',' + m[1]] = (n[m[0] + ',' + m[1]] || 0) + 1); const k = {}; for (const [x, y, s, sc] of V.missiles) { const key = x + ',' + y, i = (k[key] = (k[key] || 0) + 1) - 1, cnt = n[key]; const airH = Math.floor(cs * 3 / 5), sx = px(x) + Math.floor(cs * i / cnt), sw = Math.floor(cs / cnt); if (!itemSpr(s, sx, py(y), sw, airH, sc)) insetMark(sx, py(y), sw, airH, '#ff6a2b'); } }
 function glimpseMark(pp, ax, ay, aw, ah) { const r = PUN['?']; const left = ax + (aw - 3 * pp) / 2, top = ay + (ah - 5 * pp) / 2; g.fillStyle = COL.item; for (let row = 0; row < 5; row++) for (let c = 0; c < 3; c++) if (r[row] & (1 << (2 - c))) g.fillRect(Math.round(left + c * pp), Math.round(top + row * pp), pp, pp); }
 function drawGlimpses() {
   for (const [x, y] of V.glimpses) glimpseMark(Math.max(1, Math.round(cs / 9)), px(x), py(y), cs, cs);
@@ -354,7 +382,7 @@ function drawMonsters() {
       if (!im || !im.width) { rect(cx - cs * .12, feet - cs * .25, cs * .24, cs * .24, '#c05050'); continue; }
       const sc = .5 * cs / 60, w = im.width * sc, h = im.height * sc;
       g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(Math.round(cx - w * .38), Math.round(feet - 4), Math.round(w * .76), 4);
-      g.save(); if (mb[1]) { g.translate(cx, 0); g.scale(-1, 1); g.translate(-cx, 0); } g.imageSmoothingEnabled = false; g.drawImage(im, Math.round(cx - w / 2), Math.round(feet - h), Math.round(w), Math.round(h)); g.restore();
+      g.save(); if (mb[1]) { g.translate(cx, 0); g.scale(-1, 1); g.translate(-cx, 0); } g.imageSmoothingEnabled = true; g.drawImage(im, Math.round(cx - w / 2), Math.round(feet - h), Math.round(w), Math.round(h)); g.restore();
     }
   }
   for (const m of ms) { // over the figures, so a tall one does not hide a mark
@@ -543,6 +571,8 @@ function tooltipLines() {
   const key = hover.x + ',' + hover.y, N = noteOf();
   if (key in N.pits) lines.push({ t: N.pits[key] ? 'YOUR MARK: HIDDEN PIT OPEN' : 'YOUR MARK: HIDDEN PIT CLOSED' });
   N.links.filter(l => l[0] === hover.x && l[1] === hover.y).forEach(l => lines.push({ t: `YOUR LINK TO (${l[2] + OX}, ${l[3] + OY})` }));
+  // The last line of every tooltip, as in the window: how to size it, and its size now
+  if (lines.length || (h && h.icons && h.icons.length)) lines.push({ t: tipScale > 1 ? `CTRL+WHEEL: SIZE (${tipScale}X)` : 'CTRL+WHEEL: SIZE', s: 7 });
   return { lines, icons: h && h.icons ? h.icons : [] };
 }
 // What acts on the hovered cell, under the header of the part it acts on (PIT, DOOR, ...): one
@@ -615,27 +645,54 @@ function tooltipPlace(L, w, h) {
   }
   return [best.x, best.y];
 }
+// As AutoMapLayout_TooltipGridWindow: the rows of the icon grid in view when they need more than
+// mostRows, scrolled; with three tiles or more in view the cut edges give way to markers
+function gridWindow(entries, columns, mostRows, scroll) {
+  const w = { firstRow: 0, rows: 0, hiddenRows: 0, above: 0, below: 0 }; if (entries <= 0 || columns <= 0) return w;
+  const rows = Math.ceil(entries / columns); mostRows = Math.max(1, mostRows);
+  w.rows = Math.min(rows, mostRows); w.hiddenRows = rows - w.rows; w.firstRow = Math.max(0, Math.min(scroll, w.hiddenRows));
+  const first = w.firstRow * columns, end = Math.min(entries, (w.firstRow + w.rows) * columns);
+  if (w.hiddenRows === 0 || end - first < 3) return w;
+  if (first > 0) w.above = first + 1; if (end < entries) w.below = entries - end + 1; return w;
+}
 function drawTooltip(L) {
   if (!hover || menu || drag) return; const { lines, icons } = tooltipLines(); if (!lines.length) return;
-  const p = 2, lh = 8 * p;
-  // icon grid: one tile per stack; nested contents follow their chest or monster, smaller; at most two rows of six
-  const T = 36, PER = 6, MAXT = 12; const tiles = icons.length > MAXT ? icons.slice(0, MAXT - 1) : icons; const more = icons.length - tiles.length;
-  const nt = tiles.length + (more ? 1 : 0), cols = Math.min(PER, nt), rowsT = Math.ceil(nt / PER), gridW = cols * (T + 4), gridH = nt ? rowsT * (T + 4) + 4 : 0;
-  const maxLines = Math.max(4, Math.floor((cv.height - 2 * RUL - gridH - 40) / lh)); const scrollMax = Math.max(0, lines.length - maxLines); tipScroll = Math.min(tipScroll, scrollMax);
-  const shown = lines.slice(tipScroll, tipScroll + maxLines); if (tipScroll > 0) shown[0] = { t: `-${tipScroll} MORE`, s: 7 }; if (tipScroll + maxLines < lines.length) shown[shown.length - 1] = { t: `+${lines.length - tipScroll - maxLines + 1} MORE, SHIFT+WHEEL`, s: 7 };
+  const p = 2, lh = 8 * p, k = tipScale;
+  // icon grid: one tile per stack, six to a row, every stack; nested contents follow their chest or
+  // monster, smaller. As in the window the tiles shrink when the plate would outgrow the map, then
+  // only a window of the rows shows: Shift+wheel scrolls it first, then the lines
+  const PER = 6, nt = icons.length, cols = Math.min(PER, nt);
+  const room = (cv.height - 2 * RUL - 40) / k, textH = lines.length * lh + 8, iconRoom = Math.max(60, room - textH);
+  let T = 36; while (T > 26 && nt && Math.ceil(nt / PER) * (T + 4) + 4 > iconRoom) T -= 2;
+  const GW = gridWindow(nt, cols, Math.floor((iconRoom - 4) / (T + 4)), tipScroll);
+  if (GW.hiddenRows > 0 && !shiftHeld) lines.splice(lines.length - 1, 0, { t: 'SHIFT+WHEEL: MORE ITEMS', s: 7 });
+  const gridW = cols * (T + 4), gridH = nt ? GW.rows * (T + 4) + 4 : 0;
+  // Magnified, the tooltip is laid out at its own size and drawn k times as big
+  const maxLines = Math.max(4, Math.floor((room - gridH) / lh)); const lineMax = Math.max(0, lines.length - maxLines);
+  tipScroll = Math.min(tipScroll, GW.hiddenRows + lineMax); const ls = Math.max(0, tipScroll - GW.hiddenRows);
+  const shown = lines.slice(ls, ls + maxLines); if (ls > 0) shown[0] = { t: `-${ls} MORE`, s: 7 }; if (ls + maxLines < lines.length) shown[shown.length - 1] = { t: `+${lines.length - ls - maxLines + 1} MORE, SHIFT+WHEEL`, s: 7 };
   const w = Math.max(gridW + 4, ...shown.map(l => richW(l.t, p))) + 10, h = gridH + shown.length * lh + 8;
-  const [x, y] = tooltipPlace(L, w, h);
+  const [X0, Y0] = tooltipPlace(L, w * k, h * k);
+  g.save(); g.translate(X0, Y0); g.scale(k, k); const x = 0, y = 0;
   rect(x, y, w, h, '#111'); frame(x, y, w, h, '#ffc83a');
-  for (let i = 0; i < nt; i++) {
-    const tx = x + 6 + (i % PER) * (T + 4), ty = y + 6 + Math.floor(i / PER) * (T + 4);
-    if (i >= tiles.length) { rect(tx, ty, T, T, '#3a3733'); frame(tx, ty, T, T, '#5a554c'); const s = '+' + more; text(g, tx + (T - textW(s, 2)) / 2, ty + (T - 10) / 2, s, COL.item, 2); continue; }
-    const [item, count, nested, predicted, required] = tiles[i];
+  const first = GW.firstRow * cols, end = Math.min(nt, first + GW.rows * cols);
+  for (let i = first; i < end; i++) {
+    const tx = x + 6 + ((i - first) % cols) * (T + 4), ty = y + 6 + Math.floor((i - first) / cols) * (T + 4);
+    const up = i === first && GW.above > 0, down = i === end - 1 && GW.below > 0;
+    if (up || down) {
+      // The cut edge: how many stacks lie that way, and a triangle pointing to them
+      rect(tx, ty, T, T, '#3a3733'); frame(tx, ty, T, T, '#5a554c'); const s = '+' + (up ? GW.above : GW.below), a = Math.max(3, Math.floor(T / 8)), top = ty + Math.floor((T - (12 + a)) / 2), cx = tx + T / 2;
+      const tip = up ? top : top + 12 + a, base = up ? tip + a : tip - a; g.fillStyle = COL.item; g.beginPath(); g.moveTo(cx, tip); g.lineTo(cx - a, base); g.lineTo(cx + a, base); g.closePath(); g.fill();
+      text(g, tx + (T - textW(s, 2)) / 2, up ? top + a + 2 : top, s, COL.item, 2); continue;
+    }
+    const [item, count, nested, predicted, required] = icons[i];
     const inset = nested ? 6 : 0; rect(tx + inset, ty + inset, T - 2 * inset, T - 2 * inset, predicted ? '#24221f' : '#3a3733');
     frame(tx + inset, ty + inset, T - 2 * inset, T - 2 * inset, required ? '#e0b64a' : nested && !predicted ? COL.item : '#5a554c');
     spr(item[1] || item[0], tx + inset + 2, ty + inset + 2, T - 2 * inset - 4, T - 2 * inset - 4, predicted ? .5 : 1);
     if (count > 1) { const s = String(count), bw = textW(s, 2) + 4; rect(tx + T - bw - 1, ty + T - 15, bw, 14, '#0d0c0a'); text(g, tx + T - bw + 1, ty + T - 13, s, COL.item, 2); }
   }
   shown.forEach((l, i) => { const muted = l.s === undefined && /^(WOULD|DORMANT)/.test(l.t); richText(x + 5, y + gridH + 6 + i * lh, l.t, l.s === undefined ? (muted ? '#a8b8bc' : '#fff') : TIPCOL[l.s] || '#fff', p, l.i); });
+  g.restore();
 }
 
 // ============================================================================================
@@ -656,32 +713,94 @@ function plate(x, y, w, h) { rect(x, y, w, h, '#111'); frame(x, y, w, h, '#ffc83
 function inRect(mx, my, r) { return r && mx >= r[0] && mx < r[0] + r[2] && my >= r[1] && my < r[1] + r[3]; }
 
 // ---------------- the bar ----------------
-function btn(x, label, on, act, grey) {
-  const p = 2, w = textW(label, p) + 10; tg.fillStyle = on ? '#ffcc33' : '#1d1a16'; tg.fillRect(x, 4, w, 18);
-  tg.fillStyle = on ? '#ffcc33' : '#4a443a'; tg.fillRect(x, 4, w, 1); tg.fillRect(x, 21, w, 1); tg.fillRect(x, 4, 1, 18); tg.fillRect(x + w - 1, 4, 1, 18);
-  text(tg, x + 5, 8, label, on ? '#1a160f' : grey ? '#5a554c' : '#d8cfbd', p); if (!grey) barHits.push([x, w, act]); return x + w;
+// As the window's AutoMapBar.cpp: one label per item, '|' starts a group, '^' a group close to the
+// one before, '#' marks a caption; each look (map_bar_style) draws the groups its own way
+const BAR_LOOKS = ['stone', 'segmented', 'cyan', 'brass', 'classic'];
+let barLook = 'stone';
+const BAR_P = 2;
+function hex(n) { return '#' + n.toString(16).padStart(6, '0'); }
+function barSpacing() {
+  if (barLook === 'classic') return { item: BAR_P, group: 7 * BAR_P, near: BAR_P, cap: 0, frame: 0 };
+  return { item: 1, group: 5 * BAR_P, near: 2 * BAR_P, cap: 4 * BAR_P, frame: barLook === 'stone' ? 2 : 1 };
 }
-function lab(x, s) { text(tg, x, 8, s, '#8f8676', 2); return x + textW(s, 2) + 6; }
+const BAR_LONG = ['EXPLORED', 'LEARNED', 'FOLLOW', 'VISION', 'SPOILERS'], BAR_SHORT = ['EXPL', 'LRND', 'FOL', 'VIS', 'SPOIL'];
+function packBar(items, width, shorten) {
+  const sp = barSpacing(); let x = 3 * BAR_P + sp.frame; const out = [];
+  items.forEach((it, i) => {
+    let label = it.label; const group = label[0] === '|', near = label[0] === '^'; if (group || near) label = label.slice(1);
+    const caption = label[0] === '#'; if (caption) label = label.slice(1);
+    if (shorten) { const k = BAR_LONG.indexOf(label); if (k >= 0) label = BAR_SHORT[k]; }
+    if (i > 0) x += group ? sp.group + 2 * sp.frame : near ? sp.near + 2 * sp.frame : sp.item;
+    const tw = label ? (label.length * 4 - 1) * BAR_P : 0, w = caption ? tw + sp.cap : tw + 5 * BAR_P;
+    out.push({ ...it, shown: label, caption, starts: group || near || i === 0, x, y: 2 * BAR_P, w, h: 9 * BAR_P }); x += w;
+  });
+  if (!shorten && out.length && out[out.length - 1].x + out[out.length - 1].w + sp.frame > width) return packBar(items, width, true);
+  return out;
+}
+function barFill() { return { stone: 0x6a6d6a, cyan: 0x000000, brass: 0x1f1c18 }[barLook] ?? 0x24221f; }
+function barRect(x, y, w, h, n) { tg.fillStyle = hex(n); tg.fillRect(x, y, w, h); }
+function bevel(r, light, dark) { const t = Math.max(1, BAR_P / 2); barRect(r.x, r.y, r.w, t, light); barRect(r.x, r.y, t, r.h, light); barRect(r.x, r.y + r.h - t, r.w, t, dark); barRect(r.x + r.w - t, r.y, t, r.h, dark); }
+function drawGroupBack(r) {
+  const g1 = (b) => ({ x: r.x - b, y: r.y - b, w: r.w + 2 * b, h: r.h + 2 * b });
+  if (barLook === 'stone') { const w = g1(2); barRect(w.x, w.y, w.w, w.h, 0x949194); barRect(w.x, w.y, w.w - 1, w.h - 1, 0x4a484a); const f = g1(1); barRect(f.x, f.y, f.w, f.h, 0x000000); }
+  else if (barLook === 'segmented' || barLook === 'cyan' || barLook === 'brass') { const f = g1(1); barRect(f.x, f.y, f.w, f.h, { segmented: 0x5d5548, cyan: 0x00dade, brass: 0x000000 }[barLook]); }
+}
+function drawCaption(r) {
+  const y = r.y + 2 * BAR_P, l = r.shown;
+  if (barLook === 'stone') return text(tg, r.x + 2 * BAR_P, y, l, hex(0x949194), BAR_P);
+  if (barLook === 'classic') return text(tg, r.x, y, l, '#8f8676', BAR_P);
+  const [fill, col] = { segmented: [0x3a352d, 0xb3a78f], cyan: [0x00494a, 0x7fecee], brass: [0x2b2824, 0xa8a39a] }[barLook];
+  barRect(r.x, r.y, r.w, r.h, fill); text(tg, r.x + 2 * BAR_P, y, l, hex(col), BAR_P);
+}
+function drawButton(r) {
+  const on = r.on; let col;
+  if (barLook === 'stone') { barRect(r.x, r.y, r.w, r.h, on ? 0xffb500 : 0x944800); if (on) bevel(r, 0xa86e00, 0xffe08a); else bevel(r, 0xde916a, 0x6a2400); col = on ? 0x5a1e00 : 0xffb500; }
+  else if (barLook === 'segmented') { barRect(r.x, r.y, r.w, r.h, on ? 0xffcc33 : 0x1d1a16); col = on ? 0x1a160f : 0xd8cfbd; }
+  else if (barLook === 'cyan') { barRect(r.x, r.y, r.w, r.h, on ? 0x00dade : 0x000000); col = on ? 0x000000 : 0x00dade; }
+  else if (barLook === 'brass') { barRect(r.x, r.y, r.w, r.h, on ? 0xffb500 : 0x6e3600); barRect(r.x, r.y, r.w, 1, on ? 0xffe08a : 0xa8603a); col = on ? 0x4a1a00 : 0xffb500; }
+  else { barRect(r.x, r.y, r.w, r.h, on ? 0xffcc33 : 0x1d1a16); tg.fillStyle = hex(on ? 0xffcc33 : 0x4a443a); tg.fillRect(r.x, r.y, r.w, 1); tg.fillRect(r.x, r.y + r.h - 1, r.w, 1); tg.fillRect(r.x, r.y, 1, r.h); tg.fillRect(r.x + r.w - 1, r.y, 1, r.h); col = on ? 0x1a160f : 0xd8cfbd; }
+  text(tg, r.x + 5 * BAR_P / 2, r.y + 2 * BAR_P, r.shown, hex(col), BAR_P);
+  // A choice the page may not show (beyond the export's limits) is veiled and takes no click
+  if (r.grey) { tg.fillStyle = 'rgba(17,17,17,.62)'; tg.fillRect(r.x, r.y, r.w, r.h); }
+}
 let levelBtnX = 0, showBtnX = 0, searchBtnX = 0, debugBtnX = 0;
 function drawBar() {
-  barHits = []; tg.fillStyle = '#24221f'; tg.fillRect(0, 0, tbar.width, 26); tg.fillStyle = '#3a362f'; tg.fillRect(0, 25, tbar.width, 1);
-  let x = 6;
-  x = btn(x, '<', false, () => stepLevel(-1)) + 2; levelBtnX = x;
-  x = btn(x, 'L' + lvl + ' ~', levelOpen, () => { const o = !levelOpen; closePanels(); levelOpen = o; levelScroll = Math.max(0, lvl - 4); typed = ''; }) + 2;
-  x = btn(x, '>', false, () => stepLevel(1)) + 4;
-  x = btn(x, 'FOLLOW', follow, () => { follow = !follow; if (follow) { setLevel(DATA.index.partyLevel); centreOnParty(); } }) + 14;
-  x = lab(x, 'VISION'); ['FOG', 'EXPLORED', 'ALL'].forEach((n, i) => { x = btn(x, n, vision === i, () => { vision = i; refreshAll(); }) - 1; });
-  if (vision === 2) x = btn(x + 4, 'TINT', tint, () => tint = !tint);
-  x += 14; x = lab(x, 'SPOILERS'); [['SEEN', 2], ['LEARNED', 1], ['ALL', 0]].forEach(([n, v]) => { x = btn(x, n, spoil === v, () => { spoil = v; refreshAll(); }) - 1; }); x += 14;
-  const hidden = Object.values(SHOW).filter(v => !v).length; showBtnX = x;
-  x = btn(x, hidden ? 'SHOW: ' + hidden + ' HIDDEN' : 'SHOW', showOpen, () => { const o = !showOpen; closePanels(); showOpen = o; }) + 10;
-  searchBtnX = x; x = btn(x, '/', searchOpen, () => { if (searchOpen) closeSearch(); else openSearch(); }) + 3;
-  x = btn(x, '?', helpOpen, () => { const o = !helpOpen; closePanels(); helpOpen = o; }) + 3;
-  if (debugOn) { debugBtnX = x; x = btn(x, '+', debugOpen, () => { const o = !debugOpen; closePanels(); debugOpen = o; }); }
+  barHits = [];
+  const items = [];
+  const add = (label, on, act, grey) => items.push({ label, on: !!on, act, grey: !!grey });
+  add('<', false, () => stepLevel(-1));
+  add('L' + lvl + ' ~', levelOpen, () => { const o = !levelOpen; closePanels(); levelOpen = o; levelScroll = Math.max(0, lvl - 4); typed = ''; });
+  add('>', false, () => stepLevel(1));
+  add('|FOLLOW', follow, () => { if (follow) follow = false; else followParty(); }, !hasLevel(DATA.index.partyLevel));
+  add('|#VISION');
+  ['FOG', 'EXPLORED', 'ALL'].forEach((n, i) => add(n, vision === i, () => { vision = i; refreshAll(); }, !visionAllowed(i)));
+  if (vision === 2) add('^TINT', tint, () => tint = !tint);
+  add('|#SPOILERS');
+  [['SEEN', 2], ['LEARNED', 1], ['ALL', 0]].forEach(([n, v]) => add(n, spoil === v, () => { spoil = v; refreshAll(); }, !spoilAllowed(v)));
+  const hidden = Object.values(SHOW).filter(v => !v).length;
+  add(hidden ? '|SHOW: ' + hidden + ' HIDDEN' : '|SHOW', showOpen, () => { const o = !showOpen; closePanels(); showOpen = o; });
+  add('|/', searchOpen, () => { if (searchOpen) closeSearch(); else openSearch(); });
+  add('?', helpOpen, () => { const o = !helpOpen; closePanels(); helpOpen = o; });
+  if (debugOn) add('+', debugOpen, () => { const o = !debugOpen; closePanels(); debugOpen = o; });
+  const rects = packBar(items, tbar.width, false);
+  const h = 26; barRect(0, 0, tbar.width, h, barFill());
+  if (barLook === 'stone') { barRect(0, 0, tbar.width, 1, 0x949194); barRect(0, h - 2, tbar.width, 1, 0x4a484a); barRect(0, h - 1, tbar.width, 1, 0x000000); }
+  else barRect(0, h - 1, tbar.width, 1, barLook === 'cyan' ? 0x006d6f : 0x3a362f);
+  // The groups' frames first: they show between the cells as their dividers
+  for (let i = 0; i < rects.length;) { let e = i + 1; while (e < rects.length && !rects[e].starts) e++; const a = rects[i], b = rects[e - 1]; drawGroupBack({ x: a.x, y: a.y, w: b.x + b.w - a.x, h: a.h }); i = e; }
+  for (const r of rects) {
+    if (r.caption) { drawCaption(r); continue; }
+    drawButton(r);
+    if (r.act && !r.grey) barHits.push([r.x, r.w, r.act]);
+    if (r.label === '|SHOW' || r.label.startsWith('|SHOW:')) showBtnX = r.x;
+    if (r.label.endsWith(' ~')) levelBtnX = r.x;
+    if (r.label === '|/') searchBtnX = r.x;
+    if (r.label === '+') debugBtnX = r.x;
+  }
 }
 function closePanels() { showOpen = helpOpen = levelOpen = debugOpen = false; menu = null; }
 function refreshAll() { refreshView(); buildIndex(); if (query) rebuild(true); }
-function stepLevel(d) { const l = Math.max(0, Math.min(DATA.index.levels.length - 1, lvl + d)); if (l === lvl) return; setLevel(l); follow = l === DATA.index.partyLevel; }
+function stepLevel(d) { let l = lvl + d; while (l >= 0 && l < DATA.index.levels.length && !hasLevel(l)) l += d; if (l < 0 || l >= DATA.index.levels.length) return; setLevel(l); follow = l === DATA.index.partyLevel; }
 
 // ---------------- SHOW ----------------
 function drawShowPanel() {
@@ -696,25 +815,25 @@ function drawShowPanel() {
 function showClick(mx, my) { const P = panelRects.show; if (!P) return false; if (!inRect(mx, my, P)) { showOpen = false; return true; } for (const [x, y, w, h, r] of P[4]) if (inRect(mx, my, [x, y, w, h])) { if (r === 'SHOW ALL') Object.keys(SHOW).forEach(k => SHOW[k] = true); else if (r === 'HIDE ALL') Object.keys(SHOW).forEach(k => SHOW[k] = false); else SHOW[r] = !SHOW[r]; } return true; }
 
 // ---------------- controls help ----------------
-const HELP = [['LEFT-DRAG', 'PAN THE MAP'], ['WHEEL', 'ZOOM TOWARDS THE POINTER'], ['MIDDLE-CLICK', 'CENTRE ON THE PARTY AND FOLLOW'], ['SIDE BUTTONS', 'LEVEL DOWN / UP UNDER THE POINTER'], ['PAGE DOWN / UP', 'LEVEL DOWN / UP (CTRL IN THE GAME)'], ['/ OR CTRL+F', 'SEARCH ALL LEVELS'], ['HOVER', 'WHAT IS THERE, AND ITS LINKS'], ['SHIFT', 'THE WHOLE PRESS CHAIN (SPOILERS ALL)'], ['SHIFT+WHEEL', 'SCROLL A LONG TOOLTIP'], ['RIGHT-CLICK', 'YOUR OWN MARKS AND LINKS'], ['', ''], ['', 'CLICK ANYWHERE TO CLOSE']];
+const HELP = [['LEFT-DRAG', 'PAN THE MAP'], ['WHEEL', 'ZOOM TOWARDS THE POINTER'], ['MIDDLE-CLICK', 'CENTRE ON THE PARTY AND FOLLOW'], ['SIDE BUTTONS', 'LEVEL DOWN / UP UNDER THE POINTER'], ['PAGE DOWN / UP', 'LEVEL DOWN / UP (CTRL IN THE GAME)'], ['/ OR CTRL+F', 'SEARCH ALL LEVELS'], ['HOVER', 'WHAT IS THERE, AND ITS LINKS'], ['SHIFT', 'THE WHOLE PRESS CHAIN (SPOILERS ALL)'], ['SHIFT+WHEEL', 'SCROLL A LONG TOOLTIP'], ['CTRL+WHEEL', 'SIZE OF THE TOOLTIP'], ['RIGHT-CLICK', 'YOUR OWN MARKS AND LINKS'], ['', ''], ['', 'CLICK ANYWHERE TO CLOSE']];
 function drawHelp() { if (!helpOpen) return; const p = 2, c1 = textW('PAGE DOWN / UP', p) + 20, w = c1 + textW('LEVEL DOWN / UP UNDER THE POINTER', p) + 20, h = HELP.length * 16 + 30; const x = Math.round((cv.width - w) / 2), y = 40; plate(x, y, w, h); text(g, x + 10, y + 8, 'CONTROLS', '#ffcc33', p); HELP.forEach((r, i) => { text(g, x + 10, y + 26 + i * 16, r[0], '#ffcc33', p); text(g, x + 10 + c1, y + 26 + i * 16, r[1], '#fff', p); }); }
 
 // ---------------- level list ----------------
 let levelScroll = 0, typed = '', levelRows = [], levelHover = -1; const ROWS_SHOWN = 12;
 function drawLevels() {
-  levelRows = []; panelRects.levels = null; if (!levelOpen) return; const n = DATA.index.levels.length, p = 2, rh = 16, w = textW('L00  NOT VISITED  00 HITS', p) + 30, rows = Math.min(ROWS_SHOWN, n), h = rows * rh + 10 + (typed ? 18 : 0);
+  levelRows = []; panelRects.levels = null; if (!levelOpen) return; const n = DATA.index.levels.length, p = 2, rh = 16, w = textW('L00  NOT EXPORTED  00 HITS', p) + 30, rows = Math.min(ROWS_SHOWN, n), h = rows * rh + 10 + (typed ? 18 : 0);
   const x = Math.max(4, levelBtnX - 4), y = 2; plate(x, y, w, h); let yy = y + 5;
   if (typed) { text(g, x + 8, yy + 2, 'GO TO L' + typed, '#ffcc33', p); yy += 18; }
   for (let i = 0; i < rows; i++) { const l = levelScroll + i; if (l >= n) break; const sel = l === lvl, vis = DATA.index.levels[l].visited;
     if (sel) rect(x + 3, yy, w - 14, rh, '#ffcc33'); else if (l === levelHover) rect(x + 3, yy, w - 14, rh, '#2c2822');
-    text(g, x + 8, yy + 3, 'L' + l, sel ? '#1a160f' : vis ? '#fff' : '#6f685c', p); if (l === DATA.index.partyLevel) partyArrow(x + 8 + textW('L00', p) + 10, yy + rh / 2, 5, 1, '#ff4d4d');
-    let tx = x + 8 + textW('L00', p) + 22; if (!vis) { text(g, tx, yy + 3, 'NOT VISITED', sel ? '#1a160f' : '#6f685c', p); tx += textW('NOT VISITED', p) + 10; }
+    const gone = !hasLevel(l); text(g, x + 8, yy + 3, 'L' + l, sel ? '#1a160f' : vis && !gone ? '#fff' : '#6f685c', p); if (l === DATA.index.partyLevel) partyArrow(x + 8 + textW('L00', p) + 10, yy + rh / 2, 5, 1, '#ff4d4d');
+    let tx = x + 8 + textW('L00', p) + 22; if (gone) { text(g, tx, yy + 3, 'NOT EXPORTED', '#6f685c', p); tx += textW('NOT EXPORTED', p) + 10; } else if (!vis) { text(g, tx, yy + 3, 'NOT VISITED', sel ? '#1a160f' : '#6f685c', p); tx += textW('NOT VISITED', p) + 10; }
     if (searchOpen && query && hitsByLevel[l]) text(g, tx, yy + 3, hitsByLevel[l] + (hitsByLevel[l] > 1 ? ' HITS' : ' HIT'), sel ? '#1a160f' : '#ffcc33', p);
-    levelRows.push([x, yy, w - 12, rh, l]); yy += rh; }
+    if (!gone) levelRows.push([x, yy, w - 12, rh, l]); yy += rh; }
   if (n > ROWS_SHOWN) { const th = Math.max(16, (ROWS_SHOWN / n) * (h - 10)), ty = y + 5 + (levelScroll / (n - ROWS_SHOWN)) * (h - 10 - th); rect(x + w - 8, y + 5, 4, h - 10, '#2c2822'); rect(x + w - 8, ty, 4, th, '#8f8676'); }
   panelRects.levels = [x, y, w, h];
 }
-function pickLevel(l) { setLevel(l); follow = l === DATA.index.partyLevel; levelOpen = false; typed = ''; }
+function pickLevel(l) { if (!hasLevel(l)) return; setLevel(l); follow = l === DATA.index.partyLevel; levelOpen = false; typed = ''; }
 
 // ---------------- search: over the draw lists of every level, so it keeps the fog ----------------
 let query = '', sRows = [], sSel = -1, sTop = 0, folded = new Set(), hitsByLevel = {}, sRects = [], sHover = -1, INDEX = [];
@@ -723,25 +842,43 @@ function buildIndex() {
   INDEX = []; if (!DATA) return;
   DATA.index.levels.forEach((L, l) => {
     const v = viewOf(l); if (!v) return;
-    const add = (x, y, name, tag, icon, kind) => INDEX.push({ l, x, y, gx: x + L.offsetX, gy: y + L.offsetY, name: (name || '').toUpperCase(), tag, icon, kind });
+    // food: the item is of the food kind (index 6 of KIND_SHOW), which the word FOOD finds as in the game
+    const add = (x, y, name, tag, icon, kind, food) => INDEX.push({ l, x, y, gx: x + L.offsetX, gy: y + L.offsetY, name: (name || '').toUpperCase(), tag, icon, kind, food: !!food });
+    const FOOD_KIND = KIND_SHOW.indexOf('FOOD');
     const monsterAt = {}; v.monsters.forEach(m => monsterAt[m.x + ',' + m.y] = m);
     for (const c of v.cells) {
-      if (c.items) { const by = {}; c.items.forEach(i => { if (!i[2]) return; (by[i[2]] = by[i[2]] || { n: 0, icon: i[1] || i[0] }).n++; }); for (const n in by) add(c.x, c.y, n, by[n].n > 1 ? 'X' + by[n].n : '', by[n].icon, 'item'); }
-      (c.alc || []).forEach(a => { if (a[1][2]) add(c.x, c.y, a[1][2], 'ALCOVE', a[1][1] || a[1][0], 'item'); });
-      (c.locks || []).forEach(k => { if (k[1] && k[2][2]) add(c.x, c.y, k[2][2], 'NEEDS', k[2][1] || k[2][0], 'needs'); });
+      // A stack of more than one says how many, as the game's tags: X2 ALCOVE, X3 IN CHEST
+      const counted = (n, tag) => n > 1 ? 'X' + n + ' ' + tag : tag;
+      const h = v.hover[c.x + ',' + c.y], m = monsterAt[c.x + ',' + c.y];
+      if (h && h.icons) {
+        // As AutoMapScene_SearchItems: the tooltip's stacks (the floor shows at most three pictures),
+        // and the stacks of a cell that read the same are one row, their counts added: three
+        // opened chests are CHEST X3. What a chest holds or a monster carries follows its stack.
+        const rows = {};
+        h.icons.forEach(([it, n, nested, predicted, required, carried, side]) => {
+          if (!it[2] || predicted || required) return;
+          const tag = nested ? (m ? 'CARRIED BY ' + nice(m.name) : side >= 0 ? 'ALCOVE' : 'IN CHEST') : side >= 0 ? 'ALCOVE' : '';
+          const key = it[2] + '|' + tag; (rows[key] = rows[key] || { n: 0, it, tag }).n += n;
+        });
+        for (const key in rows) { const { n, it, tag } = rows[key]; add(c.x, c.y, it[2], tag ? counted(n, tag) : n > 1 ? 'X' + n : '', it[1] || it[0], 'item', it[3] === FOOD_KIND); }
+      } else {
+        if (c.items) { const by = {}; c.items.forEach(i => { if (!i[2]) return; (by[i[2]] = by[i[2]] || { n: 0, icon: i[1] || i[0], food: i[3] === FOOD_KIND }).n++; }); for (const n in by) add(c.x, c.y, n, by[n].n > 1 ? 'X' + by[n].n : '', by[n].icon, 'item', by[n].food); }
+        const inAlcove = {}; (c.alc || []).forEach(a => { if (!a[1][2]) return; const key = a[0] + '|' + a[1][2]; (inAlcove[key] = inAlcove[key] || { n: 0, it: a[1] }).n++; });
+        for (const key in inAlcove) { const { n, it } = inAlcove[key]; add(c.x, c.y, it[2], counted(n, 'ALCOVE'), it[1] || it[0], 'item', it[3] === FOOD_KIND); }
+      }
+      (c.locks || []).forEach(k => { if (k[1] && k[2][2]) add(c.x, c.y, k[2][2], 'NEEDS', k[2][1] || k[2][0], 'needs', k[2][3] === FOOD_KIND); });
       (c.sides || []).forEach((s, i) => { if (s && s[7] === 1) add(c.x, c.y, 'FOUNTAIN', 'NESW'[i], s[0], 'feature'); if (s && s[7] === 2) add(c.x, c.y, 'ALTAR OF VI', 'NESW'[i], s[0], 'feature'); });
       if (c.k === 3 && c.st) { const up = !!c.st[0]; add(c.x, c.y, up ? 'STAIRS UP' : 'STAIRS DOWN', 'TO L' + (l + (up ? -1 : 1)), null, up ? 'stairs-up' : 'stairs-down'); }
-      const h = v.hover[c.x + ',' + c.y];
-      if (h && h.icons) h.icons.forEach(ic => { if (!ic[2] || ic[3] || !ic[0][2]) return; const m = monsterAt[c.x + ',' + c.y]; add(c.x, c.y, ic[0][2], m ? 'CARRIED BY ' + nice(m.name) : 'IN CHEST', ic[0][1] || ic[0][0], 'item'); });
     }
     const seen = new Set();
     v.acts.forEach(a => { const k = a[0] + ',' + a[1] + ',' + a[2] + ',' + a[3]; if (seen.has(k)) return; seen.add(k);
-      if ((a[3] === 4 || a[3] === 6) && a[2] === 0 && a[5][2]) add(a[0], a[1], a[5][2], a[3] === 6 ? 'PAD, CARRIED' : 'PAD NEEDS', a[5][1] || a[5][0], 'needs');
+      if ((a[3] === 4 || a[3] === 6) && a[2] === 0 && a[5][2]) add(a[0], a[1], a[5][2], a[3] === 6 ? 'PAD, CARRIED' : 'PAD NEEDS', a[5][1] || a[5][0], 'needs', a[5][3] === FOOD_KIND);
       if (a[2] === 2 && a[7]) add(a[0], a[1], nice(a[7]), 'GENERATOR', a[6], 'gen'); });
     v.monsters.forEach(m => add(m.x, m.y, nice(m.name) || 'MONSTER', m.m.length > 1 ? 'X' + m.m.length : '', m.m[0] && m.m[0][0], 'monster'));
   });
 }
-function matches(h, q) { if (!q) return false; if (h.name.includes(q)) return true; if (('GENERATOR'.startsWith(q) || q === 'GEN') && h.kind === 'gen') return true; if ('MONSTER'.startsWith(q) && q.length >= 3 && h.kind === 'monster') return true; return false; }
+// As AutoMapScene_SearchHitRank: the name, the word FOOD for anything edible, GEN, MON
+function matches(h, q) { if (!q) return false; if (h.name.includes(q)) return true; if (h.food && 'FOOD'.includes(q)) return true; if (('GENERATOR'.startsWith(q) || q === 'GEN') && h.kind === 'gen') return true; if ('MONSTER'.startsWith(q) && q.length >= 3 && h.kind === 'monster') return true; return false; }
 function rebuild(keepSel) {
   const q = query.trim().toUpperCase(); const old = sRows[sSel] && sRows[sSel].hit; const hs = INDEX.filter(h => matches(h, q));
   hitsByLevel = {}; hs.forEach(h => hitsByLevel[h.l] = (hitsByLevel[h.l] || 0) + 1);
@@ -776,7 +913,8 @@ function drawSearchPanel() {
 function drawSearchMarks() {
   if (!searchOpen || !query) return; const sel = sRows[sSel] && sRows[sSel].hit; const mine = sRows.filter(r => r.hit && r.hit.l === lvl).map(r => r.hit);
   if (sel && mine.length) spotlight(mine.map(h => h.x + ',' + h.y));
-  for (const h of mine) { const x = px(h.x), y = py(h.y), t = Math.max(2, Math.round(cs / 14)); frame(x + 1, y + 1, cs - 2, cs - 2, '#0b0a08', t + 2); frame(x + 2, y + 2, cs - 4, cs - 4, h === sel ? '#fff6dc' : '#ffcc33', t); }
+  // Several hits can share a cell; the selected one is drawn last so its light frame stays on top
+  for (const h of [...mine.filter(h => h !== sel), ...mine.filter(h => h === sel)]) { const x = px(h.x), y = py(h.y), t = Math.max(2, Math.round(cs / 14)); frame(x + 1, y + 1, cs - 2, cs - 2, '#0b0a08', t + 2); frame(x + 2, y + 2, cs - 4, cs - 4, h === sel ? '#fff6dc' : '#ffcc33', t); }
 }
 function searchClick(mx, my) { const P = panelRects.search; if (!P || !inRect(mx, my, P)) return false; for (const [rx, ry, rw, rh, i] of sRects) if (inRect(mx, my, [rx, ry, rw, rh])) { const r = sRows[i]; if (r.head) { folded.has(r.l) ? folded.delete(r.l) : folded.add(r.l); rebuild(true); keepVisible(); } else goTo(i); } return true; }
 
@@ -871,7 +1009,7 @@ let drag = null;
 cv.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('mousedown', e => {
   const mx = e.offsetX, my = e.offsetY;
-  if (e.button === 1) { e.preventDefault(); follow = true; setLevel(DATA.index.partyLevel); centreOnParty(); draw(); return; }
+  if (e.button === 1) { e.preventDefault(); followParty(); draw(); return; }
   if (e.button === 3 || e.button === 4) { e.preventDefault(); stepLevel(e.button === 3 ? 1 : -1); draw(); return; }
   if (e.button === 2) { if (linkMode) { linkMode = null; draw(); return; } const c = cellAt(mx, my); closePanels(); if (c && (debugOn || V.cells.some(o => o.x === c.x && o.y === c.y))) openMenu(mx, my, c.x, c.y); draw(); return; }
   if (e.button !== 0) return;
@@ -901,34 +1039,38 @@ cv.addEventListener('wheel', e => {
   e.preventDefault(); const mx = e.offsetX, my = e.offsetY, d = e.deltaY > 0 ? 1 : -1;
   if (levelOpen && inRect(mx, my, panelRects.levels)) { levelScroll = Math.max(0, Math.min(DATA.index.levels.length - ROWS_SHOWN, levelScroll + d * 3)); draw(); return; }
   if (searchOpen && inRect(mx, my, panelRects.search)) { sTop = Math.max(0, Math.min(Math.max(0, sRows.length - S_ROWS), sTop + d * 3)); draw(); return; }
+  if (e.ctrlKey) { tipScale = Math.max(1, Math.min(TIP_SCALE_MOST, tipScale - d)); try { localStorage.setItem('csb-map-tip-scale', String(tipScale)); } catch (err) { } draw(); return; }
   if (e.shiftKey) { tipScroll = Math.max(0, tipScroll + d); draw(); return; }
   const old = cs; let next = Math.round(cs * (d < 0 ? 1.15 : 1 / 1.15)); if (next === cs) next += d < 0 ? 1 : -1; cs = Math.min(maxCs(), next); if (cs <= minCs()) { fitLevel(); draw(); return; }
   const ax = mx - RUL, ay = my - RUL; panX = Math.round(ax - (ax - panX) * cs / old); panY = Math.round(ay - (ay - panY) * cs / old); draw();
 }, { passive: false });
 tbar.addEventListener('mousedown', e => { for (const [x, w, act] of barHits) if (e.offsetX >= x && e.offsetX < x + w && e.offsetY >= 4 && e.offsetY < 22) { act(); draw(); return; } });
 window.addEventListener('keydown', e => {
+  // The page has no text field: Backspace is never the browser's Back (Firefox can be set to that)
+  if (e.key === 'Backspace') e.preventDefault();
   if (e.key === 'Shift') { shiftHeld = true; draw(); }
-  if (levelOpen) { if (e.key >= '0' && e.key <= '9') { typed = (typed + e.key).slice(-2); const l = Math.min(DATA.index.levels.length - 1, +typed); levelScroll = Math.max(0, Math.min(DATA.index.levels.length - ROWS_SHOWN, l - 4)); levelHover = l; } else if (e.key === 'Enter' && typed) pickLevel(Math.min(DATA.index.levels.length - 1, +typed)); else if (e.key === 'Escape') { levelOpen = false; typed = ''; } else if (e.key === 'Backspace') typed = typed.slice(0, -1); draw(); return; }
+  if (levelOpen) { if (e.key >= '0' && e.key <= '9') { typed = (typed + e.key).slice(-2); const l = Math.min(DATA.index.levels.length - 1, +typed); levelScroll = Math.max(0, Math.min(DATA.index.levels.length - ROWS_SHOWN, l - 4)); levelHover = l; } else if (e.key === 'Enter' && typed) pickLevel(Math.min(DATA.index.levels.length - 1, +typed)); else if (e.key === 'Escape') { levelOpen = false; typed = ''; } else if (e.key === 'Backspace') { e.preventDefault(); typed = typed.slice(0, -1); } draw(); return; }
   if (e.key === 'Escape') { if (linkMode) linkMode = null; else if (menu) menu = null; else if (searchOpen) closeSearch(); else closePanels(); draw(); return; }
   if (e.key === 'PageDown' || e.key === 'PageUp') { e.preventDefault(); stepLevel(e.key === 'PageDown' ? 1 : -1); draw(); return; }
   if (!searchOpen) { if (e.key === '/' || (e.ctrlKey && e.key === 'f')) { e.preventDefault(); openSearch(); draw(); } return; }
   if (e.key === 'ArrowDown') { e.preventDefault(); step(1); } else if (e.key === 'ArrowUp') { e.preventDefault(); step(-1); } else if (e.key === 'Enter') goTo(sSel);
-  else if (e.key === 'Backspace') { query = query.slice(0, -1); rebuild(false); } else if (e.key.length === 1 && !e.ctrlKey) { e.preventDefault(); query += e.key.toUpperCase(); rebuild(false); }
+  else if (e.key === 'Backspace') { e.preventDefault(); query = query.slice(0, -1); rebuild(false); } else if (e.key.length === 1 && !e.ctrlKey) { e.preventDefault(); query += e.key.toUpperCase(); rebuild(false); }
   draw();
 });
 window.addEventListener('keyup', e => { if (e.key === 'Shift') { shiftHeld = false; draw(); } });
 window.addEventListener('resize', () => { resize(); if (cs < minCs()) fitLevel(); draw(); });
 document.querySelectorAll('#g-save button').forEach(b => b.onclick = async () => { document.querySelectorAll('#g-save button').forEach(o => o.classList.toggle('on', o === b)); await loadSave(+b.dataset.v); draw(); });
-document.getElementById('debug').onchange = e => { debugOn = e.target.checked; if (!debugOn) debugOpen = false; draw(); };
+const debugBox = document.getElementById('debug');
+if (debugBox) debugBox.onchange = e => { debugOn = e.target.checked; if (!debugOn) debugOpen = false; draw(); };
 setInterval(() => { if (searchOpen) draw(); }, 500);
 
 (async function init() {
   resize();
   const q = new URLSearchParams(location.search);
   const sv = +(q.get('save') || 0); document.querySelectorAll('#g-save button').forEach(b => b.classList.toggle('on', +b.dataset.v === sv));
-  if (q.get('v')) vision = +q.get('v'); if (q.get('s')) spoil = +q.get('s'); if (q.get('debug')) { debugOn = q.get('debug') !== '0'; document.getElementById('debug').checked = debugOn; }
+  if (q.get('v')) vision = +q.get('v'); if (q.get('s')) spoil = +q.get('s'); if (q.get('bar') && BAR_LOOKS.includes(q.get('bar'))) barLook = q.get('bar'); if (q.get('debug') && debugBox) { debugOn = q.get('debug') !== '0'; debugBox.checked = debugOn; }
   await loadSave(sv);
-  if (q.get('L')) { setLevel(+q.get('L')); follow = false; fitLevel(); }
+  if (q.get('L') && hasLevel(+q.get('L'))) { setLevel(+q.get('L')); follow = false; fitLevel(); }
   if (q.get('cs')) { cs = Math.round(Math.min(maxCs(), Math.max(minCs(), +q.get('cs')))); if (cs <= minCs()) fitLevel(); }
   if (q.get('hh')) { const [a, b] = q.get('hh').split(',').map(Number); hover = { x: a, y: b }; centreOn(a, b); }
   if (q.get('find')) { openSearch(); query = q.get('find').toUpperCase(); rebuild(false); }

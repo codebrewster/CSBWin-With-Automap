@@ -6348,8 +6348,14 @@ static void RelayBlockCapTheTargets(void)
     if (lines[i] != "FED BY:" && lines[i].compare(0, 8, "COUNTER ") != 0) body++;
   }
   CHECK(body == AUTOMAP_PRESS_MAX_LINES);
-  CHECK(!lines.empty() && lines.back() == "+8 MORE");
+  CHECK(!lines.empty() && lines.back() == "+8 MORE (SHIFT)");
   CHECK(lines[0] == "COUNTER A" && lines[1] == "  COUNT 4");
+  // Shift lifts the cap: every line, and no hint
+  std::vector<std::string> full = RelayTexts(drawList, 2, 3, true);
+  CHECK(!HasText(full, "MORE"));
+  // The 17 lines and the three headers, the two below the cap among them
+  CHECK(full.size() == 17 + 3);
+  CHECK(HasText(full, "COUNTER B") && HasText(full, "FED BY:"));
 }
 
 static void PressLinesFullChainIsUncapped(void)

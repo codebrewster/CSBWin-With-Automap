@@ -45,7 +45,7 @@ ifdef WIN # windows version
 	options =  -O2 -D _LINUX -D RGB655 -D SDL20 -c -DMINGW
   gincludes = -Isdl_sound -Iimgui -Ifnmatch \
                $(shell $(target)-pkg-config --cflags sdl2)
-  libs =  $(shell $(target)-pkg-config --libs sdl2)
+  libs =  $(shell $(target)-pkg-config --libs sdl2) -lcomdlg32 -lole32
   comp = $(target)-g++ -std=c++11 $(options) $(gincludes)
   compc = $(target)-gcc $(options) $(gincludes)
   CXX = $(target)-g++
@@ -77,10 +77,10 @@ OBJS=	DSA.o       data.o         Code11f52.o  Graphics.o  Magic.o          \
 
 # The automap. The units in AUTOMAP_TESTED need neither the engine nor SDL; "make test" runs
 # their tests.
-AUTOMAP_TESTED = AutoMapExplored.o AutoMapKnowledge.o AutoMapSight.o AutoMapFile.o AutoMapScene.o AutoMapPress.o AutoMapTooltip.o AutoMapLinkWatch.o AutoMapDrawTally.o AutoMapItemMemory.o AutoMapCellMemory.o AutoMapPlayerNotes.o AutoMapMonsterDamage.o AutoMapVisibilityCases.o AutoMapLayout.o
-AUTOMAP_TESTS = automap_tests/TestMain.o automap_tests/ExploredTest.o automap_tests/KnowledgeTest.o automap_tests/SightTest.o automap_tests/FileTest.o automap_tests/SceneTest.o automap_tests/SpoilerTest.o automap_tests/LinkWatchTest.o automap_tests/DrawTallyTest.o automap_tests/ItemMemoryTest.o automap_tests/CellMemoryTest.o automap_tests/PlayerNotesTest.o automap_tests/MonsterDamageTest.o automap_tests/VisionTest.o automap_tests/VisibilityCasesTest.o automap_tests/LayoutTest.o
+AUTOMAP_TESTED = AutoMapExplored.o AutoMapKnowledge.o AutoMapSight.o AutoMapFile.o AutoMapScene.o AutoMapPress.o AutoMapTooltip.o AutoMapLinkWatch.o AutoMapDrawTally.o AutoMapItemMemory.o AutoMapCellMemory.o AutoMapPlayerNotes.o AutoMapMonsterDamage.o AutoMapVisibilityCases.o AutoMapLayout.o AutoMapZip.o AutoMapHtml.o AutoMapExportChoice.o AutoMapTickRate.o miniz/miniz.o
+AUTOMAP_TESTS = automap_tests/TestMain.o automap_tests/ExploredTest.o automap_tests/KnowledgeTest.o automap_tests/SightTest.o automap_tests/FileTest.o automap_tests/SceneTest.o automap_tests/SpoilerTest.o automap_tests/LinkWatchTest.o automap_tests/DrawTallyTest.o automap_tests/ItemMemoryTest.o automap_tests/CellMemoryTest.o automap_tests/PlayerNotesTest.o automap_tests/MonsterDamageTest.o automap_tests/VisionTest.o automap_tests/VisibilityCasesTest.o automap_tests/LayoutTest.o automap_tests/ZipTest.o automap_tests/HtmlTest.o automap_tests/ExportChoiceTest.o automap_tests/TickRateTest.o
 OBJS += $(AUTOMAP_TESTED)
-OBJS += AutoMapWindow.o AutoMapHooks.o AutoMapRecorder.o AutoMapLevelReader.o AutoMapSprites.o AutoMapMeasure.o AutoMapExport.o AutoMapPaint.o AutoMapBar.o
+OBJS += AutoMapWindow.o AutoMapHooks.o AutoMapRecorder.o AutoMapLevelReader.o AutoMapSprites.o AutoMapMeasure.o AutoMapExport.o AutoMapPaint.o AutoMapBar.o AutoMapExportDialog.o tinyfiledialogs/tinyfiledialogs.o
 
 # The missiles shot with a launcher. This unit needs neither the engine nor SDL either, so
 # "make test" runs its tests together with those of the automap.
@@ -103,6 +103,8 @@ OBJDIRS = $(OBJDIR) \
 		  $(OBJDIR)/sdl_sound \
 		  $(OBJDIR)/imgui \
 		  $(OBJDIR)/fnmatch \
+		  $(OBJDIR)/miniz \
+		  $(OBJDIR)/tinyfiledialogs \
 		  $(OBJDIR)/automap_tests
 
 OBJS := $(OBJS:%=$(OBJDIR)/%)
