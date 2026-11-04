@@ -145,7 +145,7 @@ void HeroStats_OnMissileLaunched(int missileIndex);
 void HeroStats_OnMissileFreed(int missileIndex);
 // PROJECTILE DAMAGE on a monster; the first damage of a missile is its hit. A missile with no
 // known origin (launchers, scripts) is a trap's.
-void HeroStats_OnMissileDamage(int missileIndex, int damageShown);
+void HeroStats_OnMissileDamage(int missileIndex, int damageShown, int monsterType);
 // Around CreateCloud for a missile's explosion: the explosion's SPELL DAMAGE is the missile's,
 // and the cloud CreateCloud makes first inherits its blow
 void HeroStats_BeginCloud(int missileIndex);
@@ -153,11 +153,11 @@ void HeroStats_OnCloudMade(int cloudIndex);                 // every cloud made 
 void HeroStats_EndCloud(void);
 // SPELL DAMAGE: one number for the group, credited once per member. Outside Begin/EndCloud the
 // cloud has no known origin.
-void HeroStats_OnSpellDamage(int damageShown, int memberCount);
+void HeroStats_OnSpellDamage(int damageShown, int memberCount, int monsterType);
 // A cloud's tick hurts a group, by the cloud's origin. Until HeroStats_EndMonsterBlow the hit
 // points each member loses (HeroStats_OnMonsterDamaged) are the cloud's damage: the engine draws
 // each member's share at random, and the cloud's own number is never shown.
-void HeroStats_OnCloudDamage(int cloudIndex);
+void HeroStats_OnCloudDamage(int cloudIndex, int monsterType);
 // DamageMonster: a member lost hit points (all it had left when it died). Only a cloud's tick
 // counts them; every other blow is credited with the damage the game shows.
 void HeroStats_OnMonsterDamaged(int hitPointsLost);

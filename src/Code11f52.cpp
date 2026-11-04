@@ -1553,7 +1553,7 @@ void CreateCloud(RN P1,
   snprintf(levelText,25,"SPELL DAMAGE %d",damage);
   QuePrintLines(11, levelText, false); // 11 is yellow
   AutoMap_OnGroupDamageShown(objMonster.ConvertToInteger(), damage);
-  HeroStats_OnSpellDamage(damage, pDB4_4->numMonM1() + 1);
+  HeroStats_OnSpellDamage(damage, pDB4_4->numMonM1() + 1, mtD0);
   d.MonsterDamageResult
      = (i16)DamageMonsterGroup(pDB4_4, objX, objY, damage, 1, false, pmmr);
   HeroStats_EndMonsterBlow();
@@ -2075,7 +2075,7 @@ i16 ProcessMissileEncounter(
 	QuePrintLines(15, levelText, false);
         AutoMap_OnMonsterDamageShown(FindFirstMonster(objX, objY).ConvertToInteger(),
                                      monsterOrdinal-1, D5W+D1W);
-        HeroStats_OnMissileDamage(db.GetDBIndex(pDBmissile, dbMISSILE), D5W+D1W);
+        HeroStats_OnMissileDamage(db.GetDBIndex(pDBmissile, dbMISSILE), D5W+D1W, mt_60);
 
         monsterDamageResult = DamageMonster(
                                             DBmonA2,

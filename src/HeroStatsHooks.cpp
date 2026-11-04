@@ -255,6 +255,18 @@ void HeroStats_OnPartyOnLevel(void)
   MeetNewChampions();
   store.CountTick(d.partyLevel, d.PartySleeping != 0);
   store.MarkTileWalked(d.partyLevel, d.partyX, d.partyY);
+  store.Records().CountSleepTick(d.partyLevel, (uint32_t)d.Time, d.PartySleeping != 0);
+  for (int slot = 0; slot < d.NumCharacter && slot < 4; slot++)
+  {
+    if (d.hero[slot].HP() <= 0) continue;
+    HeroRecordEntry load = HeroRecordEntry_Empty();
+    load.value = d.hero[slot].load;
+    load.who = d.hero[slot].fingerPrint;
+    load.level = d.partyLevel;
+    load.time = (uint32_t)d.Time;
+    load.extra = MaxLoad(&d.hero[slot]);
+    store.Records().Offer(HeroRecHeaviestLoad, load);
+  }
 }
 
 // The level everything is counted at; being there visits it
@@ -435,6 +447,7 @@ void HeroStats_OnPartyStepped(void)
 {
   if (d.partyLevel == LEVEL_OF_THE_PRISON_SCREEN) return;
   store.CountStep(PartyLevel());
+  store.Records().CountMove();
 }
 
 void HeroStats_RefreshMapCounts(bool force)
@@ -462,6 +475,7 @@ void HeroStats_OnPartyTurned(void)
 {
   if (d.partyLevel == LEVEL_OF_THE_PRISON_SCREEN) return;
   store.CountTurn(PartyLevel());
+  store.Records().CountMove();
 }
 
 void HeroStats_OnPartyTeleported(int level)
@@ -469,6 +483,7 @@ void HeroStats_OnPartyTeleported(int level)
   if (d.partyLevel == LEVEL_OF_THE_PRISON_SCREEN) return;
   store.MarkLevelVisited(level);
   store.CountTeleport(level);
+  store.Records().CountTeleport(level, (uint32_t)d.Time);
 }
 
 void HeroStats_OnPartyWentDownPit(int level)
@@ -477,7 +492,11 @@ void HeroStats_OnPartyWentDownPit(int level)
   store.MarkLevelVisited(level);
   // The rope's Climb Down sets it for the first pit only; the pits below are falls
   if (d.SupressPitDamage != 0) store.CountPitClimb(level);
-  else store.CountPitFall(level);
+  else
+  {
+    store.CountPitFall(level);
+    store.Records().CountPitFall(level, (uint32_t)d.Time);
+  }
 }
 
 void HeroStats_OnPartyBumped(void)
@@ -504,6 +523,72 @@ static void SetLastBlow(const HeroStatsBlow &blow)
 {
   lastBlow = blow;
   lastBlowSet = true;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Records. A damage call (a blow, a missile, an explosion, a cloud's tick) runs until
+// HeroStats_EndMonsterBlow: its kills are "at once", a cloud tick's hit points add up.
+
+static int killsInBlow = 0;
+static int cloudTickTotal = 0, cloudTickType = -1;
+
+// How a champion's (or a monster's) blow was made, as a record keeps it
+static HeroXpSource HowOf(const HeroStatsBlow &blow)
+{
+  HeroXpSource how = HeroXpSource_Other();
+  if (blow.by == HeroBlowByMonster)
+  {
+    how.kind = blow.spell != HERO_STATS_NO_SPELL ? HeroXpSpell : HeroXpMonster;
+    how.spell = blow.spell;
+    how.monsterType = blow.monsterType;
+  }
+  else if (blow.weapon == HERO_STATS_NO_WEAPON)
+  {
+    how.kind = HeroXpSpell;
+    how.spell = blow.spell;
+  }
+  else
+  {
+    how.kind = HeroXpAttack;
+    how.weapon = blow.weapon;
+    how.option = blow.option;
+  }
+  return how;
+}
+
+static void OfferRecord(HeroRecordKind kind, HeroStatsChampion who, int value, const HeroXpSource &how, int monsterType,
+                        int count)
+{
+  HeroRecordEntry entry = HeroRecordEntry_Empty();
+  entry.value = value;
+  entry.who = who;
+  entry.level = PartyLevel();
+  entry.time = (uint32_t)d.Time;
+  entry.how = how;
+  entry.monsterType = monsterType;
+  entry.count = count;
+  store.Records().Offer(kind, entry);
+}
+
+// A champion's damage to monsters, as the game shows it
+static void OfferDealt(const HeroStatsBlow &blow, int damageShown, int memberCount, int monsterType)
+{
+  if (blow.by != HeroBlowByChampion || damageShown <= 0) return;
+  if (blow.kind == HeroDamageMagic)
+  {
+    OfferRecord(HeroRecBiggestSpellHit, blow.champion, damageShown, HowOf(blow), monsterType, 1);
+    OfferRecord(HeroRecBiggestSpellTotal, blow.champion, damageShown * memberCount, HowOf(blow), monsterType, memberCount);
+  }
+  else
+    OfferRecord(HeroRecBiggestHit, blow.champion, damageShown, HowOf(blow), monsterType, 1);
+}
+
+static int MonsterTypeOfGroup(int monsterGroup)
+{
+  RN group;
+  group.ConstructFromInteger(monsterGroup);
+  if (group == RNnul || group == RNeof || group.dbType() != dbMONSTER) return -1;
+  return (int)GetRecordAddressDB4(group)->monsterType();
 }
 
 // Launchers and scripts launch missiles without saying whose they are: those are traps
@@ -584,8 +669,10 @@ void HeroStats_OnMeleeAttack(int slot, int attackType, int monsterGroup, int dam
   {
     store.CountAttackHit(level, blow);
     store.CreditMonsterDamage(level, blow, damageShown);
+    OfferDealt(blow, damageShown, 1, MonsterTypeOfGroup(monsterGroup));
   }
   SetLastBlow(blow);
+  killsInBlow = 0;
 }
 
 // Melee blows count their tries in HeroStats_OnMeleeAttack, missiles when they are launched
@@ -653,7 +740,7 @@ void HeroStats_OnMissileFreed(int missileIndex)
   missilesThatHit.erase(missileIndex);
 }
 
-void HeroStats_OnMissileDamage(int missileIndex, int damageShown)
+void HeroStats_OnMissileDamage(int missileIndex, int damageShown, int monsterType)
 {
   HeroStatsBlow blow = MissileBlow(missileIndex);
   int level = PartyLevel();
@@ -661,8 +748,10 @@ void HeroStats_OnMissileDamage(int missileIndex, int damageShown)
   {
     CountMissileHit(level, missileIndex, blow);
     store.CreditMonsterDamage(level, blow, damageShown);
+    OfferDealt(blow, damageShown, 1, monsterType);
   }
   SetLastBlow(blow);
+  killsInBlow = 0;
 }
 
 void HeroStats_BeginCloud(int missileIndex)
@@ -692,7 +781,7 @@ void HeroStats_EndCloud(void)
   lastBlowSet = false;
 }
 
-void HeroStats_OnSpellDamage(int damageShown, int memberCount)
+void HeroStats_OnSpellDamage(int damageShown, int memberCount, int monsterType)
 {
   HeroStatsBlow blow = explosionActive ? explosionBlow : HeroStatsBlow_Nobody(HeroBlowByCloud);
   int level = PartyLevel();
@@ -700,23 +789,34 @@ void HeroStats_OnSpellDamage(int damageShown, int memberCount)
   {
     if (explosionActive) CountMissileHit(level, explosionMissile, blow);
     store.CreditMonsterDamage(level, blow, damageShown * memberCount);
+    // An explosion is a spell's, whatever made the missile
+    HeroStatsBlow magic = blow;
+    magic.kind = HeroDamageMagic;
+    OfferDealt(magic, damageShown, memberCount, monsterType);
   }
   SetLastBlow(blow);
+  killsInBlow = 0;
 }
 
-void HeroStats_OnCloudDamage(int cloudIndex)
+void HeroStats_OnCloudDamage(int cloudIndex, int monsterType)
 {
   HeroStatsBlow blow;
   if (!origins.CloudOrigin(cloudIndex, &blow)) blow = HeroStatsBlow_Nobody(HeroBlowByCloud);
   SetLastBlow(blow);
   cloudBlow = blow;
   cloudBlowActive = true;
+  killsInBlow = 0;
+  cloudTickTotal = 0;
+  cloudTickType = monsterType;
 }
 
 void HeroStats_OnMonsterDamaged(int hitPointsLost)
 {
   if (!cloudBlowActive || hitPointsLost <= 0) return;
   store.CreditMonsterDamage(PartyLevel(), cloudBlow, hitPointsLost);
+  cloudTickTotal += hitPointsLost;
+  if (cloudBlow.by == HeroBlowByChampion)
+    OfferRecord(HeroRecBiggestSpellHit, cloudBlow.champion, hitPointsLost, HowOf(cloudBlow), cloudTickType, 1);
 }
 
 void HeroStats_OnCloudFreed(int cloudIndex)
@@ -731,6 +831,14 @@ void HeroStats_BeginMonsterBlow(HeroBlowBy by)
 
 void HeroStats_EndMonsterBlow(void)
 {
+  if (lastBlowSet && lastBlow.by == HeroBlowByChampion)
+  {
+    if (killsInBlow > 0) OfferRecord(HeroRecMostKillsAtOnce, lastBlow.champion, killsInBlow, HowOf(lastBlow), -1, killsInBlow);
+    if (cloudBlowActive && cloudTickTotal > 0)
+      OfferRecord(HeroRecBiggestSpellTotal, lastBlow.champion, cloudTickTotal, HowOf(lastBlow), cloudTickType, 0);
+  }
+  killsInBlow = 0;
+  cloudTickTotal = 0;
   cloudBlowActive = false;
   lastBlowSet = false;
 }
@@ -741,6 +849,11 @@ void HeroStats_OnMonsterDied(int monsterType, int variant, int why)
   bool takesLastBlow = why == DMW_Damage || why == DMW_Movement1;
   HeroStatsBlow blow = takesLastBlow && lastBlowSet ? lastBlow : HeroStatsBlow_Nobody(HeroBlowByOther);
   store.CountMonsterKill(PartyLevel(), monsterType, variant, blow);
+  if (blow.by == HeroBlowByChampion)
+  {
+    killsInBlow++;
+    store.Records().CountKill(blow.champion, PartyLevel(), (uint32_t)d.Time, monsterType);
+  }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -806,8 +919,14 @@ void HeroStats_OnHeroHarmed(int slot, int finalDamage)
   HeroHarmSource source = harmDepth > 0 ? harmSource : HeroHarmOther;
   HeroStatsBlow blow = harmDepth > 0 ? harmBlow : HeroStatsBlow_Nobody(HeroBlowByOther);
   MeetHero(slot);
-  store.CreditHarm(d.hero[slot].fingerPrint, PartyLevel(), source, blow, finalDamage);
+  HeroStatsChampion who = d.hero[slot].fingerPrint;
+  store.CreditHarm(who, PartyLevel(), source, blow, finalDamage);
   pending.Add(slot, source, blow, finalDamage);
+  store.Records().CountHarm(who);
+  if (source == HeroHarmMonster)
+    OfferRecord(HeroRecBiggestHitTaken, who, finalDamage, HowOf(blow), blow.monsterType, 1);
+  else if (source == HeroHarmMonsterMissile)
+    OfferRecord(HeroRecBiggestSpellHitTaken, who, finalDamage, HowOf(blow), blow.monsterType, 1);
 }
 
 static void CountDeath(int slot, HeroHarmSource cause, const HeroStatsBlow &blow)
@@ -844,6 +963,23 @@ void HeroStats_OnHeroKilledBy(int slot, HeroHarmSource cause)
 
 void HeroStats_OnHarmApplied(void)
 {
+  // Who lived through the damage just applied: the closest call, by what added most to it
+  for (int slot = 0; slot < d.NumCharacter && slot < 4; slot++)
+  {
+    HeroHarmSource cause;
+    HeroStatsBlow blow;
+    if (!pending.Cause(slot, &cause, &blow) || d.hero[slot].HP() <= 0) continue;
+    MeetHero(slot);
+    HeroRecordEntry entry = HeroRecordEntry_Empty();
+    entry.value = d.hero[slot].HP();
+    entry.who = d.hero[slot].fingerPrint;
+    entry.level = PartyLevel();
+    entry.time = (uint32_t)d.Time;
+    entry.how = blow.by == HeroBlowByMonster || blow.by == HeroBlowByChampion ? HowOf(blow) : HeroXpSource_Other();
+    entry.monsterType = blow.monsterType;
+    entry.extra = (int)cause;  // the source of the harm (HeroHarmSource), for its name
+    store.Records().Offer(HeroRecClosestCall, entry);
+  }
   pending.ClearAll();
 }
 
@@ -918,7 +1054,12 @@ void HeroStats_OnSpellAborted(int slot, int action)
 void HeroStats_OnSpellCast(int slot, uint32_t spell)
 {
   if (!IsHero(slot)) return;
-  store.CountCast(MetChampion(slot), PartyLevel(), spell, TakeRuneCastMana(HeroRuneCast));
+  int mana = TakeRuneCastMana(HeroRuneCast);
+  store.CountCast(MetChampion(slot), PartyLevel(), spell, mana);
+  HeroXpSource how = HeroXpSource_Other();
+  how.kind = HeroXpSpell;
+  how.spell = spell;
+  OfferRecord(HeroRecMostManaOnSpell, d.hero[slot].fingerPrint, mana, how, -1, 0);
 }
 
 void HeroStats_OnSpellFailed(int slot, uint32_t spell, bool noSuchSpell)
@@ -964,6 +1105,9 @@ void HeroStats_OnHealAction(int slot, int mana, int hpGained)
   int level = PartyLevel();
   store.CreditManaSpent(who, level, HERO_SPELL_HEAL_ACTION, mana);
   store.CreditHealing(who, level, HeroHealAction, HERO_STATS_NOBODY, hpGained);
+  HeroXpSource how = HeroXpSource_Other();
+  how.option = (int)HeroHealAction;
+  OfferRecord(HeroRecBiggestHeal, who, hpGained, how, -1, 0);
 }
 
 void HeroStats_OnManaRegenerated(int slot, int amount)
@@ -976,6 +1120,9 @@ void HeroStats_OnHpRegenerated(int slot, int amount)
 {
   if (!IsHero(slot) || amount <= 0) return;
   store.CreditHealing(MetChampion(slot), PartyLevel(), HeroHealRegeneration, HERO_STATS_NOBODY, amount);
+  HeroXpSource how = HeroXpSource_Other();
+  how.option = (int)HeroHealRegeneration;
+  OfferRecord(HeroRecBiggestHeal, d.hero[slot].fingerPrint, amount, how, -1, 0);
 }
 
 void HeroStats_OnPotionDrunk(int slot, int potionIndex, int hpGained, int manaGained)
@@ -986,6 +1133,9 @@ void HeroStats_OnPotionDrunk(int slot, int potionIndex, int hpGained, int manaGa
     int level = PartyLevel();
     store.CreditHealing(who, level, HeroHealPotion, origins.Brewer(potionIndex), hpGained);
     store.CreditManaGained(who, level, HeroManaPotion, manaGained);
+    HeroXpSource how = HeroXpSource_Other();
+    how.option = (int)HeroHealPotion;
+    OfferRecord(HeroRecBiggestHeal, who, hpGained, how, -1, 0);
   }
   // The flask is empty now: a potion brewed into it later is someone's new potion
   origins.ForgetPotion(potionIndex);
@@ -1052,6 +1202,15 @@ void HeroStats_OnExperienceGained(int slot, int skill, int gained, const HeroXpS
   MeetHero(slot);
   lastExperienceSource = source;
   store.Experience().Credit(d.hero[slot].fingerPrint, PartyLevel(), skill, source, gained);
+  HeroRecordEntry entry = HeroRecordEntry_Empty();
+  entry.value = gained;
+  entry.who = d.hero[slot].fingerPrint;
+  entry.level = PartyLevel();
+  entry.time = (uint32_t)d.Time;
+  entry.how = source;
+  entry.monsterType = source.monsterType;
+  entry.extra = skill;
+  store.Records().Offer(HeroRecBiggestXpGain, entry);
 }
 
 void HeroStats_OnRankGained(int slot, int cls, int rank)
