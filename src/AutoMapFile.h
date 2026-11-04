@@ -100,6 +100,10 @@ const char *AutoMapFile_Describe(AutoMapFileResult result);
 //     rune outcomes (version 22): 2 bytes champion, level the runes were entered on, outcome
 //              (0 cast, 1 failed, 2 cleared), mana; then the runes kept: per champion 2 bytes
 //              champion, rune count, per rune level entered on, mana
+//     experience (version 23): per champion, level, 1 byte skill and source (1 byte kind,
+//              weapon, option, 4 bytes spell, monster type) the amount; the ranks gained (2 bytes
+//              champion, level, 1 byte class, 1 byte rank, 4 bytes game time, source); the start
+//              ranks (2 bytes champion, 1 byte class, 1 byte rank)
 //     origins: missiles and clouds (4 byte index, the blow), brewers (4 byte index, 2 bytes
 //              champion), then (version 16) the held items, (version 17) the opened chests and
 //              (version 20) the read scrolls (4 byte record key each)

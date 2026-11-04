@@ -9,6 +9,7 @@
 #include <tuple>
 #include <utility>
 #include <vector>
+#include "HeroStatsExperience.h"
 
 // The same layout whatever was included before: CSB.h leaves #pragma pack(1) switched on
 #pragma pack(push, 8)
@@ -123,6 +124,9 @@ struct HeroStatsDeath { HeroStatsChampion who; int level; HeroHarmSource cause; 
 class HeroStats
 {
 public:
+  // want HERO_STATS_PARTY matches every champion; want HERO_STATS_WHOLE_RUN every level
+  static bool Matches(HeroStatsChampion want, HeroStatsChampion have);
+  static bool LevelMatches(int want, int have);
   void Forget(void);
   // Adds the champion, or renames one already met; order of first meeting is kept
   void MeetChampion(HeroStatsChampion id, const std::string &name);
@@ -258,8 +262,8 @@ public:
   // chests opened, 17 no door methods (the doors read as HeroDoorUnknown), no food and water,
   // 18 no tiles walked, 19 no scrolls read, 20 and 21 no rune outcomes and no runes kept (the
   // outcomes are taken from the rune spells' rows, on the level of the cast; 21 has a table of
-  // rune mana per level, which is skipped).
-  static const int LAYOUT = 22;
+  // rune mana per level, which is skipped), 22 no experience.
+  static const int LAYOUT = 23;
   static const int FIRST_LAYOUT_WITH_MOVEMENT = 14;
   static const int FIRST_LAYOUT_WITH_PITS_AND_SLEEP = 15;
   static const int FIRST_LAYOUT_WITH_ITEMS = 16;
@@ -269,8 +273,12 @@ public:
   static const int FIRST_LAYOUT_WITH_SCROLLS = 20;
   static const int FIRST_LAYOUT_WITH_RUNE_MANA = 21;
   static const int FIRST_LAYOUT_WITH_RUNE_OUTCOMES = 22;
+  static const int FIRST_LAYOUT_WITH_EXPERIENCE = 23;
   void Serialize(std::vector<uint8_t> *out) const;
   bool Deserialize(const uint8_t *data, size_t size, int layout = LAYOUT);
+  // Experience and ranks (HeroStatsExperience.h): no hardship, they go with the file
+  HeroStatsExperience &Experience(void) { return m_experience; }
+  const HeroStatsExperience &Experience(void) const { return m_experience; }
 
 private:
   struct AttackCounts { int tries, hits, damage, kills, uses; };
@@ -291,8 +299,6 @@ private:
   // (champion, level, spell)
   typedef std::tuple<HeroStatsChampion, int, uint32_t> SpellKey;
 
-  static bool Matches(HeroStatsChampion want, HeroStatsChampion have);
-  static bool LevelMatches(int want, int have);
   AttackCounts &AttackRow(int level, const HeroStatsBlow &blow);
   SpellCounts &SpellRow(HeroStatsChampion who, int level, uint32_t spell);
 
@@ -335,6 +341,7 @@ private:
   int ConsumedOfKind(HeroStatsChampion who, int level, int kind) const;
   int m_partyWipes = 0;
   int m_reloads = 0;
+  HeroStatsExperience m_experience;
 };
 
 #pragma pack(pop)

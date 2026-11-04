@@ -43,5 +43,6 @@ void TestHeroStatsGame(void);
 void TestHeroStatsView(void);
 void TestHeroStatsPages(void);
 void TestHeroStatsCatalogue(void);
+void TestHeroStatsExperience(void);
 
 #endif

@@ -89,6 +89,7 @@ void HeroStats::Forget(void)
   m_championsViewed.clear();
   m_partyWipes = 0;
   m_reloads = 0;
+  m_experience.Forget();
 }
 
 void HeroStats::MeetChampion(HeroStatsChampion id, const std::string &name)
@@ -1169,6 +1170,7 @@ void HeroStats::Serialize(std::vector<uint8_t> *out) const
       HeroBytes_PutInt(out, it->second[i].mana);
     }
   }
+  m_experience.Serialize(out);
 }
 
 bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
@@ -1454,6 +1456,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
     }
     read.m_spells = spells;
   }
+  if (layout >= FIRST_LAYOUT_WITH_EXPERIENCE && !read.m_experience.Deserialize(in)) return false;
   if (!in.ok || in.left != 0) return false;
   *this = read;
   return true;

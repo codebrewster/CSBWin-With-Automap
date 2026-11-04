@@ -22,7 +22,7 @@ static const size_t FIRST_LEVEL_WIDTH_OFFSET = 16;
 // A file with no damaged monster group ends in its count of 4 bytes
 static const size_t NO_DAMAGE_BYTES = 4;
 
-// What a version 22 file ends in when both statistics stores are empty: the block length, the
+// What a version 23 file ends in when both statistics stores are empty: the block length, the
 // length of the statistics, and their empty tables
 static std::string EmptyStatistics(void)
 {
@@ -49,7 +49,7 @@ static std::string WithoutStatistics(std::string bytes)
 static std::string Complete(const std::string &withoutStatistics)
 {
   std::string bytes = withoutStatistics + EmptyStatistics();
-  bytes[VERSION_OFFSET] = 22;
+  bytes[VERSION_OFFSET] = 23;
   return bytes;
 }
 
@@ -295,7 +295,7 @@ static void FileOfAnotherKindIsRejected(void)
 static void UnknownVersionIsRejected(void)
 {
   std::string bytes = WrittenFile();
-  bytes[VERSION_OFFSET] = 23;
+  bytes[VERSION_OFFSET] = 24;
   CheckRejected(bytes, AutoMapFileHasUnknownVersion);
 }
 
@@ -1400,8 +1400,8 @@ static void ADamagedStatisticsBlockLeavesTheStoresUnchanged(void)
   // The harm source (4 bytes) sits 2 + 4 after the start of the harm record, which ends the
   // statistics but for the empty healing, mana, spell, death and resurrection tables, the wipes
   // and reloads and the empty movement, item, eaten, door, chest, food, tile, scroll, rune outcome
-  // and kept rune tables
-  size_t source = bad.size() - rawOrigins.size() - (17 * 4) - (2 + 4 + 4 + 2 + 4 + 4 + 4) + 2 + 4;
+  // and kept rune tables, and the empty experience, rank and start rank tables
+  size_t source = bad.size() - rawOrigins.size() - (20 * 4) - (2 + 4 + 4 + 2 + 4 + 4 + 4) + 2 + 4;
   bad[source] = 99;
   CheckStatisticsFileLeavesTheStores(bad);
 }
