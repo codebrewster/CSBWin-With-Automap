@@ -13,7 +13,7 @@
 // this list, so a number is either everywhere it applies or nowhere. No engine, no ImGui.
 
 enum HeroStatsTopic { HeroTopicOverview, HeroTopicCombat, HeroTopicMagic, HeroTopicSurvival, HeroTopicSupplies,
-                      HeroTopicExploration, HeroTopicMonsters, HERO_TOPIC_COUNT };
+                      HeroTopicExploration, HeroTopicMonsters, HeroTopicExperience, HeroTopicRecords, HERO_TOPIC_COUNT };
 
 enum HeroStatsNumber {
   HeroNumDamage, HeroNumMelee, HeroNumRanged, HeroNumMagic, HeroNumKills, HeroNumAttacks, HeroNumHits,
@@ -31,12 +31,22 @@ enum HeroStatsNumber {
   HeroNumDoorsButtonOpened, HeroNumDoorsButtonClosed, HeroNumChests, HeroNumScrolls, HeroNumWallTexts,
   HeroNumChampionsSeen, HeroNumChampionsViewed,
   HeroNumDoorKills, HeroNumPitKills, HeroNumOtherKills,
+  HeroNumExperience, HeroNumXpFighter, HeroNumXpNinja, HeroNumXpPriest, HeroNumXpWizard, HeroNumRanksGained,
+  // The records, in HeroRecordKind order (HeroNumRecFirst + kind)
+  HeroNumRecBiggestHit, HeroNumRecBiggestSpellHit, HeroNumRecBiggestSpellTotal, HeroNumRecMostKillsAtOnce,
+  HeroNumRecKillStreak, HeroNumRecBiggestHitTaken, HeroNumRecBiggestSpellHitTaken, HeroNumRecClosestCall,
+  HeroNumRecBiggestHeal, HeroNumRecMostManaOnSpell, HeroNumRecBiggestXpGain, HeroNumRecHeaviestLoad,
+  HeroNumRecLongestFall, HeroNumRecLongestTeleportChain, HeroNumRecLongestSleep,
   HERO_NUMBER_COUNT };
+const HeroStatsNumber HeroNumRecFirst = HeroNumRecBiggestHit;
 
 // partyOnly: kept for the party, not per champion (steps, chests ...). wholeRunOnly: not kept per
 // level (wipes, reloads). isBad: more is bad news. isRatio: a percentage or an average, which
 // cannot be added up or shared out. isTicks: game ticks. help: a sentence for the tooltip, or "".
-struct HeroStatsNumberInfo { const char *label; const char *help; bool partyOnly, wholeRunOnly, isBad, isRatio, isTicks; };
+// isRecord: a record (HeroStatsRecords): the best, not a sum; -1 when there is none.
+struct HeroStatsNumberInfo { const char *label; const char *help; bool partyOnly, wholeRunOnly, isBad, isRatio, isTicks, isRecord; };
+bool HeroStatsCatalogue_IsRecord(HeroStatsNumber number);
+HeroRecordKind HeroStatsCatalogue_RecordOf(HeroStatsNumber number);  // for a record
 const HeroStatsNumberInfo &HeroStatsCatalogue_Info(HeroStatsNumber number);
 
 struct HeroStatsTopicRow { HeroStatsNumber number; int depth; };  // depth 1: a part of the row above, 2: a part of that
@@ -55,7 +65,8 @@ std::string HeroStatsCatalogue_JoinNumbers(const std::vector<HeroStatsNumber> &n
 // summary on a champion's Overview says.
 enum HeroStatsSetting { HeroSettingOverviewTiles, HeroSettingChampionTiles, HeroSettingCombatTiles, HeroSettingMagicTiles,
                         HeroSettingSurvivalTiles, HeroSettingSuppliesTiles, HeroSettingExplorationTiles,
-                        HeroSettingMonstersTiles, HeroSettingKeyNumbers, HERO_SETTING_COUNT };
+                        HeroSettingMonstersTiles, HeroSettingExperienceTiles, HeroSettingRecordsTiles,
+                        HeroSettingKeyNumbers, HERO_SETTING_COUNT };
 const char *HeroStatsCatalogue_SettingEntry(HeroStatsSetting setting);   // "stats_tiles_combat"
 std::string HeroStatsCatalogue_SettingDefault(HeroStatsSetting setting); // the default list as names
 // Takes the setting's list (at most 4 tiles); a list with no number it knows keeps the default

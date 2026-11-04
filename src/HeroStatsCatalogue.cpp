@@ -72,6 +72,27 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Crushed by doors", "", true, false, false, false, false},
     {"Killed by falls", "", true, false, false, false, false},
     {"Other causes", "Clouds nobody is known to have made, traps, other monsters.", true, false, false, false, false},
+    {"Experience gained", "Experience as the game added it: with the level's multiplier, the bonus in combat and the dungeon's own rules.", false, false, false, false, false},
+    {"Fighter", "", false, false, false, false, false},
+    {"Ninja", "", false, false, false, false, false},
+    {"Priest", "", false, false, false, false, false},
+    {"Wizard", "", false, false, false, false, false},
+    {"Ranks gained", "", false, false, false, false, false},
+    {"Biggest hit", "The most damage a blow, a thrown item or a shot did to one monster.", false, false, false, false, false, true},
+    {"Biggest spell hit", "The most damage one monster took from one spell.", false, false, false, false, false, true},
+    {"Biggest spell in all", "The most damage one spell did to a whole group.", false, false, false, false, false, true},
+    {"Most kills at once", "Monsters killed by one blow, one explosion or one tick of a cloud.", false, false, false, false, false, true},
+    {"Kills without a scratch", "The most kills in a row with no damage taken in between.", false, false, false, false, false, true},
+    {"Biggest hit taken", "The most damage one monster attack did, after armour.", false, false, false, false, false, true},
+    {"Biggest spell hit taken", "The most damage one monster spell or missile did.", false, false, false, false, false, true},
+    {"Closest call", "The fewest hit points left after taking damage and living.", false, false, false, false, false, true},
+    {"Biggest heal", "The most hit points gained at once.", false, false, false, false, false, true},
+    {"Most mana on one spell", "The mana of the runes of one spell that worked.", false, false, false, false, false, true},
+    {"Biggest experience gain", "The most experience gained at once.", false, false, false, false, false, true},
+    {"Heaviest load", "The most weight carried, and the share of what the champion could carry.", false, false, false, false, false, true},
+    {"Longest fall", "Pits fallen through one after the other.", true, false, false, false, false, true},
+    {"Longest teleport chain", "Teleporters one after the other.", true, false, false, false, false, true},
+    {"Longest sleep", "Ticks of one sleep.", true, false, false, false, true, true},
 };
 
 // The names csb.cfg knows the numbers by, in the order of HeroStatsNumber
@@ -90,7 +111,11 @@ static const char *const KEYS[] = {
     "doors_bashed", "doors_smashed", "doors_shot", "doors_by_spell", "doors_by_zo",
     "doors_button_opened", "doors_button_closed", "chests", "scrolls", "wall_texts",
     "champions_seen", "champions_viewed",
-    "door_kills", "pit_kills", "other_kills"};
+    "door_kills", "pit_kills", "other_kills",
+    "experience", "fighter", "ninja", "priest", "wizard", "ranks_gained",
+    "biggest_hit", "biggest_spell_hit", "biggest_spell_total", "most_kills_at_once", "kill_streak",
+    "biggest_hit_taken", "biggest_spell_hit_taken", "closest_call", "biggest_heal", "most_mana_on_spell",
+    "biggest_experience_gain", "heaviest_load", "longest_fall", "longest_teleport_chain", "longest_sleep"};
 static_assert(sizeof KEYS / sizeof KEYS[0] == HERO_NUMBER_COUNT, "a name for every number");
 
 const HeroStatsNumberInfo &HeroStatsCatalogue_Info(HeroStatsNumber number)
@@ -138,6 +163,13 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
   topics[HeroTopicMonsters] = {"Monsters",
                                {{HeroNumKills, 0}, {HeroNumDoorKills, 0}, {HeroNumPitKills, 0}, {HeroNumOtherKills, 0}},
                                {HeroNumKills, HeroNumDoorKills, HeroNumPitKills, HeroNumOtherKills}};
+  topics[HeroTopicExperience] = {"Experience",
+                                 {{HeroNumExperience, 0}, {HeroNumXpFighter, 1}, {HeroNumXpNinja, 1}, {HeroNumXpPriest, 1},
+                                  {HeroNumXpWizard, 1}, {HeroNumRanksGained, 0}},
+                                 {HeroNumXpFighter, HeroNumXpNinja, HeroNumXpPriest, HeroNumXpWizard}};
+  topics[HeroTopicRecords] = {"Records", {},
+                              {HeroNumRecBiggestHit, HeroNumRecBiggestSpellTotal, HeroNumRecBiggestHitTaken, HeroNumRecClosestCall}};
+  for (int k = 0; k < HERO_RECORD_COUNT; k++) topics[HeroTopicRecords].rows.push_back({(HeroStatsNumber)(HeroNumRecFirst + k), 0});
   return topics;
 }
 
@@ -220,6 +252,7 @@ static const SettingInfo SETTINGS[HERO_SETTING_COUNT] = {
     {"stats_tiles_overview", HeroTopicOverview}, {"stats_tiles_champion", -1}, {"stats_tiles_combat", HeroTopicCombat},
     {"stats_tiles_magic", HeroTopicMagic}, {"stats_tiles_survival", HeroTopicSurvival}, {"stats_tiles_food", HeroTopicSupplies},
     {"stats_tiles_exploration", HeroTopicExploration}, {"stats_tiles_monsters", HeroTopicMonsters},
+    {"stats_tiles_experience", HeroTopicExperience}, {"stats_tiles_records", HeroTopicRecords},
     {"stats_key_numbers", HeroTopicOverview}};
 
 const char *HeroStatsCatalogue_SettingEntry(HeroStatsSetting setting)
@@ -433,8 +466,26 @@ static void FillKillCauses(const HeroStats &stats, HeroStatsChampion, int level,
   }
 }
 
+static void FillExperience(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
+{
+  const HeroStatsExperience &xp = stats.Experience();
+  v[HeroNumExperience] = xp.Gained(who, level, -1);
+  for (int cls = 0; cls < HERO_XP_CLASS_COUNT; cls++) v[HeroNumXpFighter + cls] = xp.Gained(who, level, cls);
+  v[HeroNumRanksGained] = xp.RanksGained(who, level, -1);
+}
+
+static void FillRecords(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
+{
+  for (int k = 0; k < HERO_RECORD_COUNT; k++)
+  {
+    HeroRecordEntry entry;
+    v[HeroNumRecFirst + k] = stats.Records().Best((HeroRecordKind)k, who, level, &entry) ? entry.value : -1;
+  }
+}
+
 static const FillGroup CHAMPION_GROUPS[] = {FillDamage, FillKills, FillAttacks, FillFriendlyFire, FillMana, FillCasts,
-                                            FillTaken, FillHealing, FillDeaths, FillFood, FillDoors};
+                                            FillTaken, FillHealing, FillDeaths, FillFood, FillDoors, FillExperience,
+                                            FillRecords};
 static const FillGroup PARTY_GROUPS[] = {FillHardship, FillItems, FillMovement, FillDungeon, FillKillCauses};
 
 static FillGroup GroupOf(HeroStatsNumber number)
@@ -465,7 +516,10 @@ static FillGroup GroupOf(HeroStatsNumber number)
   case HeroNumDoorsByZo: return FillDoors;
   case HeroNumDoorsButtonOpened: case HeroNumDoorsButtonClosed: case HeroNumChests: case HeroNumScrolls:
   case HeroNumWallTexts: case HeroNumChampionsSeen: case HeroNumChampionsViewed: return FillDungeon;
-  default: return FillKillCauses;
+  case HeroNumExperience: case HeroNumXpFighter: case HeroNumXpNinja: case HeroNumXpPriest: case HeroNumXpWizard:
+  case HeroNumRanksGained: return FillExperience;
+  case HeroNumDoorKills: case HeroNumPitKills: case HeroNumOtherKills: return FillKillCauses;
+  default: return FillRecords;
   }
 }
 
@@ -480,7 +534,7 @@ HeroStatsRecord HeroStatsCatalogue_Record(const HeroStats &stats, HeroStatsChamp
 
 int HeroStatsCatalogue_Value(const HeroStats &stats, HeroStatsChampion who, int level, HeroStatsNumber number)
 {
-  if (NUMBERS[number].partyOnly && who != HERO_STATS_PARTY) return 0;
+  if (NUMBERS[number].partyOnly && who != HERO_STATS_PARTY) return NUMBERS[number].isRecord ? -1 : 0;
   HeroStatsRecord r = {};
   GroupOf(number)(stats, who, level, r.value);
   return r.value[number];
@@ -496,12 +550,24 @@ bool HeroStatsCatalogue_Applies(HeroStatsNumber number, HeroStatsChampion who, i
 
 bool HeroStatsCatalogue_Summable(HeroStatsNumber number)
 {
-  return !NUMBERS[number].isRatio;
+  return !NUMBERS[number].isRatio && !NUMBERS[number].isRecord;
+}
+
+bool HeroStatsCatalogue_IsRecord(HeroStatsNumber number)
+{
+  return NUMBERS[number].isRecord;
+}
+
+HeroRecordKind HeroStatsCatalogue_RecordOf(HeroStatsNumber number)
+{
+  return (HeroRecordKind)(number - HeroNumRecFirst);
 }
 
 std::string HeroStatsCatalogue_Format(HeroStatsNumber number, int value)
 {
-  if (NUMBERS[number].isRatio && value < 0) return "-";
+  if ((NUMBERS[number].isRatio || NUMBERS[number].isRecord) && value < 0) return "-";
+  if (number == HeroNumRecHeaviestLoad) return HeroStatsView_Number(value / 10) + "." + std::to_string(value % 10) + " kg";
+  if (number == HeroNumRecClosestCall) return HeroStatsView_Number(value) + " HP left";
   if (number == HeroNumHitRate) return std::to_string(value) + "%";
   return HeroStatsView_Number(value);
 }
@@ -513,7 +579,8 @@ std::vector<HeroStatsNumber> HeroStatsCatalogue_GridNumbers(int topic)
   for (size_t i = 0; i < info.rows.size(); i++)
   {
     HeroStatsNumber number = info.rows[i].number;
-    if (!NUMBERS[number].partyOnly && !NUMBERS[number].isRatio) numbers.push_back(number);
+    // Records: one at a time, a column per champion (their best) and the party's best
+    if (NUMBERS[number].isRecord || (!NUMBERS[number].partyOnly && !NUMBERS[number].isRatio)) numbers.push_back(number);
   }
   return numbers;
 }
@@ -534,7 +601,7 @@ std::string HeroStatsCatalogue_Summary(int topic, const HeroStatsRecord &record,
   {
     HeroStatsNumber number = info.tiles[i];
     if (!HeroStatsCatalogue_Applies(number, who, level)) continue;
-    if (NUMBERS[number].isRatio && record.value[number] < 0) continue;  // "- hit rate" says nothing
+    if ((NUMBERS[number].isRatio || NUMBERS[number].isRecord) && record.value[number] < 0) continue;  // "- hit rate" says nothing
     std::string label = NUMBERS[number].label;
     label[0] = (char)tolower((unsigned char)label[0]);
     if (shown > 0) summary += " \xc2\xb7 ";

@@ -260,8 +260,74 @@ static void TilesAndKeyNumbersFollowTheSettings(void)
   CHECK(HeroStatsCatalogue_ChampionTiles() == std::vector<HeroStatsNumber>({HeroNumDamage, HeroNumKills, HeroNumTaken, HeroNumDeaths}));
 }
 
+static void ExperienceAndRecordsHaveTopics(void)
+{
+  const HeroStatsTopicInfo &xp = HeroStatsCatalogue_Topic(HeroTopicExperience);
+  CHECK(std::string(xp.label) == "Experience");
+  CHECK(xp.rows.size() == 6 && xp.rows[0].number == HeroNumExperience && xp.rows[0].depth == 0);
+  CHECK(xp.rows[1].number == HeroNumXpFighter && xp.rows[1].depth == 1 && xp.rows[4].number == HeroNumXpWizard);
+  CHECK(xp.rows[5].number == HeroNumRanksGained && xp.rows[5].depth == 0);
+  HeroStatsNumber xpTiles[4] = {HeroNumXpFighter, HeroNumXpNinja, HeroNumXpPriest, HeroNumXpWizard};
+  CHECK(xp.tiles == std::vector<HeroStatsNumber>(xpTiles, xpTiles + 4));
+  const HeroStatsTopicInfo &records = HeroStatsCatalogue_Topic(HeroTopicRecords);
+  CHECK(std::string(records.label) == "Records" && records.rows.size() == HERO_RECORD_COUNT);
+  for (int k = 0; k < HERO_RECORD_COUNT; k++) CHECK(records.rows[k].number == HeroNumRecFirst + k);
+  HeroStatsNumber recordTiles[4] = {HeroNumRecBiggestHit, HeroNumRecBiggestSpellTotal, HeroNumRecBiggestHitTaken, HeroNumRecClosestCall};
+  CHECK(records.tiles == std::vector<HeroStatsNumber>(recordTiles, recordTiles + 4));
+  CHECK(HeroStatsCatalogue_Key(HeroNumRecKillStreak) == "kill_streak" && HeroStatsCatalogue_Key(HeroNumXpPriest) == "priest");
+  CHECK(HeroStatsCatalogue_RecordOf(HeroNumRecClosestCall) == HeroRecClosestCall && HeroStatsCatalogue_IsRecord(HeroNumRecLongestSleep));
+  CHECK(!HeroStatsCatalogue_IsRecord(HeroNumExperience));
+  CHECK(std::string(HeroStatsCatalogue_SettingEntry(HeroSettingRecordsTiles)) == "stats_tiles_records");
+  CHECK(HeroStatsCatalogue_SettingDefault(HeroSettingExperienceTiles) == "fighter, ninja, priest, wizard");
+}
+
+static HeroRecordEntry Record(HeroStatsChampion who, int value)
+{
+  HeroRecordEntry entry = HeroRecordEntry_Empty();
+  entry.who = who;
+  entry.level = 1;
+  entry.value = value;
+  return entry;
+}
+
+static void RecordValuesAreTheBest(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  stats.MeetChampion(9, "SYRA");
+  stats.MarkLevelVisited(1);
+  stats.Records().Offer(HeroRecBiggestHit, Record(7, 120));
+  stats.Records().Offer(HeroRecBiggestHit, Record(9, 150));
+  stats.Records().Offer(HeroRecHeaviestLoad, Record(7, 384));
+  stats.Records().Offer(HeroRecClosestCall, Record(9, 2));
+  HeroStatsRecord party = HeroStatsCatalogue_Record(stats, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN);
+  CHECK(party.value[HeroNumRecBiggestHit] == 150);
+  CHECK(HeroStatsCatalogue_Record(stats, 7, 1).value[HeroNumRecBiggestHit] == 120);
+  CHECK(party.value[HeroNumRecMostKillsAtOnce] == -1);
+  CHECK(HeroStatsCatalogue_Format(HeroNumRecMostKillsAtOnce, -1) == "-");
+  CHECK(HeroStatsCatalogue_Format(HeroNumRecHeaviestLoad, 384) == "38.4 kg");
+  CHECK(HeroStatsCatalogue_Format(HeroNumRecClosestCall, 2) == "2 HP left");
+  CHECK(HeroStatsCatalogue_Value(stats, 9, HERO_STATS_WHOLE_RUN, HeroNumRecClosestCall) == 2);
+  stats.Experience().Credit(7, 1, 4, HeroXpSource_Other(), 30);
+  stats.Experience().Credit(9, 1, 17, HeroXpSource_Other(), 12);
+  party = HeroStatsCatalogue_Record(stats, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN);
+  CHECK(party.value[HeroNumExperience] == 42 && party.value[HeroNumXpFighter] == 30 && party.value[HeroNumXpWizard] == 12);
+}
+
+static void RecordsAreNotSummable(void)
+{
+  CHECK(!HeroStatsCatalogue_Summable(HeroNumRecBiggestHit) && HeroStatsCatalogue_Summable(HeroNumExperience));
+  CHECK(!HeroStatsCatalogue_Applies(HeroNumRecLongestFall, 7, HERO_STATS_WHOLE_RUN));
+  CHECK(HeroStatsCatalogue_Applies(HeroNumRecLongestFall, HERO_STATS_PARTY, 3));
+  CHECK(HeroStatsCatalogue_GridNumbers(HeroTopicRecords).size() == HERO_RECORD_COUNT);
+  CHECK(HeroStatsCatalogue_GridNumbers(HeroTopicExperience).size() == 6);
+}
+
 void TestHeroStatsCatalogue(void)
 {
+  ExperienceAndRecordsHaveTopics();
+  RecordValuesAreTheBest();
+  RecordsAreNotSummable();
   EveryNumberHasAName();
   NumberListsAreForgiving();
   TilesAndKeyNumbersFollowTheSettings();
