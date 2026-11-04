@@ -9,7 +9,8 @@
 //   "topics": one per HeroStatsTopic: [{"label", "rows": [[number, depth], ...], "tiles": [number, ...],
 //             "grid": [number, ...] (Champions side by side), "details": [HeroStatsDetail, ...] (the party's),
 //             "heroDetails": [...] (a champion's)}],
-//   "heroTiles": [number, ...] (a champion's Overview),
+//   "heroTiles": [number, ...] (a champion's Overview), "xpFirst", "recFirst": the numbers of Fighter and of
+//   the first record,
 //   "views": { "-1" for the whole run and one per visited level: {
 //     "records": per hero then the party, a value per number, null where it does not apply,
 //     "summaries": per hero then the party, one line per topic,
@@ -18,7 +19,12 @@
 //                  (tries: blows and missiles; uses: actions that cannot hit),
 //       "spells": [[name, casts, failed, mana, wasted, damage, kills, [by hero]], ...],
 //       "taken": [[text, amount, isBad, [by hero]], ...], "healing": [[text, amount, [by hero]], ...],
-//       "deaths": [text, ...], "eaten": [[text, amount, [by hero]], ...], "drunk": [...], "eatenTotal", "drunkTotal" },
+//       "deaths": [text, ...], "eaten": [[text, amount, [by hero]], ...], "drunk": [...], "eatenTotal", "drunkTotal",
+//       "xp": {"classes": [[name, rank now, rank at the start, % to next, next rank, experience, ranks gained,
+//                           best hero (the party's), [by hero], [[skill, experience, [by hero]], ...]], ...],
+//              "sources": [[name, note, depth, experience, [by hero; a hero's page: the party's], has children], ...],
+//              "rankups": [[hero, class, rank, with, level], ...]},
+//       "records": [[kind, group, label, value, who, how, whom, when, level, has, held, party value, party's hero], ...] },
 //     "monsters": [[name, [kills per hero], door, pit, other, total], ...] most killed first,
 //     "items": [[name, picked up, used in walls], ...] } } }
 // [by hero] is empty except on the party's page.
@@ -178,6 +184,62 @@ static std::string PageJson(const HeroStatsHeroPage &page)
   return out;
 }
 
+// The hero (column) index of a champion, the party's index (the column count) for anyone else
+static int HeroIndex(const std::vector<HeroStatsColumn> &columns, HeroStatsChampion who)
+{
+  size_t i = 0;
+  while (i < columns.size() && columns[i].id != who) i++;
+  return (int)i;
+}
+
+static std::string XpJson(const HeroStatsTopicPage &xp, const std::vector<HeroStatsColumn> &columns)
+{
+  std::string out = "{\"classes\":[";
+  for (size_t c = 0; c < xp.classes.size(); c++)
+  {
+    const HeroStatsClassLine &line = xp.classes[c];
+    out += std::string(c > 0 ? "," : "") + "[" + HeroStatsExport_JsonString(line.name) + "," +
+           HeroStatsExport_JsonString(HeroXp_RankName(line.rankNow)) + "," + HeroStatsExport_JsonString(HeroXp_RankName(line.startRank)) +
+           "," + Number(line.percentToNext) + "," + HeroStatsExport_JsonString(HeroXp_RankName(line.rankNow + 1)) + "," +
+           Number(line.amount) + "," + Number(line.ranksGained) + "," + Number(HeroIndex(columns, line.best)) + "," +
+           Ints(line.byColumn) + ",[";
+    for (size_t k = 0; k < line.skills.size(); k++)
+      out += std::string(k > 0 ? "," : "") + "[" + HeroStatsExport_JsonString(line.skills[k].name) + "," +
+             Number(line.skills[k].amount) + "," + Ints(line.skills[k].byColumn) + "]";
+    out += "]]";
+  }
+  out += "],\"sources\":[";
+  for (size_t i = 0; i < xp.sources.size(); i++)
+  {
+    const HeroStatsXpLine &line = xp.sources[i];
+    out += std::string(i > 0 ? "," : "") + "[" + HeroStatsExport_JsonString(line.name) + "," + HeroStatsExport_JsonString(line.note) +
+           "," + Number(line.depth) + "," + Number(line.amount) + "," + Ints(line.byColumn) + "," + Bool(line.hasChildren) + "]";
+  }
+  out += "],\"rankups\":[";
+  for (size_t i = 0; i < xp.rankUps.size(); i++)
+  {
+    const HeroStatsRankUpLine &line = xp.rankUps[i];
+    out += std::string(i > 0 ? "," : "") + "[" + Number(HeroIndex(columns, line.who)) + "," + HeroStatsExport_JsonString(line.className) +
+           "," + HeroStatsExport_JsonString(line.rank) + "," + HeroStatsExport_JsonString(line.with) + "," + Number(line.level) + "]";
+  }
+  return out + "]}";
+}
+
+static std::string RecordLinesJson(const std::vector<HeroStatsRecordLine> &lines, const std::vector<HeroStatsColumn> &columns)
+{
+  std::string out = "[";
+  for (size_t i = 0; i < lines.size(); i++)
+  {
+    const HeroStatsRecordLine &l = lines[i];
+    out += std::string(i > 0 ? "," : "") + "[" + Number(l.kind) + "," + HeroStatsExport_JsonString(l.group) + "," +
+           HeroStatsExport_JsonString(l.label) + "," + HeroStatsExport_JsonString(l.value) + "," + HeroStatsExport_JsonString(l.who) +
+           "," + HeroStatsExport_JsonString(l.how) + "," + HeroStatsExport_JsonString(l.whom) + "," + HeroStatsExport_JsonString(l.when) +
+           "," + Number(l.level) + "," + Bool(l.has) + "," + Bool(l.held) + "," + HeroStatsExport_JsonString(l.partyValue) + "," +
+           Number(l.partyHolder == HERO_STATS_NOBODY ? -1 : HeroIndex(columns, l.partyHolder)) + "]";
+  }
+  return out + "]";
+}
+
 static std::string ViewJson(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
                             const HeroStatsNames &names, int level)
 {
@@ -192,7 +254,11 @@ static std::string ViewJson(const HeroStats &stats, const std::vector<HeroStatsC
     for (int t = 0; t < HERO_TOPIC_COUNT; t++)
       summaries += (t > 0 ? "," : "") + HeroStatsExport_JsonString(HeroStatsCatalogue_Summary(t, record, who, level));
     summaries += "]";
-    pages += comma + PageJson(HeroStatsPages_Hero(stats, columns, who, level, names));
+    std::string hero = PageJson(HeroStatsPages_Hero(stats, columns, who, level, names));
+    hero.pop_back();  // the page's closing brace: the Experience and Records tables join it
+    HeroStatsTopicPage xp = HeroStatsPages_Topic(stats, columns, who, level, HeroTopicExperience, names);
+    HeroStatsTopicPage records = HeroStatsPages_Topic(stats, columns, who, level, HeroTopicRecords, names);
+    pages += comma + hero + ",\"xp\":" + XpJson(xp, columns) + ",\"records\":" + RecordLinesJson(records.records, columns) + "}";
   }
   std::string out = "{\"records\":" + records + "],\"summaries\":" + summaries + "],\"pages\":" + pages + "]";
   std::vector<HeroStatsMonsterLine> monsters = HeroStatsPages_Monsters(stats, columns, level, names);
@@ -236,7 +302,8 @@ std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroS
     out += std::string(n > 0 ? "," : "") + "{\"label\":" + HeroStatsExport_JsonString(number.label) +
            ",\"help\":" + HeroStatsExport_JsonString(number.help) + ",\"party\":" + Bool(number.partyOnly) +
            ",\"run\":" + Bool(number.wholeRunOnly) + ",\"bad\":" + Bool(number.isBad) + ",\"ratio\":" +
-           Bool(number.isRatio) + ",\"pct\":" + Bool(n == HeroNumHitRate) + ",\"ticks\":" + Bool(number.isTicks) + "}";
+           Bool(number.isRatio) + ",\"pct\":" + Bool(n == HeroNumHitRate) + ",\"ticks\":" + Bool(number.isTicks) +
+           ",\"rec\":" + Bool(number.isRecord) + "}";
   }
   out += "],\"topics\":[";
   for (int t = 0; t < HERO_TOPIC_COUNT; t++)
@@ -254,6 +321,7 @@ std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroS
   }
   std::vector<int> heroTiles(HeroStatsCatalogue_ChampionTiles().begin(), HeroStatsCatalogue_ChampionTiles().end());
   out += "],\"heroTiles\":" + Ints(heroTiles);
+  out += ",\"xpFirst\":" + Number(HeroNumXpFighter) + ",\"recFirst\":" + Number(HeroNumRecFirst);
   out += ",\"views\":{\"-1\":" + ViewJson(stats, columns, names, HERO_STATS_WHOLE_RUN);
   for (size_t i = 0; i < levels.size(); i++)
     out += ",\"" + Number(levels[i]) + "\":" + ViewJson(stats, columns, names, levels[i]);
@@ -320,6 +388,11 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   tr.lv { cursor:pointer } tr.lv:hover td { background:var(--hover) }
   tr.wrow { cursor:pointer } tr.wrow:hover td { background:var(--hover) }
   tr.opt td { color:var(--part) } tr.opt td:first-child { padding-left:26px; color:var(--dim) }
+  tr.grp td { color:var(--dim); text-transform:uppercase; letter-spacing:.05em; font-size:11px; padding-top:9px }
+  tr.xrow { cursor:pointer } tr.xrow:hover td { background:var(--hover) }
+  .gold { color:#e0b54a } .tile .sub { color:var(--text); font-size:11.5px; margin-top:3px } .tile .sub.f { color:var(--faint) }
+  .prog { height:5px; background:var(--track); border-radius:2px; overflow:hidden; margin-top:5px } .prog i { display:block; height:100% }
+  .nt { color:var(--faint) } table td.l, table th.l { text-align:left }
   .z, table tr td.z { color:var(--faint) } .gone { color:var(--dim) }  /* a zero is faint in part and total rows too */
   .pill { color:var(--bad); background:rgba(229,115,95,.16); border-radius:3px; padding:0 4px }
   td.bar { width:170px } td.whobar { width:140px }
@@ -337,7 +410,9 @@ static const char *const PAGE_SCRIPT = R"HTML(
 const D = JSON.parse(document.getElementById('stats').textContent);
 const H = D.heroes, N = H.length, NUM = D.numbers, TOP = D.topics;
 const COLOUR = i => `var(--c${i % 4})`;
-const DETAIL = {WEAPONS: 0, SPELLS: 1, HARM: 2, HEALING: 3, DEATHS: 4, CONSUMED: 5, ITEMS: 6, MONSTERS: 7};
+const DETAIL = {WEAPONS: 0, SPELLS: 1, HARM: 2, HEALING: 3, DEATHS: 4, CONSUMED: 5, ITEMS: 6, MONSTERS: 7,
+                SKILLS: 8, XP_SOURCES: 9, RANK_UPS: 10, RECORDS: 11};
+const TOPIC_RECORDS = 8;
 const NUMBERS_SECTION = 'numbers', KEY_SECTION = 'key';
 const st = {who: N, topic: 0, level: -1, per: false, side: false, grid: {}, closed: {}, sort: {}, open: {}};
 
@@ -350,7 +425,8 @@ const view = l => D.views[String(l)];
 const rec = (i, l) => view(l).records[i];
 const page = () => view(st.level).pages[st.who];
 const applies = (n, i, l) => !(NUM[n].party && i < N) && !(NUM[n].run && l !== -1);
-const text = (n, v) => NUM[n].ratio && v < 0 ? '-' : NUM[n].pct ? v + '%' : fmt(v);
+const text = (n, v) => (NUM[n].ratio || NUM[n].rec) && v < 0 ? '-' : NUM[n].pct ? v + '%' :
+  n === D.recFirst + 11 ? fmt(Math.floor(v / 10)) + '.' + (v % 10) + ' kg' : n === D.recFirst + 7 ? fmt(v) + ' HP left' : fmt(v);
 const sum = a => a.reduce((x, y) => x + Math.max(0, y || 0), 0);
 const dotOf = i => `<span class="dot" style="background:${COLOUR(i)}"></span>`;
 
@@ -444,11 +520,39 @@ function frame() {
     [whoName(st.who), TOP[st.topic].label, st.per ? 'Per level' : lvName(st.level)].join(' · ');
 }
 
+// A tile: the number and its label; on the Experience and Records pages the rank or the record's
+// holder under it
 function tiles(numbers) {
-  const r = rec(st.who, st.level);
+  const r = rec(st.who, st.level), p = page();
   const shown = numbers.filter(n => applies(n, st.who, st.level)).slice(0, 4);
-  return '<div class="tiles">' + shown.map(n => `<div class="tile${NUM[n].bad && r[n] > 0 ? ' bad' : ''}"><div class="v">${text(n, r[n])}</div>` +
-    `<div class="l">${esc(NUM[n].label)}</div></div>`).join('') + '</div>';
+  return '<div class="tiles">' + shown.map(n => {
+    let v = text(n, r[n]), l = esc(NUM[n].label), sub = '', cls = NUM[n].bad && r[n] > 0 ? ' bad' : '';
+    const k = n - D.xpFirst, line = k >= 0 && k < 4 ? p.xp.classes[k] : null;
+    if (line) {
+      // [name, rank now, at the start, % to next, next rank, experience, ranks gained, best hero, ...]
+      if (isParty()) {
+        l = esc(line[0]) + ' experience';
+        if (line[1]) sub = `<div class="sub">${line[7] < N ? dotOf(line[7]) + ' ' : ''}best: ${esc(line[1])} (${esc(whoName(line[7]))})</div>`;
+      } else {
+        v = line[1] ? esc(line[1]) : '-';
+        l = `${esc(line[0])} · ${fmt(line[5])} XP gained`;
+        if (line[4] && line[4] !== line[1])
+          sub = `<div class="prog"><i style="width:${line[3]}%;background:${COLOUR(st.who)}"></i></div><div class="sub f">${line[3]}% to ${esc(line[4])}</div>`;
+      }
+    }
+    const record = NUM[n].rec ? p.records.find(x => x[0] === n - D.recFirst) : null;
+    if (record && !record[9] && !isParty() && record[11])
+      sub = `<div class="sub f">party: ${esc(record[11])} ${record[12] >= 0 ? esc(whoName(record[12])) : ''}</div>`;
+    if (record && record[9]) {
+      // [kind, group, label, value, who, how, whom, when, level, has, held, party value, party's hero]
+      v = esc(record[3]);
+      const detail = record[6] || record[5];
+      if (isParty()) sub = `<div class="sub">${record[12] >= 0 && record[12] < N && record[4] !== 'party' ? dotOf(record[12]) + ' ' : ''}${esc(record[4])}${detail ? ' · ' + esc(detail) : ''}</div>`;
+      else if (record[10]) { v += ' &#9733;'; cls += ' goldv'; }
+      else if (record[11]) sub = `<div class="sub f">party: ${esc(record[11])} ${record[12] >= 0 ? esc(whoName(record[12])) : ''}</div>`;
+    }
+    return `<div class="tile${cls}"><div class="v${cls.includes('goldv') ? ' gold' : ''}">${v}</div><div class="l">${l}</div>${sub}</div>`;
+  }).join('') + '</div>';
 }
 
 function numbersTable(t) {
@@ -607,6 +711,81 @@ function cards() {
   }).join('') + '</div>';
 }
 
+// ---- Experience and Records ----
+
+function skills(p) {
+  const cols = isParty() ? [nameCol('Skill'), numCol('Experience'), numCol('Ranks gained'), whoColumn([1], 1)]
+                         : [nameCol('Skill'), nameCol('Rank now'), numCol('Experience'), numCol('Ranks gained')];
+  const rows = p.xp.classes.map((c, i) => {
+    const key = 'class:' + st.who + ':' + i, open = !!st.open[key];
+    const name = td(c[0], `<td>${open ? '&#9662;' : '&#9656;'} ${esc(c[0].toUpperCase())}</td>`);
+    const cells = isParty() ? [name, td(c[5], plain(c[5])), td(c[6], plain(c[6])), whoBy(c[5], () => c[8])]
+      : [name, td(c[1], `<td class="l">${esc(c[1] || '-')}${c[2] && c[2] !== c[1] ? ` <span class="nt">(${esc(c[2])} at the start)</span>` : ''}</td>`),
+         td(c[5], plain(c[5])), td(c[6], plain(c[6]))];
+    const sub = open ? c[9].map(s => ({cls: 'opt', cells: isParty() ? [nameTd(s[0]), td(s[1], plain(s[1])), td(0, '<td></td>'), td(0, whoBar(s[2]))]
+                                                             : [nameTd(s[0]), td(0, '<td></td>'), td(s[1], plain(s[1])), td(0, '<td></td>')]})) : [];
+    return {cls: 'wrow', act: `toggleWeapon(${JSON.stringify(key).replace(/"/g, '&quot;')})`, cells, sub};
+  });
+  return section(DETAIL.SKILLS, 'Skills', 'the hidden skills under each class', sortTable('skills', cols, rows, null, null));
+}
+
+// Experience by source: Attacks opens to its weapons and their actions, Spells to its classes and
+// their spells. Open at first: Attacks with its first weapon, Spells with its classes.
+function xpSources(p) {
+  const lines = p.xp.sources;
+  let head = '<tr><th>Source</th>';
+  head += isParty() ? '<th>Experience</th><th>Who: Experience</th>'
+    : `<th>${dotOf(st.who)} ${esc(H[st.who].name)}</th><th>Party</th><th>Share of party</th>`;
+  let body = '', hideBelow = -1, top = '';
+  lines.forEach((l, i) => {
+    // [name, note, depth, experience, [by hero; a hero's page: the party's], has children]
+    const [name, note, depth, amount, by, kids] = l;
+    if (depth === 0) top = name;
+    if (hideBelow >= 0 && depth > hideBelow) return;
+    hideBelow = -1;
+    const key = 'xp:' + st.who + ':' + top + ':' + i;
+    const atFirst = depth === 0 || (depth === 1 && (top === 'Spells' || lines[i - 1][2] === 0));
+    const open = kids && (st.open[key] === undefined ? atFirst : st.open[key]);
+    if (kids && !open) hideBelow = depth;
+    const arrow = kids ? (open ? '&#9662; ' : '&#9656; ') : '';
+    const act = kids ? ` onclick="st.open[${JSON.stringify(key).replace(/"/g, '&quot;')}]=${!open};draw()"` : '';
+    body += `<tr class="d${Math.min(depth, 2)}${kids ? ' xrow' : ''}"${act}><td>${arrow}${esc(name)}${note ? ` <span class="nt">${esc(note)}</span>` : ''}</td>`;
+    if (isParty()) body += plain(amount) + `<td class="whobar">${shareBar(by)}</td>`;
+    else body += plain(amount) + plain(by[0] || 0) + `<td class="bar">${by[0] > 0 ? partBar(amount, by[0], st.who) : ''}</td>`;
+    body += '</tr>';
+  });
+  return section(DETAIL.XP_SOURCES, 'Experience by source', 'click a line to fold it', `<div class="wide"><table>${head}</tr>${body}</table></div>`);
+}
+
+function rankUps(p) {
+  const ups = p.xp.rankups, n = ups.length;
+  if (!n) return section(DETAIL.RANK_UPS, 'Ranks gained', 'none yet', '<div class="note">No new rank yet.</div>');
+  const cols = (isParty() ? [nameCol('Who')] : []).concat([nameCol('Class'), nameCol('Rank'), nameCol('With'), numCol('Lv')]);
+  const rows = ups.map((u, i) => ({cells: (isParty() ? [td(whoName(u[0]), `<td>${u[0] < N ? dotOf(u[0]) + ' ' : ''}${esc(whoName(u[0]))}</td>`)] : [])
+    .concat([nameTd(u[1]), nameTd(u[2]), td(u[3], `<td class="nt">${esc(u[3])}</td>`), td(u[4], `<td>${u[4]}</td>`)])}));
+  return section(DETAIL.RANK_UPS, 'Ranks gained', `newest first · ${n} ${n === 1 ? 'rank' : 'ranks'}`, sortTable('rankups', cols, rows, null, null));
+}
+
+function records(p) {
+  const lines = p.records, held = lines.filter(l => l[10]).length;
+  const summary = isParty() ? 'the best of the run · hover a value for when' : `${esc(H[st.who].name)}'s best · &#9733; ${held} party ${held === 1 ? 'record' : 'records'}`;
+  let head = '<tr><th>Record</th>' + (isParty() ? '<th>Value</th><th class="l">Who</th>' : `<th>${dotOf(st.who)} ${esc(H[st.who].name)}</th>`) +
+    '<th class="l">How</th><th class="l">On / from</th><th>Lv</th>' + (isParty() ? '' : '<th>Party best</th>');
+  let body = '', group = '';
+  const span = isParty() ? 6 : 6;
+  for (const l of lines) {
+    // [kind, group, label, value, who, how, whom, when, level, has, held, party value, party's hero]
+    if (l[1] !== group) { group = l[1]; body += `<tr class="grp"><td colspan="${span}">${esc(group)}</td></tr>`; }
+    const value = l[9] ? `<td${l[10] ? ' class="gold"' : ''} title="${esc(l[7])}">${esc(l[3])}${l[10] ? ' &#9733;' : ''}</td>` : '<td class="z">-</td>';
+    body += `<tr><td>${esc(l[2])}</td>${value}`;
+    if (isParty()) body += `<td class="l">${l[9] && l[4] !== 'party' && l[12] >= 0 && l[12] < N ? dotOf(l[12]) + ' ' : ''}${esc(l[9] ? l[4] : '')}</td>`;
+    body += `<td class="l nt">${esc(l[5])}</td><td class="l nt">${esc(l[6])}</td><td>${l[9] ? l[8] : ''}</td>`;
+    if (!isParty()) body += `<td>${l[10] ? '<span class="nt">this one</span>' : l[11] ? esc(l[11]) + (l[12] >= 0 && l[12] < N ? ' ' + dotOf(l[12]) : '') : ''}</td>`;
+    body += '</tr>';
+  }
+  return section(DETAIL.RECORDS, 'Records', summary, `<div class="wide"><table>${head}</tr>${body}</table></div>`);
+}
+
 function topicTiles() {
   const sums = view(st.level).summaries[st.who];
   return '<div class="topics">' + TOP.map((t, i) => i === 0 ? '' :
@@ -619,8 +798,10 @@ function topicPage() {
     const body = tiles(isParty() ? TOP[0].tiles : D.heroTiles) + (isParty() ? cards() : topicTiles());
     return body + section(KEY_SECTION, 'Key numbers', isParty() ? 'one row from each topic' : 'compared with the party', numbersTable(0));
   }
-  let html = tiles(TOP[t].tiles) +
-    section(NUMBERS_SECTION, 'Numbers', isParty() ? 'each champion and the party' : esc(H[st.who].name) + ' and the party', numbersTable(t));
+  let html = tiles(TOP[t].tiles);
+  // The Records table is the page's numbers
+  if (t !== TOPIC_RECORDS)
+    html += section(NUMBERS_SECTION, 'Numbers', isParty() ? 'each champion and the party' : esc(H[st.who].name) + ' and the party', numbersTable(t));
   for (const d of isParty() ? TOP[t].details : TOP[t].heroDetails) {
     if (d === DETAIL.WEAPONS) html += weapons(p);
     else if (d === DETAIL.SPELLS) html += spells(p);
@@ -630,6 +811,10 @@ function topicPage() {
     else if (d === DETAIL.CONSUMED) html += consumed(p);
     else if (d === DETAIL.ITEMS) html += items();
     else if (d === DETAIL.MONSTERS) html += monsters();
+    else if (d === DETAIL.SKILLS) html += skills(p);
+    else if (d === DETAIL.XP_SOURCES) html += xpSources(p);
+    else if (d === DETAIL.RANK_UPS) html += rankUps(p);
+    else if (d === DETAIL.RECORDS) html += records(p);
   }
   return html;
 }
@@ -638,8 +823,10 @@ function topicPage() {
 function perLevel() {
   const t = st.topic, grid = TOP[t].grid, levels = D.levels.concat([-1]);
   let html = '';
-  const side = isParty() && grid.length > 0 && st.side;
-  if (isParty() && grid.length) {
+  // Records are one at a time: no Party totals
+  const recordsOnly = t === TOPIC_RECORDS;
+  const side = isParty() && grid.length > 0 && (st.side || recordsOnly);
+  if (isParty() && grid.length && !recordsOnly) {
     html += `<div class="choices"><span class="lab">Show</span><div class="seg"><button class="ch${!st.side ? ' on' : ''}" onclick="set({side:false})">Party totals</button>` +
       `<button class="ch${st.side ? ' on' : ''}" onclick="set({side:true})">Champions side by side</button></div></div>`;
   }
@@ -649,11 +836,12 @@ function perLevel() {
     const n = grid.includes(st.grid[t]) ? st.grid[t] : grid[0];
     html += '<div class="choices"><span class="lab">Number</span><div class="seg">' + grid.map(g =>
       `<button class="ch${g === n ? ' on' : ''}" onclick="st.grid[${t}]=${g};draw()">${esc(NUM[g].label)}</button>`).join('') + '</div></div>';
-    cols = [nameCol('Level')].concat(H.map((h, i) => heroCol(i)), [numCol('Party'), numCol('Share')]);
+    const share = !NUM[n].rec;
+    cols = [nameCol('Level')].concat(H.map((h, i) => heroCol(i)), [numCol('Party')], share ? [numCol('Share')] : []);
     rowOf = l => {
-      const by = H.map((h, i) => rec(i, l)[n]);
+      const by = H.map((h, i) => NUM[n].party ? null : rec(i, l)[n]);
       return [levelTd(l)].concat(by.map((v, i) => td(v, numCell(n, v, H[i].left ? 'gone' : ''))),
-        [td(rec(N, l)[n], numCell(n, rec(N, l)[n])), td(rec(N, l)[n], `<td class="bar">${shareBar(by)}</td>`)]);
+        [td(rec(N, l)[n], numCell(n, rec(N, l)[n]))], share ? [td(rec(N, l)[n], `<td class="bar">${shareBar(by)}</td>`)] : []);
     };
   } else {
     const numbers = TOP[t].rows.filter(([n, depth]) => depth === 0 && applies(n, st.who, 0)).map(([n]) => n);

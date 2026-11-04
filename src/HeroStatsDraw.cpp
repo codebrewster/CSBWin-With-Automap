@@ -692,7 +692,13 @@ static TileText TileTextOf(const HeroStatsTopicPage &page, HeroStatsNumber numbe
     for (size_t r = 0; r < page.records.size(); r++)
     {
       const HeroStatsRecordLine &record = page.records[r];
-      if (record.kind != HeroStatsCatalogue_RecordOf(number) || !record.has) continue;
+      if (record.kind != HeroStatsCatalogue_RecordOf(number)) continue;
+      if (!record.has)
+      {
+        if (!isParty && !record.partyValue.empty())
+          tile.sub = "party: " + record.partyValue + " " + WhoLabel(columns, record.partyHolder);
+        continue;
+      }
       tile.big = record.value;
       std::string detail = !record.whom.empty() ? record.whom : record.how;
       if (isParty)

@@ -670,8 +670,24 @@ static void RecordsPerLevelHaveNoShare(void)
   CHECK(!grid.rows.empty() && grid.rows.back().level == HERO_STATS_WHOLE_RUN && grid.rows.back().values.back() == 120);
 }
 
+static void ExportHasExperienceAndRecords(void)
+{
+  HeroStats stats = ExperiencedParty();
+  stats.Records().Offer(HeroRecBiggestHit, RecordEntry(7, 120));
+  HeroStatsExportInfo info = {"dungeon.dat", "2026-11-05 12:00"};
+  std::string json = HeroStatsExport_Json(stats, Columns(stats), NAMES, info);
+  CHECK(json.find("\"xp\":{\"classes\":") != std::string::npos);
+  CHECK(json.find("\"sources\":[[\"Attacks\"") != std::string::npos);
+  CHECK(json.find("\"SWORD\"") != std::string::npos);
+  CHECK(json.find("\"records\":[[0,\"Dealt\",\"Biggest hit\",\"120\"") != std::string::npos);
+  CHECK(json.find("\"xpFirst\":") != std::string::npos && json.find("\"recFirst\":") != std::string::npos);
+  std::string html = HeroStatsExport_Html(stats, Columns(stats), NAMES, info);
+  CHECK(html.find("function records(") != std::string::npos && html.find("function xpSources(") != std::string::npos);
+}
+
 void TestHeroStatsPages(void)
 {
+  ExportHasExperienceAndRecords();
   SourcesAddUpToTheClasses();
   ChampionSourcesLeaveOutZeros();
   ClassesOpenToTheirSkills();
