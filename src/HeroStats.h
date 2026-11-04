@@ -22,6 +22,9 @@ const int HERO_STATS_NO_WEAPON = -2;               // spells entered as runes
 const int HERO_STATS_THROW_OPTION = -1;            // option of an item thrown by hand
 const int HERO_STATS_NO_OPTION = -2;
 const uint32_t HERO_STATS_NO_SPELL = 0;
+// The game's two Firestaffs (objNI_TheFirestaff_a and _b): one name, two items
+const int HERO_STATS_FIRESTAFF = 27;
+const int HERO_STATS_FIRESTAFF_WITH_GEM = 28;
 
 enum HeroDamageKind { HeroDamageMelee, HeroDamageRanged, HeroDamageMagic, HERO_DAMAGE_KIND_COUNT };
 enum HeroBlowBy { HeroBlowByChampion, HeroBlowByMonster, HeroBlowByTrap, HeroBlowByDoor,
@@ -63,7 +66,8 @@ const uint32_t HERO_SPELL_MONSTER_MISSILE = 0x05000000;
 uint32_t HeroStats_RuneSpellKey(const void *incantation);
 // The display name of a weapon key: the basic object type's name from the game's item names
 // (d.ObjectNames, nameCount entries), "UNARMED" for an empty hand, "" for spells entered as runes,
-// "#N" for a type the table does not name
+// "#N" for a type the table does not name. Types that share a name are different items and get
+// their own: "THE FIRESTAFF (with Power Gem)", otherwise "AMULET (2)" by their order in the table.
 std::string HeroStats_WeaponName(int weapon, const char *const *itemNames, int nameCount);
 
 struct HeroStatsChampionInfo { HeroStatsChampion id; std::string name; };

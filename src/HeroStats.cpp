@@ -31,7 +31,19 @@ std::string HeroStats_WeaponName(int weapon, const char *const *itemNames, int n
 {
   if (weapon == HERO_STATS_UNARMED) return "UNARMED";
   if (weapon == HERO_STATS_NO_WEAPON) return "";
-  if (weapon >= 0 && weapon < nameCount && itemNames[weapon] != NULL) return itemNames[weapon];
+  if (weapon >= 0 && weapon < nameCount && itemNames[weapon] != NULL)
+  {
+    // Types that share a name are different items: tell them apart
+    std::string name = itemNames[weapon];
+    int before = 0;
+    for (int other = 0; other < weapon; other++)
+      if (itemNames[other] != NULL && name == itemNames[other]) before++;
+    if (before == 0) return name;
+    if (weapon == HERO_STATS_FIRESTAFF_WITH_GEM && itemNames[HERO_STATS_FIRESTAFF] != NULL &&
+        name == itemNames[HERO_STATS_FIRESTAFF])
+      return name + " (with Power Gem)";
+    return name + " (" + std::to_string(before + 1) + ")";
+  }
   char number[16];
   snprintf(number, sizeof number, "#%d", weapon);
   return number;

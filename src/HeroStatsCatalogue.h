@@ -17,7 +17,7 @@ enum HeroStatsTopic { HeroTopicOverview, HeroTopicCombat, HeroTopicMagic, HeroTo
 
 enum HeroStatsNumber {
   HeroNumDamage, HeroNumMelee, HeroNumRanged, HeroNumMagic, HeroNumKills, HeroNumAttacks, HeroNumHits,
-  HeroNumHitRate, HeroNumDamagePerHit, HeroNumFriendlyFire,
+  HeroNumHitRate, HeroNumDamagePerHit, HeroNumOtherActions, HeroNumFriendlyFire,
   HeroNumManaGenerated, HeroNumManaRegeneration, HeroNumManaPotions, HeroNumManaSpent, HeroNumManaOnSpells, HeroNumManaSuccessful, HeroNumManaWasted,
   HeroNumRunesCleared, HeroNumRunesNotCast,
   HeroNumCasts, HeroNumCastsSuccessful, HeroNumCastsFailed,

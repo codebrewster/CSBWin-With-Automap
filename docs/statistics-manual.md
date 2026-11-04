@@ -107,7 +107,8 @@ main numbers (click one to open the topic); and the Key numbers next to the part
 |---|---|
 | **Damage dealt** | with **Melee**, **Ranged** and **Magic** below it (see [What is counted](#what-is-counted-and-how)) |
 | **Kills** | monsters the champion's blow finished |
-| **Attacks** | blows and missiles aimed at a monster, and the actions that cannot hit; with **Hits**, **Hit rate** (hits per blow or missile) and **Damage per hit** below it |
+| **Attacks** | blows and missiles aimed at a monster; with **Hits**, **Hit rate** (hits per attack) and **Damage per hit** below it |
+| **Other actions** | the actions that cannot hit: WAR CRY, CALM, BRANDISH, BLOW HORN, the shields ... (see Weapons below). They are no attacks, so they are not in Attacks or the hit rate. |
 | **Friendly fire caused** | damage the champion's missiles, spells and explosions did to the party |
 
 **Weapons** lists the attacks by weapon, with each action (SWING, CHOP, THRUST, SHOOT ...) below
@@ -119,7 +120,8 @@ hit), Damage, Kills.
   and spells of wands and staffs that make no missile (SPELLSHIELD, FIRESHIELD, LIGHT, FREEZE LIFE,
   FLUXCAGE ...), CLIMB DOWN and the like. Their Tries count how often you used them; Hits, Damage
   and Kills are zero and Rate and Avg show "-", as there is nothing to work them out from. They
-  are left out of a weapon's hit rate, so a War Cry does not lower your punches' rate.
+  are left out of a weapon's hit rate, so a War Cry does not lower your punches' rate. Their
+  Tries are in the table's Tries, so All weapons' Tries is Attacks and Other actions together.
 - Throwing an item is listed under the item itself: **THROW** when you chose the THROW action of
   the weapon hand, **Throw (by hand)** when you threw it from the mouse pointer. A shot belongs to
   the bow, crossbow or sling, not to the arrow.
@@ -193,7 +195,11 @@ A gulp from an empty waterskin or flask does not count.
 
 - **Picked up**: from the floor, an alcove, a torch holder, an alcove that swaps one item for
   another, a gift from the gods, or an open chest. An item counts only **the first time** the party
-  holds it, so dropping a dagger and picking it up again does not count twice. What the champions
+  holds it, so dropping a dagger and picking it up again does not count twice. An item changed
+  into another one is a new item: the Firestaff that takes the Power Gem is **THE FIRESTAFF (with
+  Power Gem)**, with its own line here and in Weapons. Two kinds of item that share a name in a
+  custom dungeon are told apart by a number, "(2)". A charged item that runs out of charges, or
+  is recharged on an altar of Vi, stays the same item. What the champions
   carried when they joined is not counted.
 - **Used in walls**: keys in locks, coins and gems in slots, and anything else a lock in a custom
   dungeon takes.

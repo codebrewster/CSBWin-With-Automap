@@ -528,6 +528,9 @@ int HeroStats_WeaponOf(RN item)
   return (int)GetBasicObjectType(item);
 }
 
+static_assert(HERO_STATS_FIRESTAFF == objNI_TheFirestaff_a && HERO_STATS_FIRESTAFF_WITH_GEM == objNI_TheFirestaff_b,
+              "the Firestaffs as HeroStats.h knows them");
+
 std::string HeroStats_WeaponNameOf(int weapon)
 {
   return HeroStats_WeaponName(weapon, d.ObjectNames, (int)(sizeof d.ObjectNames / sizeof d.ObjectNames[0]));

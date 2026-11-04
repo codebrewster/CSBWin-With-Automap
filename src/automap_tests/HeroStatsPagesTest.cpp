@@ -99,9 +99,9 @@ static void WarCryIsAnUnarmedAction(void)
     if (unarmed.options.size() == 2)
       CHECK(unarmed.options[1].name == "WAR CRY" && unarmed.options[1].uses == 1 && unarmed.options[1].tries == 0);
   }
-  // Attacks count the War Cry; the hit rate is the punch's
+  // The War Cry is no attack: it counts in Other actions; the hit rate is the punch's
   HeroStatsRecord record = HeroStatsCatalogue_Record(stats, 7, HERO_STATS_WHOLE_RUN);
-  CHECK(record.value[HeroNumAttacks] == 2 && record.value[HeroNumHitRate] == 100);
+  CHECK(record.value[HeroNumAttacks] == 1 && record.value[HeroNumOtherActions] == 1 && record.value[HeroNumHitRate] == 100);
 }
 
 static void SpellLinesCountEveryCast(void)

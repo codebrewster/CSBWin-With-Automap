@@ -10,10 +10,11 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Ranged", "", false, false, false, false, false},
     {"Magic", "", false, false, false, false, false},
     {"Kills", "", false, false, false, false, false},
-    {"Attacks", "", false, false, false, false, false},
+    {"Attacks", "Blows and missiles aimed at a monster.", false, false, false, false, false},
     {"Hits", "", false, false, false, false, false},
     {"Hit rate", "", false, false, false, true, false},
     {"Damage per hit", "", false, false, false, true, false},
+    {"Other actions", "Actions that cannot hit: War Cry, Calm, Brandish, Blow Horn, Confuse, shields and the like.", false, false, false, false, false},
     {"Friendly fire caused", "", false, false, true, false, false},
     {"Mana generated", "", false, false, false, false, false},
     {"Regeneration", "", false, false, false, false, false},
@@ -88,7 +89,7 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
   topics[HeroTopicCombat] = {"Combat",
                              {{HeroNumDamage, 0}, {HeroNumMelee, 1}, {HeroNumRanged, 1}, {HeroNumMagic, 1}, {HeroNumKills, 0},
                               {HeroNumAttacks, 0}, {HeroNumHits, 1}, {HeroNumHitRate, 1}, {HeroNumDamagePerHit, 1},
-                              {HeroNumFriendlyFire, 0}},
+                              {HeroNumOtherActions, 0}, {HeroNumFriendlyFire, 0}},
                              {HeroNumDamage, HeroNumKills, HeroNumHitRate, HeroNumFriendlyFire}};
   topics[HeroTopicMagic] = {"Magic",
                             {{HeroNumManaGenerated, 0}, {HeroNumManaRegeneration, 1}, {HeroNumManaPotions, 1},
@@ -152,21 +153,21 @@ static void FillKills(const HeroStats &stats, HeroStatsChampion who, int level, 
 }
 
 // As the Weapons table counts them: spells entered as runes are no attacks; the actions that
-// cannot hit are attacks but not in the hit rate
+// cannot hit are no attacks either, they are Other actions
 static void FillAttacks(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
 {
-  int tries = 0, attackDamage = 0;
-  v[HeroNumAttacks] = v[HeroNumHits] = 0;
+  int attackDamage = 0;
+  v[HeroNumAttacks] = v[HeroNumHits] = v[HeroNumOtherActions] = 0;
   std::vector<HeroStatsAttackRow> attacks = stats.Attacks(who, level);
   for (size_t i = 0; i < attacks.size(); i++)
   {
     if (attacks[i].weapon == HERO_STATS_NO_WEAPON) continue;
-    tries += attacks[i].tries;
-    v[HeroNumAttacks] += attacks[i].tries + attacks[i].uses;
+    v[HeroNumAttacks] += attacks[i].tries;
+    v[HeroNumOtherActions] += attacks[i].uses;
     v[HeroNumHits] += attacks[i].hits;
     attackDamage += attacks[i].damage;
   }
-  v[HeroNumHitRate] = RoundedRatio((long long)v[HeroNumHits] * 100, tries);
+  v[HeroNumHitRate] = RoundedRatio((long long)v[HeroNumHits] * 100, v[HeroNumAttacks]);
   v[HeroNumDamagePerHit] = RoundedRatio(attackDamage, v[HeroNumHits]);
 }
 
@@ -316,7 +317,7 @@ static FillGroup GroupOf(HeroStatsNumber number)
   {
   case HeroNumDamage: case HeroNumMelee: case HeroNumRanged: case HeroNumMagic: return FillDamage;
   case HeroNumKills: return FillKills;
-  case HeroNumAttacks: case HeroNumHits: case HeroNumHitRate: case HeroNumDamagePerHit: return FillAttacks;
+  case HeroNumAttacks: case HeroNumHits: case HeroNumHitRate: case HeroNumDamagePerHit: case HeroNumOtherActions: return FillAttacks;
   case HeroNumFriendlyFire: return FillFriendlyFire;
   case HeroNumManaGenerated: case HeroNumManaRegeneration: case HeroNumManaPotions: case HeroNumManaSpent:
   case HeroNumManaWasted: case HeroNumRunesCleared: case HeroNumManaSuccessful: case HeroNumRunesNotCast:

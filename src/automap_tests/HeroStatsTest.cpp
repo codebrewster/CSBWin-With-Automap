@@ -770,6 +770,20 @@ static void WeaponNamesComeFromTheItemNames(void)
   CHECK(HeroStats_WeaponName(1, names, 3) == "#1");
   CHECK(HeroStats_WeaponName(3, names, 3) == "#3");
   CHECK(HeroStats_WeaponName(-7, names, 3) == "#-7");
+
+  // Types that share a name are told apart: the Firestaff that took the Power Gem by what it
+  // is, any other by its number among them
+  const char *twins[30] = {};
+  twins[1] = twins[4] = twins[6] = "AMULET";
+  twins[HERO_STATS_FIRESTAFF] = twins[HERO_STATS_FIRESTAFF_WITH_GEM] = "THE FIRESTAFF";
+  CHECK(HeroStats_WeaponName(1, twins, 30) == "AMULET");
+  CHECK(HeroStats_WeaponName(4, twins, 30) == "AMULET (2)");
+  CHECK(HeroStats_WeaponName(6, twins, 30) == "AMULET (3)");
+  CHECK(HeroStats_WeaponName(HERO_STATS_FIRESTAFF, twins, 30) == "THE FIRESTAFF");
+  CHECK(HeroStats_WeaponName(HERO_STATS_FIRESTAFF_WITH_GEM, twins, 30) == "THE FIRESTAFF (with Power Gem)");
+  // A dungeon that names them apart keeps its names
+  twins[HERO_STATS_FIRESTAFF_WITH_GEM] = "GEMSTAFF";
+  CHECK(HeroStats_WeaponName(HERO_STATS_FIRESTAFF_WITH_GEM, twins, 30) == "GEMSTAFF");
 }
 
 static void ManaGainIsKeptBySource(void)
