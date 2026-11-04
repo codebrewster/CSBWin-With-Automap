@@ -18,8 +18,11 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Mana generated", "", false, false, false, false, false},
     {"Regeneration", "", false, false, false, false, false},
     {"Mana potions", "", false, false, false, false, false},
-    {"Mana spent", "", false, false, false, false, false},
-    {"Wasted on failures", "", false, false, true, false, false},
+    {"Mana spent", "Spent as each rune is entered, on the level it is entered on, whatever becomes of the spell; staffs, wands and the shield and heal actions as they are used. The four lines below add up to it.", false, false, false, false, false},
+    {"Successful casts", "Runes of spells that worked, staffs and wands, the shield and heal actions.", false, false, false, false, false},
+    {"Wasted on failures", "Runes of spells that failed.", false, false, true, false, false},
+    {"Runes cleared", "Runes entered and never cast: cleared, replaced by a new incantation, or lost when the caster died.", false, false, true, false, false},
+    {"Not cast yet", "Runes entered and waiting in an incantation, on the level they were entered on.", false, false, false, false, false},
     {"Spells cast", "", false, false, false, false, false},
     {"Failed", "", false, false, true, false, false},
     {"Damage taken", "", false, false, false, false, false},
@@ -87,7 +90,8 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
                              {HeroNumDamage, HeroNumKills, HeroNumHitRate, HeroNumFriendlyFire}};
   topics[HeroTopicMagic] = {"Magic",
                             {{HeroNumManaGenerated, 0}, {HeroNumManaRegeneration, 1}, {HeroNumManaPotions, 1},
-                             {HeroNumManaSpent, 0}, {HeroNumManaWasted, 1}, {HeroNumCasts, 0}, {HeroNumCastsFailed, 1}},
+                             {HeroNumManaSpent, 0}, {HeroNumManaSuccessful, 1}, {HeroNumManaWasted, 1}, {HeroNumRunesCleared, 1},
+                             {HeroNumRunesNotCast, 1}, {HeroNumCasts, 0}, {HeroNumCastsFailed, 1}},
                             {HeroNumManaGenerated, HeroNumManaSpent, HeroNumCasts, HeroNumManaWasted}};
   topics[HeroTopicSurvival] = {"Survival",
                                {{HeroNumTaken, 0}, {HeroNumHealed, 0}, {HeroNumHealRegeneration, 1}, {HeroNumHealPotions, 1},
@@ -175,6 +179,9 @@ static void FillMana(const HeroStats &stats, HeroStatsChampion who, int level, i
   v[HeroNumManaGenerated] = stats.ManaGained(who, level);
   v[HeroNumManaSpent] = stats.ManaSpent(who, level);
   v[HeroNumManaWasted] = stats.ManaWasted(who, level);
+  v[HeroNumRunesCleared] = stats.RunesCleared(who, level);
+  v[HeroNumManaSuccessful] = stats.ManaOnSuccessfulCasts(who, level);
+  v[HeroNumRunesNotCast] = stats.RunesNotCastYet(who, level);
 }
 
 static void FillCasts(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
@@ -307,7 +314,8 @@ static FillGroup GroupOf(HeroStatsNumber number)
   case HeroNumAttacks: case HeroNumHits: case HeroNumHitRate: case HeroNumDamagePerHit: return FillAttacks;
   case HeroNumFriendlyFire: return FillFriendlyFire;
   case HeroNumManaGenerated: case HeroNumManaRegeneration: case HeroNumManaPotions: case HeroNumManaSpent:
-  case HeroNumManaWasted: return FillMana;
+  case HeroNumManaWasted: case HeroNumRunesCleared: case HeroNumManaSuccessful: case HeroNumRunesNotCast:
+    return FillMana;
   case HeroNumCasts: case HeroNumCastsFailed: return FillCasts;
   case HeroNumTaken: return FillTaken;
   case HeroNumHealed: case HeroNumHealRegeneration: case HeroNumHealPotions: case HeroNumHealAction:

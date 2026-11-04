@@ -220,8 +220,11 @@ static void AddSpells(HeroStatsHeroPage *page, const HeroStats &stats, HeroStats
   for (size_t i = 0; i < spells.size(); i++)
   {
     const HeroStatsSpellRow &row = spells[i];
+    // Cleared runes cast nothing: they are a part of Mana spent, not a spell
+    if (row.spell == HERO_SPELL_RUNES_CLEARED) continue;
+    // Mana: every cast's runes, the failed ones too; Wasted is the failed casts' part of it
     HeroStatsSpellLine line = {HeroStatsView_SpellName(row.spell), row.casts + row.failed, row.casts, row.failed,
-                               row.mana, row.wasted, row.damage, row.kills};
+                               row.mana + row.wasted, row.wasted, row.damage, row.kills};
     page->spells.push_back(line);
   }
 }

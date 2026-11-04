@@ -97,6 +97,7 @@ static void RecordMatchesTheStore(void)
   CHECK(syra.value[HeroNumManaPotions] == 12);
   CHECK(syra.value[HeroNumCasts] == 2 && syra.value[HeroNumCastsFailed] == 1);
   CHECK(syra.value[HeroNumManaWasted] == stats.ManaWasted(9, 2));
+  CHECK(syra.value[HeroNumRunesCleared] == stats.RunesCleared(9, 2));
   HeroStatsRecord party = HeroStatsCatalogue_Record(stats, HERO_STATS_PARTY, 2);
   CHECK(party.value[HeroNumTicks] == stats.Movement(2).ticks);
   CHECK(party.value[HeroNumSteps] == 1);

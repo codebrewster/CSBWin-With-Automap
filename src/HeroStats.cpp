@@ -59,6 +59,8 @@ void HeroStats::Forget(void)
   m_healing.clear();
   m_manaGained.clear();
   m_spells.clear();
+  m_runeOutcomes.clear();
+  m_pendingRunes.clear();
   m_deaths.clear();
   m_resurrections.clear();
   m_movement.clear();
@@ -211,10 +213,67 @@ void HeroStats::CountFailedCast(HeroStatsChampion who, int level, uint32_t spell
 void HeroStats::CreditManaSpent(HeroStatsChampion who, int level, uint32_t specialSpell, int mana)
 {
   if (mana <= 0) return;
-  SpellCounts &row = SpellRow(who, level, specialSpell);
-  // Cleared runes bought nothing, so their mana is wasted; shield and heal actions are spent on purpose
-  if (specialSpell == HERO_SPELL_RUNES_CLEARED) row.wasted += mana;
-  else row.mana += mana;
+  // Cleared runes are no spell: their mana is a rune outcome
+  if (specialSpell == HERO_SPELL_RUNES_CLEARED)
+  {
+    m_runeOutcomes[RuneOutcomeKey(who, level, HeroRuneCleared)] += mana;
+    return;
+  }
+  SpellRow(who, level, specialSpell).mana += mana;
+}
+
+// The rows whose mana came from runes: rune spells, known or not (and the cleared runes of old files)
+static bool IsRuneRow(uint32_t spell)
+{
+  return (spell & ~HERO_SPELL_NO_SUCH_SPELL) < HERO_SPELL_RUNES_CLEARED || spell == HERO_SPELL_RUNES_CLEARED;
+}
+
+void HeroStats::EnterRune(HeroStatsChampion who, int level, int mana)
+{
+  HeroStatsRune rune = {level, mana};
+  m_pendingRunes[who].push_back(rune);
+}
+
+void HeroStats::TakeBackRune(HeroStatsChampion who)
+{
+  std::map<HeroStatsChampion, std::vector<HeroStatsRune> >::iterator at = m_pendingRunes.find(who);
+  if (at == m_pendingRunes.end() || at->second.empty()) return;
+  HeroStatsRune rune = at->second.back();
+  at->second.pop_back();
+  if (at->second.empty()) m_pendingRunes.erase(at);
+  if (rune.mana > 0) m_runeOutcomes[RuneOutcomeKey(who, rune.level, HeroRuneCleared)] += rune.mana;
+}
+
+int HeroStats::ResolveRunes(HeroStatsChampion who, HeroRuneOutcome outcome)
+{
+  std::map<HeroStatsChampion, std::vector<HeroStatsRune> >::iterator at = m_pendingRunes.find(who);
+  if (at == m_pendingRunes.end()) return 0;
+  int total = 0;
+  for (size_t i = 0; i < at->second.size(); i++)
+  {
+    const HeroStatsRune &rune = at->second[i];
+    if (rune.mana <= 0) continue;
+    m_runeOutcomes[RuneOutcomeKey(who, rune.level, outcome)] += rune.mana;
+    total += rune.mana;
+  }
+  m_pendingRunes.erase(at);
+  return total;
+}
+
+std::vector<HeroStatsRune> HeroStats::PendingRunes(HeroStatsChampion who) const
+{
+  std::map<HeroStatsChampion, std::vector<HeroStatsRune> >::const_iterator at = m_pendingRunes.find(who);
+  return at == m_pendingRunes.end() ? std::vector<HeroStatsRune>() : at->second;
+}
+
+void HeroStats::SyncPendingRunes(HeroStatsChampion who, const std::vector<int> &costs, int level)
+{
+  std::vector<HeroStatsRune> kept = PendingRunes(who);
+  bool same = kept.size() == costs.size();
+  for (size_t i = 0; same && i < costs.size(); i++) same = kept[i].mana == costs[i];
+  if (same) return;
+  m_pendingRunes.erase(who);
+  for (size_t i = 0; i < costs.size(); i++) EnterRune(who, level, costs[i]);
 }
 
 int HeroStats::DamageDealt(HeroStatsChampion who, int level, HeroDamageKind kind) const
@@ -427,11 +486,24 @@ int HeroStats::ManaGainedBy(HeroStatsChampion who, int level, HeroManaGain gain)
   return sum;
 }
 
-int HeroStats::ManaSpent(HeroStatsChampion who, int level) const
+int HeroStats::RuneOutcome(HeroStatsChampion who, int level, HeroRuneOutcome outcome) const
+{
+  int sum = 0;
+  for (std::map<RuneOutcomeKey, int>::const_iterator at = m_runeOutcomes.begin(); at != m_runeOutcomes.end(); ++at)
+  {
+    if (std::get<2>(at->first) != outcome) continue;
+    if (Matches(who, std::get<0>(at->first)) && LevelMatches(level, std::get<1>(at->first))) sum += at->second;
+  }
+  return sum;
+}
+
+// Staffs and wands, the shield and heal actions: spent as they are used, never wasted
+int HeroStats::SpecialRowsMana(HeroStatsChampion who, int level) const
 {
   int sum = 0;
   for (std::map<SpellKey, SpellCounts>::const_iterator at = m_spells.begin(); at != m_spells.end(); ++at)
   {
+    if (IsRuneRow(std::get<2>(at->first))) continue;
     if (Matches(who, std::get<0>(at->first)) && LevelMatches(level, std::get<1>(at->first)))
     {
       sum += at->second.mana + at->second.wasted;
@@ -440,15 +512,36 @@ int HeroStats::ManaSpent(HeroStatsChampion who, int level) const
   return sum;
 }
 
+int HeroStats::ManaSpent(HeroStatsChampion who, int level) const
+{
+  return ManaOnSuccessfulCasts(who, level) + ManaWasted(who, level) + RunesCleared(who, level) +
+         RunesNotCastYet(who, level);
+}
+
+int HeroStats::ManaOnSuccessfulCasts(HeroStatsChampion who, int level) const
+{
+  return RuneOutcome(who, level, HeroRuneCast) + SpecialRowsMana(who, level);
+}
+
 int HeroStats::ManaWasted(HeroStatsChampion who, int level) const
 {
+  return RuneOutcome(who, level, HeroRuneFailed);
+}
+
+int HeroStats::RunesCleared(HeroStatsChampion who, int level) const
+{
+  return RuneOutcome(who, level, HeroRuneCleared);
+}
+
+int HeroStats::RunesNotCastYet(HeroStatsChampion who, int level) const
+{
   int sum = 0;
-  for (std::map<SpellKey, SpellCounts>::const_iterator at = m_spells.begin(); at != m_spells.end(); ++at)
+  for (std::map<HeroStatsChampion, std::vector<HeroStatsRune> >::const_iterator at = m_pendingRunes.begin();
+       at != m_pendingRunes.end(); ++at)
   {
-    if (Matches(who, std::get<0>(at->first)) && LevelMatches(level, std::get<1>(at->first)))
-    {
-      sum += at->second.wasted;
-    }
+    if (!Matches(who, at->first)) continue;
+    for (size_t i = 0; i < at->second.size(); i++)
+      if (LevelMatches(level, at->second[i].level)) sum += at->second[i].mana;
   }
   return sum;
 }
@@ -1044,6 +1137,26 @@ void HeroStats::Serialize(std::vector<uint8_t> *out) const
     HeroBytes_PutInt(out, it->first);
     HeroBytes_PutInt(out, it->second);
   }
+  HeroBytes_Put(out, (uint32_t)m_runeOutcomes.size(), 4);
+  for (std::map<RuneOutcomeKey, int>::const_iterator it = m_runeOutcomes.begin(); it != m_runeOutcomes.end(); ++it)
+  {
+    HeroBytes_Put(out, std::get<0>(it->first), 2);
+    HeroBytes_PutInt(out, std::get<1>(it->first));
+    HeroBytes_PutInt(out, std::get<2>(it->first));
+    HeroBytes_PutInt(out, it->second);
+  }
+  HeroBytes_Put(out, (uint32_t)m_pendingRunes.size(), 4);
+  for (std::map<HeroStatsChampion, std::vector<HeroStatsRune> >::const_iterator it = m_pendingRunes.begin();
+       it != m_pendingRunes.end(); ++it)
+  {
+    HeroBytes_Put(out, it->first, 2);
+    HeroBytes_Put(out, (uint32_t)it->second.size(), 4);
+    for (size_t i = 0; i < it->second.size(); i++)
+    {
+      HeroBytes_PutInt(out, it->second[i].level);
+      HeroBytes_PutInt(out, it->second[i].mana);
+    }
+  }
 }
 
 bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
@@ -1270,6 +1383,64 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
   {
     int level = in.GetInt();
     read.m_scrollsRead[level] = in.GetInt();
+  }
+  if (layout >= FIRST_LAYOUT_WITH_RUNE_OUTCOMES)
+  {
+    count = in.GetCount(2 + 4 + 4 + 4);
+    for (uint32_t i = 0; i < count && in.ok; i++)
+    {
+      HeroStatsChampion who = (HeroStatsChampion)in.Get(2);
+      int level = in.GetInt();
+      int outcome = in.GetInt();
+      int mana = in.GetInt();
+      if (outcome < 0 || outcome >= HERO_RUNE_OUTCOME_COUNT) return false;
+      read.m_runeOutcomes[RuneOutcomeKey(who, level, outcome)] = mana;
+    }
+    count = in.GetCount(2 + 4);
+    for (uint32_t i = 0; i < count && in.ok; i++)
+    {
+      HeroStatsChampion who = (HeroStatsChampion)in.Get(2);
+      uint32_t runes = in.GetCount(4 + 4);
+      std::vector<HeroStatsRune> &kept = read.m_pendingRunes[who];
+      for (uint32_t r = 0; r < runes && in.ok; r++)
+      {
+        HeroStatsRune rune;
+        rune.level = in.GetInt();
+        rune.mana = in.GetInt();
+        kept.push_back(rune);
+      }
+      if (kept.empty()) read.m_pendingRunes.erase(who);
+    }
+  }
+  else
+  {
+    // Layout 21's rune mana per level: its outcomes are not known, so it is skipped
+    count = layout >= FIRST_LAYOUT_WITH_RUNE_MANA ? in.GetCount(2 + 4 + 4) : 0;
+    for (uint32_t i = 0; i < count && in.ok; i++)
+    {
+      in.Get(2);
+      in.GetInt();
+      in.GetInt();
+    }
+    // The rune rows had the mana of the runes, on the level of the cast or clearing
+    std::map<SpellKey, SpellCounts> spells;
+    for (std::map<SpellKey, SpellCounts>::const_iterator at = read.m_spells.begin(); at != read.m_spells.end(); ++at)
+    {
+      HeroStatsChampion who = std::get<0>(at->first);
+      int level = std::get<1>(at->first);
+      uint32_t spell = std::get<2>(at->first);
+      if (spell == HERO_SPELL_RUNES_CLEARED)
+      {
+        int mana = at->second.mana + at->second.wasted;
+        if (mana > 0) read.m_runeOutcomes[RuneOutcomeKey(who, level, HeroRuneCleared)] += mana;
+        continue;
+      }
+      spells[at->first] = at->second;
+      if (!IsRuneRow(spell)) continue;
+      if (at->second.mana > 0) read.m_runeOutcomes[RuneOutcomeKey(who, level, HeroRuneCast)] += at->second.mana;
+      if (at->second.wasted > 0) read.m_runeOutcomes[RuneOutcomeKey(who, level, HeroRuneFailed)] += at->second.wasted;
+    }
+    read.m_spells = spells;
   }
   if (!in.ok || in.left != 0) return false;
   *this = read;

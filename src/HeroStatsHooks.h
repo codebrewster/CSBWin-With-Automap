@@ -199,9 +199,12 @@ void HeroStats_OnHarmApplied(void);
 // The game is lost: every champion is dead
 void HeroStats_OnPartyWiped(void);
 
-// Mana and spells. Each rune's mana is taken as it is clicked (TAG01b990) and kept per slot until
-// the incantation resolves or the engine throws it away; mana thrown away is "Runes cleared".
-// The incantation belongs to its champion: changing the caster or closing the panel keeps it.
+// Mana and spells. Each rune's mana is taken as it is clicked (TAG01b990): it is spent then, on
+// the party's level, and the store keeps the rune for its champion until the incantation
+// resolves or the engine throws it away (mana thrown away is "Runes cleared"). The incantation
+// belongs to its champion: changing the caster or closing the panel keeps it. The .map file keeps
+// the runes too; on loading they are checked against the engine's incantations, and runes the
+// file does not have get their mana from the engine's tables, entered on the party's level.
 //
 // A rune's mana was taken. Entered as a power rune, it starts a new incantation: the runes before
 // it (four entered, then a power rune) are thrown away.
@@ -209,7 +212,8 @@ void HeroStats_OnRuneEntered(int slot, int mana);
 void HeroStats_OnRuneRemoved(int slot);                    // its mana: "Runes cleared"
 // KillCharacter, RemoveCharacter: the engine empties the incantation
 void HeroStats_OnIncantationDiscarded(int slot);
-// CharacterDelete: the champions after the slot move down one, their runes with them
+// CharacterDelete: the champions after the slot move down one (the runes are kept per champion,
+// so nothing changes)
 void HeroStats_OnSlotRemoved(int slot);
 // Around CastSpell in CastMagic: the spell is the slot's incantation, so the outcome hooks take
 // its runes' mana. incantationKept: CastMagic leaves the incantation (no flask for a potion);

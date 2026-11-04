@@ -117,8 +117,13 @@ static void SpellLinesCountEveryCast(void)
   if (page.spells.size() == 1)
   {
     CHECK(page.spells[0].casts == 3 && page.spells[0].successful == 2 && page.spells[0].failed == 1);
-    CHECK(page.spells[0].mana == 40 && page.spells[0].wasted == 7);
+    // Mana: every cast's, the failed one too; Wasted is its part
+    CHECK(page.spells[0].mana == 47 && page.spells[0].wasted == 7);
   }
+  // Cleared runes cast nothing: they are no spell line
+  stats.CreditManaSpent(9, 1, HERO_SPELL_RUNES_CLEARED, 3);
+  page = HeroStatsPages_Hero(stats, Columns(stats), 9, HERO_STATS_WHOLE_RUN, NAMES);
+  CHECK(page.spells.size() == 1);
 }
 
 static void PartySpellsAreSplitByChampion(void)
@@ -138,7 +143,7 @@ static void PartySpellsAreSplitByChampion(void)
   CHECK(by.size() == 2);
   if (by.size() != 2) return;
   CHECK(by[0].casts == 1 && by[0].mana == 13 && by[0].failed == 0);
-  CHECK(by[1].casts == 3 && by[1].mana == 26 && by[1].failed == 1 && by[1].wasted == 5);
+  CHECK(by[1].casts == 3 && by[1].mana == 31 && by[1].failed == 1 && by[1].wasted == 5);
 }
 
 static void MonsterSpellsAreNotMonsterAttacks(void)

@@ -67,13 +67,19 @@ uint32_t HeroStats_RuneSpellKey(const void *incantation);
 std::string HeroStats_WeaponName(int weapon, const char *const *itemNames, int nameCount);
 
 struct HeroStatsChampionInfo { HeroStatsChampion id; std::string name; };
+// A rune entered: the level it was entered on and the mana the engine took for it
+struct HeroStatsRune { int level; int mana; };
+// What became of a rune's mana: its spell was cast, failed, or the rune was thrown away
+enum HeroRuneOutcome { HeroRuneCast, HeroRuneFailed, HeroRuneCleared, HERO_RUNE_OUTCOME_COUNT };
 // uses: actions that cannot hit (War Cry, Calm, Spellshield ...), counted apart from the tries
 struct HeroStatsAttackRow { int weapon; bool thrown; int option; int tries, hits, damage, kills, uses; };
 struct HeroStatsMonsterRow { int monsterType, variant; HeroBlowBy by; HeroStatsChampion champion; int count; };
 // spell: the missile kind of HeroHarmMonsterMissile (HERO_SPELL_MONSTER_MISSILE | kind), else 0
 struct HeroStatsHarmRow { HeroHarmSource source; HeroStatsChampion causer; int monsterType; int amount; uint32_t spell; };
 struct HeroStatsHealRow { HeroHealKind kind; HeroStatsChampion brewer; int amount; };
-// Cleared runes count their mana as wasted; the shield and heal actions count theirs as mana
+// mana: what the successful casts cost, wasted: what the failed ones cost, both on the level of
+// the cast. The shield and heal actions count theirs as mana. (HERO_SPELL_RUNES_CLEARED rows come
+// only from files before layout 22, and are turned into rune outcomes when read.)
 struct HeroStatsSpellRow { uint32_t spell; int casts, mana, failed, wasted, damage, kills; };
 
 // What the party did on its own feet: steps and turns the player made, teleporters passed,
@@ -136,6 +142,20 @@ public:
   void CountFailedCast(HeroStatsChampion who, int level, uint32_t spell, int wastedMana);
   void CreditManaSpent(HeroStatsChampion who, int level, uint32_t specialSpell, int mana);  // the 0x0n000000 rows
 
+  // Runes. Their mana is spent on the level each rune is entered on, whatever becomes of the
+  // incantation, and what becomes of it is kept on that level too; the spell rows count the cast
+  // on the level it happens on. A champion's runes are kept until the incantation resolves.
+  void EnterRune(HeroStatsChampion who, int level, int mana);
+  // The last rune entered is taken back: thrown away (cleared), on the level it was entered on
+  void TakeBackRune(HeroStatsChampion who);
+  // The incantation resolves: each rune's mana goes to outcome on its level. Returns their mana.
+  int ResolveRunes(HeroStatsChampion who, HeroRuneOutcome outcome);
+  std::vector<HeroStatsRune> PendingRunes(HeroStatsChampion who) const;
+  // A game was loaded: costs is the incantation the engine holds, each rune's mana in order. The
+  // runes kept are left as they are when their mana matches; otherwise costs replaces them,
+  // entered on level (runes the statistics did not see being entered: spent on loading).
+  void SyncPendingRunes(HeroStatsChampion who, const std::vector<int> &costs, int level);
+
   int DamageDealt(HeroStatsChampion who, int level, HeroDamageKind kind) const;
   int Kills(HeroStatsChampion who, int level) const;
   std::vector<HeroStatsAttackRow> Attacks(HeroStatsChampion who, int level) const;  // weapon then option order
@@ -149,8 +169,13 @@ public:
   std::vector<HeroStatsHealRow> HealRows(HeroStatsChampion who, int level) const;  // biggest first
   int ManaGained(HeroStatsChampion who, int level) const;
   int ManaGainedBy(HeroStatsChampion who, int level, HeroManaGain gain) const;  // one source of ManaGained
-  int ManaSpent(HeroStatsChampion who, int level) const;                   // casts + special rows, wasted included
-  int ManaWasted(HeroStatsChampion who, int level) const;                  // failed casts + runes cleared
+  // Runes entered (on the level they were entered on), staffs and wands, shield and heal actions:
+  // the sum of the four below
+  int ManaSpent(HeroStatsChampion who, int level) const;
+  int ManaOnSuccessfulCasts(HeroStatsChampion who, int level) const;       // runes cast, staffs, actions
+  int ManaWasted(HeroStatsChampion who, int level) const;                  // runes of failed casts
+  int RunesCleared(HeroStatsChampion who, int level) const;                // runes thrown away
+  int RunesNotCastYet(HeroStatsChampion who, int level) const;             // runes entered, still kept
   std::vector<HeroStatsSpellRow> Spells(HeroStatsChampion who, int level) const;  // most mana first
 
   // The party's movement, per level (not per champion)
@@ -227,8 +252,10 @@ public:
   // missile kind in the harm rows and no movement, 14 only steps, turns, teleports and ticks and
   // no uses in the attack rows, 15 no items, 16 nothing eaten or drunk, no doors bashed and no
   // chests opened, 17 no door methods (the doors read as HeroDoorUnknown), no food and water,
-  // 18 no tiles walked, 19 no scrolls read.
-  static const int LAYOUT = 20;
+  // 18 no tiles walked, 19 no scrolls read, 20 and 21 no rune outcomes and no runes kept (the
+  // outcomes are taken from the rune spells' rows, on the level of the cast; 21 has a table of
+  // rune mana per level, which is skipped).
+  static const int LAYOUT = 22;
   static const int FIRST_LAYOUT_WITH_MOVEMENT = 14;
   static const int FIRST_LAYOUT_WITH_PITS_AND_SLEEP = 15;
   static const int FIRST_LAYOUT_WITH_ITEMS = 16;
@@ -236,6 +263,8 @@ public:
   static const int FIRST_LAYOUT_WITH_NOURISHMENT = 18;
   static const int FIRST_LAYOUT_WITH_TILES = 19;
   static const int FIRST_LAYOUT_WITH_SCROLLS = 20;
+  static const int FIRST_LAYOUT_WITH_RUNE_MANA = 21;
+  static const int FIRST_LAYOUT_WITH_RUNE_OUTCOMES = 22;
   void Serialize(std::vector<uint8_t> *out) const;
   bool Deserialize(const uint8_t *data, size_t size, int layout = LAYOUT);
 
@@ -273,6 +302,12 @@ private:
   std::map<HealKey, int> m_healing;
   std::map<GainKey, int> m_manaGained;
   std::map<SpellKey, SpellCounts> m_spells;
+  // (champion, level the runes were entered on, outcome)
+  typedef std::tuple<HeroStatsChampion, int, int> RuneOutcomeKey;
+  std::map<RuneOutcomeKey, int> m_runeOutcomes;
+  std::map<HeroStatsChampion, std::vector<HeroStatsRune> > m_pendingRunes;   // in the order entered
+  int RuneOutcome(HeroStatsChampion who, int level, HeroRuneOutcome outcome) const;
+  int SpecialRowsMana(HeroStatsChampion who, int level) const;
   std::vector<HeroStatsDeath> m_deaths;
   std::map<std::pair<HeroStatsChampion, int>, int> m_resurrections;
   std::map<int, HeroStatsMovement> m_movement;

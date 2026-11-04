@@ -96,6 +96,10 @@ const char *AutoMapFile_Describe(AutoMapFileResult result);
 //              gained, water wasted, fountain drinks
 //     tiles walked (version 19): per cell level, 1 byte x, 1 byte y
 //     scrolls read (version 20): level, count
+//     rune mana (version 21 only, skipped when read): 2 bytes champion, level, mana
+//     rune outcomes (version 22): 2 bytes champion, level the runes were entered on, outcome
+//              (0 cast, 1 failed, 2 cleared), mana; then the runes kept: per champion 2 bytes
+//              champion, rune count, per rune level entered on, mana
 //     origins: missiles and clouds (4 byte index, the blow), brewers (4 byte index, 2 bytes
 //              champion), then (version 16) the held items, (version 17) the opened chests and
 //              (version 20) the read scrolls (4 byte record key each)
@@ -110,7 +114,8 @@ const char *AutoMapFile_Describe(AutoMapFileResult result);
 // 13 files no missile kinds and no movement, version 14 files no sleep, pits or bumps, version 15
 // files no items, version 16 files nothing eaten or drunk, no doors bashed and no chests opened,
 // version 17 files no door methods and no food and water, version 18 files no tiles walked,
-// version 19 files no scrolls read; they are still read.
+// version 19 files no scrolls read, version 20 and 21 files no rune outcomes (taken from the rune
+// spells' rows); they are still read.
 class AutoMapFile
 {
 public:

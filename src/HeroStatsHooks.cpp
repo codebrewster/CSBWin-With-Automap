@@ -55,7 +55,6 @@ static HeroStatsBlow harmBlow = HeroStatsBlow_Nobody(HeroBlowByOther);
 // The harm added to each hero's pending damage since DisplayCharacterDamage last applied it
 static HeroStatsPending pending;
 // The mana of the runes of each slot's incantation
-static HeroStatsRunes runes;
 // Between HeroStats_BeginRuneCast and HeroStats_EndRuneCast: the slot whose incantation resolves
 static int runeCastSlot = -1;
 // Between HeroStats_BeginDoorBlow* and HeroStats_EndDoorBlow: the champion whose blow hits a door
@@ -118,15 +117,26 @@ static void ForgetEngineState(void)
   explosionMissile = -1;
   harmDepth = 0;
   pending.ClearAll();
-  runes.ClearAll();
   runeCastSlot = -1;
   levelMarked = -1;
   doorBlowSet = false;
   scheduledDoorBashes.clear();
 }
 
+// The incantations the game holds now (a saved game's, half entered): the runes the file kept
+// stay when they match, else each rune gets the mana the engine took for it, on this level
+static void SyncRunes(void)
+{
+  for (int slot = 0; slot < d.NumCharacter && slot < 4; slot++)
+  {
+    std::vector<int> costs = HeroStatsRunes::Costs((const uint8_t *)d.hero[slot].incantation, d.Byte19010, d.Byte19016);
+    store.SyncPendingRunes(d.hero[slot].fingerPrint, costs, d.partyLevel);
+  }
+}
+
 static void GameStartsOrContinues(void)
 {
+  SyncRunes();
   // The store was replaced: the next tick marks the level the party stands on
   levelMarked = -1;
   HeroStats_MarkPartyItemsHeld();
@@ -839,44 +849,38 @@ static HeroStatsChampion MetChampion(int slot)
   return d.hero[slot].fingerPrint;
 }
 
-static void CreditRunesCleared(int slot, int mana)
-{
-  if (!IsHero(slot) || mana <= 0) return;
-  store.CreditManaSpent(MetChampion(slot), PartyLevel(), HERO_SPELL_RUNES_CLEARED, mana);
-}
-
-// The mana of the incantation that resolves; none for a spell a script casts
-static int TakeRuneCastMana(void)
+// The mana of the incantation that resolves, to outcome; none for a spell a script casts
+static int TakeRuneCastMana(HeroRuneOutcome outcome)
 {
   if (runeCastSlot < 0) return 0;
-  return runes.TakeAll(runeCastSlot);
+  return store.ResolveRunes(MetChampion(runeCastSlot), outcome);
 }
 
 void HeroStats_OnRuneEntered(int slot, int mana)
 {
   if (!IsHero(slot)) return;
+  HeroStatsChampion who = MetChampion(slot);
   // byte33 is the position of the rune being entered; 0 is the power rune of a new incantation
-  if (d.hero[slot].byte33 == 0) CreditRunesCleared(slot, runes.TakeAll(slot));
-  runes.AddRune(slot, mana);
+  if (d.hero[slot].byte33 == 0) store.ResolveRunes(who, HeroRuneCleared);
+  store.EnterRune(who, PartyLevel(), mana);
 }
 
 void HeroStats_OnRuneRemoved(int slot)
 {
   if (!IsHero(slot)) return;
-  int mana = 0;
-  runes.RemoveLastRune(slot, &mana);
-  CreditRunesCleared(slot, mana);
+  store.TakeBackRune(MetChampion(slot));
 }
 
 void HeroStats_OnIncantationDiscarded(int slot)
 {
   if (!IsHero(slot)) return;
-  CreditRunesCleared(slot, runes.TakeAll(slot));
+  store.ResolveRunes(MetChampion(slot), HeroRuneCleared);
 }
 
 void HeroStats_OnSlotRemoved(int slot)
 {
-  runes.RemoveSlot(slot);
+  // The runes are kept per champion, not per slot
+  (void)slot;
 }
 
 void HeroStats_BeginRuneCast(int slot)
@@ -886,7 +890,7 @@ void HeroStats_BeginRuneCast(int slot)
 
 void HeroStats_EndRuneCast(bool incantationKept)
 {
-  if (runeCastSlot >= 0 && !incantationKept) CreditRunesCleared(runeCastSlot, runes.TakeAll(runeCastSlot));
+  if (runeCastSlot >= 0 && !incantationKept) store.ResolveRunes(MetChampion(runeCastSlot), HeroRuneCleared);
   runeCastSlot = -1;
 }
 
@@ -902,14 +906,14 @@ void HeroStats_OnSpellAborted(int slot, int action)
 void HeroStats_OnSpellCast(int slot, uint32_t spell)
 {
   if (!IsHero(slot)) return;
-  store.CountCast(MetChampion(slot), PartyLevel(), spell, TakeRuneCastMana());
+  store.CountCast(MetChampion(slot), PartyLevel(), spell, TakeRuneCastMana(HeroRuneCast));
 }
 
 void HeroStats_OnSpellFailed(int slot, uint32_t spell, bool noSuchSpell)
 {
   if (!IsHero(slot)) return;
   uint32_t key = noSuchSpell ? (spell | HERO_SPELL_NO_SUCH_SPELL) : spell;
-  store.CountFailedCast(MetChampion(slot), PartyLevel(), key, TakeRuneCastMana());
+  store.CountFailedCast(MetChampion(slot), PartyLevel(), key, TakeRuneCastMana(HeroRuneFailed));
 }
 
 void HeroStats_OnSpellNeedsFlask(int slot, uint32_t spell)

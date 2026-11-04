@@ -22,7 +22,7 @@ static const size_t FIRST_LEVEL_WIDTH_OFFSET = 16;
 // A file with no damaged monster group ends in its count of 4 bytes
 static const size_t NO_DAMAGE_BYTES = 4;
 
-// What a version 20 file ends in when both statistics stores are empty: the block length, the
+// What a version 22 file ends in when both statistics stores are empty: the block length, the
 // length of the statistics, and their empty tables
 static std::string EmptyStatistics(void)
 {
@@ -49,7 +49,7 @@ static std::string WithoutStatistics(std::string bytes)
 static std::string Complete(const std::string &withoutStatistics)
 {
   std::string bytes = withoutStatistics + EmptyStatistics();
-  bytes[VERSION_OFFSET] = 20;
+  bytes[VERSION_OFFSET] = 22;
   return bytes;
 }
 
@@ -295,7 +295,7 @@ static void FileOfAnotherKindIsRejected(void)
 static void UnknownVersionIsRejected(void)
 {
   std::string bytes = WrittenFile();
-  bytes[VERSION_OFFSET] = 21;
+  bytes[VERSION_OFFSET] = 23;
   CheckRejected(bytes, AutoMapFileHasUnknownVersion);
 }
 
@@ -1176,6 +1176,8 @@ static HeroStats FilledStats(void)
   stats.CountCast(9, 2, 0x00060102, 12);
   stats.CountFailedCast(9, 2, 0x00010203, 3);
   stats.CreditManaSpent(9, 2, HERO_SPELL_SHIELD_ACTION, 5);
+  stats.CreditManaSpent(9, 2, HERO_SPELL_RUNES_CLEARED, 2);
+  stats.EnterRune(9, 2, 17);
   HeroStatsBlow bite = HeroStatsBlow_Nobody(HeroBlowByMonster);
   bite.monsterType = 7;
   stats.CreditHarm(3, 0, HeroHarmMonster, bite, 33);
@@ -1297,6 +1299,9 @@ static void StatisticsRoundTrip(void)
       CHECK(read.ManaGained(id, level) == written.ManaGained(id, level));
       CHECK(read.ManaSpent(id, level) == written.ManaSpent(id, level));
       CHECK(read.ManaWasted(id, level) == written.ManaWasted(id, level));
+      CHECK(read.RunesCleared(id, level) == written.RunesCleared(id, level));
+      CHECK(read.RunesNotCastYet(id, level) == written.RunesNotCastYet(id, level));
+      CHECK(read.ManaOnSuccessfulCasts(id, level) == written.ManaOnSuccessfulCasts(id, level));
       CHECK(read.Spells(id, level).size() == written.Spells(id, level).size());
       CHECK(read.Resurrections(id, level) == written.Resurrections(id, level));
     }
@@ -1394,8 +1399,9 @@ static void ADamagedStatisticsBlockLeavesTheStoresUnchanged(void)
   none.Serialize(&rawOrigins);
   // The harm source (4 bytes) sits 2 + 4 after the start of the harm record, which ends the
   // statistics but for the empty healing, mana, spell, death and resurrection tables, the wipes
-  // and reloads and the empty movement, item, eaten, door, chest, food, tile and scroll tables
-  size_t source = bad.size() - rawOrigins.size() - (15 * 4) - (2 + 4 + 4 + 2 + 4 + 4 + 4) + 2 + 4;
+  // and reloads and the empty movement, item, eaten, door, chest, food, tile, scroll, rune outcome
+  // and kept rune tables
+  size_t source = bad.size() - rawOrigins.size() - (17 * 4) - (2 + 4 + 4 + 2 + 4 + 4 + 4) + 2 + 4;
   bad[source] = 99;
   CheckStatisticsFileLeavesTheStores(bad);
 }

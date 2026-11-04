@@ -131,16 +131,26 @@ hit), Damage, Kills.
 | Number | What it counts |
 |---|---|
 | **Mana generated** | with **Regeneration** and **Mana potions** below it |
-| **Mana spent** | taken rune by rune, as the game does; with **Wasted on failures** below it |
+| **Mana spent** | counted as each rune is entered, as the game takes it, whatever becomes of the spell; below it what became of that mana, which adds up to it: **Successful casts**, **Wasted on failures**, **Runes cleared** and **Not cast yet** |
 | **Spells cast** | every attempt, successful or not; with **Failed** below it |
 
 **Spells** has one row per spell, all power levels together (Lo Ful Ir and Mon Ful Ir are both
 "Fireball"). Columns: **Casts** (every attempt), **Failed** (needs more practice, fizzled, no flask
-for a potion ...), **Mana** (of the successful casts), **Wasted** (lost on failures), and the
-**Damage** and **Kills** of the spell, including the cloud or explosion it made. Extra rows: runes
-that form no spell ("Ful Bro Ku (no spell)"), **Runes cleared** (runes taken back with the arrow;
-the game does not refund their mana), **Shield action**, **Heal action** and **Spells from items**
-(staffs and wands).
+for a potion ...), **Mana** (the runes of every cast, the failed ones included), **Wasted** (the
+failed casts' part of it), and the **Damage** and **Kills** of the spell, including the cloud or
+explosion it made. Extra rows: runes that form no spell ("Ful Bro Ku (no spell)"), **Shield
+action**, **Heal action** and **Spells from items** (staffs and wands).
+
+**Runes cleared** is no spell, so it is not in this table: it is the mana of runes entered and
+never cast (taken back with the arrow, replaced by a new incantation, or lost when the caster died;
+the game does not refund it). It is under Mana spent instead, with **Not cast yet**: runes waiting
+in an incantation, whose mana is spent already.
+
+**Which level.** Mana counts on the level where the runes were entered, and so does what became
+of it (the four lines under Mana spent); a spell in the Spells table counts on the level where it
+was cast. Enter a fireball's runes, sleep, take the stairs and cast it below: the mana is spent on
+the level above, the fireball is cast on the level below. For the whole run the Mana of **All
+spells** is Successful casts (staffs, wands and actions included) plus Wasted on failures.
 
 ## Survival
 
@@ -287,7 +297,9 @@ It holds the numbers as they were when you clicked; export again for newer numbe
   champion who caused it and as damage taken for the one it hurt.
 - **Damage taken** is the damage after armour and resistances.
 - **Healed** counts HP actually gained, never more than was missing.
-- **Mana spent** is taken rune by rune, as the game does; a spell's mana is the sum of its runes.
+- **Mana spent** is counted rune by rune as the runes are entered, as the game takes it, on the
+  level they were entered on; a spell's mana is the sum of its runes, on the level of the cast.
+  Runes still waiting in an incantation are kept in the save and come back when it is loaded.
 - **Cloud damage** is the hit points the monsters actually lost: the game draws each monster's
   share of a cloud's damage at random and never shows it.
 - Everything is counted on the level the party is on when it happens.

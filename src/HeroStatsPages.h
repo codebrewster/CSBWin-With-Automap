@@ -56,6 +56,7 @@ struct HeroStatsWeaponLine
 // casts: every cast, successful ones and failures
 struct HeroStatsSpellCounts { int casts, successful, failed, mana, wasted, damage, kills; };
 // byColumn: on the Party's page, each column's own numbers with the spell
+// mana: what all its casts cost, the failed ones included; wasted: the failed ones' part
 struct HeroStatsSpellLine { std::string name; int casts, successful, failed, mana, wasted, damage, kills; std::vector<HeroStatsSpellCounts> byColumn; };
 // byColumn: on the Party's page, each column's part of the amount
 struct HeroStatsAmountLine { std::string text; int amount; bool isBad; std::vector<int> byColumn; };

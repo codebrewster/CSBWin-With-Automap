@@ -89,8 +89,10 @@ static void SpellsFriendlyFireAndManaGetLines(void)
   HeroStats stats;
   stats.MeetChampion(7, "HALK");
   stats.MeetChampion(9, "SYRA");
-  stats.CountCast(9, 1, 0x00060102, 10);
-  stats.CountFailedCast(9, 1, 0x00060103, 4);
+  stats.EnterRune(9, 1, 10);
+  stats.CountCast(9, 1, 0x00060102, stats.ResolveRunes(9, HeroRuneCast));
+  stats.EnterRune(9, 1, 4);
+  stats.CountFailedCast(9, 1, 0x00060103, stats.ResolveRunes(9, HeroRuneFailed));
   HeroStatsBlow friendly = ChampionBlow(7, 13, 2);
   stats.CreditHarm(9, 1, HeroHarmFriendlyFire, friendly, 6);
 

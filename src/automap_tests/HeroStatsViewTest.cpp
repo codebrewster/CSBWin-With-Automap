@@ -96,7 +96,8 @@ static void RecordsReadLikeTheMockup(void)
   uint32_t fireball = Runes(FUL, IR, 0);
   HeroStatsBlow ball = ChampionBlow(7, HERO_STATS_NO_WEAPON, fireball);
   for (int i = 0; i < 149; i++) stats.CountCast(7, 3, fireball, 27);
-  stats.CountFailedCast(7, 3, fireball, 292);
+  stats.EnterRune(7, 3, 292);
+  stats.CountFailedCast(7, 3, fireball, stats.ResolveRunes(7, HeroRuneFailed));
   stats.CreditMonsterDamage(3, ball, 3130);
   halk = HeroStatsCatalogue_Record(stats, 7, HERO_STATS_WHOLE_RUN);
   CHECK(halk.value[HeroNumCasts] == 150);  // 149 that worked and the one that failed

@@ -1,5 +1,6 @@
 #include "TestSupport.h"
 #include "../HeroStats.h"
+#include "../HeroStatsRunes.h"
 
 static const int AXE = 13;
 
@@ -227,8 +228,9 @@ static void MovementIsKeptPerLevel(void)
 }
 
 // The layout of version 13: harm rows without the missile kind, no movement table. A store with
-// one harm row, written now, becomes that by cutting the kind and the eight empty counts at the
-// end (movement, items, eaten and drunk, doors bashed, chests opened, food and water, tiles, scrolls).
+// one harm row, written now, becomes that by cutting the kind and the ten empty counts at the
+// end (movement, items, eaten and drunk, doors bashed, chests opened, food and water, tiles, scrolls,
+// rune outcomes, runes kept).
 static void LayoutThirteenIsStillRead(void)
 {
   HeroStats written;
@@ -238,7 +240,7 @@ static void LayoutThirteenIsStillRead(void)
   // Six empty tables, the harm count, then the record of 2 + 4 + 4 + 2 + 4 + 4 bytes and its kind
   size_t kind = 7 * 4 + 20;
   bytes.erase(bytes.begin() + kind, bytes.begin() + kind + 4);
-  bytes.erase(bytes.end() - 32, bytes.end());
+  bytes.erase(bytes.end() - 40, bytes.end());
   HeroStats read;
   CHECK(read.Deserialize(bytes.data(), bytes.size(), 13));
   CHECK(read.Harm(9, 3) == 12 && read.HarmRows(9, 3).size() == 1);
@@ -273,7 +275,7 @@ static void ActionUsesAreKeptApartFromTries(void)
 
 // The layout of version 14: attack rows without uses, movement without sleep, pits and bumps.
 // A store with one attack row and one level of movement, written now, becomes that by cutting
-// the uses, the four newer movement numbers and the seven empty counts after them.
+// the uses, the four newer movement numbers and the nine empty counts after them.
 static void LayoutFourteenIsStillRead(void)
 {
   HeroStats written;
@@ -287,7 +289,7 @@ static void LayoutFourteenIsStillRead(void)
   // counts, the uses
   size_t uses = 3 * 4 + 15 + 16;
   bytes.erase(bytes.begin() + uses, bytes.begin() + uses + 4);
-  bytes.erase(bytes.end() - 44, bytes.end());
+  bytes.erase(bytes.end() - 52, bytes.end());
   HeroStats read;
   CHECK(read.Deserialize(bytes.data(), bytes.size(), 14));
   CHECK(read.Attacks(7, 1).size() == 1 && read.Attacks(7, 1)[0].tries == 1 && read.Attacks(7, 1)[0].uses == 0);
@@ -322,14 +324,14 @@ static void ItemsAreKeptPerLevel(void)
   CHECK(stats.Items(HERO_STATS_WHOLE_RUN).empty());
 }
 
-// The layout of version 15 has no item table and nothing after it: the seven counts at the end are cut
+// The layout of version 15 has no item table and nothing after it: the nine counts at the end are cut
 static void LayoutFifteenIsStillRead(void)
 {
   HeroStats written;
   written.CountStep(1);
   std::vector<uint8_t> bytes;
   written.Serialize(&bytes);
-  bytes.erase(bytes.end() - 28, bytes.end());
+  bytes.erase(bytes.end() - 36, bytes.end());
   HeroStats read;
   CHECK(read.Deserialize(bytes.data(), bytes.size(), 15));
   CHECK(read.Movement(1).steps == 1 && read.Items(HERO_STATS_WHOLE_RUN).empty());
@@ -376,21 +378,21 @@ static void EatingDoorsAndChestsAreCounted(void)
   CHECK(read.Eaten(7, 1) == 2 && read.DoorsBashed(9, 2, HeroDoorBySpell) == 1 && read.ChestsOpened(1) == 1);
   CHECK(read.DoorsOpenedByZo(9, 2) == 1 && read.DoorsOpenedByButton(2) == 2 && read.DoorsClosedByButton(1) == 1);
   // Version 17: a door row without its method, no food and water table. One door row of
-  // 2 + 4 + 4 bytes, its method, then the empty chest, food, tile and scroll counts.
+  // 2 + 4 + 4 bytes, its method, then the empty chest, food, tile, scroll, rune outcome and kept rune counts.
   HeroStats door;
   door.CountDoorBashed(7, 3, HeroDoorShot);
   bytes.clear();
   door.Serialize(&bytes);
-  bytes.erase(bytes.end() - 12, bytes.end());
+  bytes.erase(bytes.end() - 20, bytes.end());
   bytes.erase(bytes.end() - 8, bytes.end() - 4);
   CHECK(read.Deserialize(bytes.data(), bytes.size(), 17));
   CHECK(read.DoorsBashed(7, 3) == 1 && read.DoorsBashed(7, 3, HeroDoorUnknown) == 1 && read.DoorsBashed(7, 3, HeroDoorShot) == 0);
-  // Version 16 has none of the six tables
+  // Version 16 has none of the eight tables
   HeroStats empty;
   empty.CountItem(1, 4, HeroItemPickedUp);
   bytes.clear();
   empty.Serialize(&bytes);
-  bytes.erase(bytes.end() - 24, bytes.end());
+  bytes.erase(bytes.end() - 32, bytes.end());
   CHECK(read.Deserialize(bytes.data(), bytes.size(), 16));
   CHECK(read.Items(1).size() == 1 && read.Eaten(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN) == 0);
   stats.Forget();
@@ -438,11 +440,11 @@ static void TilesWalkedAndExplored(void)
   HeroStats read;
   CHECK(read.Deserialize(bytes.data(), bytes.size()));
   CHECK(read.Movement(1).tilesWalked == 2 && read.Movement(1).tilesExplored == 0);
-  // Version 18 has no tiles and no scrolls: the two counts at the end are cut
+  // Version 18 has no tiles, no scrolls and no runes: the four counts at the end are cut
   HeroStats none;
   bytes.clear();
   none.Serialize(&bytes);
-  bytes.erase(bytes.end() - 8, bytes.end());
+  bytes.erase(bytes.end() - 16, bytes.end());
   CHECK(read.Deserialize(bytes.data(), bytes.size(), 18) && read.Movement(1).tilesWalked == 0);
 }
 
@@ -467,11 +469,11 @@ static void ScrollsAndWallTextsRead(void)
   viewed[0] = 5;
   stats.SetChampionsSeen(seen, viewed);
   CHECK(stats.ChampionsSeen(0) == 12 && stats.ChampionsViewed(HERO_STATS_WHOLE_RUN) == 5 && stats.ChampionsSeen(1) == 0);
-  // Version 19 has no scroll table
+  // Version 19 has no scroll table and no rune tables
   HeroStats none;
   bytes.clear();
   none.Serialize(&bytes);
-  bytes.erase(bytes.end() - 4, bytes.end());
+  bytes.erase(bytes.end() - 12, bytes.end());
   CHECK(read.Deserialize(bytes.data(), bytes.size(), 19) && read.ScrollsRead(HERO_STATS_WHOLE_RUN) == 0);
 }
 
@@ -497,17 +499,33 @@ static void ManaIsKeptPerSpell(void)
 {
   HeroStats stats;
   const uint32_t K = 0x00060a03;
-  stats.CountCast(7, 3, K, 13);
-  stats.CountCast(7, 3, K, 47);
-  stats.CountFailedCast(7, 3, K, 6);
-  stats.CountFailedCast(7, 3, K | HERO_SPELL_NO_SUCH_SPELL, 8);
-  stats.CreditManaSpent(7, 3, HERO_SPELL_RUNES_CLEARED, 4);
+  // Runes entered and resolved as the hooks do it: 13 and 47 cast, 6 failed, 8 forming no spell,
+  // 4 cleared
+  stats.EnterRune(7, 3, 13);
+  stats.CountCast(7, 3, K, stats.ResolveRunes(7, HeroRuneCast));
+  stats.EnterRune(7, 3, 47);
+  stats.CountCast(7, 3, K, stats.ResolveRunes(7, HeroRuneCast));
+  stats.EnterRune(7, 3, 6);
+  stats.CountFailedCast(7, 3, K, stats.ResolveRunes(7, HeroRuneFailed));
+  stats.EnterRune(7, 3, 8);
+  stats.CountFailedCast(7, 3, K | HERO_SPELL_NO_SUCH_SPELL, stats.ResolveRunes(7, HeroRuneFailed));
+  stats.EnterRune(7, 3, 1);
+  stats.EnterRune(7, 3, 3);
+  stats.TakeBackRune(7);
+  stats.TakeBackRune(7);
   stats.CreditManaGained(7, 3, HeroManaPotion, 20);
   stats.CreditManaGained(7, 3, HeroManaRegeneration, 3);
   CHECK(stats.ManaGained(7, 3) == 23);
   CHECK(stats.ManaSpent(7, 3) == 78);
-  CHECK(stats.ManaWasted(7, 3) == 18);
+  CHECK(stats.ManaOnSuccessfulCasts(7, 3) == 60);
+  CHECK(stats.ManaWasted(7, 3) == 14);
+  CHECK(stats.RunesCleared(7, 3) == 4);
+  CHECK(stats.RunesNotCastYet(7, 3) == 0);
   CHECK(stats.ManaSpent(9, 3) == 0);
+  // Runes entered and not cast yet are spent already; a staff's or an action's mana as it is used
+  stats.EnterRune(7, 3, 9);
+  stats.CreditManaSpent(7, 3, HERO_SPELL_SHIELD_ACTION, 5);
+  CHECK(stats.ManaSpent(7, 3) == 92 && stats.RunesNotCastYet(7, 3) == 9 && stats.ManaOnSuccessfulCasts(7, 3) == 65);
   std::vector<HeroStatsSpellRow> rows = stats.Spells(7, 3);
   CHECK(rows.size() == 3);
   if (rows.size() == 3)
@@ -515,6 +533,56 @@ static void ManaIsKeptPerSpell(void)
     CHECK(rows[0].spell == K);
     CHECK(rows[0].casts == 2 && rows[0].mana == 60 && rows[0].failed == 1 && rows[0].wasted == 6);
   }
+}
+
+// A fireball's runes entered on level 3 and cast on level 4 (one in the bank, then the stairs):
+// the mana is spent on level 3, the cast is counted on level 4
+static void RunesCountWhereEnteredAndCastsWhereCast(void)
+{
+  HeroStats stats;
+  const uint32_t FIREBALL = 0x00006f69;
+  stats.EnterRune(7, 3, 6);
+  stats.EnterRune(7, 3, 17);
+  stats.EnterRune(7, 3, 24);
+  CHECK(stats.ManaSpent(7, 3) == 47 && stats.RunesNotCastYet(7, 3) == 47);
+  CHECK(stats.ManaSpent(7, 4) == 0);
+  stats.CountCast(7, 4, FIREBALL, stats.ResolveRunes(7, HeroRuneCast));
+  CHECK(stats.ManaSpent(7, 3) == 47 && stats.ManaOnSuccessfulCasts(7, 3) == 47 && stats.RunesNotCastYet(7, 3) == 0);
+  CHECK(stats.ManaSpent(7, 4) == 0 && stats.ManaOnSuccessfulCasts(7, 4) == 0);
+  CHECK(stats.Spells(7, 4).size() == 1 && stats.Spells(7, 4)[0].mana == 47 && stats.Spells(7, 3).empty());
+  // Runes entered on two levels and taken back: each cleared on its own level
+  stats.EnterRune(7, 1, 2);
+  stats.EnterRune(7, 2, 5);
+  CHECK(stats.PendingRunes(7).size() == 2 && stats.PendingRunes(7)[0].level == 1);
+  stats.TakeBackRune(7);
+  CHECK(stats.RunesCleared(7, 2) == 5 && stats.RunesNotCastYet(7, 1) == 2);
+  CHECK(stats.ResolveRunes(7, HeroRuneCleared) == 2 && stats.RunesCleared(7, 1) == 2);
+  // The four parts add up to Mana spent on every level and for the party
+  for (int level = 0; level < 5; level++)
+  {
+    CHECK(stats.ManaSpent(HERO_STATS_PARTY, level) ==
+          stats.ManaOnSuccessfulCasts(HERO_STATS_PARTY, level) + stats.ManaWasted(HERO_STATS_PARTY, level) +
+          stats.RunesCleared(HERO_STATS_PARTY, level) + stats.RunesNotCastYet(HERO_STATS_PARTY, level));
+  }
+}
+
+// On loading, the runes the file kept stay when the engine's incantation has the same mana;
+// otherwise the engine's runes replace them, entered on the level given
+static void PendingRunesAreSyncedWithTheEngine(void)
+{
+  HeroStats stats;
+  stats.EnterRune(7, 2, 6);
+  stats.EnterRune(7, 2, 17);
+  std::vector<int> costs;
+  costs.push_back(6);
+  costs.push_back(17);
+  stats.SyncPendingRunes(7, costs, 5);
+  CHECK(stats.PendingRunes(7).size() == 2 && stats.PendingRunes(7)[1].level == 2);
+  costs.push_back(24);
+  stats.SyncPendingRunes(7, costs, 5);
+  CHECK(stats.RunesNotCastYet(7, 5) == 47 && stats.RunesNotCastYet(7, 2) == 0);
+  stats.SyncPendingRunes(7, std::vector<int>(), 5);
+  CHECK(stats.PendingRunes(7).empty() && stats.ManaSpent(7, HERO_STATS_WHOLE_RUN) == 0);
 }
 
 static void SpellBlowsCreditTheSpellRow(void)
@@ -601,6 +669,50 @@ static void MergeHardshipTakesTheLargerOfEach(void)
   CHECK(memory.Resurrections(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN) == 3);
 }
 
+// Rune outcomes and the runes kept are stored since layout 22. Before, rune mana counted when
+// the incantation resolved, on that level, so the rune spells' rows have it all; layout 21 had a
+// table of rune mana per level, which is skipped.
+static void RuneOutcomesAreKeptAndTakenFromOlderLayouts(void)
+{
+  HeroStats written;
+  written.EnterRune(7, 3, 20);
+  written.CountCast(7, 3, 0x00006f69, written.ResolveRunes(7, HeroRuneCast));
+  written.EnterRune(7, 3, 4);
+  written.TakeBackRune(7);
+  written.EnterRune(7, 2, 10);
+  std::vector<uint8_t> bytes;
+  written.Serialize(&bytes);
+  HeroStats read;
+  CHECK(read.Deserialize(bytes.data(), bytes.size()));
+  CHECK(read.ManaSpent(7, 3) == 24 && read.RunesCleared(7, 3) == 4);
+  CHECK(read.PendingRunes(7).size() == 1 && read.PendingRunes(7)[0].level == 2 && read.RunesNotCastYet(7, 2) == 10);
+
+  // A store as layout 20 had it: spell rows only
+  HeroStats old;
+  old.CountCast(7, 3, 0x00006f69, 20);
+  old.CountFailedCast(7, 3, 0x00006f69 | HERO_SPELL_NO_SUCH_SPELL, 6);
+  old.CreditManaSpent(7, 3, HERO_SPELL_SHIELD_ACTION, 5);
+  old.CreditManaSpent(9, 2, HERO_SPELL_ITEM_SPELLS, 8);
+  bytes.clear();
+  old.Serialize(&bytes);
+  bytes.erase(bytes.end() - 8, bytes.end());   // the empty outcome and kept rune counts
+  std::vector<uint8_t> twenty = bytes;
+  CHECK(read.Deserialize(twenty.data(), twenty.size(), 20));
+  CHECK(read.ManaSpent(7, 3) == 31 && read.ManaOnSuccessfulCasts(7, 3) == 25 && read.ManaWasted(7, 3) == 6);
+  CHECK(read.ManaSpent(9, 2) == 8 && read.PendingRunes(7).empty());
+  // Layout 21: the same with a table of rune mana per level after it
+  std::vector<uint8_t> twentyOne = bytes;
+  const uint8_t table[4 + 10] = {1, 0, 0, 0,  7, 0,  3, 0, 0, 0,  26, 0, 0, 0};
+  twentyOne.insert(twentyOne.end(), table, table + sizeof(table));
+  CHECK(read.Deserialize(twentyOne.data(), twentyOne.size(), 21));
+  CHECK(read.ManaSpent(7, 3) == 31 && read.ManaWasted(7, 3) == 6);
+  // A file written now keeps what was taken
+  bytes.clear();
+  read.Serialize(&bytes);
+  HeroStats again;
+  CHECK(again.Deserialize(bytes.data(), bytes.size()) && again.ManaSpent(7, 3) == 31 && again.ManaWasted(7, 3) == 6);
+}
+
 static void TakeFromFileReplacesTheRestAndKeepsHardship(void)
 {
   HeroStats memory, file;
@@ -674,8 +786,38 @@ static void ManaGainIsKeptBySource(void)
   CHECK(stats.ManaGainedBy(7, 1, HeroManaRegeneration) + stats.ManaGainedBy(7, 1, HeroManaPotion) == stats.ManaGained(7, 1));
 }
 
+// The engine's tables as Dungeon Master has them: power, element, form and alignment runes, and
+// the factor (in eighths) of each power
+static const int8_t RUNE_COSTS[24] = {1, 2, 3, 4, 5, 6,  2, 3, 4, 5, 6, 7,  4, 5, 6, 7, 7, 9,  2, 2, 3, 4, 6, 7};
+static const int8_t POWER_FACTORS[6] = {8, 12, 16, 20, 24, 28};
+
+static void RunesOfALoadedGameGetTheEnginesCosts(void)
+{
+  // Mon Ful Ir: 6, then 5 and 7 times 28 / 8
+  const uint8_t monFulIr[4] = {96 + 5, 96 + 6 + 3, 96 + 12 + 3, 0};
+  CHECK(HeroStatsRunes::RuneCount(monFulIr) == 3);
+  CHECK(HeroStatsRunes::RuneCost(monFulIr, 0, RUNE_COSTS, POWER_FACTORS) == 6);
+  CHECK(HeroStatsRunes::RuneCost(monFulIr, 1, RUNE_COSTS, POWER_FACTORS) == 17);
+  CHECK(HeroStatsRunes::RuneCost(monFulIr, 2, RUNE_COSTS, POWER_FACTORS) == 24);
+  // A rune that does not belong at its position
+  CHECK(HeroStatsRunes::RuneCost(monFulIr, 3, RUNE_COSTS, POWER_FACTORS) == -1);
+  std::vector<int> costs = HeroStatsRunes::Costs(monFulIr, RUNE_COSTS, POWER_FACTORS);
+  CHECK(costs.size() == 3 && costs[0] + costs[1] + costs[2] == 47);
+  // All four runes entered: no terminator. Lo Ya Ew Sar: 1, 2, 5, 7 at power 1
+  const uint8_t four[4] = {96, 96 + 6, 96 + 12 + 1, 96 + 18 + 5};
+  CHECK(HeroStatsRunes::RuneCount(four) == 4);
+  costs = HeroStatsRunes::Costs(four, RUNE_COSTS, POWER_FACTORS);
+  CHECK(costs.size() == 4 && costs[0] == 1 && costs[1] == 2 && costs[2] == 5 && costs[3] == 7);
+  // No incantation, or one the engine cannot have made: no runes
+  const uint8_t none[4] = {0, 0, 0, 0};
+  CHECK(HeroStatsRunes::Costs(none, RUNE_COSTS, POWER_FACTORS).empty());
+  const uint8_t broken[4] = {96 + 2, 96 + 1, 0, 0};
+  CHECK(HeroStatsRunes::Costs(broken, RUNE_COSTS, POWER_FACTORS).empty());
+}
+
 void TestHeroStats(void)
 {
+  RunesOfALoadedGameGetTheEnginesCosts();
   ManaGainIsKeptBySource();
   RuneSpellKeyLeavesOutThePowerRune();
   WeaponNamesComeFromTheItemNames();
@@ -704,4 +846,7 @@ void TestHeroStats(void)
   DeathsKeepOrderCauseAndLevel();
   MergeHardshipTakesTheLargerOfEach();
   TakeFromFileReplacesTheRestAndKeepsHardship();
+  RuneOutcomesAreKeptAndTakenFromOlderLayouts();
+  RunesCountWhereEnteredAndCastsWhereCast();
+  PendingRunesAreSyncedWithTheEngine();
 }

@@ -1,6 +1,6 @@
 #include "TestSupport.h"
 #include "../HeroStatsPending.h"
-#include "../HeroStatsRunes.h"
+#include "../HeroStats.h"
 
 static HeroStatsBlow MonsterBlow(int type)
 {
@@ -69,50 +69,23 @@ static void ClearAndBadSlots(void)
   CHECK(!pending.Cause(1, &source, &blow));
 }
 
+// The runes are kept per champion: a champion who moves to another slot keeps them
 static void RunesKeepTheirMana(void)
 {
-  HeroStatsRunes runes;
-  int mana = -1;
-  runes.AddRune(2, 4);
-  runes.AddRune(2, 6);
-  runes.AddRune(2, 9);
-  runes.RemoveLastRune(2, &mana);
-  CHECK(mana == 9);
-  CHECK(runes.TakeAll(2) == 10);
-  CHECK(runes.TakeAll(2) == 0);
-  runes.RemoveLastRune(2, &mana);
-  CHECK(mana == 0);
-  runes.AddRune(7, 3);
-  CHECK(runes.TakeAll(7) == 0);
-  runes.AddRune(0, 3);
-  runes.ClearAll();
-  CHECK(runes.TakeAll(0) == 0);
-}
-
-// A champion leaves the party: the champions after it move down one slot, and their runes with them
-static void RunesMoveWithTheirSlot(void)
-{
-  HeroStatsRunes runes;
-  runes.AddRune(0, 1);
-  runes.AddRune(1, 2);
-  runes.AddRune(2, 3);
-  runes.AddRune(2, 4);
-  runes.AddRune(3, 5);
-  runes.RemoveSlot(1);
-  CHECK(runes.TakeAll(0) == 1);
-  int mana = -1;
-  runes.RemoveLastRune(1, &mana);
-  CHECK(mana == 4);
-  CHECK(runes.TakeAll(1) == 3);
-  CHECK(runes.TakeAll(2) == 5);
-  CHECK(runes.TakeAll(3) == 0);
-  runes.AddRune(3, 6);
-  runes.RemoveSlot(3);
-  CHECK(runes.TakeAll(3) == 0);
-  runes.AddRune(0, 7);
-  runes.RemoveSlot(4);
-  runes.RemoveSlot(-1);
-  CHECK(runes.TakeAll(0) == 7);
+  HeroStats stats;
+  stats.EnterRune(7, 1, 4);
+  stats.EnterRune(7, 1, 6);
+  stats.EnterRune(7, 1, 9);
+  stats.TakeBackRune(7);
+  CHECK(stats.RunesCleared(7, 1) == 9);
+  CHECK(stats.ResolveRunes(7, HeroRuneCast) == 10);
+  CHECK(stats.ResolveRunes(7, HeroRuneCast) == 0);
+  stats.TakeBackRune(7);
+  CHECK(stats.RunesCleared(7, 1) == 9);
+  stats.EnterRune(9, 1, 3);
+  CHECK(stats.ResolveRunes(7, HeroRuneCast) == 0 && stats.RunesNotCastYet(9, 1) == 3);
+  stats.Forget();
+  CHECK(stats.PendingRunes(9).empty());
 }
 
 void TestHeroStatsPending(void)
@@ -122,5 +95,4 @@ void TestHeroStatsPending(void)
   SameCauserAddsUp();
   ClearAndBadSlots();
   RunesKeepTheirMana();
-  RunesMoveWithTheirSlot();
 }

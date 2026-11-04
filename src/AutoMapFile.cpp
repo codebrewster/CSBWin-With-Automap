@@ -7,7 +7,7 @@
 #include <vector>
 
 static const char FILE_TYPE_MARKER[4] = {'C', 'S', 'B', 'M'};
-static const uint32_t FORMAT_VERSION = 20;
+static const uint32_t FORMAT_VERSION = 22;
 static const uint32_t FIRST_VERSION_WITH_FACES = 2;
 static const uint32_t FIRST_VERSION_WITH_ITEMS = 3;
 static const uint32_t FIRST_VERSION_WITH_GLIMPSES = 4;

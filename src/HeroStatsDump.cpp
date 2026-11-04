@@ -93,6 +93,8 @@ static void DumpOne(const HeroStats &stats, HeroStatsChampion who, std::string *
   Number(out, name, "mana gained %d", stats.ManaGained(who, run));
   Number(out, name, "mana spent %d", stats.ManaSpent(who, run));
   Number(out, name, "mana wasted %d", stats.ManaWasted(who, run));
+  Number(out, name, "runes cleared %d", stats.RunesCleared(who, run));
+  Number(out, name, "runes not cast yet %d", stats.RunesNotCastYet(who, run));
   Number(out, name, "resurrections %d", stats.Resurrections(who, run));
   std::vector<HeroStatsConsumedRow> consumed = stats.Consumed(who, run);
   for (size_t i = 0; i < consumed.size(); i++)

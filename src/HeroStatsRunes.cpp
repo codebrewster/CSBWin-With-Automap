@@ -1,43 +1,35 @@
-// HeroStatsRunes.cpp : the mana of each rune of the incantation being entered.
+// HeroStatsRunes.cpp : the mana the engine takes for each rune of an incantation.
 #include "HeroStatsRunes.h"
 
-void HeroStatsRunes::AddRune(int slot, int mana)
+int HeroStatsRunes::RuneCount(const uint8_t *incantation)
 {
-  if (slot >= 0 && slot <= 3)
-    m_runes[slot].push_back(mana);
+  int count = 0;
+  while (count < 4 && incantation[count] != 0) count++;
+  return count;
 }
 
-void HeroStatsRunes::RemoveLastRune(int slot, int *mana)
+int HeroStatsRunes::RuneCost(const uint8_t *incantation, int position, const int8_t *runeCosts, const int8_t *powerFactors)
 {
-  *mana = 0;
-  if (slot < 0 || slot > 3 || m_runes[slot].empty())
-    return;
-  *mana = m_runes[slot].back();
-  m_runes[slot].pop_back();
+  if (position < 0 || position > 3) return -1;
+  int rune = (int)incantation[position] - 96;
+  if (rune < 6 * position || rune >= 6 * position + 6) return -1;
+  int cost = (uint8_t)runeCosts[rune];
+  if (position == 0) return cost;
+  int power = (int)incantation[0] - 96;
+  if (power < 0 || power >= 6) return -1;
+  return (cost * (uint8_t)powerFactors[power]) >> 3;
 }
 
-int HeroStatsRunes::TakeAll(int slot)
+std::vector<int> HeroStatsRunes::Costs(const uint8_t *incantation, const int8_t *runeCosts, const int8_t *powerFactors)
 {
-  if (slot < 0 || slot > 3)
-    return 0;
-  int total = 0;
-  for (size_t i = 0; i < m_runes[slot].size(); i++)
-    total += m_runes[slot][i];
-  m_runes[slot].clear();
-  return total;
-}
-
-void HeroStatsRunes::ClearAll(void)
-{
-  for (int i = 0; i < 4; i++)
-    m_runes[i].clear();
-}
-
-void HeroStatsRunes::RemoveSlot(int slot)
-{
-  if (slot < 0 || slot > 3)
-    return;
-  for (int i = slot; i < 3; i++)
-    m_runes[i] = m_runes[i + 1];
-  m_runes[3].clear();
+  std::vector<int> costs;
+  int count = RuneCount(incantation);
+  for (int position = 0; position < count; position++)
+  {
+    int cost = RuneCost(incantation, position, runeCosts, powerFactors);
+    // Not an incantation the engine could have made: nothing is known of its mana
+    if (cost < 0) return std::vector<int>();
+    costs.push_back(cost);
+  }
+  return costs;
 }
