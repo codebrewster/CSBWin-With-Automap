@@ -458,7 +458,7 @@ HeroStatsTopicPage HeroStatsPages_Topic(const HeroStats &stats, const std::vecto
   // A champion's Overview: their own damage, kills, harm and deaths (tiles explored is the party's)
   std::vector<HeroStatsNumber> tiles = info.tiles;
   if (topic == HeroTopicOverview && !isParty)
-    tiles = {HeroNumDamage, HeroNumKills, HeroNumTaken, HeroNumDeaths};
+    tiles = HeroStatsCatalogue_ChampionTiles();
   for (size_t t = 0; t < tiles.size() && page.tiles.size() < 4; t++)
     if (HeroStatsCatalogue_Applies(tiles[t], who, level)) page.tiles.push_back(tiles[t]);
 

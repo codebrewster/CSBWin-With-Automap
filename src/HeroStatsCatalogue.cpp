@@ -1,6 +1,7 @@
 // HeroStatsCatalogue.cpp : every number of the Statistics window, defined once
 #include "HeroStatsCatalogue.h"
 #include <ctype.h>
+#include <algorithm>
 #include "HeroStatsView.h"
 
 static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
@@ -73,6 +74,25 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Other causes", "Clouds nobody is known to have made, traps, other monsters.", true, false, false, false, false},
 };
 
+// The names csb.cfg knows the numbers by, in the order of HeroStatsNumber
+static const char *const KEYS[] = {
+    "damage", "melee", "ranged", "magic", "kills", "attacks", "hits", "hit_rate", "damage_per_hit", "other_actions",
+    "friendly_fire",
+    "mana_generated", "mana_regeneration", "mana_potions", "mana_spent", "mana_on_spells", "mana_successful", "mana_wasted",
+    "runes_cleared", "runes_not_cast",
+    "casts", "casts_successful", "casts_failed",
+    "taken", "healed", "heal_regeneration", "heal_potions", "heal_action", "healing_given",
+    "deaths", "resurrected", "wipes", "reloads",
+    "eaten", "drunk", "food_gained", "food_wasted", "water_gained", "water_wasted",
+    "picked_up", "used_in_walls",
+    "steps", "tiles_walked", "tiles_explored", "turns", "wall_bumps", "teleports",
+    "pit_falls", "pit_climbs", "ticks", "sleep_ticks",
+    "doors_bashed", "doors_smashed", "doors_shot", "doors_by_spell", "doors_by_zo",
+    "doors_button_opened", "doors_button_closed", "chests", "scrolls", "wall_texts",
+    "champions_seen", "champions_viewed",
+    "door_kills", "pit_kills", "other_kills"};
+static_assert(sizeof KEYS / sizeof KEYS[0] == HERO_NUMBER_COUNT, "a name for every number");
+
 const HeroStatsNumberInfo &HeroStatsCatalogue_Info(HeroStatsNumber number)
 {
   return NUMBERS[number];
@@ -121,11 +141,117 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
   return topics;
 }
 
+static const std::vector<HeroStatsNumber> CHAMPION_TILES = {HeroNumDamage, HeroNumKills, HeroNumTaken, HeroNumDeaths};
+
+// As MakeTopics made them, with the tiles and Key numbers csb.cfg chose
+static std::vector<HeroStatsTopicInfo> &Topics(void)
+{
+  static std::vector<HeroStatsTopicInfo> topics = MakeTopics();
+  return topics;
+}
+
+static std::vector<HeroStatsNumber> &ChampionTiles(void)
+{
+  static std::vector<HeroStatsNumber> tiles = CHAMPION_TILES;
+  return tiles;
+}
+
 const HeroStatsTopicInfo &HeroStatsCatalogue_Topic(int topic)
 {
-  static const std::vector<HeroStatsTopicInfo> topics = MakeTopics();
   if (topic < 0 || topic >= HERO_TOPIC_COUNT) topic = HeroTopicOverview;
-  return topics[topic];
+  return Topics()[topic];
+}
+
+const std::vector<HeroStatsNumber> &HeroStatsCatalogue_ChampionTiles(void)
+{
+  return ChampionTiles();
+}
+
+std::vector<HeroStatsNumber> HeroStatsCatalogue_DefaultTiles(int topic)
+{
+  if (topic < 0 || topic >= HERO_TOPIC_COUNT) topic = HeroTopicOverview;
+  return MakeTopics()[topic].tiles;
+}
+
+static std::vector<HeroStatsNumber> DefaultKeyNumbers(void)
+{
+  std::vector<HeroStatsNumber> numbers;
+  std::vector<HeroStatsTopicRow> rows = MakeTopics()[HeroTopicOverview].rows;
+  for (size_t r = 0; r < rows.size(); r++) numbers.push_back(rows[r].number);
+  return numbers;
+}
+
+std::string HeroStatsCatalogue_Key(HeroStatsNumber number)
+{
+  return KEYS[number];
+}
+
+std::vector<HeroStatsNumber> HeroStatsCatalogue_ParseNumbers(const std::string &text, size_t most)
+{
+  std::vector<HeroStatsNumber> numbers;
+  size_t at = 0;
+  while (at < text.size() && numbers.size() < most)
+  {
+    size_t start = text.find_first_not_of(" ,\t", at);
+    if (start == std::string::npos) break;
+    size_t end = text.find_first_of(" ,\t", start);
+    if (end == std::string::npos) end = text.size();
+    std::string word = text.substr(start, end - start);
+    for (size_t i = 0; i < word.size(); i++) word[i] = (char)tolower((unsigned char)word[i]);
+    for (int n = 0; n < HERO_NUMBER_COUNT; n++)
+      if (word == KEYS[n] && std::find(numbers.begin(), numbers.end(), (HeroStatsNumber)n) == numbers.end())
+        numbers.push_back((HeroStatsNumber)n);
+    at = end;
+  }
+  return numbers;
+}
+
+std::string HeroStatsCatalogue_JoinNumbers(const std::vector<HeroStatsNumber> &numbers)
+{
+  std::string text;
+  for (size_t i = 0; i < numbers.size(); i++) text += (i > 0 ? ", " : "") + std::string(KEYS[numbers[i]]);
+  return text;
+}
+
+static const int MOST_TILES = 4, MOST_KEY_NUMBERS = 24;
+
+struct SettingInfo { const char *entry; int topic; };  // topic -1: the champion's Overview tiles
+static const SettingInfo SETTINGS[HERO_SETTING_COUNT] = {
+    {"stats_tiles_overview", HeroTopicOverview}, {"stats_tiles_champion", -1}, {"stats_tiles_combat", HeroTopicCombat},
+    {"stats_tiles_magic", HeroTopicMagic}, {"stats_tiles_survival", HeroTopicSurvival}, {"stats_tiles_food", HeroTopicSupplies},
+    {"stats_tiles_exploration", HeroTopicExploration}, {"stats_tiles_monsters", HeroTopicMonsters},
+    {"stats_key_numbers", HeroTopicOverview}};
+
+const char *HeroStatsCatalogue_SettingEntry(HeroStatsSetting setting)
+{
+  return SETTINGS[setting].entry;
+}
+
+static std::vector<HeroStatsNumber> SettingDefaults(HeroStatsSetting setting)
+{
+  if (setting == HeroSettingKeyNumbers) return DefaultKeyNumbers();
+  if (setting == HeroSettingChampionTiles) return CHAMPION_TILES;
+  return HeroStatsCatalogue_DefaultTiles(SETTINGS[setting].topic);
+}
+
+std::string HeroStatsCatalogue_SettingDefault(HeroStatsSetting setting)
+{
+  return HeroStatsCatalogue_JoinNumbers(SettingDefaults(setting));
+}
+
+void HeroStatsCatalogue_ApplySetting(HeroStatsSetting setting, const std::string &text)
+{
+  bool keyNumbers = setting == HeroSettingKeyNumbers;
+  std::vector<HeroStatsNumber> numbers = HeroStatsCatalogue_ParseNumbers(text, keyNumbers ? MOST_KEY_NUMBERS : MOST_TILES);
+  if (numbers.empty()) numbers = SettingDefaults(setting);
+  if (keyNumbers)
+  {
+    std::vector<HeroStatsTopicRow> &rows = Topics()[HeroTopicOverview].rows;
+    rows.clear();
+    for (size_t i = 0; i < numbers.size(); i++) rows.push_back({numbers[i], 0});
+  }
+  else if (setting == HeroSettingChampionTiles) ChampionTiles() = numbers;
+  else Topics()[SETTINGS[setting].topic].tiles = numbers;
 }
 
 // part / whole as a rounded whole number, -1 when whole is 0

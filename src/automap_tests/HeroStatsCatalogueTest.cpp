@@ -206,8 +206,65 @@ static void ValueMatchesTheRecord(void)
     }
 }
 
+// Every number has a name of its own for csb.cfg, and the name finds it again
+static void EveryNumberHasAName(void)
+{
+  for (int n = 0; n < HERO_NUMBER_COUNT; n++)
+  {
+    std::string key = HeroStatsCatalogue_Key((HeroStatsNumber)n);
+    CHECK(!key.empty() && key.find_first_of(" ,") == std::string::npos);
+    std::vector<HeroStatsNumber> found = HeroStatsCatalogue_ParseNumbers(key, 1);
+    CHECK(found.size() == 1 && found[0] == n);
+  }
+  CHECK(HeroStatsCatalogue_Key(HeroNumHitRate) == "hit_rate");
+  CHECK(HeroStatsCatalogue_Key(HeroNumOtherActions) == "other_actions");
+}
+
+// "damage, Kills  hit_rate,,bogus kills": commas or spaces, any case; unknown names and
+// repeats are left out; no more than asked for
+static void NumberListsAreForgiving(void)
+{
+  std::vector<HeroStatsNumber> list = HeroStatsCatalogue_ParseNumbers("damage, Kills  hit_rate,,bogus kills", 4);
+  CHECK(list.size() == 3 && list[0] == HeroNumDamage && list[1] == HeroNumKills && list[2] == HeroNumHitRate);
+  CHECK(HeroStatsCatalogue_ParseNumbers("damage kills taken healed deaths", 4).size() == 4);
+  CHECK(HeroStatsCatalogue_ParseNumbers("", 4).empty());
+  CHECK(HeroStatsCatalogue_JoinNumbers(list) == "damage, kills, hit_rate");
+}
+
+// The tiles and the Key numbers come from the settings; nothing usable keeps the defaults
+static void TilesAndKeyNumbersFollowTheSettings(void)
+{
+  std::vector<HeroStatsNumber> combat = HeroStatsCatalogue_DefaultTiles(HeroTopicCombat);
+  CHECK(combat == HeroStatsCatalogue_Topic(HeroTopicCombat).tiles);
+  HeroStatsCatalogue_ApplySetting(HeroSettingCombatTiles, "attacks, other_actions");
+  CHECK(HeroStatsCatalogue_Topic(HeroTopicCombat).tiles == std::vector<HeroStatsNumber>({HeroNumAttacks, HeroNumOtherActions}));
+  HeroStatsCatalogue_ApplySetting(HeroSettingCombatTiles, "nonsense");
+  CHECK(HeroStatsCatalogue_Topic(HeroTopicCombat).tiles == combat);
+
+  HeroStatsCatalogue_ApplySetting(HeroSettingKeyNumbers, "steps, damage");
+  const HeroStatsTopicInfo &overview = HeroStatsCatalogue_Topic(HeroTopicOverview);
+  CHECK(overview.rows.size() == 2 && overview.rows[0].number == HeroNumSteps && overview.rows[1].depth == 0);
+  HeroStatsCatalogue_ApplySetting(HeroSettingChampionTiles, "taken");
+  CHECK(HeroStatsCatalogue_ChampionTiles() == std::vector<HeroStatsNumber>({HeroNumTaken}));
+
+  // Every setting has its csb.cfg entry and writes its defaults out as names
+  for (int s = 0; s < HERO_SETTING_COUNT; s++)
+  {
+    CHECK(std::string(HeroStatsCatalogue_SettingEntry((HeroStatsSetting)s)).rfind("stats_", 0) == 0);
+    std::string defaults = HeroStatsCatalogue_SettingDefault((HeroStatsSetting)s);
+    CHECK(!defaults.empty() && defaults.size() < 200);
+    HeroStatsCatalogue_ApplySetting((HeroStatsSetting)s, defaults);
+  }
+  CHECK(HeroStatsCatalogue_Topic(HeroTopicCombat).tiles == combat);
+  CHECK(HeroStatsCatalogue_Topic(HeroTopicOverview).rows.size() == 12);
+  CHECK(HeroStatsCatalogue_ChampionTiles() == std::vector<HeroStatsNumber>({HeroNumDamage, HeroNumKills, HeroNumTaken, HeroNumDeaths}));
+}
+
 void TestHeroStatsCatalogue(void)
 {
+  EveryNumberHasAName();
+  NumberListsAreForgiving();
+  TilesAndKeyNumbersFollowTheSettings();
   ValueMatchesTheRecord();
   EveryNumberHasOneTopic();
   PartySumsItsChampions();

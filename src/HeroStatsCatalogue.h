@@ -43,6 +43,26 @@ struct HeroStatsTopicRow { HeroStatsNumber number; int depth; };  // depth 1: a 
 struct HeroStatsTopicInfo { const char *label; std::vector<HeroStatsTopicRow> rows; std::vector<HeroStatsNumber> tiles; };
 const HeroStatsTopicInfo &HeroStatsCatalogue_Topic(int topic);
 
+// Each number's name in csb.cfg: "damage", "hit_rate", "other_actions" ...
+std::string HeroStatsCatalogue_Key(HeroStatsNumber number);
+// "damage, kills hit_rate": names split by commas or spaces, any case, in their order; unknown
+// names and repeats are left out, and no more than most
+std::vector<HeroStatsNumber> HeroStatsCatalogue_ParseNumbers(const std::string &text, size_t most);
+std::string HeroStatsCatalogue_JoinNumbers(const std::vector<HeroStatsNumber> &numbers);  // "damage, kills"
+
+// What csb.cfg can choose: the tiles at the top of each topic (the Overview's are the Party's),
+// the tiles of a champion's Overview and the Key numbers. A topic's tiles are also what its
+// summary on a champion's Overview says.
+enum HeroStatsSetting { HeroSettingOverviewTiles, HeroSettingChampionTiles, HeroSettingCombatTiles, HeroSettingMagicTiles,
+                        HeroSettingSurvivalTiles, HeroSettingSuppliesTiles, HeroSettingExplorationTiles,
+                        HeroSettingMonstersTiles, HeroSettingKeyNumbers, HERO_SETTING_COUNT };
+const char *HeroStatsCatalogue_SettingEntry(HeroStatsSetting setting);   // "stats_tiles_combat"
+std::string HeroStatsCatalogue_SettingDefault(HeroStatsSetting setting); // the default list as names
+// Takes the setting's list (at most 4 tiles); a list with no number it knows keeps the default
+void HeroStatsCatalogue_ApplySetting(HeroStatsSetting setting, const std::string &text);
+std::vector<HeroStatsNumber> HeroStatsCatalogue_DefaultTiles(int topic);
+const std::vector<HeroStatsNumber> &HeroStatsCatalogue_ChampionTiles(void);  // a champion's Overview
+
 // Every value of one champion (or HERO_STATS_PARTY) on one level (or HERO_STATS_WHOLE_RUN). A
 // ratio is -1 when it is undefined (no attacks, no hits); a number that does not apply is 0.
 struct HeroStatsRecord { int value[HERO_NUMBER_COUNT]; };

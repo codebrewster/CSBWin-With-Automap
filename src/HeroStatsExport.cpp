@@ -252,8 +252,8 @@ std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroS
     out += ",\"details\":" + Details(HeroStatsPages_Details(t, HERO_STATS_PARTY));
     out += ",\"heroDetails\":" + Details(HeroStatsPages_Details(t, HERO_STATS_NOBODY)) + "}";
   }
-  int heroTiles[4] = {HeroNumDamage, HeroNumKills, HeroNumTaken, HeroNumDeaths};
-  out += "],\"heroTiles\":" + Numbers(heroTiles, 4);
+  std::vector<int> heroTiles(HeroStatsCatalogue_ChampionTiles().begin(), HeroStatsCatalogue_ChampionTiles().end());
+  out += "],\"heroTiles\":" + Ints(heroTiles);
   out += ",\"views\":{\"-1\":" + ViewJson(stats, columns, names, HERO_STATS_WHOLE_RUN);
   for (size_t i = 0; i < levels.size(); i++)
     out += ",\"" + Number(levels[i]) + "\":" + ViewJson(stats, columns, names, levels[i]);

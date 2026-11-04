@@ -66,6 +66,9 @@ static HeroStatsDrawState drawState = HeroStatsDraw_InitialState();
 // stats_separator as csb.cfg has it ("comma", "dot", "space", "apostrophe", "none"), written back
 // as it was read
 static std::string separatorSetting = "comma";
+// The tiles and Key numbers (stats_tiles_..., stats_key_numbers) as csb.cfg has them, written back
+// as they were read; the defaults when csb.cfg has none, so that they are there to edit
+static std::string listSettings[HERO_SETTING_COUNT];
 // In percent, one of ZOOM_STEPS
 static int zoomPercent = NORMAL_ZOOM;
 
@@ -97,6 +100,15 @@ void HeroStatsWindow_ReadSettings(void)
   char defaultSeparator[] = "comma";
   separatorSetting = csb_get_config_string(SETTINGS_SECTION, "stats_separator", defaultSeparator);
   HeroStatsView_SetThousandsSeparator(HeroStatsView_SeparatorOfSetting(separatorSetting));
+  for (int i = 0; i < HERO_SETTING_COUNT; i++)
+  {
+    HeroStatsSetting setting = (HeroStatsSetting)i;
+    std::string defaults = HeroStatsCatalogue_SettingDefault(setting);
+    std::vector<char> text(defaults.begin(), defaults.end());
+    text.push_back(0);
+    listSettings[i] = csb_get_config_string(SETTINGS_SECTION, HeroStatsCatalogue_SettingEntry(setting), text.data());
+    HeroStatsCatalogue_ApplySetting(setting, listSettings[i]);
+  }
   // A value between the steps (csb.cfg edited by hand) goes to the nearest step
   int zoom = csb_get_config_int(SETTINGS_SECTION, "stats_zoom", NORMAL_ZOOM);
   zoomPercent = ZOOM_STEPS[0];
@@ -126,6 +138,15 @@ void HeroStatsWindow_WriteSettings(void)
   std::vector<char> separator(separatorSetting.begin(), separatorSetting.end());
   separator.push_back(0);
   csb_set_config_string(SETTINGS_SECTION, "stats_separator", separator.data());
+  for (int i = 0; i < HERO_SETTING_COUNT; i++)
+  {
+    // Left empty, the defaults: written out, they are there to edit next time
+    std::string value = listSettings[i].find_first_not_of(" ,\t") == std::string::npos
+                            ? HeroStatsCatalogue_SettingDefault((HeroStatsSetting)i) : listSettings[i];
+    std::vector<char> text(value.begin(), value.end());
+    text.push_back(0);
+    csb_set_config_string(SETTINGS_SECTION, HeroStatsCatalogue_SettingEntry((HeroStatsSetting)i), text.data());
+  }
 }
 
 void HeroStatsWindow_RestoreVisibility(void)

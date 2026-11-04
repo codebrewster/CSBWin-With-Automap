@@ -99,6 +99,9 @@ row from each topic. Click a card to see that champion.
 For a **champion**: their damage, kills, damage taken and deaths; a **tile per topic** with its
 main numbers (click one to open the topic); and the Key numbers next to the party's.
 
+The tiles of every topic and the Key numbers can be chosen in `csb.cfg`, see
+[Choosing the tiles and the Key numbers](#choosing-the-tiles-and-the-key-numbers).
+
 ![A champion's Overview: their tiles, a tile per topic, and the Key numbers beside the party's](images/statistics-champion.png)
 
 ## Combat
@@ -349,3 +352,46 @@ The window keeps these in the `[settings]` section of `csb.cfg`:
 | `stats_closed` | Which sections are folded, added up: 1 Weapons, 2 Spells, 4 Damage taken by source, 8 Healing by source, 16 Deaths, 32 Eaten and drunk, 64 Items, 128 Monsters killed, 256 Numbers, 512 Key numbers; 0 none |
 
 Who is picked, Per level and its choices are not kept: the window opens on the Party.
+
+### Choosing the tiles and the Key numbers
+
+These entries choose which numbers the window shows at the top of each topic and in Key numbers.
+Each is a list of number names (see below), split by commas or spaces. The game writes the
+defaults into `csb.cfg` the first time, so they are there to change. Edit them while the game is
+closed: the game writes `csb.cfg` again when you leave it.
+
+| Entry | Meaning | Default |
+|---|---|---|
+| `stats_tiles_overview` | The tiles of the Party's Overview | `damage, kills, deaths, tiles_explored` |
+| `stats_tiles_champion` | The tiles of a champion's Overview | `damage, kills, taken, deaths` |
+| `stats_tiles_combat` | The tiles of Combat | `damage, kills, hit_rate, friendly_fire` |
+| `stats_tiles_magic` | The tiles of Magic | `mana_generated, mana_spent, casts, mana_wasted` |
+| `stats_tiles_survival` | The tiles of Survival | `taken, healed, deaths, resurrected` |
+| `stats_tiles_food` | The tiles of Food & items | `eaten, drunk, food_wasted, picked_up` |
+| `stats_tiles_exploration` | The tiles of Exploration | `tiles_explored, steps, ticks, doors_bashed` |
+| `stats_tiles_monsters` | The tiles of Monsters | `kills, door_kills, pit_kills, other_kills` |
+| `stats_key_numbers` | The rows of Key numbers, in their order (at most 24) | `damage, kills, taken, healed, mana_spent, deaths, eaten, drunk, doors_bashed, steps, tiles_explored, ticks` |
+
+- A topic shows at most 4 tiles; names after the fourth are left out.
+- A topic's tiles are also its line on a champion's Overview: the first three that have a value.
+- Any number can go in any list, also one from another topic.
+- A number kept only for the party (steps, chests ...) shows for the Party and is left out for a
+  champion.
+- A name the game does not know is left out. A list with no name it knows, or an empty one,
+  shows the defaults.
+- A line of `csb.cfg` holds at most 255 characters.
+- The HTML export shows the same tiles and Key numbers.
+
+**The names:**
+
+| Topic | Names |
+|---|---|
+| Combat | `damage`, `melee`, `ranged`, `magic`, `kills`, `attacks`, `hits`, `hit_rate`, `damage_per_hit`, `other_actions`, `friendly_fire` |
+| Magic | `mana_generated`, `mana_regeneration`, `mana_potions`, `mana_spent`, `mana_on_spells`, `mana_successful`, `mana_wasted`, `runes_cleared`, `runes_not_cast`, `casts`, `casts_successful`, `casts_failed` |
+| Survival | `taken`, `healed`, `heal_regeneration`, `heal_potions`, `heal_action`, `healing_given`, `deaths`, `resurrected`, `wipes`, `reloads` |
+| Food & items | `eaten`, `drunk`, `food_gained`, `food_wasted`, `water_gained`, `water_wasted`, `picked_up`, `used_in_walls` |
+| Exploration | `steps`, `tiles_walked`, `tiles_explored`, `turns`, `wall_bumps`, `teleports`, `pit_falls`, `pit_climbs`, `ticks`, `sleep_ticks`, `doors_bashed`, `doors_smashed`, `doors_shot`, `doors_by_spell`, `doors_by_zo`, `doors_button_opened`, `doors_button_closed`, `chests`, `scrolls`, `wall_texts`, `champions_seen`, `champions_viewed` |
+| Monsters | `kills`, `door_kills`, `pit_kills`, `other_kills` |
+
+Each name is the number of the same label in that topic's Numbers: `heal_potions` is Potions under
+Healed, `mana_on_spells` is Spells under Mana spent, `ticks` is Time (ticks).
