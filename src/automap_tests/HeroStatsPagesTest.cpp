@@ -580,8 +580,9 @@ static void ChampionSourcesLeaveOutZeros(void)
   HeroStatsTopicPage page = XpPage(stats, 9, RankFive);
   for (size_t i = 0; i < page.sources.size(); i++)
     if (page.sources[i].depth > 0) CHECK(page.sources[i].amount > 0);
-  // The top lines are always there
+  // The top lines are always there, with the party's amount for the share
   CHECK(page.sources.size() >= 5 && page.sources[0].name == "Attacks" && page.sources[0].amount == 0);
+  CHECK(page.sources.size() >= 5 && page.sources[0].byColumn.size() == 1 && page.sources[0].byColumn[0] == 40);
 }
 
 static void ClassesOpenToTheirSkills(void)

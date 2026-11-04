@@ -33,6 +33,7 @@ static const ImU32 LINE_RGB = 0x31343d;
 static const ImU32 ROW_LINE_RGB = 0x292b32;
 static const ImU32 TRACK_RGB = 0x2f323a;      // the empty part of a bar
 static const ImU32 BAD_RGB = 0xe5735f;
+static const ImU32 GOLD_RGB = 0xe0b54a;       // a champion's record that is the party's
 // The game's own champion colours, by party slot, softened for the dark background
 static const ImU32 CHAMPION_RGB[4] = {0x5fbf5f, 0xd8c447, 0xd9604f, 0x5b8fd9};
 
@@ -106,10 +107,13 @@ HeroStatsDrawState HeroStatsDraw_InitialState(void)
   return state;
 }
 
+// The bits csb.cfg's stats_closed keeps: the first eight detail tables, then Numbers (256) and Key
+// numbers (512), then the tables that came later (Skills 1024 ... Records 8192)
 int HeroStatsDraw_SectionBit(int detail)
 {
-  if (detail == HERO_STATS_NUMBERS_SECTION) return 1 << HERO_DETAIL_COUNT;
-  if (detail == HERO_STATS_KEY_NUMBERS_SECTION) return 1 << (HERO_DETAIL_COUNT + 1);
+  if (detail == HERO_STATS_NUMBERS_SECTION) return 1 << HeroDetailSkills;
+  if (detail == HERO_STATS_KEY_NUMBERS_SECTION) return 1 << (HeroDetailSkills + 1);
+  if (detail >= HeroDetailSkills) return 1 << (detail + 2);
   return 1 << detail;
 }
 
@@ -634,30 +638,128 @@ static void LabelCell(const std::string &text, int depth, ImU32 rgb, const char 
 // ---------------------------------------------------------------------------------------------
 // Tiles and the Numbers table
 
-static void DrawTiles(const HeroStatsTopicPage &page)
+static size_t ColumnOf(const std::vector<HeroStatsColumn> &columns, HeroStatsChampion who)
+{
+  size_t c = 0;
+  while (c < columns.size() && columns[c].id != who) c++;
+  return c;
+}
+
+// What a tile shows: the big text, the label, and on the Experience and Records pages a line
+// under them (with a champion's dot before it) or a bar of the way to the next rank
+struct TileText
+{
+  std::string big, label, sub;
+  bool bad, gold, hasBar;
+  int percent;
+  size_t dotColumn;  // the champion's column for the dot before sub, columns.size(): none
+};
+
+static TileText TileTextOf(const HeroStatsTopicPage &page, HeroStatsNumber number, bool isParty,
+                           const std::vector<HeroStatsColumn> &columns)
+{
+  int value = page.record.value[number];
+  const HeroStatsNumberInfo &info = HeroStatsCatalogue_Info(number);
+  TileText tile = {HeroStatsCatalogue_Format(number, value), info.label, "", info.isBad && value > 0, false, false, 0, columns.size()};
+  int cls = number - HeroNumXpFighter;
+  if (cls >= 0 && cls < HERO_XP_CLASS_COUNT && cls < (int)page.classes.size())
+  {
+    const HeroStatsClassLine &line = page.classes[cls];
+    std::string rank = HeroXp_RankName(line.rankNow);
+    if (isParty)
+    {
+      tile.label = line.name + " experience";
+      if (!rank.empty())
+      {
+        tile.sub = "best: " + rank + " (" + WhoLabel(columns, line.best) + ")";
+        tile.dotColumn = ColumnOf(columns, line.best);
+      }
+    }
+    else
+    {
+      tile.big = rank.empty() ? "-" : rank;
+      tile.label = line.name + " " + MIDDLE_DOT + " " + HeroStatsView_Number(line.amount) + " XP gained";
+      std::string next = HeroXp_RankName(line.rankNow + 1);
+      if (line.rankNow >= 0 && next != rank)
+      {
+        tile.hasBar = true;
+        tile.percent = line.percentToNext;
+        tile.sub = std::to_string(line.percentToNext) + "% to " + (next.empty() ? HeroXp_RankName(2) : next);
+      }
+    }
+  }
+  if (HeroStatsCatalogue_IsRecord(number))
+    for (size_t r = 0; r < page.records.size(); r++)
+    {
+      const HeroStatsRecordLine &record = page.records[r];
+      if (record.kind != HeroStatsCatalogue_RecordOf(number) || !record.has) continue;
+      tile.big = record.value;
+      std::string detail = !record.whom.empty() ? record.whom : record.how;
+      if (isParty)
+      {
+        tile.sub = record.who + (detail.empty() ? "" : std::string(" ") + MIDDLE_DOT + " " + detail);
+        tile.dotColumn = ColumnOf(columns, HeroStatsCatalogue_Info(number).partyOnly ? HERO_STATS_NOBODY : record.partyHolder);
+      }
+      else
+      {
+        tile.gold = record.held;
+        if (record.held) tile.big += " \xe2\x98\x85";
+        else if (!record.partyValue.empty())
+          tile.sub = "party: " + record.partyValue + " " + WhoLabel(columns, record.partyHolder);
+      }
+    }
+  return tile;
+}
+
+static void DrawTiles(const HeroStatsTopicPage &page, const HeroStatsDrawState &state, const std::vector<HeroStatsColumn> &columns)
 {
   if (page.tiles.empty()) return;
   int count = (int)page.tiles.size();
+  bool isParty = state.who == HERO_STATS_PARTY;
+  std::vector<TileText> tiles;
+  bool anySub = false;
+  for (int i = 0; i < count; i++)
+  {
+    tiles.push_back(TileTextOf(page, page.tiles[i], isParty, columns));
+    anySub = anySub || !tiles.back().sub.empty() || tiles.back().hasBar;
+  }
   float gap = 8;
   float width = ImGui::GetContentRegionAvail().x;
   float tileWidth = (width - gap * 3) / 4;
   float bigSize = ImGui::GetFontSize() * 1.6f;
-  float height = bigSize + ImGui::GetTextLineHeight() + 18;
+  float lineHeight = ImGui::GetTextLineHeight();
+  float height = bigSize + lineHeight + 18 + (anySub ? lineHeight + 8 : 0);
   ImVec2 at = ImGui::GetCursorScreenPos();
   ImDrawList *drawList = ImGui::GetWindowDrawList();
   for (int i = 0; i < count; i++)
   {
-    HeroStatsNumber number = page.tiles[i];
-    int value = page.record.value[number];
-    const HeroStatsNumberInfo &info = HeroStatsCatalogue_Info(number);
+    const TileText &tile = tiles[i];
     ImVec2 min(at.x + i * (tileWidth + gap), at.y);
     drawList->AddRectFilled(min, ImVec2(min.x + tileWidth, min.y + height), Packed(PANEL_RGB), 4.0f);
     drawList->PushClipRect(min, ImVec2(min.x + tileWidth - 6, min.y + height), true);
-    std::string text = HeroStatsCatalogue_Format(number, value);
-    bool bad = info.isBad && value > 0;
     // The big number in red alone, as in the export: a pill behind it looks heavy
-    drawList->AddText(ImGui::GetFont(), bigSize, ImVec2(min.x + 10, min.y + 7), Packed(bad ? BAD_RGB : WHITE_RGB), text.c_str());
-    drawList->AddText(ImVec2(min.x + 10, min.y + 9 + bigSize), Packed(DIM_RGB), info.label);
+    ImU32 bigRgb = tile.bad ? BAD_RGB : tile.gold ? GOLD_RGB : WHITE_RGB;
+    drawList->AddText(ImGui::GetFont(), bigSize, ImVec2(min.x + 10, min.y + 7), Packed(bigRgb), tile.big.c_str());
+    drawList->AddText(ImVec2(min.x + 10, min.y + 9 + bigSize), Packed(DIM_RGB), tile.label.c_str());
+    float y = min.y + 13 + bigSize + lineHeight;
+    if (tile.hasBar)
+    {
+      ImU32 rgb = ChampionRgb(ColumnOf(columns, state.who));
+      ImVec2 barMin(min.x + 10, y), barMax(min.x + tileWidth - 10, y + 5);
+      drawList->AddRectFilled(barMin, barMax, Packed(TRACK_RGB), 2.0f);
+      drawList->AddRectFilled(barMin, ImVec2(barMin.x + (barMax.x - barMin.x) * tile.percent / 100.0f, barMax.y), Packed(rgb), 2.0f);
+      y += 7;
+    }
+    if (!tile.sub.empty())
+    {
+      float x = min.x + 10;
+      if (tile.dotColumn < columns.size())
+      {
+        ChampionDot(ImVec2(x + 4, y + lineHeight / 2), tile.dotColumn, columns[tile.dotColumn].hasLeft);
+        x += 13;
+      }
+      drawList->AddText(ImVec2(x, y), Packed(tile.hasBar ? FAINT_RGB : TEXT_RGB), tile.sub.c_str());
+    }
     drawList->PopClipRect();
   }
   ImGui::Dummy(ImVec2(width, height + 4));
@@ -1237,6 +1339,316 @@ static void DrawMonsters(HeroStatsDrawState *state, const std::vector<HeroStatsM
 }
 
 // ---------------------------------------------------------------------------------------------
+// Experience and Records
+
+// Skills: a class per row, its hidden skills under it
+static void DrawSkills(HeroStatsDrawState *state, const std::vector<HeroStatsClassLine> &classes,
+                       const std::vector<HeroStatsColumn> &columns)
+{
+  if (!SectionHeader(state, HeroDetailSkills, "Skills", "the hidden skills under each class")) return;
+  bool isParty = state->who == HERO_STATS_PARTY;
+  int count = isParty ? 4 : 4;
+  float fixed = isParty ? NUMBER_WIDTH * 2 + WHO_WIDTH : WHO_WIDTH + NUMBER_WIDTH * 2;
+  if (BeginPageTable("##skills", count, fixed, false))
+  {
+    LabelColumn("Skill");
+    if (isParty)
+    {
+      NumberColumn("Experience");
+      NumberColumn("Ranks gained");
+      BarColumn("Who: Experience", WHO_WIDTH);
+    }
+    else
+    {
+      BarColumn("Rank now", WHO_WIDTH);
+      NumberColumn("Experience");
+      NumberColumn("Ranks gained");
+    }
+    HeaderRow(std::vector<int>(), columns);
+    for (size_t c = 0; c < classes.size(); c++)
+    {
+      const HeroStatsClassLine &line = classes[c];
+      ImGui::TableNextRow();
+      ImGui::TableSetColumnIndex(0);
+      ImGui::PushID((int)state->who);
+      ImGui::PushID((int)c + 3000);
+      std::string upper = line.name;
+      for (size_t i = 0; i < upper.size(); i++) upper[i] = (char)toupper((unsigned char)upper[i]);
+      bool open = ImGui::TreeNodeEx(upper.c_str(), ImGuiTreeNodeFlags_SpanLabelWidth);
+      if (isParty)
+      {
+        ImGui::TableSetColumnIndex(1);
+        PlainCell(line.amount);
+        ImGui::TableSetColumnIndex(2);
+        PlainCell(line.ranksGained);
+        ImGui::TableSetColumnIndex(3);
+        WhoCell(line.byColumn, columns);
+      }
+      else
+      {
+        ImGui::TableSetColumnIndex(1);
+        std::string rank = HeroXp_RankName(line.rankNow);
+        std::string start = HeroXp_RankName(line.startRank);
+        ImGui::TextColored(Colour(TEXT_RGB), "%s", rank.empty() ? "-" : rank.c_str());
+        if (!start.empty() && start != rank)
+        {
+          ImGui::SameLine();
+          ImGui::TextColored(Colour(FAINT_RGB), "(%s at the start)", start.c_str());
+        }
+        ImGui::TableSetColumnIndex(2);
+        PlainCell(line.amount);
+        ImGui::TableSetColumnIndex(3);
+        PlainCell(line.ranksGained);
+      }
+      if (open)
+      {
+        for (size_t k = 0; k < line.skills.size(); k++)
+        {
+          const HeroStatsXpLine &skill = line.skills[k];
+          ImGui::TableNextRow();
+          LabelCell(skill.name, 1, DIM_RGB);
+          ImGui::TableSetColumnIndex(isParty ? 1 : 2);
+          PlainCell(skill.amount, PART_RGB);
+          if (isParty)
+          {
+            ImGui::TableSetColumnIndex(3);
+            WhoCell(skill.byColumn, columns);
+          }
+        }
+        ImGui::TreePop();
+      }
+      ImGui::PopID();
+      ImGui::PopID();
+    }
+    ImGui::EndTable();
+  }
+  SectionGap();
+}
+
+// Experience by source: the tree of the page, its lines folding their children. Open at first:
+// Attacks with its first weapon, and Spells with its classes.
+static void DrawXpSources(HeroStatsDrawState *state, const std::vector<HeroStatsXpLine> &lines,
+                          const std::vector<HeroStatsColumn> &columns)
+{
+  if (!SectionHeader(state, HeroDetailXpSources, "Experience by source", "click a line to fold it")) return;
+  bool isParty = state->who == HERO_STATS_PARTY;
+  int count = isParty ? 3 : 4;
+  float fixed = isParty ? NUMBER_WIDTH + BAR_WIDTH : NUMBER_WIDTH * 2 + BAR_WIDTH;
+  size_t champion = ColumnOf(columns, state->who);
+  if (BeginPageTable("##xpsources", count, fixed, false))
+  {
+    LabelColumn("Source");
+    if (isParty) NumberColumn("Experience");
+    else
+    {
+      NumberColumn(champion < columns.size() ? columns[champion].name.c_str() : "");
+      NumberColumn("Party");
+    }
+    BarColumn(isParty ? "Who: Experience" : "Share of party", BAR_WIDTH);
+    std::vector<int> headerColumns(1, -1);
+    if (!isParty) headerColumns.push_back((int)champion);
+    HeaderRow(headerColumns, columns);
+    int skipDeeperThan = -1;  // a folded line hides the lines under it
+    std::string topLine;      // the depth 0 line the lines below belong to
+    for (size_t i = 0; i < lines.size(); i++)
+    {
+      const HeroStatsXpLine &line = lines[i];
+      if (line.depth == 0) topLine = line.name;
+      if (skipDeeperThan >= 0 && line.depth > skipDeeperThan) continue;
+      skipDeeperThan = -1;
+      ImGui::TableNextRow();
+      ImGui::TableSetColumnIndex(0);
+      if (line.depth > 0) ImGui::Indent(14.0f * line.depth);
+      ImU32 rgb = line.depth > 0 ? PART_RGB : TEXT_RGB;
+      if (line.hasChildren)
+      {
+        // Attacks with its first weapon, Spells with its classes
+        bool openAtFirst = line.depth == 0 || (line.depth == 1 && (topLine == "Spells" || lines[i - 1].depth == 0));
+        ImGui::PushID((int)state->who);
+        ImGui::PushID(line.id);
+        ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_SpanLabelWidth | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+        if (openAtFirst) flags |= ImGuiTreeNodeFlags_DefaultOpen;
+        ImGui::PushStyleColor(ImGuiCol_Text, Colour(line.depth > 0 ? DIM_RGB : TEXT_RGB));
+        bool open = ImGui::TreeNodeEx(line.name.c_str(), flags);
+        ImGui::PopStyleColor();
+        ImGui::PopID();
+        ImGui::PopID();
+        if (!open) skipDeeperThan = line.depth;
+      }
+      else
+      {
+        // In line with the text of the lines that fold
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetTreeNodeToLabelSpacing());
+        ImGui::TextColored(Colour(line.depth > 0 ? DIM_RGB : TEXT_RGB), "%s", line.name.c_str());
+      }
+      if (!line.note.empty())
+      {
+        ImGui::SameLine();
+        ImGui::TextColored(Colour(FAINT_RGB), "%s", line.note.c_str());
+      }
+      if (line.depth > 0) ImGui::Unindent(14.0f * line.depth);
+      ImGui::TableSetColumnIndex(1);
+      PlainCell(line.amount, rgb);
+      if (isParty)
+      {
+        ImGui::TableSetColumnIndex(2);
+        WhoCell(line.byColumn, columns);
+      }
+      else
+      {
+        int party = line.byColumn.empty() ? 0 : line.byColumn[0];
+        ImGui::TableSetColumnIndex(2);
+        PlainCell(party, rgb);
+        ImGui::TableSetColumnIndex(3);
+        if (party > 0) PartBar(line.amount, party, champion);
+      }
+    }
+    ImGui::EndTable();
+  }
+  SectionGap();
+}
+
+static void DrawRankUps(HeroStatsDrawState *state, const std::vector<HeroStatsRankUpLine> &lines,
+                        const std::vector<HeroStatsColumn> &columns)
+{
+  int ups = (int)lines.size();
+  if (!SectionHeader(state, HeroDetailRankUps, "Ranks gained", ups == 0 ? "none yet" : "newest first " + std::string(MIDDLE_DOT) + " " + Count(ups, ups == 1 ? "rank" : "ranks")))
+    return;
+  if (ups == 0)
+  {
+    ImGui::TextColored(Colour(DIM_RGB), "No new rank yet.");
+    SectionGap();
+    return;
+  }
+  bool isParty = state->who == HERO_STATS_PARTY;
+  int count = isParty ? 5 : 4;
+  if (BeginPageTable("##rankups", count, WHO_WIDTH * 2 + NUMBER_WIDTH * (isParty ? 3 : 2), false))
+  {
+    if (isParty) LabelColumn("Who");
+    if (isParty) BarColumn("Class", NUMBER_WIDTH);
+    else LabelColumn("Class");
+    BarColumn("Rank", WHO_WIDTH);
+    BarColumn("With", WHO_WIDTH + NUMBER_WIDTH);
+    NumberColumn("Lv");
+    HeaderRow(std::vector<int>(), columns);
+    for (size_t i = 0; i < lines.size(); i++)
+    {
+      const HeroStatsRankUpLine &line = lines[i];
+      ImGui::TableNextRow();
+      int column = 0;
+      if (isParty)
+      {
+        ImGui::TableSetColumnIndex(column++);
+        size_t c = ColumnOf(columns, line.who);
+        ImVec2 at = ImGui::GetCursorScreenPos();
+        if (c < columns.size()) ChampionDot(ImVec2(at.x + 4, at.y + ImGui::GetTextLineHeight() / 2), c, columns[c].hasLeft);
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 14);
+        ImGui::TextColored(Colour(TEXT_RGB), "%s", WhoLabel(columns, line.who).c_str());
+      }
+      ImGui::TableSetColumnIndex(column++);
+      ImGui::TextColored(Colour(TEXT_RGB), "%s", line.className.c_str());
+      ImGui::TableSetColumnIndex(column++);
+      ImGui::TextColored(Colour(TEXT_RGB), "%s", line.rank.c_str());
+      ImGui::TableSetColumnIndex(column++);
+      ImGui::TextColored(Colour(DIM_RGB), "%s", line.with.c_str());
+      ImGui::TableSetColumnIndex(column++);
+      RightText(LevelLabel(line.level).substr(3), TEXT_RGB);
+    }
+    ImGui::EndTable();
+  }
+  SectionGap();
+}
+
+// Records: one table in its four groups. A champion's page: their best, gold with a star when it
+// is the party's, and the party's best beside it.
+static void DrawRecords(HeroStatsDrawState *state, const std::vector<HeroStatsRecordLine> &lines,
+                        const std::vector<HeroStatsColumn> &columns)
+{
+  bool isParty = state->who == HERO_STATS_PARTY;
+  int held = 0;
+  for (size_t i = 0; i < lines.size(); i++) held += lines[i].held ? 1 : 0;
+  std::string summary = isParty ? "the best of the run " + std::string(MIDDLE_DOT) + " hover a value for when"
+                                : WhoLabel(columns, state->who) + "'s best " + MIDDLE_DOT + " \xe2\x98\x85 " +
+                                      Count(held, held == 1 ? "party record" : "party records");
+  if (!SectionHeader(state, HeroDetailRecords, "Records", summary)) return;
+  size_t champion = ColumnOf(columns, state->who);
+  int count = 6;
+  if (BeginPageTable("##records", count, NUMBER_WIDTH * 2 + WHO_WIDTH * 2 + NUMBER_WIDTH * 2, false))
+  {
+    LabelColumn("Record");
+    BarColumn(isParty ? "Value" : (champion < columns.size() ? columns[champion].name.c_str() : "Value"), NUMBER_WIDTH * 2);
+    if (isParty) BarColumn("Who", NUMBER_WIDTH);
+    BarColumn("How", WHO_WIDTH + 20);
+    BarColumn("On / from", WHO_WIDTH);
+    NumberColumn("Lv", 40);
+    if (!isParty) BarColumn("Party best", NUMBER_WIDTH + 30);
+    HeaderRow(std::vector<int>(), columns);
+    std::string group;
+    for (size_t i = 0; i < lines.size(); i++)
+    {
+      const HeroStatsRecordLine &line = lines[i];
+      if (line.group != group)
+      {
+        group = line.group;
+        ImGui::TableNextRow();
+        std::string upper = group;
+        for (size_t k = 0; k < upper.size(); k++) upper[k] = (char)toupper((unsigned char)upper[k]);
+        LabelCell(upper, 0, DIM_RGB);
+      }
+      ImGui::TableNextRow();
+      LabelCell(line.label, 0, TEXT_RGB, HeroStatsCatalogue_Info((HeroStatsNumber)(HeroNumRecFirst + line.kind)).help);
+      int column = 1;
+      ImGui::TableSetColumnIndex(column++);
+      if (!line.has) ImGui::TextColored(Colour(FAINT_RGB), "-");
+      else
+      {
+        ImGui::TextColored(Colour(line.held ? GOLD_RGB : WHITE_RGB), "%s%s", line.value.c_str(), line.held ? " \xe2\x98\x85" : "");
+        if (ImGui::IsItemHovered() && !line.when.empty()) ImGui::SetTooltip("%s", line.when.c_str());
+      }
+      if (isParty)
+      {
+        ImGui::TableSetColumnIndex(column++);
+        size_t c = ColumnOf(columns, line.partyHolder);
+        if (line.has && c < columns.size() && line.who != "party")
+        {
+          ImVec2 at = ImGui::GetCursorScreenPos();
+          ChampionDot(ImVec2(at.x + 4, at.y + ImGui::GetTextLineHeight() / 2), c, columns[c].hasLeft);
+          ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 14);
+        }
+        ImGui::TextColored(Colour(line.who == "party" ? DIM_RGB : TEXT_RGB), "%s", line.who.c_str());
+      }
+      ImGui::TableSetColumnIndex(column++);
+      ImGui::TextColored(Colour(DIM_RGB), "%s", line.how.c_str());
+      ImGui::TableSetColumnIndex(column++);
+      ImGui::TextColored(Colour(DIM_RGB), "%s", line.whom.c_str());
+      ImGui::TableSetColumnIndex(column++);
+      if (line.has) RightText(std::to_string(line.level), TEXT_RGB);
+      if (!isParty)
+      {
+        ImGui::TableSetColumnIndex(column++);
+        if (line.held) ImGui::TextColored(Colour(FAINT_RGB), "this one");
+        else if (!line.partyValue.empty())
+        {
+          ImGui::TextColored(Colour(TEXT_RGB), "%s", line.partyValue.c_str());
+          size_t c = ColumnOf(columns, line.partyHolder);
+          if (c < columns.size())
+          {
+            ImGui::SameLine();
+            ImVec2 at = ImGui::GetCursorScreenPos();
+            ChampionDot(ImVec2(at.x + 4, at.y + ImGui::GetTextLineHeight() / 2), c, columns[c].hasLeft);
+            ImGui::Dummy(ImVec2(8, ImGui::GetTextLineHeight()));
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", columns[c].name.c_str());
+          }
+        }
+      }
+    }
+    ImGui::EndTable();
+  }
+  SectionGap();
+}
+
+
+// ---------------------------------------------------------------------------------------------
 // Overview
 
 // The Party's Overview: a card per champion with small bars against the best of them. True with
@@ -1347,7 +1759,7 @@ static void DrawTopicPage(HeroStatsDrawState *state, const PageData &data, const
 {
   const HeroStatsTopicPage &page = data.topic;
   bool isParty = state->who == HERO_STATS_PARTY;
-  DrawTiles(page);
+  DrawTiles(page, *state, columns);
   if (state->topic == HeroTopicOverview)
   {
     // A card or a tile opens another page from the next frame: the rest of this one is drawn
@@ -1366,7 +1778,8 @@ static void DrawTopicPage(HeroStatsDrawState *state, const PageData &data, const
     return;
   }
   std::string whose = isParty ? "each champion and the party" : WhoLabel(columns, state->who) + " and the party";
-  if (SectionHeader(state, HERO_STATS_NUMBERS_SECTION, "Numbers", whose))
+  // The Records table is the page's numbers
+  if (state->topic != HeroTopicRecords && SectionHeader(state, HERO_STATS_NUMBERS_SECTION, "Numbers", whose))
   {
     DrawNumbers(page, *state, columns);
     SectionGap();
@@ -1387,6 +1800,10 @@ static void DrawTopicPage(HeroStatsDrawState *state, const PageData &data, const
     case HeroDetailConsumed: DrawConsumed(state, page.hero, columns); break;
     case HeroDetailItems: DrawItems(state, page.items, columns); break;
     case HeroDetailMonsters: DrawMonsters(state, page.monsters, columns); break;
+    case HeroDetailSkills: DrawSkills(state, page.classes, columns); break;
+    case HeroDetailXpSources: DrawXpSources(state, page.sources, columns); break;
+    case HeroDetailRankUps: DrawRankUps(state, page.rankUps, columns); break;
+    case HeroDetailRecords: DrawRecords(state, page.records, columns); break;
     default: break;
     }
   }
@@ -1429,12 +1846,18 @@ static bool DrawPerLevelChoices(HeroStatsDrawState *state)
 {
   std::vector<HeroStatsNumber> numbers = HeroStatsCatalogue_GridNumbers(state->topic);
   if (state->who != HERO_STATS_PARTY || numbers.empty()) return false;
+  // Records are one at a time: fifteen side by side, each a best, would say little
+  bool recordsOnly = state->topic == HeroTopicRecords;
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(1, 6));
-  ChoiceLabel("Show  ");
-  if (ChoiceButton("Party totals", !state->sideBySide)) state->sideBySide = false;
-  ImGui::SameLine();
-  if (ChoiceButton("Champions side by side", state->sideBySide)) state->sideBySide = true;
-  if (state->sideBySide)
+  if (!recordsOnly)
+  {
+    ChoiceLabel("Show  ");
+    if (ChoiceButton("Party totals", !state->sideBySide)) state->sideBySide = false;
+    ImGui::SameLine();
+    if (ChoiceButton("Champions side by side", state->sideBySide)) state->sideBySide = true;
+  }
+  bool sideBySide = recordsOnly || state->sideBySide;
+  if (sideBySide)
   {
     if (std::find(numbers.begin(), numbers.end(), state->gridNumber[state->topic]) == numbers.end())
       state->gridNumber[state->topic] = numbers[0];
@@ -1460,7 +1883,7 @@ static bool DrawPerLevelChoices(HeroStatsDrawState *state)
   }
   ImGui::PopStyleVar();
   ImGui::Dummy(ImVec2(0, 4));
-  return state->sideBySide;
+  return sideBySide;
 }
 
 static void LevelCell(HeroStatsDrawState *state, int level)

@@ -575,11 +575,18 @@ static std::vector<HeroStatsXpLine> XpSources(const HeroStats &stats, const std:
                                               HeroStatsChampion who, int level, const HeroStatsNames &names)
 {
   bool isParty = who == HERO_STATS_PARTY;
-  size_t columnCount = isParty ? columns.size() : 0;
+  size_t columnCount = isParty ? columns.size() : 1;
   XpNode root;
   for (int top = 0; top < 5; top++) Child(root, std::to_string(top), SOURCE_NAMES[top], "", columnCount);
   std::vector<HeroXpRow> rows = stats.Experience().Rows(who, level);
   for (size_t r = 0; r < rows.size(); r++) AddXpRow(root, rows[r], -1, columnCount, names);
+  // A champion's page: the party's amount of each line, for the share
+  if (!isParty)
+  {
+    std::vector<HeroXpRow> party = stats.Experience().Rows(HERO_STATS_PARTY, level);
+    for (size_t r = 0; r < party.size(); r++) AddXpRow(root, party[r], 0, columnCount, names);
+    columnCount = 0;
+  }
   for (size_t c = 0; c < columnCount; c++)
   {
     std::vector<HeroXpRow> own = stats.Experience().Rows(columns[c].id, level);

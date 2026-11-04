@@ -654,7 +654,7 @@ static std::string MonsterNameOf(int monsterType, int variant)
 
 HeroStatsNames HeroStats_NamesOfTheGame(void)
 {
-  HeroStatsNames names = {MonsterNameOf, HeroStats_WeaponNameOf, HeroStats_AttackOptionNameOf};
+  HeroStatsNames names = {MonsterNameOf, HeroStats_WeaponNameOf, HeroStats_AttackOptionNameOf, HeroStats_RankNow};
   return names;
 }
 
