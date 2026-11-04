@@ -17,6 +17,8 @@ save.
 - [Food & items](#food--items)
 - [Exploration](#exploration)
 - [Monsters](#monsters)
+- [Experience](#experience)
+- [Records](#records)
 - [Per level](#per-level)
 - [Numbers](#numbers)
 - [Sorting](#sorting)
@@ -58,7 +60,8 @@ The window has three controls that never move:
   16 visited levels (large custom dungeons such as Conflux) the numbers become **◀ list ▶**: the
   arrows step to the previous or next visited level, and the list jumps to any of them.
 - **The topic**, the tabs under them: **Overview**, **Combat**, **Magic**, **Survival**,
-  **Food & items**, **Exploration** and **Monsters**. The tabs are the same whoever is picked.
+  **Food & items**, **Exploration**, **Monsters**, **Experience** and **Records**. The tabs are the
+  same whoever is picked.
 
 The **title strip** shows what you are looking at ("SYRA · Combat · Lv 3") and holds the
 **Export as HTML...** button (see [Sharing](#sharing-export-as-html)).
@@ -244,6 +247,92 @@ The numbers: **Kills** (by the champions), **Crushed by doors**, **Killed by fal
 For a champion: the monsters they killed. Monsters carry the names the dungeon gives them; kinds
 that look alike (variants the dungeon gives no name of their own) share one row.
 
+## Experience
+
+The experience each champion gained in **Fighter**, **Ninja**, **Priest** and **Wizard**, where it
+came from, and the ranks it brought. It is the experience the game added: with the level's
+multiplier (deeper levels give more), the bonus for training in a fight, and whatever a custom
+dungeon's own rules change. The game never shows these numbers; the ranks are the ones the
+inventory shows (Neophyte, Novice ... Expert, Lo Master ... Mon Master, Archmaster).
+
+Each class has four hidden skills, and what trains them trains the class:
+
+| Class | Hidden skills |
+|---|---|
+| Fighter | Swing, Thrust, Club, Parry |
+| Ninja | Steal, Fight, Throw, Shoot |
+| Priest | Identify, Heal, Influence, Defend |
+| Wizard | Fire, Air, Earth, Water |
+
+**Tiles.** For the Party: each class's experience, and the best rank in it with the champion
+who has it. For a champion: their rank in each class now, the experience they gained in it, and a
+bar of the way to the next rank.
+
+| Number | What it counts |
+|---|---|
+| **Experience gained** | with **Fighter**, **Ninja**, **Priest** and **Wizard** below it, which add up to it |
+| **Ranks gained** | new ranks reached, in any class |
+
+**Skills** has a row per class; click it to see its hidden skills. A gain the game gave the class
+itself, not one of its skills, shows as "Fighter itself" and the like. For a champion the table
+shows the rank now, with the rank they had when the statistics first knew them.
+
+**Experience by source** shows where the experience came from. Click a line with a triangle to fold
+or open it:
+
+- **Attacks**: blows, shots and throws, by weapon, each action with the class and hidden skill it
+  trained ("SWING Fighter · Swing").
+- **Monsters attacking you**: each time a monster attacks a champion, hit or miss, the champion
+  gains Parry (Fighter). A hit taken gives no experience of its own.
+- **Other actions**: War Cry, Calm, Brandish, Blow Horn and the like. They train Influence (Priest).
+- **Spells**: by class (Priest, Wizard), each spell with the hidden skill it trained. A spell that
+  fails ("needs more practice") gives experience too.
+- **Other**: items and scripts of the dungeon that raise a skill.
+
+**Ranks gained** lists each new rank, newest first: the champion, the class, the rank
+("Artisan → Adept"), what earned it and the level.
+
+Experience counts on the level where it was gained.
+
+## Records
+
+The best moments of the run. Each record keeps the champion, how (the weapon and action, the
+spell), on or from whom, the level, and the game time (hover the value). When two are equally good,
+the earlier one stays.
+
+| Record | What counts |
+|---|---|
+| **Biggest hit** | the most damage a blow, a thrown item or a shot did to one monster, as the game shows it |
+| **Biggest spell hit** | the most damage one monster took from one spell (an explosion, or a tick of its cloud) |
+| **Biggest spell in all** | one spell's damage to the whole group: a fireball doing 210 to each of four monsters is 840 |
+| **Most kills at once** | monsters killed by one blow, one explosion or one tick of a cloud |
+| **Kills without a scratch** | the most kills in a row with no damage taken in between |
+| **Biggest hit taken** | the most damage one monster attack did to a champion, after armour |
+| **Biggest spell hit taken** | the most damage one monster spell or missile did |
+| **Closest call** | the fewest hit points a champion had left after taking damage and living, and what did it |
+| **Biggest heal** | the most hit points gained at once: a potion, the Heal action, regeneration |
+| **Most mana on one spell** | the mana of the runes of one spell that worked |
+| **Biggest experience gain** | the most experience gained at once, with what earned it |
+| **Heaviest load** | the most weight a champion carried, and the share of what they could carry |
+| **Longest fall** | pits fallen through one after the other (the party) |
+| **Longest teleport chain** | teleporters one after the other (the party) |
+| **Longest sleep** | the ticks of one sleep (the party) |
+
+**Kills without a scratch.** The kills are the ones credited to a champion; monsters crushed by
+doors, killed by falls or by other causes do not count. Any damage a champion takes ends the streak:
+monsters, their spells, friendly fire, poison, pits, traps, starvation. For the Party it is the
+kills of anyone until any champion is hurt; for a champion, their own kills until they themselves
+are hurt. A streak goes on across levels; its level is the level of its last kill. **On / from**
+names the monsters it killed most.
+
+A step or a turn ends a fall or a teleport chain.
+
+For the **Party**, the table shows the best of the run and who holds it. For a **champion**, it
+shows their own best, and the party's best beside it; a record the champion holds for the party is
+gold with a ★. The party's own records (falls, teleports, sleep) are not on a champion's page.
+
+**Records go back with a reload** like the other numbers: a hit you reloaded away did not happen.
+
 ## Per level
 
 **Per level** in the level picker shows the topic one row per visited level, with the **Whole
@@ -258,6 +347,10 @@ For the Party, **Show** chooses between two tables:
   up are offered: a hit rate or the party's steps cannot be split by champion.
 
 For a champion, Per level shows that champion's numbers of the topic.
+
+On **Records** the Party's Per level has no Show: it is one record, picked with the **Number**
+buttons, a column per champion with their best on each level and the Party's best, without a
+Share bar.
 
 ![Per level, Champions side by side: the damage each champion dealt on each level](images/statistics-per-level.png)
 
@@ -274,8 +367,9 @@ triangle shows the column and the direction. Numbers sort largest first on the f
 alphabetically. The total row always stays at the bottom, and a weapon's actions stay below it,
 sorted the same way.
 
-All tables sort except **Numbers** and **Key numbers**, which keep their order so that the parts
-stay under their row.
+All tables sort except **Numbers**, **Key numbers**, and the tables of Experience and Records, which
+keep their order so that the parts stay under their row: Skills by class, Experience by source and
+Ranks gained most first and newest first, Records in their groups.
 
 ## Sharing: export as HTML
 
@@ -336,6 +430,8 @@ bashed open. Saves made before tiles walked were kept count them from the first 
 made before scrolls read were kept count each scroll the first time it is opened after loading;
 wall texts read, champions seen and champions viewed come from the map and are there for old
 saves too. A champion portrait is not a wall text, even though the map marks both the same way.
+Saves made before experience and records were kept show none: experience counts from the first
+load, the ranks "at the start" are the ranks then, and the ranks now are always the champions' own.
 
 ## Settings in csb.cfg
 
@@ -345,11 +441,11 @@ The window keeps these in the `[settings]` section of `csb.cfg`:
 |---|---|
 | `stats_window` | 1 when the window was open when the game was left |
 | `stats_x`, `stats_y`, `stats_width`, `stats_height` | The window's place and size |
-| `stats_page` | The topic last chosen: 0 Overview, 1 Combat, 2 Magic, 3 Survival, 4 Food & items, 5 Exploration, 6 Monsters |
+| `stats_page` | The topic last chosen: 0 Overview, 1 Combat, 2 Magic, 3 Survival, 4 Food & items, 5 Exploration, 6 Monsters, 7 Experience, 8 Records |
 | `stats_layout` | 2: `stats_page` holds a topic. Without it, `stats_page` is read as the front page of earlier versions (3 Monsters, 4 Items; the others open the Overview). |
 | `stats_separator` | The mark between thousands: `comma` (4,261, the default), `dot` (4.261), `space` (4 261), `apostrophe` (4'261) or `none` (4261). Edit it while the game is closed. |
 | `stats_zoom` | The zoom in percent: 70, 80, 90, 100 (the default), 110, 125, 150, 175, 200 or 250. Another number is taken as the nearest of these. |
-| `stats_closed` | Which sections are folded, added up: 1 Weapons, 2 Spells, 4 Damage taken by source, 8 Healing by source, 16 Deaths, 32 Eaten and drunk, 64 Items, 128 Monsters killed, 256 Numbers, 512 Key numbers; 0 none |
+| `stats_closed` | Which sections are folded, added up: 1 Weapons, 2 Spells, 4 Damage taken by source, 8 Healing by source, 16 Deaths, 32 Eaten and drunk, 64 Items, 128 Monsters killed, 256 Numbers, 512 Key numbers, 1024 Skills, 2048 Experience by source, 4096 Ranks gained, 8192 Records; 0 none |
 
 Who is picked, Per level and its choices are not kept: the window opens on the Party.
 
@@ -370,6 +466,8 @@ closed: the game writes `csb.cfg` again when you leave it.
 | `stats_tiles_food` | The tiles of Food & items | `eaten, drunk, food_wasted, picked_up` |
 | `stats_tiles_exploration` | The tiles of Exploration | `tiles_explored, steps, ticks, doors_bashed` |
 | `stats_tiles_monsters` | The tiles of Monsters | `kills, door_kills, pit_kills, other_kills` |
+| `stats_tiles_experience` | The tiles of Experience | `fighter, ninja, priest, wizard` |
+| `stats_tiles_records` | The tiles of Records | `biggest_hit, biggest_spell_total, biggest_hit_taken, closest_call` |
 | `stats_key_numbers` | The rows of Key numbers, in their order (at most 24) | `damage, kills, taken, healed, mana_spent, deaths, eaten, drunk, doors_bashed, steps, tiles_explored, ticks` |
 
 - A topic shows at most 4 tiles; names after the fourth are left out.
@@ -392,6 +490,8 @@ closed: the game writes `csb.cfg` again when you leave it.
 | Food & items | `eaten`, `drunk`, `food_gained`, `food_wasted`, `water_gained`, `water_wasted`, `picked_up`, `used_in_walls` |
 | Exploration | `steps`, `tiles_walked`, `tiles_explored`, `turns`, `wall_bumps`, `teleports`, `pit_falls`, `pit_climbs`, `ticks`, `sleep_ticks`, `doors_bashed`, `doors_smashed`, `doors_shot`, `doors_by_spell`, `doors_by_zo`, `doors_button_opened`, `doors_button_closed`, `chests`, `scrolls`, `wall_texts`, `champions_seen`, `champions_viewed` |
 | Monsters | `kills`, `door_kills`, `pit_kills`, `other_kills` |
+| Experience | `experience`, `fighter`, `ninja`, `priest`, `wizard`, `ranks_gained` |
+| Records | `biggest_hit`, `biggest_spell_hit`, `biggest_spell_total`, `most_kills_at_once`, `kill_streak`, `biggest_hit_taken`, `biggest_spell_hit_taken`, `closest_call`, `biggest_heal`, `most_mana_on_spell`, `biggest_experience_gain`, `heaviest_load`, `longest_fall`, `longest_teleport_chain`, `longest_sleep` |
 
 Each name is the number of the same label in that topic's Numbers: `heal_potions` is Potions under
 Healed, `mana_on_spells` is Spells under Mana spent, `ticks` is Time (ticks).
