@@ -215,7 +215,8 @@ public:
   int PartyWipes(void) const;
   int Reloads(void) const;
   // The hardship of other (the same game read from a file, or the one in memory):
-  // deaths become whichever list is longer, wipes and reloads the larger count.
+  // deaths become whichever list is longer; resurrections (per champion and level), wipes and
+  // reloads the larger count.
   void MergeHardship(const HeroStats &other);
   // Replaces everything but the hardship, which is merged
   void TakeFromFile(const HeroStats &fromFile);

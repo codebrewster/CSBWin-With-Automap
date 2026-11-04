@@ -299,7 +299,7 @@ It holds the numbers as they were when you clicked; export again for newer numbe
 The statistics are stored in the save's `.map` companion file (the same file the map uses), so
 they need no extra step. Loading a save brings back the numbers of that save.
 
-**Hardship survives reloads.** Deaths, party wipes and the reload count stay when you load an
+**Hardship survives reloads.** Deaths, resurrections, party wipes and the reload count stay when you load an
 earlier save of the same game, so you cannot hide a death by reloading. Everything else goes
 back to what it was at that save.
 

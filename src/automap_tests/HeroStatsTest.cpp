@@ -591,6 +591,14 @@ static void MergeHardshipTakesTheLargerOfEach(void)
   file.CountDeath(DeathOf(2, 1, HeroHarmOther));
   memory.MergeHardship(file);
   CHECK(memory.Deaths(HERO_STATS_PARTY).size() == 3);
+  // Resurrections: the larger count for each champion and level
+  memory.CountResurrection(7, 3);
+  memory.CountResurrection(7, 3);
+  file.CountResurrection(7, 3);
+  file.CountResurrection(9, 4);
+  memory.MergeHardship(file);
+  CHECK(memory.Resurrections(7, 3) == 2 && memory.Resurrections(9, 4) == 1);
+  CHECK(memory.Resurrections(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN) == 3);
 }
 
 static void TakeFromFileReplacesTheRestAndKeepsHardship(void)
@@ -610,7 +618,8 @@ static void TakeFromFileReplacesTheRestAndKeepsHardship(void)
   memory.TakeFromFile(file);
   CHECK(memory.DamageDealt(7, 3, HeroDamageMelee) == 40);
   CHECK(memory.Deaths(HERO_STATS_PARTY).size() == 2);
-  CHECK(memory.Resurrections(7, 3) == 0);
+  // Resurrections are hardship: they happened, whatever the file says
+  CHECK(memory.Resurrections(7, 3) == 1);
   CHECK(memory.Champions().size() == 1 && memory.Champions()[0].name == "File");
   CHECK(memory.VisitedLevels().size() == 1 && memory.VisitedLevels()[0] == 2);
 

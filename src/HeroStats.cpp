@@ -846,6 +846,12 @@ void HeroStats::MergeHardship(const HeroStats &other)
 {
   // Both lists describe the same run, so the longer one has seen more of it
   if (other.m_deaths.size() > m_deaths.size()) m_deaths = other.m_deaths;
+  for (std::map<std::pair<HeroStatsChampion, int>, int>::const_iterator at = other.m_resurrections.begin();
+       at != other.m_resurrections.end(); ++at)
+  {
+    int &mine = m_resurrections[at->first];
+    mine = std::max(mine, at->second);
+  }
   m_partyWipes = std::max(m_partyWipes, other.m_partyWipes);
   m_reloads = std::max(m_reloads, other.m_reloads);
 }
