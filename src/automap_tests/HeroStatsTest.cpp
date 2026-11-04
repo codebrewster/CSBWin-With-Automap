@@ -2,6 +2,12 @@
 #include "../HeroStats.h"
 #include "../HeroStatsRunes.h"
 
+// What layout 23 added at the end of an empty store: the experience and records tables
+static size_t Layout23Tail(void)
+{
+  return HeroStatsExperience().SerializedSize() + HeroStatsRecords().SerializedSize();
+}
+
 static const int AXE = 13;
 
 static HeroStatsBlow ChampionBlow(HeroStatsChampion who, int weapon, int option)
@@ -240,7 +246,7 @@ static void LayoutThirteenIsStillRead(void)
   // Six empty tables, the harm count, then the record of 2 + 4 + 4 + 2 + 4 + 4 bytes and its kind
   size_t kind = 7 * 4 + 20;
   bytes.erase(bytes.begin() + kind, bytes.begin() + kind + 4);
-  bytes.erase(bytes.end() - 52, bytes.end());
+  bytes.erase(bytes.end() - (40 + Layout23Tail()), bytes.end());
   HeroStats read;
   CHECK(read.Deserialize(bytes.data(), bytes.size(), 13));
   CHECK(read.Harm(9, 3) == 12 && read.HarmRows(9, 3).size() == 1);
@@ -289,7 +295,7 @@ static void LayoutFourteenIsStillRead(void)
   // counts, the uses
   size_t uses = 3 * 4 + 15 + 16;
   bytes.erase(bytes.begin() + uses, bytes.begin() + uses + 4);
-  bytes.erase(bytes.end() - 64, bytes.end());
+  bytes.erase(bytes.end() - (52 + Layout23Tail()), bytes.end());
   HeroStats read;
   CHECK(read.Deserialize(bytes.data(), bytes.size(), 14));
   CHECK(read.Attacks(7, 1).size() == 1 && read.Attacks(7, 1)[0].tries == 1 && read.Attacks(7, 1)[0].uses == 0);
@@ -331,7 +337,7 @@ static void LayoutFifteenIsStillRead(void)
   written.CountStep(1);
   std::vector<uint8_t> bytes;
   written.Serialize(&bytes);
-  bytes.erase(bytes.end() - 48, bytes.end());
+  bytes.erase(bytes.end() - (36 + Layout23Tail()), bytes.end());
   HeroStats read;
   CHECK(read.Deserialize(bytes.data(), bytes.size(), 15));
   CHECK(read.Movement(1).steps == 1 && read.Items(HERO_STATS_WHOLE_RUN).empty());
@@ -383,7 +389,7 @@ static void EatingDoorsAndChestsAreCounted(void)
   door.CountDoorBashed(7, 3, HeroDoorShot);
   bytes.clear();
   door.Serialize(&bytes);
-  bytes.erase(bytes.end() - 32, bytes.end());
+  bytes.erase(bytes.end() - (20 + Layout23Tail()), bytes.end());
   bytes.erase(bytes.end() - 8, bytes.end() - 4);
   CHECK(read.Deserialize(bytes.data(), bytes.size(), 17));
   CHECK(read.DoorsBashed(7, 3) == 1 && read.DoorsBashed(7, 3, HeroDoorUnknown) == 1 && read.DoorsBashed(7, 3, HeroDoorShot) == 0);
@@ -392,7 +398,7 @@ static void EatingDoorsAndChestsAreCounted(void)
   empty.CountItem(1, 4, HeroItemPickedUp);
   bytes.clear();
   empty.Serialize(&bytes);
-  bytes.erase(bytes.end() - 44, bytes.end());
+  bytes.erase(bytes.end() - (32 + Layout23Tail()), bytes.end());
   CHECK(read.Deserialize(bytes.data(), bytes.size(), 16));
   CHECK(read.Items(1).size() == 1 && read.Eaten(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN) == 0);
   stats.Forget();
@@ -444,7 +450,7 @@ static void TilesWalkedAndExplored(void)
   HeroStats none;
   bytes.clear();
   none.Serialize(&bytes);
-  bytes.erase(bytes.end() - 28, bytes.end());
+  bytes.erase(bytes.end() - (16 + Layout23Tail()), bytes.end());
   CHECK(read.Deserialize(bytes.data(), bytes.size(), 18) && read.Movement(1).tilesWalked == 0);
 }
 
@@ -473,7 +479,7 @@ static void ScrollsAndWallTextsRead(void)
   HeroStats none;
   bytes.clear();
   none.Serialize(&bytes);
-  bytes.erase(bytes.end() - 24, bytes.end());
+  bytes.erase(bytes.end() - (12 + Layout23Tail()), bytes.end());
   CHECK(read.Deserialize(bytes.data(), bytes.size(), 19) && read.ScrollsRead(HERO_STATS_WHOLE_RUN) == 0);
 }
 
@@ -695,7 +701,7 @@ static void RuneOutcomesAreKeptAndTakenFromOlderLayouts(void)
   old.CreditManaSpent(9, 2, HERO_SPELL_ITEM_SPELLS, 8);
   bytes.clear();
   old.Serialize(&bytes);
-  bytes.erase(bytes.end() - 20, bytes.end());   // the empty outcome and kept rune counts
+  bytes.erase(bytes.end() - (8 + Layout23Tail()), bytes.end());   // the empty outcome and kept rune counts
   std::vector<uint8_t> twenty = bytes;
   CHECK(read.Deserialize(twenty.data(), twenty.size(), 20));
   CHECK(read.ManaSpent(7, 3) == 31 && read.ManaOnSuccessfulCasts(7, 3) == 25 && read.ManaWasted(7, 3) == 6);

@@ -44,5 +44,6 @@ void TestHeroStatsView(void);
 void TestHeroStatsPages(void);
 void TestHeroStatsCatalogue(void);
 void TestHeroStatsExperience(void);
+void TestHeroStatsRecords(void);
 
 #endif

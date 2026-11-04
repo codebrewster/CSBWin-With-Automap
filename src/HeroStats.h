@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 #include "HeroStatsExperience.h"
+#include "HeroStatsRecords.h"
 
 // The same layout whatever was included before: CSB.h leaves #pragma pack(1) switched on
 #pragma pack(push, 8)
@@ -262,7 +263,7 @@ public:
   // chests opened, 17 no door methods (the doors read as HeroDoorUnknown), no food and water,
   // 18 no tiles walked, 19 no scrolls read, 20 and 21 no rune outcomes and no runes kept (the
   // outcomes are taken from the rune spells' rows, on the level of the cast; 21 has a table of
-  // rune mana per level, which is skipped), 22 no experience.
+  // rune mana per level, which is skipped), 22 no experience and no records.
   static const int LAYOUT = 23;
   static const int FIRST_LAYOUT_WITH_MOVEMENT = 14;
   static const int FIRST_LAYOUT_WITH_PITS_AND_SLEEP = 15;
@@ -279,6 +280,9 @@ public:
   // Experience and ranks (HeroStatsExperience.h): no hardship, they go with the file
   HeroStatsExperience &Experience(void) { return m_experience; }
   const HeroStatsExperience &Experience(void) const { return m_experience; }
+  // Records (HeroStatsRecords.h): no hardship either
+  HeroStatsRecords &Records(void) { return m_records; }
+  const HeroStatsRecords &Records(void) const { return m_records; }
 
 private:
   struct AttackCounts { int tries, hits, damage, kills, uses; };
@@ -342,6 +346,7 @@ private:
   int m_partyWipes = 0;
   int m_reloads = 0;
   HeroStatsExperience m_experience;
+  HeroStatsRecords m_records;
 };
 
 #pragma pack(pop)

@@ -34,6 +34,7 @@ int main(void)
   TestHeroStatsPages();
   TestHeroStatsCatalogue();
   TestHeroStatsExperience();
+  TestHeroStatsRecords();
   if (failedCheckCount != 0)
   {
     std::printf("%d checks failed\n", failedCheckCount);

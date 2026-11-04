@@ -105,12 +105,12 @@ static void ExperienceSurvivesTheFile(void)
   // A short file is refused
   CHECK(!read.Deserialize(bytes.data(), bytes.size() - 1));
 
-  // Layout 22 has no experience: the bytes before it read, nothing after them
+  // Layout 22 has no experience and no records: the bytes before them read, nothing after them
   HeroStats old;
   old.MeetChampion(7, "HALK");
   std::vector<uint8_t> oldBytes;
   old.Serialize(&oldBytes);
-  oldBytes.resize(oldBytes.size() - HeroStatsExperience().SerializedSize());
+  oldBytes.resize(oldBytes.size() - HeroStatsExperience().SerializedSize() - HeroStatsRecords().SerializedSize());
   CHECK(read.Deserialize(oldBytes.data(), oldBytes.size(), 22));
   CHECK(read.Experience().Gained(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, -1) == 0);
 }

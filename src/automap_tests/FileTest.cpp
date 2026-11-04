@@ -1400,8 +1400,9 @@ static void ADamagedStatisticsBlockLeavesTheStoresUnchanged(void)
   // The harm source (4 bytes) sits 2 + 4 after the start of the harm record, which ends the
   // statistics but for the empty healing, mana, spell, death and resurrection tables, the wipes
   // and reloads and the empty movement, item, eaten, door, chest, food, tile, scroll, rune outcome
-  // and kept rune tables, and the empty experience, rank and start rank tables
-  size_t source = bad.size() - rawOrigins.size() - (20 * 4) - (2 + 4 + 4 + 2 + 4 + 4 + 4) + 2 + 4;
+  // and kept rune tables, and the empty experience and records tables
+  size_t source = bad.size() - rawOrigins.size() - (17 * 4) - HeroStatsExperience().SerializedSize() -
+                  HeroStatsRecords().SerializedSize() - (2 + 4 + 4 + 2 + 4 + 4 + 4) + 2 + 4;
   bad[source] = 99;
   CheckStatisticsFileLeavesTheStores(bad);
 }

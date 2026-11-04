@@ -104,6 +104,11 @@ const char *AutoMapFile_Describe(AutoMapFileResult result);
 //              weapon, option, 4 bytes spell, monster type) the amount; the ranks gained (2 bytes
 //              champion, level, 1 byte class, 1 byte rank, 4 bytes game time, source); the start
 //              ranks (2 bytes champion, 1 byte class, 1 byte rank)
+//     records (version 23): per record 1 byte kind and its entry (value, 2 bytes champion, level,
+//              4 bytes game time, source, monster type, variant, count, extra, first level, 4
+//              bytes first time, two (monster type, kills)); the kill streaks running (2 bytes
+//              champion, then as the chains); the fall, teleport and sleep chains running (count,
+//              first level, level, 4 bytes first time, 4 bytes time, (monster type, kills) list)
 //     origins: missiles and clouds (4 byte index, the blow), brewers (4 byte index, 2 bytes
 //              champion), then (version 16) the held items, (version 17) the opened chests and
 //              (version 20) the read scrolls (4 byte record key each)
