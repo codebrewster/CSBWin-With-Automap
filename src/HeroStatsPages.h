@@ -18,6 +18,9 @@ struct HeroStatsNames
   std::string (*monster)(int monsterType, int variant);  // the dungeon's name of the variant
   std::string (*weapon)(int weapon);                     // HeroStats_WeaponName of the game's items
   std::string (*option)(int option);                     // "" when unknown
+  // The champion's rank in a class now and how far to the next (HeroStats_RankNow); -1 when not
+  // known (a champion who left). May be NULL: never known.
+  int (*rankNow)(HeroStatsChampion who, int cls, int *percentToNext);
 };
 
 // One row of the Monsters page: the monsters of one name, killed by each champion column, by
@@ -86,7 +89,40 @@ HeroStatsHeroPage HeroStatsPages_Hero(const HeroStats &stats, const std::vector<
 // party-only number); a champion's page: that champion's value. party: the party's value.
 struct HeroStatsNumbersRow { HeroStatsNumber number; int depth; std::vector<int> byColumn; int party; bool partyOnly; };
 enum HeroStatsDetail { HeroDetailWeapons, HeroDetailSpells, HeroDetailHarm, HeroDetailHealing, HeroDetailDeaths,
-                       HeroDetailConsumed, HeroDetailItems, HeroDetailMonsters, HERO_DETAIL_COUNT };
+                       HeroDetailConsumed, HeroDetailItems, HeroDetailMonsters, HeroDetailSkills, HeroDetailXpSources,
+                       HeroDetailRankUps, HeroDetailRecords, HERO_DETAIL_COUNT };
+
+// Experience by source: a tree written out in drawing order. depth 0: Attacks, Monsters
+// attacking you, Other actions, Spells, Other; under Attacks the weapons and their actions, under
+// Spells the classes and their spells. note: dim text after the name ("Fighter · Swing", "Fire").
+// id: the same for the same line on every page, for its fold state. byColumn: the Party's page,
+// each column's amount.
+struct HeroStatsXpLine { std::string name, note; int depth; int id; int amount; std::vector<int> byColumn; bool hasChildren; };
+// A class: its experience, ranks and hidden skills (depth 1; "<class> itself" for gains straight to
+// it). rankNow: the champion's (the Party's: the best champion's, best), with percentToNext;
+// startRank: when the statistics first knew the champion (-1 unknown, and on the Party's page).
+struct HeroStatsClassLine
+{
+  std::string name;
+  int rankNow, startRank, percentToNext, amount, ranksGained;
+  HeroStatsChampion best;
+  std::vector<int> byColumn;
+  std::vector<HeroStatsXpLine> skills;
+};
+// rank: "Artisan → Adept"; with: what brought it ("SWING with DIAMOND EDGE", "Ful Ir Fireball")
+struct HeroStatsRankUpLine { HeroStatsChampion who; std::string className, rank, with; int level; };
+// One record. value, how, whom, when as shown ("38.4 kg · 92%", "4 × Screamer", "tick 4,321"). who:
+// the champion's name or "party". held: a champion's page: the champion holds the party's record.
+// partyValue, partyHolder: the party's best and who holds it.
+struct HeroStatsRecordLine
+{
+  HeroRecordKind kind;
+  std::string group, label, value, who, how, whom, when;
+  int level;
+  bool has, held;
+  std::string partyValue;
+  HeroStatsChampion partyHolder;
+};
 // The detail tables of a topic for who, in drawing order (Items only for the party)
 std::vector<HeroStatsDetail> HeroStatsPages_Details(int topic, HeroStatsChampion who);
 struct HeroStatsTopicPage
@@ -98,6 +134,10 @@ struct HeroStatsTopicPage
   HeroStatsHeroPage hero;                     // weapons, spells, taken, healing, deaths, eaten, drunk
   std::vector<HeroStatsMonsterLine> monsters;
   std::vector<HeroStatsItemLine> items;
+  std::vector<HeroStatsClassLine> classes;    // Experience: Fighter, Ninja, Priest, Wizard
+  std::vector<HeroStatsXpLine> sources;       // Experience by source
+  std::vector<HeroStatsRankUpLine> rankUps;   // newest first
+  std::vector<HeroStatsRecordLine> records;   // Records, in HeroRecordKind order
   std::string summary;                        // HeroStatsCatalogue_Summary
 };
 HeroStatsTopicPage HeroStatsPages_Topic(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,

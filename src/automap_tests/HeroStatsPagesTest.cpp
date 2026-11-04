@@ -490,8 +490,193 @@ static void WipesStayOutOfPerLevel(void)
   CHECK(!table.numbers.empty() && table.numbers[0] == HeroNumTaken);
 }
 
+// ---- Experience and Records ----
+
+static int NoRankNow(HeroStatsChampion, int, int *percent)
+{
+  if (percent != NULL) *percent = 0;
+  return -1;
+}
+
+static int RankFive(HeroStatsChampion, int, int *percent)
+{
+  if (percent != NULL) *percent = 40;
+  return 5;
+}
+
+static HeroXpSource XpSource(HeroXpSourceKind kind, int weapon, int option, uint32_t spell, int monsterType)
+{
+  HeroXpSource source = HeroXpSource_Other();
+  source.kind = kind;
+  source.weapon = weapon;
+  source.option = option;
+  source.spell = spell;
+  source.monsterType = monsterType;
+  return source;
+}
+
+static const uint32_t FUL_IR = 0x00006f69;  // Ful Ir: a Fireball (as HeroStatsTest's runes)
+
+static HeroStats ExperiencedParty(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  stats.MeetChampion(9, "SYRA");
+  stats.MarkLevelVisited(1);
+  HeroStatsExperience &xp = stats.Experience();
+  xp.Credit(7, 1, 4, XpSource(HeroXpAttack, 5, 1, HERO_STATS_NO_SPELL, -1), 30);       // Swing with a sword
+  xp.Credit(7, 1, 5, XpSource(HeroXpAttack, 5, 2, HERO_STATS_NO_SPELL, -1), 10);       // Thrust
+  xp.Credit(7, 1, 7, XpSource(HeroXpMonster, HERO_STATS_NO_WEAPON, HERO_STATS_NO_OPTION, HERO_STATS_NO_SPELL, 6), 4);
+  xp.Credit(9, 1, 16, XpSource(HeroXpSpell, HERO_STATS_NO_WEAPON, HERO_STATS_NO_OPTION, FUL_IR, -1), 25);  // Fire
+  xp.Credit(9, 1, 14, XpSource(HeroXpOtherAction, HERO_STATS_UNARMED, 8, HERO_STATS_NO_SPELL, -1), 3);     // War Cry
+  xp.SetStartRank(7, 0, 3);
+  xp.SetStartRank(9, 3, 4);
+  HeroRankUp up = {9, 1, 3, 5, 77, XpSource(HeroXpSpell, HERO_STATS_NO_WEAPON, HERO_STATS_NO_OPTION, FUL_IR, -1)};
+  xp.CountRankUp(up);
+  return stats;
+}
+
+static HeroStatsTopicPage XpPage(const HeroStats &stats, HeroStatsChampion who, int (*rankNow)(HeroStatsChampion, int, int *))
+{
+  HeroStatsNames names = NAMES;
+  names.rankNow = rankNow;
+  return HeroStatsPages_Topic(stats, Columns(stats), who, HERO_STATS_WHOLE_RUN, HeroTopicExperience, names);
+}
+
+static void SourcesAddUpToTheClasses(void)
+{
+  HeroStats stats = ExperiencedParty();
+  HeroStatsTopicPage page = XpPage(stats, HERO_STATS_PARTY, RankFive);
+  int top = 0;
+  const HeroStatsXpLine *attacks = NULL, *sword = NULL, *spells = NULL, *wizard = NULL, *fireball = NULL;
+  for (size_t i = 0; i < page.sources.size(); i++)
+  {
+    const HeroStatsXpLine &line = page.sources[i];
+    if (line.depth == 0) top += line.amount;
+    if (line.depth == 0 && line.name == "Attacks") attacks = &line;
+    if (line.depth == 1 && line.name == "SWORD") sword = &line;
+    if (line.depth == 0 && line.name == "Spells") spells = &line;
+    if (line.depth == 1 && line.name == "Wizard") wizard = &line;
+    if (line.depth == 2 && line.note == "Fire") fireball = &line;
+  }
+  CHECK(top == stats.Experience().Gained(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, -1));
+  CHECK(page.sources.size() > 0 && page.sources[0].name == "Attacks");
+  CHECK(attacks != NULL && attacks->amount == 40 && attacks->hasChildren);
+  CHECK(sword != NULL && sword->amount == 40);
+  CHECK(spells != NULL && wizard != NULL && wizard->amount == 25);
+  CHECK(fireball != NULL && fireball->name.find("Ful Ir") != std::string::npos);
+  // The Party's lines split by column: HALK, SYRA
+  CHECK(attacks != NULL && attacks->byColumn.size() == 2 && attacks->byColumn[0] == 40 && attacks->byColumn[1] == 0);
+  // Every line under a weapon names its class and hidden skill
+  bool swing = false;
+  for (size_t i = 0; i < page.sources.size(); i++)
+    if (page.sources[i].depth == 2 && page.sources[i].note == "Fighter \xc2\xb7 Swing") swing = page.sources[i].name == "PUNCH";
+  CHECK(swing);
+}
+
+static void ChampionSourcesLeaveOutZeros(void)
+{
+  HeroStats stats = ExperiencedParty();
+  HeroStatsTopicPage page = XpPage(stats, 9, RankFive);
+  for (size_t i = 0; i < page.sources.size(); i++)
+    if (page.sources[i].depth > 0) CHECK(page.sources[i].amount > 0);
+  // The top lines are always there
+  CHECK(page.sources.size() >= 5 && page.sources[0].name == "Attacks" && page.sources[0].amount == 0);
+}
+
+static void ClassesOpenToTheirSkills(void)
+{
+  HeroStats stats = ExperiencedParty();
+  HeroStatsTopicPage page = XpPage(stats, 7, RankFive);
+  CHECK(page.classes.size() == 4);
+  if (page.classes.size() != 4) return;
+  const HeroStatsClassLine &fighter = page.classes[0];
+  CHECK(fighter.name == "Fighter" && fighter.amount == 44 && fighter.rankNow == 5 && fighter.percentToNext == 40);
+  CHECK(fighter.startRank == 3);
+  CHECK(fighter.skills.size() == 4 && fighter.skills[0].name == "Swing" && fighter.skills[3].name == "Parry");
+  stats.Experience().Credit(7, 1, 0, HeroXpSource_Other(), 2);
+  page = XpPage(stats, 7, RankFive);
+  CHECK(page.classes[0].skills.size() == 5 && page.classes[0].skills[4].name == "Fighter itself");
+}
+
+static void RankOfAGoneChampionIsTheLastKnown(void)
+{
+  HeroStats stats = ExperiencedParty();
+  HeroStatsTopicPage page = XpPage(stats, 9, NoRankNow);
+  CHECK(page.classes.size() == 4 && page.classes[3].rankNow == 5);  // started at 4, one rank gained
+  CHECK(page.rankUps.size() == 1 && page.rankUps[0].className == "Wizard");
+  CHECK(page.rankUps.size() == 1 && page.rankUps[0].rank == "Apprentice \xe2\x86\x92 Journeyman");
+  CHECK(page.rankUps.size() == 1 && page.rankUps[0].with.find("Fireball") != std::string::npos);
+  // No name function at all: the same
+  page = XpPage(stats, 9, NULL);
+  CHECK(page.classes.size() == 4 && page.classes[3].rankNow == 5);
+}
+
+static HeroRecordEntry RecordEntry(HeroStatsChampion who, int value)
+{
+  HeroRecordEntry entry = HeroRecordEntry_Empty();
+  entry.who = who;
+  entry.level = 1;
+  entry.value = value;
+  entry.time = 500;
+  return entry;
+}
+
+static void RecordLinesShowTheirBlow(void)
+{
+  HeroStats stats = ExperiencedParty();
+  HeroRecordEntry total = RecordEntry(9, 840);
+  total.how = XpSource(HeroXpSpell, HERO_STATS_NO_WEAPON, HERO_STATS_NO_OPTION, FUL_IR, -1);
+  total.monsterType = 6;
+  total.count = 4;
+  stats.Records().Offer(HeroRecBiggestSpellTotal, total);
+  stats.Records().Offer(HeroRecBiggestHit, RecordEntry(7, 120));
+  stats.Records().Offer(HeroRecBiggestHit, RecordEntry(9, 90));
+  stats.Records().CountPitFall(3, 10);
+  stats.Records().CountMove();
+  HeroStatsTopicPage party = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroTopicRecords, NAMES);
+  CHECK(party.records.size() == HERO_RECORD_COUNT);
+  const HeroStatsRecordLine *spell = NULL, *fall = NULL;
+  for (size_t i = 0; i < party.records.size(); i++)
+  {
+    if (party.records[i].kind == HeroRecBiggestSpellTotal) spell = &party.records[i];
+    if (party.records[i].kind == HeroRecLongestFall) fall = &party.records[i];
+  }
+  CHECK(spell != NULL && spell->whom == "4 \xc3\x97 Screamer" && spell->who == "SYRA" && spell->value == "840");
+  CHECK(spell != NULL && spell->group == "Dealt" && spell->how.find("Fireball") != std::string::npos);
+  CHECK(fall != NULL && fall->who == "party" && fall->value == "1" && fall->group == "Carrying & moving");
+  HeroStatsTopicPage syra = HeroStatsPages_Topic(stats, Columns(stats), 9, HERO_STATS_WHOLE_RUN, HeroTopicRecords, NAMES);
+  bool hasFall = false;
+  const HeroStatsRecordLine *hit = NULL, *own = NULL;
+  for (size_t i = 0; i < syra.records.size(); i++)
+  {
+    hasFall = hasFall || HeroRecord_PartyOnly(syra.records[i].kind);
+    if (syra.records[i].kind == HeroRecBiggestHit) hit = &syra.records[i];
+    if (syra.records[i].kind == HeroRecBiggestSpellTotal) own = &syra.records[i];
+  }
+  CHECK(!hasFall);
+  CHECK(hit != NULL && !hit->held && hit->value == "90" && hit->partyValue == "120" && hit->partyHolder == 7);
+  CHECK(own != NULL && own->held);
+}
+
+static void RecordsPerLevelHaveNoShare(void)
+{
+  HeroStats stats = ExperiencedParty();
+  stats.Records().Offer(HeroRecBiggestHit, RecordEntry(7, 120));
+  stats.Records().Offer(HeroRecBiggestHit, RecordEntry(9, 90));
+  HeroStatsPerLevel grid = HeroStatsPages_PerLevelGrid(stats, Columns(stats), HeroNumRecBiggestHit);
+  CHECK(!grid.hasShare);
+  CHECK(!grid.rows.empty() && grid.rows.back().level == HERO_STATS_WHOLE_RUN && grid.rows.back().values.back() == 120);
+}
+
 void TestHeroStatsPages(void)
 {
+  SourcesAddUpToTheClasses();
+  ChampionSourcesLeaveOutZeros();
+  ClassesOpenToTheirSkills();
+  RankOfAGoneChampionIsTheLastKnown();
+  RecordLinesShowTheirBlow();
+  RecordsPerLevelHaveNoShare();
   PerLevelEndsWithTheWholeRun();
   ManyLevelsAllListed();
   ChampionTotalsSkipPartyNumbers();

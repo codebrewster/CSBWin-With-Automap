@@ -438,9 +438,339 @@ std::vector<HeroStatsDetail> HeroStatsPages_Details(int topic, HeroStatsChampion
     if (who == HERO_STATS_PARTY) details.push_back(HeroDetailItems);
     break;
   case HeroTopicMonsters: details.push_back(HeroDetailMonsters); break;
+  case HeroTopicExperience:
+    details.push_back(HeroDetailSkills);
+    details.push_back(HeroDetailXpSources);
+    details.push_back(HeroDetailRankUps);
+    break;
+  case HeroTopicRecords: details.push_back(HeroDetailRecords); break;
   default: break;
   }
   return details;
+}
+
+
+// ---------------------------------------------------------------------------------------------
+// Experience and Records
+
+static const char *const DOT = " \xc2\xb7 ";
+
+static std::string SkillNote(int skill)
+{
+  int cls = HeroXp_ClassOf(skill);
+  if (skill < HERO_XP_CLASS_COUNT) return HeroXp_ClassName(cls);
+  return std::string(HeroXp_ClassName(cls)) + DOT + HeroXp_SkillName(skill);
+}
+
+static std::string OptionName(const HeroStatsNames &names, int option)
+{
+  std::string name = option == HERO_STATS_THROW_OPTION ? "Throw (by hand)" : names.option(option);
+  return name.empty() ? "#" + std::to_string(option) : name;
+}
+
+// "SWING with DIAMOND EDGE", "Ful Ir Fireball", "Mummy", ""
+static std::string SourceText(const HeroXpSource &source, const HeroStatsNames &names)
+{
+  switch (source.kind)
+  {
+  case HeroXpAttack: case HeroXpOtherAction:
+  {
+    std::string option = OptionName(names, source.option);
+    if (source.weapon == HERO_STATS_NO_WEAPON) return option;
+    return option + " with " + names.weapon(source.weapon);
+  }
+  case HeroXpSpell:
+  {
+    std::string missile = HeroStatsView_MissileName(source.spell);
+    return missile.empty() ? HeroStatsView_SpellName(source.spell) : missile;
+  }
+  case HeroXpMonster: return source.monsterType >= 0 ? names.monster(source.monsterType, 0) : "";
+  default: return "";
+  }
+}
+
+// A tree of experience lines, built from the rows of who and of each column
+struct XpNode
+{
+  std::string name, note;
+  int amount;
+  std::vector<int> byColumn;
+  std::vector<std::string> order;
+  std::map<std::string, XpNode> children;
+};
+
+static XpNode &Child(XpNode &parent, const std::string &key, const std::string &name, const std::string &note, size_t columns)
+{
+  std::map<std::string, XpNode>::iterator found = parent.children.find(key);
+  if (found != parent.children.end()) return found->second;
+  XpNode node;
+  node.name = name;
+  node.note = note;
+  node.amount = 0;
+  node.byColumn.assign(columns, 0);
+  parent.order.push_back(key);
+  return parent.children[key] = node;
+}
+
+static const char *const SOURCE_NAMES[5] = {"Attacks", "Monsters attacking you", "Other actions", "Spells", "Other"};
+
+static void AddXpRow(XpNode &root, const HeroXpRow &row, int column, size_t columns, const HeroStatsNames &names)
+{
+  int top;
+  switch (row.source.kind)
+  {
+  case HeroXpAttack: top = 0; break;
+  case HeroXpMonster: top = 1; break;
+  case HeroXpOtherAction: top = 2; break;
+  case HeroXpSpell: top = 3; break;
+  default: top = 4; break;
+  }
+  std::vector<XpNode *> path;
+  XpNode &first = Child(root, std::to_string(top), SOURCE_NAMES[top], "", columns);
+  path.push_back(&first);
+  if (top == 0)
+  {
+    XpNode &weapon = Child(first, "w" + std::to_string(row.source.weapon), names.weapon(row.source.weapon), "", columns);
+    path.push_back(&weapon);
+    path.push_back(&Child(weapon, "o" + std::to_string(row.source.option) + "s" + std::to_string(row.skill),
+                          OptionName(names, row.source.option), SkillNote(row.skill), columns));
+  }
+  else if (top == 3)
+  {
+    int cls = HeroXp_ClassOf(row.skill);
+    XpNode &spellClass = Child(first, "c" + std::to_string(cls), HeroXp_ClassName(cls), "", columns);
+    path.push_back(&spellClass);
+    std::string note = row.skill < HERO_XP_CLASS_COUNT ? HeroXp_ClassName(cls) : HeroXp_SkillName(row.skill);
+    path.push_back(&Child(spellClass, "s" + std::to_string(row.source.spell) + "k" + std::to_string(row.skill),
+                          HeroStatsView_SpellName(row.source.spell), note, columns));
+  }
+  for (size_t i = 0; i < path.size(); i++)
+  {
+    if (column < 0) path[i]->amount += row.amount;
+    else path[i]->byColumn[column] += row.amount;
+  }
+}
+
+static void WriteXpLines(const XpNode &node, int depth, const std::string &path, std::vector<HeroStatsXpLine> *out)
+{
+  // Most first, like the other tables; the top lines keep their order
+  std::vector<std::string> keys = node.order;
+  if (depth > 0)
+    std::stable_sort(keys.begin(), keys.end(), [&](const std::string &a, const std::string &b) {
+      return node.children.at(a).amount > node.children.at(b).amount;
+    });
+  for (size_t i = 0; i < keys.size(); i++)
+  {
+    const XpNode &child = node.children.at(keys[i]);
+    if (depth > 0 && child.amount <= 0) continue;
+    std::string childPath = path + "/" + keys[i];
+    HeroStatsXpLine line = {child.name, child.note, depth, (int)(std::hash<std::string>()(childPath) & 0x7fffffff),
+                            child.amount, child.byColumn, !child.children.empty()};
+    out->push_back(line);
+    WriteXpLines(child, depth + 1, childPath, out);
+  }
+}
+
+static std::vector<HeroStatsXpLine> XpSources(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
+                                              HeroStatsChampion who, int level, const HeroStatsNames &names)
+{
+  bool isParty = who == HERO_STATS_PARTY;
+  size_t columnCount = isParty ? columns.size() : 0;
+  XpNode root;
+  for (int top = 0; top < 5; top++) Child(root, std::to_string(top), SOURCE_NAMES[top], "", columnCount);
+  std::vector<HeroXpRow> rows = stats.Experience().Rows(who, level);
+  for (size_t r = 0; r < rows.size(); r++) AddXpRow(root, rows[r], -1, columnCount, names);
+  for (size_t c = 0; c < columnCount; c++)
+  {
+    std::vector<HeroXpRow> own = stats.Experience().Rows(columns[c].id, level);
+    for (size_t r = 0; r < own.size(); r++) AddXpRow(root, own[r], (int)c, columnCount, names);
+  }
+  std::vector<HeroStatsXpLine> lines;
+  WriteXpLines(root, 0, "", &lines);
+  return lines;
+}
+
+// The rank now; a champion the game no longer has: where the statistics last saw it
+static int RankOf(const HeroStats &stats, HeroStatsChampion who, int cls, const HeroStatsNames &names, int *percent)
+{
+  *percent = 0;
+  int rank = names.rankNow != NULL ? names.rankNow(who, cls, percent) : -1;
+  if (rank >= 0) return rank;
+  *percent = 0;
+  int start = stats.Experience().StartRank(who, cls);
+  if (start < 0) return -1;
+  return start + stats.Experience().RanksGained(who, HERO_STATS_WHOLE_RUN, cls);
+}
+
+static std::vector<HeroStatsClassLine> XpClasses(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
+                                                 HeroStatsChampion who, int level, const HeroStatsNames &names)
+{
+  bool isParty = who == HERO_STATS_PARTY;
+  const HeroStatsExperience &xp = stats.Experience();
+  std::vector<HeroStatsClassLine> classes;
+  for (int cls = 0; cls < HERO_XP_CLASS_COUNT; cls++)
+  {
+    HeroStatsClassLine line;
+    line.name = HeroXp_ClassName(cls);
+    line.amount = xp.Gained(who, level, cls);
+    line.ranksGained = xp.RanksGained(who, level, cls);
+    line.best = who;
+    line.startRank = isParty ? -1 : xp.StartRank(who, cls);
+    line.rankNow = -1;
+    line.percentToNext = 0;
+    if (isParty)
+    {
+      for (size_t c = 0; c < columns.size(); c++)
+      {
+        int percent;
+        int rank = RankOf(stats, columns[c].id, cls, names, &percent);
+        if (rank > line.rankNow) { line.rankNow = rank; line.percentToNext = percent; line.best = columns[c].id; }
+        line.byColumn.push_back(xp.Gained(columns[c].id, level, cls));
+      }
+    }
+    else
+      line.rankNow = RankOf(stats, who, cls, names, &line.percentToNext);
+    for (int skill = HERO_XP_CLASS_COUNT + 4 * cls; skill < HERO_XP_CLASS_COUNT + 4 * cls + 4; skill++)
+    {
+      HeroStatsXpLine skillLine = {HeroXp_SkillName(skill), "", 1, skill, xp.SkillGained(who, level, skill), {}, false};
+      for (size_t c = 0; isParty && c < columns.size(); c++) skillLine.byColumn.push_back(xp.SkillGained(columns[c].id, level, skill));
+      line.skills.push_back(skillLine);
+    }
+    if (xp.SkillGained(who, level, cls) > 0)
+    {
+      HeroStatsXpLine itself = {line.name + " itself", "", 1, cls, xp.SkillGained(who, level, cls), {}, false};
+      for (size_t c = 0; isParty && c < columns.size(); c++) itself.byColumn.push_back(xp.SkillGained(columns[c].id, level, cls));
+      line.skills.push_back(itself);
+    }
+    classes.push_back(line);
+  }
+  return classes;
+}
+
+static std::vector<HeroStatsRankUpLine> XpRankUps(const HeroStats &stats, HeroStatsChampion who, int level, const HeroStatsNames &names)
+{
+  std::vector<HeroStatsRankUpLine> lines;
+  std::vector<HeroRankUp> ups = stats.Experience().RankUps(who);
+  for (size_t i = 0; i < ups.size(); i++)
+  {
+    if (!HeroStats::LevelMatches(level, ups[i].level)) continue;
+    std::string before = HeroXp_RankName(ups[i].rank - 1);
+    std::string rank = before.empty() ? HeroXp_RankName(ups[i].rank) : before + " \xe2\x86\x92 " + HeroXp_RankName(ups[i].rank);
+    HeroStatsRankUpLine line = {ups[i].who, HeroXp_ClassName(ups[i].cls), rank, SourceText(ups[i].source, names), ups[i].level};
+    lines.push_back(line);
+  }
+  return lines;
+}
+
+static const char *RecordGroup(HeroRecordKind kind)
+{
+  if (kind <= HeroRecKillStreak) return "Dealt";
+  if (kind <= HeroRecClosestCall) return "Taken";
+  if (kind <= HeroRecBiggestXpGain) return "Magic & healing";
+  return "Carrying & moving";
+}
+
+static std::string ChampionName(const std::vector<HeroStatsColumn> &columns, HeroStatsChampion who)
+{
+  if (who == HERO_STATS_PARTY) return "party";
+  for (size_t c = 0; c < columns.size(); c++)
+    if (columns[c].id == who) return columns[c].name;
+  return "";
+}
+
+static std::string RecordValue(HeroRecordKind kind, const HeroRecordEntry &entry)
+{
+  HeroStatsNumber number = (HeroStatsNumber)(HeroNumRecFirst + kind);
+  std::string text = HeroStatsCatalogue_Format(number, entry.value);
+  if (kind == HeroRecHeaviestLoad && entry.extra > 0) text += DOT + HeroStatsView_Percent(entry.value, entry.extra);
+  return text;
+}
+
+static void DescribeRecord(HeroRecordKind kind, const HeroRecordEntry &entry, const HeroStatsNames &names, HeroStatsRecordLine *line)
+{
+  std::string monster = entry.monsterType >= 0 ? names.monster(entry.monsterType, entry.variant) : "";
+  switch (kind)
+  {
+  case HeroRecBiggestHit: case HeroRecBiggestSpellHit: case HeroRecBiggestSpellTotal: case HeroRecMostKillsAtOnce:
+    line->how = SourceText(entry.how, names);
+    line->whom = entry.count > 1 && !monster.empty() ? std::to_string(entry.count) + " \xc3\x97 " + monster : monster;
+    break;
+  case HeroRecKillStreak:
+  {
+    for (int i = 0; i < 2; i++)
+      if (entry.kinds[i][0] >= 0)
+        line->whom += (i > 0 ? ", " : "") + std::to_string(entry.kinds[i][1]) + " " + names.monster(entry.kinds[i][0], 0);
+    if (entry.firstLevel != entry.level) line->how = "Lv " + std::to_string(entry.firstLevel) + " \xe2\x86\x92 " + std::to_string(entry.level);
+    break;
+  }
+  case HeroRecBiggestHitTaken:
+    line->how = "Monster attack";
+    line->whom = monster;
+    break;
+  case HeroRecBiggestSpellHitTaken:
+    line->how = SourceText(entry.how, names);
+    line->whom = monster;
+    break;
+  case HeroRecClosestCall:
+  {
+    HeroStatsHarmRow row = {(HeroHarmSource)entry.extra, HERO_STATS_NOBODY, entry.monsterType, 0, entry.how.spell};
+    line->how = HeroStatsView_HarmName(row, NULL, (HeroHarmSource)entry.extra == HeroHarmMonsterMissile ? monster : "");
+    if ((HeroHarmSource)entry.extra == HeroHarmMonster) line->how = "Monster attack";
+    if ((HeroHarmSource)entry.extra == HeroHarmMonster || (HeroHarmSource)entry.extra == HeroHarmMonsterMissile) line->whom = monster;
+    break;
+  }
+  case HeroRecBiggestHeal:
+    line->how = entry.how.option == HeroHealPotion ? "Potion" : entry.how.option == HeroHealAction ? "Heal action" : "Regeneration";
+    break;
+  case HeroRecMostManaOnSpell: line->how = SourceText(entry.how, names); break;
+  case HeroRecBiggestXpGain:
+    line->how = SourceText(entry.how, names);
+    line->whom = SkillNote(entry.extra);
+    break;
+  case HeroRecLongestFall: case HeroRecLongestTeleportChain:
+    if (entry.firstLevel != entry.level) line->how = "Lv " + std::to_string(entry.firstLevel) + " \xe2\x86\x92 " + std::to_string(entry.level);
+    break;
+  default: break;
+  }
+}
+
+static std::vector<HeroStatsRecordLine> RecordLines(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
+                                                    HeroStatsChampion who, int level, const HeroStatsNames &names)
+{
+  bool isParty = who == HERO_STATS_PARTY;
+  std::vector<HeroStatsRecordLine> lines;
+  for (int k = 0; k < HERO_RECORD_COUNT; k++)
+  {
+    HeroRecordKind kind = (HeroRecordKind)k;
+    if (!isParty && HeroRecord_PartyOnly(kind)) continue;
+    HeroStatsRecordLine line;
+    line.kind = kind;
+    line.group = RecordGroup(kind);
+    line.label = HeroStatsCatalogue_Info((HeroStatsNumber)(HeroNumRecFirst + k)).label;
+    line.level = -1;
+    line.held = false;
+    line.partyHolder = HERO_STATS_NOBODY;
+    HeroRecordEntry entry;
+    line.has = stats.Records().Best(kind, who, level, &entry);
+    line.value = line.has ? RecordValue(kind, entry) : "-";
+    if (line.has)
+    {
+      line.who = ChampionName(columns, entry.who);
+      line.level = entry.level;
+      line.when = "tick " + HeroStatsView_Number((int)entry.time);
+      DescribeRecord(kind, entry, names, &line);
+    }
+    HeroRecordEntry party;
+    if (stats.Records().Best(kind, HERO_STATS_PARTY, level, &party))
+    {
+      line.partyValue = RecordValue(kind, party);
+      line.partyHolder = party.who;
+      // The champion's own streak can be longer than the party's; the party's own records are no champion's
+      line.held = !isParty && line.has && !HeroRecord_PartyHasItsOwn(kind) && party.who == who;
+    }
+    lines.push_back(line);
+  }
+  return lines;
 }
 
 HeroStatsTopicPage HeroStatsPages_Topic(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
@@ -505,6 +835,10 @@ HeroStatsTopicPage HeroStatsPages_Topic(const HeroStats &stats, const std::vecto
       }
     }
     else if (detail == HeroDetailItems) page.items = HeroStatsPages_Items(stats, level, names);
+    else if (detail == HeroDetailSkills) page.classes = XpClasses(stats, columns, who, level, names);
+    else if (detail == HeroDetailXpSources) page.sources = XpSources(stats, columns, who, level, names);
+    else if (detail == HeroDetailRankUps) page.rankUps = XpRankUps(stats, who, level, names);
+    else if (detail == HeroDetailRecords) page.records = RecordLines(stats, columns, who, level, names);
   }
   if (topic == HeroTopicCombat || topic == HeroTopicMagic || topic == HeroTopicSurvival || topic == HeroTopicSupplies)
     page.hero = HeroStatsPages_Hero(stats, columns, who, level, names);
