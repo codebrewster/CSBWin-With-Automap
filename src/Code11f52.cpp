@@ -1127,6 +1127,7 @@ MONSTER_DAMAGE_RESULT DamageMonster(DB4 *pMonster,   //8
   };
   if (D0UW <= damage)
   {  //An individual monster has died.
+    HeroStats_OnMonsterDamaged(D0UW);
     w_14 = MonsterPositionByte(pMonster, d.LoadedLevel, noItem16);
     if (w_14 == 255)
     {
@@ -1310,6 +1311,7 @@ MONSTER_DAMAGE_RESULT DamageMonster(DB4 *pMonster,   //8
   {
     if (damage > 0)
     {
+      HeroStats_OnMonsterDamaged(damage);
       pMonster->hitPoints6[indexInGroup]
             = uw(pMonster->hitPoints6[indexInGroup] - damage);
 

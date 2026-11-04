@@ -522,9 +522,7 @@ void ProcessTT_25(TIMER *pTimer)
             D5W = sw(D5W - w_14);
             w_14 = sw(2*w_14 + 1);
             D4W = pDB4_4->numMonM1(); //#monsters-1
-            // Each member's damage is drawn inside its DamageMonster call and never shown:
-            // only the kills are counted
-            HeroStats_OnCloudDamage(db.GetDBIndex(DB15A2, dbCLOUD), 0, 0);
+            HeroStats_OnCloudDamage(db.GetDBIndex(DB15A2, dbCLOUD));
             do
             {
               D0W = sw(pDB4_4->groupIndex());
@@ -558,7 +556,7 @@ void ProcessTT_25(TIMER *pTimer)
           }
           else
           {
-            HeroStats_OnCloudDamage(db.GetDBIndex(DB15A2, dbCLOUD), D5W, pDB4_4->numMonM1() + 1);
+            HeroStats_OnCloudDamage(db.GetDBIndex(DB15A2, dbCLOUD));
             DamageMonsterGroup(pDB4_4, D7W, D6W, D5W, 1, false, NULL);
             HeroStats_EndMonsterBlow();
           };
@@ -595,7 +593,7 @@ void ProcessTT_25(TIMER *pTimer)
           if (D5W != 0)
           {
             MONSTER_DAMAGE_RESULT monsterDamageResult;
-            HeroStats_OnCloudDamage(db.GetDBIndex(DB15A2, dbCLOUD), D5W, pDB4_4->numMonM1() + 1);
+            HeroStats_OnCloudDamage(db.GetDBIndex(DB15A2, dbCLOUD));
             monsterDamageResult = DamageMonsterGroup(
                       pDB4_4,
                       D7W,

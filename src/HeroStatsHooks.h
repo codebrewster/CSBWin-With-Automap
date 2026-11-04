@@ -154,8 +154,13 @@ void HeroStats_EndCloud(void);
 // SPELL DAMAGE: one number for the group, credited once per member. Outside Begin/EndCloud the
 // cloud has no known origin.
 void HeroStats_OnSpellDamage(int damageShown, int memberCount);
-// A cloud's tick hurts a group: damage per member, by the cloud's origin
-void HeroStats_OnCloudDamage(int cloudIndex, int damage, int memberCount);
+// A cloud's tick hurts a group, by the cloud's origin. Until HeroStats_EndMonsterBlow the hit
+// points each member loses (HeroStats_OnMonsterDamaged) are the cloud's damage: the engine draws
+// each member's share at random, and the cloud's own number is never shown.
+void HeroStats_OnCloudDamage(int cloudIndex);
+// DamageMonster: a member lost hit points (all it had left when it died). Only a cloud's tick
+// counts them; every other blow is credited with the damage the game shows.
+void HeroStats_OnMonsterDamaged(int hitPointsLost);
 void HeroStats_OnCloudFreed(int cloudIndex);
 // Door, pit: until End, deaths count for it
 void HeroStats_BeginMonsterBlow(HeroBlowBy by);

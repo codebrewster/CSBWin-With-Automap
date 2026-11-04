@@ -35,6 +35,10 @@ static std::string dungeonInPlay;
 // The blow of the damage call in progress: the deaths it causes are its kills
 static bool lastBlowSet = false;
 static HeroStatsBlow lastBlow = HeroStatsBlow_Nobody(HeroBlowByOther);
+// From HeroStats_OnCloudDamage to HeroStats_EndMonsterBlow: a cloud's tick, whose damage is
+// credited as each member loses its hit points (the engine draws each member's share at random)
+static bool cloudBlowActive = false;
+static HeroStatsBlow cloudBlow = HeroStatsBlow_Nobody(HeroBlowByCloud);
 // Missiles that have damaged a monster: only the first damage is a hit
 static std::set<int> missilesThatHit;
 // Between HeroStats_BeginCloud and HeroStats_EndCloud: the exploding missile and its blow; the
@@ -107,6 +111,7 @@ static void MeetParty(void)
 static void ForgetEngineState(void)
 {
   lastBlowSet = false;
+  cloudBlowActive = false;
   missilesThatHit.clear();
   explosionActive = false;
   explosionCloudPending = false;
@@ -677,13 +682,19 @@ void HeroStats_OnSpellDamage(int damageShown, int memberCount)
   SetLastBlow(blow);
 }
 
-void HeroStats_OnCloudDamage(int cloudIndex, int damage, int memberCount)
+void HeroStats_OnCloudDamage(int cloudIndex)
 {
   HeroStatsBlow blow;
   if (!origins.CloudOrigin(cloudIndex, &blow)) blow = HeroStatsBlow_Nobody(HeroBlowByCloud);
-  int level = PartyLevel();
-  if (damage > 0 && memberCount > 0) store.CreditMonsterDamage(level, blow, damage * memberCount);
   SetLastBlow(blow);
+  cloudBlow = blow;
+  cloudBlowActive = true;
+}
+
+void HeroStats_OnMonsterDamaged(int hitPointsLost)
+{
+  if (!cloudBlowActive || hitPointsLost <= 0) return;
+  store.CreditMonsterDamage(PartyLevel(), cloudBlow, hitPointsLost);
 }
 
 void HeroStats_OnCloudFreed(int cloudIndex)
@@ -698,6 +709,7 @@ void HeroStats_BeginMonsterBlow(HeroBlowBy by)
 
 void HeroStats_EndMonsterBlow(void)
 {
+  cloudBlowActive = false;
   lastBlowSet = false;
 }
 

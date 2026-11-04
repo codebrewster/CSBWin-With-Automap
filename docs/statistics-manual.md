@@ -288,6 +288,8 @@ It holds the numbers as they were when you clicked; export again for newer numbe
 - **Damage taken** is the damage after armour and resistances.
 - **Healed** counts HP actually gained, never more than was missing.
 - **Mana spent** is taken rune by rune, as the game does; a spell's mana is the sum of its runes.
+- **Cloud damage** is the hit points the monsters actually lost: the game draws each monster's
+  share of a cloud's damage at random and never shows it.
 - Everything is counted on the level the party is on when it happens.
 - Stats belong to the **champion**, not to the slot in the party: a champion who moves to another
   slot keeps their numbers.
