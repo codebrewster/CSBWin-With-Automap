@@ -18,9 +18,9 @@ enum HeroStatsTopic { HeroTopicOverview, HeroTopicCombat, HeroTopicMagic, HeroTo
 enum HeroStatsNumber {
   HeroNumDamage, HeroNumMelee, HeroNumRanged, HeroNumMagic, HeroNumKills, HeroNumAttacks, HeroNumHits,
   HeroNumHitRate, HeroNumDamagePerHit, HeroNumFriendlyFire,
-  HeroNumManaGenerated, HeroNumManaRegeneration, HeroNumManaPotions, HeroNumManaSpent, HeroNumManaSuccessful, HeroNumManaWasted,
+  HeroNumManaGenerated, HeroNumManaRegeneration, HeroNumManaPotions, HeroNumManaSpent, HeroNumManaOnSpells, HeroNumManaSuccessful, HeroNumManaWasted,
   HeroNumRunesCleared, HeroNumRunesNotCast,
-  HeroNumCasts, HeroNumCastsFailed,
+  HeroNumCasts, HeroNumCastsSuccessful, HeroNumCastsFailed,
   HeroNumTaken, HeroNumHealed, HeroNumHealRegeneration, HeroNumHealPotions, HeroNumHealAction, HeroNumHealingGiven,
   HeroNumDeaths, HeroNumResurrected, HeroNumWipes, HeroNumReloads,
   HeroNumEaten, HeroNumDrunk, HeroNumFoodGained, HeroNumFoodWasted, HeroNumWaterGained, HeroNumWaterWasted,
@@ -39,7 +39,7 @@ enum HeroStatsNumber {
 struct HeroStatsNumberInfo { const char *label; const char *help; bool partyOnly, wholeRunOnly, isBad, isRatio, isTicks; };
 const HeroStatsNumberInfo &HeroStatsCatalogue_Info(HeroStatsNumber number);
 
-struct HeroStatsTopicRow { HeroStatsNumber number; int depth; };  // depth 1: a part of the row above
+struct HeroStatsTopicRow { HeroStatsNumber number; int depth; };  // depth 1: a part of the row above, 2: a part of that
 struct HeroStatsTopicInfo { const char *label; std::vector<HeroStatsTopicRow> rows; std::vector<HeroStatsNumber> tiles; };
 const HeroStatsTopicInfo &HeroStatsCatalogue_Topic(int topic);
 

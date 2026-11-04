@@ -314,7 +314,8 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   th { color:var(--dim); font-weight:normal; border-bottom-color:var(--line) }
   th.sort { cursor:pointer; user-select:none } th.sort:hover { color:#fff } th .arrow { color:var(--dim) }
   td:first-child, th:first-child { text-align:left }
-  tr.d1 td { color:var(--part) } tr.d1 td:first-child { padding-left:22px; color:var(--dim) }
+  tr.d1 td, tr.d2 td { color:var(--part) } tr.d1 td:first-child { padding-left:22px; color:var(--dim) }
+  tr.d2 td:first-child { padding-left:38px; color:var(--dim) }
   tr.all td { background:var(--panel); color:#fff }
   tr.lv { cursor:pointer } tr.lv:hover td { background:var(--hover) }
   tr.wrow { cursor:pointer } tr.wrow:hover td { background:var(--hover) }

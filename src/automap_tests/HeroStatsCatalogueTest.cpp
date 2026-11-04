@@ -95,9 +95,13 @@ static void RecordMatchesTheStore(void)
   CHECK(halk.value[HeroNumEaten] == 1 && halk.value[HeroNumFoodGained] == 300 && halk.value[HeroNumFoodWasted] == 200);
   HeroStatsRecord syra = HeroStatsCatalogue_Record(stats, 9, 2);
   CHECK(syra.value[HeroNumManaPotions] == 12);
-  CHECK(syra.value[HeroNumCasts] == 2 && syra.value[HeroNumCastsFailed] == 1);
+  CHECK(syra.value[HeroNumCasts] == 2 && syra.value[HeroNumCastsSuccessful] == 1 && syra.value[HeroNumCastsFailed] == 1);
   CHECK(syra.value[HeroNumManaWasted] == stats.ManaWasted(9, 2));
   CHECK(syra.value[HeroNumRunesCleared] == stats.RunesCleared(9, 2));
+  // Spells is its two parts, and with the cleared runes and those not cast yet makes Mana spent
+  CHECK(syra.value[HeroNumManaOnSpells] == syra.value[HeroNumManaSuccessful] + syra.value[HeroNumManaWasted]);
+  CHECK(syra.value[HeroNumManaSpent] == syra.value[HeroNumManaOnSpells] + syra.value[HeroNumRunesCleared] +
+                                        syra.value[HeroNumRunesNotCast]);
   HeroStatsRecord party = HeroStatsCatalogue_Record(stats, HERO_STATS_PARTY, 2);
   CHECK(party.value[HeroNumTicks] == stats.Movement(2).ticks);
   CHECK(party.value[HeroNumSteps] == 1);

@@ -625,10 +625,10 @@ static void SortRows(std::vector<Row> *rows, const TableSort &sort, Key key)
 static void LabelCell(const std::string &text, int depth, ImU32 rgb, const char *help = "")
 {
   ImGui::TableSetColumnIndex(0);
-  if (depth > 0) ImGui::Indent(14);
+  if (depth > 0) ImGui::Indent(14.0f * depth);
   ImGui::TextColored(Colour(rgb), "%s", text.c_str());
   if (help[0] != 0 && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", help);
-  if (depth > 0) ImGui::Unindent(14);
+  if (depth > 0) ImGui::Unindent(14.0f * depth);
 }
 
 // ---------------------------------------------------------------------------------------------

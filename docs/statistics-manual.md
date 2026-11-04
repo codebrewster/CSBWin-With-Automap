@@ -131,8 +131,8 @@ hit), Damage, Kills.
 | Number | What it counts |
 |---|---|
 | **Mana generated** | with **Regeneration** and **Mana potions** below it |
-| **Mana spent** | counted as each rune is entered, as the game takes it, whatever becomes of the spell; below it what became of that mana, which adds up to it: **Successful casts**, **Wasted on failures**, **Runes cleared** and **Not cast yet** |
-| **Spells cast** | every attempt, successful or not; with **Failed** below it |
+| **Mana spent** | counted as each rune is entered, as the game takes it, whatever becomes of the spell; below it what became of that mana, which adds up to it: **Spells** (split into **Successful casts** and **Wasted on failures**), **Runes cleared** and **Not cast yet** |
+| **Spells cast** | every attempt; with **Successful** and **Failed** below it, which add up to it |
 
 **Spells** has one row per spell, all power levels together (Lo Ful Ir and Mon Ful Ir are both
 "Fireball"). Columns: **Casts** (every attempt), **Failed** (needs more practice, fizzled, no flask
@@ -150,7 +150,8 @@ in an incantation, whose mana is spent already.
 of it (the four lines under Mana spent); a spell in the Spells table counts on the level where it
 was cast. Enter a fireball's runes, sleep, take the stairs and cast it below: the mana is spent on
 the level above, the fireball is cast on the level below. For the whole run the Mana of **All
-spells** is Successful casts (staffs, wands and actions included) plus Wasted on failures.
+spells** is the **Spells** line under Mana spent: Successful casts (staffs, wands and actions
+included) plus Wasted on failures.
 
 ## Survival
 

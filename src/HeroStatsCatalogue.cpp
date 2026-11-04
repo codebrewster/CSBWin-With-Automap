@@ -19,11 +19,13 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Regeneration", "", false, false, false, false, false},
     {"Mana potions", "", false, false, false, false, false},
     {"Mana spent", "Spent as each rune is entered, on the level it is entered on, whatever becomes of the spell; staffs, wands and the shield and heal actions as they are used. The four lines below add up to it.", false, false, false, false, false},
+    {"Spells", "Runes of the spells cast, successful or failed, staffs, wands and the shield and heal actions: the Mana of All spells in the Spells table. On one level the two can differ: here runes count where they were entered, the table counts a spell where it was cast.", false, false, false, false, false},
     {"Successful casts", "Runes of spells that worked, staffs and wands, the shield and heal actions.", false, false, false, false, false},
     {"Wasted on failures", "Runes of spells that failed.", false, false, true, false, false},
     {"Runes cleared", "Runes entered and never cast: cleared, replaced by a new incantation, or lost when the caster died.", false, false, true, false, false},
     {"Not cast yet", "Runes entered and waiting in an incantation, on the level they were entered on.", false, false, false, false, false},
     {"Spells cast", "", false, false, false, false, false},
+    {"Successful", "", false, false, false, false, false},
     {"Failed", "", false, false, true, false, false},
     {"Damage taken", "", false, false, false, false, false},
     {"Healed", "", false, false, false, false, false},
@@ -90,8 +92,9 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
                              {HeroNumDamage, HeroNumKills, HeroNumHitRate, HeroNumFriendlyFire}};
   topics[HeroTopicMagic] = {"Magic",
                             {{HeroNumManaGenerated, 0}, {HeroNumManaRegeneration, 1}, {HeroNumManaPotions, 1},
-                             {HeroNumManaSpent, 0}, {HeroNumManaSuccessful, 1}, {HeroNumManaWasted, 1}, {HeroNumRunesCleared, 1},
-                             {HeroNumRunesNotCast, 1}, {HeroNumCasts, 0}, {HeroNumCastsFailed, 1}},
+                             {HeroNumManaSpent, 0}, {HeroNumManaOnSpells, 1}, {HeroNumManaSuccessful, 2}, {HeroNumManaWasted, 2},
+                             {HeroNumRunesCleared, 1},
+                             {HeroNumRunesNotCast, 1}, {HeroNumCasts, 0}, {HeroNumCastsSuccessful, 1}, {HeroNumCastsFailed, 1}},
                             {HeroNumManaGenerated, HeroNumManaSpent, HeroNumCasts, HeroNumManaWasted}};
   topics[HeroTopicSurvival] = {"Survival",
                                {{HeroNumTaken, 0}, {HeroNumHealed, 0}, {HeroNumHealRegeneration, 1}, {HeroNumHealPotions, 1},
@@ -182,15 +185,17 @@ static void FillMana(const HeroStats &stats, HeroStatsChampion who, int level, i
   v[HeroNumRunesCleared] = stats.RunesCleared(who, level);
   v[HeroNumManaSuccessful] = stats.ManaOnSuccessfulCasts(who, level);
   v[HeroNumRunesNotCast] = stats.RunesNotCastYet(who, level);
+  v[HeroNumManaOnSpells] = v[HeroNumManaSuccessful] + v[HeroNumManaWasted];
 }
 
 static void FillCasts(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
 {
-  v[HeroNumCasts] = v[HeroNumCastsFailed] = 0;
+  v[HeroNumCasts] = v[HeroNumCastsSuccessful] = v[HeroNumCastsFailed] = 0;
   std::vector<HeroStatsSpellRow> spells = stats.Spells(who, level);
   for (size_t i = 0; i < spells.size(); i++)
   {
     v[HeroNumCasts] += spells[i].casts + spells[i].failed;
+    v[HeroNumCastsSuccessful] += spells[i].casts;
     v[HeroNumCastsFailed] += spells[i].failed;
   }
 }
@@ -315,8 +320,9 @@ static FillGroup GroupOf(HeroStatsNumber number)
   case HeroNumFriendlyFire: return FillFriendlyFire;
   case HeroNumManaGenerated: case HeroNumManaRegeneration: case HeroNumManaPotions: case HeroNumManaSpent:
   case HeroNumManaWasted: case HeroNumRunesCleared: case HeroNumManaSuccessful: case HeroNumRunesNotCast:
+  case HeroNumManaOnSpells:
     return FillMana;
-  case HeroNumCasts: case HeroNumCastsFailed: return FillCasts;
+  case HeroNumCasts: case HeroNumCastsSuccessful: case HeroNumCastsFailed: return FillCasts;
   case HeroNumTaken: return FillTaken;
   case HeroNumHealed: case HeroNumHealRegeneration: case HeroNumHealPotions: case HeroNumHealAction:
   case HeroNumHealingGiven: return FillHealing;
