@@ -87,12 +87,27 @@ AutoMapPointF AutoMapLayout_FigureFeet(const AutoMapRect &area, int cellSize);
 // inset 18 % of the cell: lines end at their target's edge, not its centre
 AutoMapPointF AutoMapLayout_LineEnd(AutoMapPointF from, int targetX, int targetY, int cellSize);
 
-// Which way the tooltip of the hovered cell opens so it covers none of the lines drawn from or to
-// it: the bits are set when most of the lines' other ends lie east (open to the left) or south
-// (open upwards) of it
-const int AUTOMAP_TOOLTIP_LEFT = 1;
-const int AUTOMAP_TOOLTIP_UP = 2;
-int AutoMapLayout_TooltipSide(int hoverX, int hoverY, const std::vector<AutoMapLink> &lines);
+// Lines that run on one straight line and share a stretch of it (not just a point) form a
+// bundle and spread across lanes around that line: two a line width either side, three or more
+// 1.5 line widths apart, so none hides another and all still leave their 3-line-wide source
+// square. Gold before blue (isFeed false first), then the shorter first. A line runs from its
+// source's centre (a switch: the middle of its face) to its target's centre. The result, per
+// line, is its lane in line widths to the right of its own direction (screen y down); 0 alone.
+std::vector<float> AutoMapLayout_BundleLanes(const std::vector<AutoMapLink> &lines,
+                                             const std::vector<bool> &isFeed);
+
+// Where the hovered cell's tooltip goes: the place that hides the least of what the hover lights
+// up. Tried: left or right of the hovered cell or of the whole lit group, each above or below the
+// hovered row or the lit group or level with the hovered row; a place that does not fit `area` is
+// pushed into it. Any overlap is a hit: the cells lines start or end in and the goals (with the
+// tab of tabHeight that sits on their top edge) weigh 4, cells a line runs through 1, each plus
+// the part of it covered; the hovered cell weighs 1000. Of equal places the nearest to the
+// hovered cell wins, then the side away from where the lines lead on the whole. Cell (x, y)
+// covers originX + x * cellSize .. + cellSize, likewise for y; the result is the tooltip's rect.
+AutoMapRect AutoMapLayout_TooltipPlace(int hoverX, int hoverY, const std::vector<AutoMapLink> &lines,
+                                       const std::vector<AutoMapLink> &goals, int width, int height,
+                                       int originX, int originY, int cellSize, int tabHeight,
+                                       const AutoMapRect &area);
 
 // The tooltip's icon grid for this many entries: six to a row, two rows at most; with more, the
 // last tile is "+N" for the rest

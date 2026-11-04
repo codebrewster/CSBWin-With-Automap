@@ -990,6 +990,8 @@ std::vector<AutoMapPressSource> AutoMapScene_PressEffects(const AutoMapDrawList 
       sources.push_back(source);
     }
     groupOf[i] = (int)group;
+    sources[group].links++;
+    if (link.onceOnly) sources[group].onceOnlyLinks++;
   }
   for (size_t g = 0; g < sources.size(); g++)
   {
@@ -1931,6 +1933,14 @@ std::vector<AutoMapTipLine> AutoMapScene_PressBlock(const AutoMapDrawList &drawL
 {
   // Built one space per depth as the cap knows it, then two spaces per depth
   PressLines lines;
+  // The source itself goes inert once it fired, whatever it reaches
+  if (source.links > 0 && source.onceOnlyLinks > 0)
+  {
+    lines.push_back(MakePressLine(source.onceOnlyLinks == source.links ? "ONCE ONLY"
+                                                                       : "PARTLY ONCE ONLY",
+                                  false, false));
+    lines.back().style = AutoMapTipState;
+  }
   if (shift && AutoMapScene_PressHasSteps(source))
   {
     lines.push_back(MakePressLine("ROUTE:", true, false));
@@ -2194,4 +2204,65 @@ std::vector<AutoMapTipLine> AutoMapScene_RelayBlock(const AutoMapDrawList &drawL
                                          capped[i].style));
   }
   return block;
+}
+
+// Plural of a feeder kind: PAD -> PADS, SWITCH (E) -> SWITCHES (E), COUNTER -> COUNTERS
+static std::string FeederPlural(const std::string &name)
+{
+  size_t word = name.find(' ');
+  std::string head = name.substr(0, word), rest = word == std::string::npos ? "" : name.substr(word);
+  if (head == "SWITCH") return "SWITCHES" + rest;
+  if (head == "DSA") return name;
+  return head + "S" + rest;
+}
+
+std::vector<AutoMapTipLine> AutoMapScene_ActedOnBy(const AutoMapDrawList &drawList, int x, int y,
+                                                   bool openable)
+{
+  std::vector<AutoMapTipLine> lines;
+  if (drawList.spoilers != AutoMapSpoilersAll) return lines;
+  if (AutoMapScene_LinksFrom(drawList, x, y).empty()) return lines;
+  if (!AutoMapScene_RelayBlock(drawList, x, y, false).empty()) return lines;
+  std::vector<AutoMapLink> incoming = AutoMapScene_LinksTo(drawList, x, y);
+  static const char *const OPENABLE[] = {"OPENED BY: ", "CLOSED BY: ", "TOGGLED BY: ", "HELD BY: "};
+  static const char *const SIGNALLED[] = {"SET BY: ", "CLEARED BY: ", "TOGGLED BY: ", "HELD BY: "};
+  static const AutoMapSignal ORDER[] = {AutoMapSignalSet, AutoMapSignalClear, AutoMapSignalToggle,
+                                        AutoMapSignalPressure};
+  for (int v = 0; v < 4; v++)
+  {
+    // Kinds in the order they first appear, each with its places
+    std::vector<std::string> names;
+    std::vector<std::vector<std::string> > places;
+    for (size_t i = 0; i < incoming.size(); i++)
+    {
+      const AutoMapLink &link = incoming[i];
+      if (link.signal != ORDER[v]) continue;
+      std::string name = PressFeederName(drawList, link);
+      char where[32];
+      std::snprintf(where, sizeof(where), "(%d, %d)", link.srcX + drawList.offsetX,
+                    link.srcY + drawList.offsetY);
+      size_t n = 0;
+      while (n < names.size() && names[n] != name) n++;
+      if (n == names.size())
+      {
+        names.push_back(name);
+        places.push_back(std::vector<std::string>());
+      }
+      if (std::find(places[n].begin(), places[n].end(), where) == places[n].end())
+      {
+        places[n].push_back(where);
+      }
+    }
+    if (names.empty()) continue;
+    std::string text = openable ? OPENABLE[v] : SIGNALLED[v];
+    for (size_t n = 0; n < names.size(); n++)
+    {
+      char level[16];
+      std::snprintf(level, sizeof(level), " L%d ", drawList.level);
+      text += (n == 0 ? "" : ", ") + (places[n].size() > 1 ? FeederPlural(names[n]) : names[n]) + level;
+      for (size_t p = 0; p < places[n].size(); p++) text += (p == 0 ? "" : ", ") + places[n][p];
+    }
+    lines.push_back(AutoMapScene_TipLine(text, AutoMapTipFeeder));
+  }
+  return lines;
 }

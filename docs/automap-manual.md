@@ -194,10 +194,15 @@ At **All**, also:
 
 Hovering a cell that something else acts on, such as a door or a generator,
 draws lines from every switch and pad linked to it that the spoiler level
-allows.
+allows. A cell that does both, such as a pad on a pit that other pads open and
+close, shows both: what reaches it in blue beside its own gold lines. At **All**
+its tooltip names those under the part they act on, one line per signal, in the
+same blue: `TOGGLED BY: PADS L4 (21, 8), (20, 9)`.
 
-A tooltip that does not fit the window shows a `+N MORE` line. Hold **Shift**
-and turn the wheel to scroll it.
+The tooltip goes where it hides the least of the lines, squares and goal frames
+the hover lights up: beside the hovered cell or beside the whole lit group,
+above, below or level with it. A tooltip that does not fit the window shows a
+`+N MORE` line. Hold **Shift** and turn the wheel to scroll it.
 
 ### How the tooltip is laid out
 
@@ -209,7 +214,10 @@ header sits under it, indented by the one rule: **every line is two spaces furth
 header or line it belongs to.** So a teleporter's `TAKES:`, `SENDS:` and `TURN:` lines are two in,
 and the lines under `RESULT:` or `THIS PRESS:` are two further in again. Pads with the same
 trigger share **one** `PAD` group: the trigger is written once and all their results follow under
-it.
+it. A pad or switch that works only once (the map draws its arrow dashed) has `ONCE ONLY` in grey
+first under its header, `PARTLY ONCE ONLY` when only some of its actuators go. Once such a pad
+has fired it can never fire again: it reads `SPENT PAD` in pale blue-grey, apart from the pads
+of the cell that still work.
 
 Lines have a colour for what they say:
 
@@ -224,7 +232,7 @@ Lines have a colour for what they say:
 Small pictures stand in for words, as on the map: the party's red arrow is **PARTY**, the claw is
 **MONSTERS**, the square is **OBJECTS**. An item a pad needs is drawn as its own picture
 (`CARRY` the Firestaff, `OBJECT` a green gem). A pad that needs the party to face a direction
-shows a gold-framed arrow turned that way, followed by `PARTY FACING N`.
+shows the party's red arrow turned that way in a gold frame, followed by `PARTY FACING N`.
 
 ![Hovering a pile: item names and the contents the map remembers](images/automap-items.png)
 
@@ -232,12 +240,24 @@ shows a gold-framed arrow turned that way, followed by `PARTY FACING N`.
 
 ## Tracing switches and pads
 
-Hover a switch, lever or pad to see what it is linked to. Its lines start at one point (the
-switch's face or the pad's centre) and run as thick pixel lines to where they enter their targets,
-while the rest of the map dims. At **Learned** the map draws the links the party has seen work, with
-an open arrowhead: the party saw the target change, not which signal did it. Hovering a cell that
-something acts on, such as a door or a generator, draws the lines from every switch and pad linked
-to it.
+Hover a switch, lever or pad to see what it is linked to. Its lines start at a square (on the
+switch's face or at the pad's centre) and run as thick pixel lines to where they enter their
+targets, while the rest of the map dims. At **All** the head says what the signal does:
+
+| Head | Signal |
+|---|---|
+| filled triangle | sets: opens a door or pit, switches a teleporter on |
+| hollow triangle | clears: closes, switches off |
+| rhomb | toggles: the other way each time |
+| crossbar halfway | holds: one way while pressed, back on release |
+| dashed line | works once only |
+
+At **Learned** the map draws the links the party has seen work, with an open arrowhead: the party
+saw the target change, not which signal did it. Hovering a cell that something acts on, such as a
+door or a generator, draws the lines from every switch and pad linked to it. A switch or pad that
+is itself acted on draws both: what reaches it in blue, what it sends in gold. Lines that would
+run over one another on the same straight line (two cells acting on each other, or a line passing
+through another's target) run side by side instead, one lane each.
 
 Hovering a teleporter draws a cyan line to where it sends you; hovering a cell teleporters land on
 draws the lines from them; a dormant teleporter shows a dashed dim line to where it would send you.
@@ -253,8 +273,8 @@ cells only. The tooltip then has two parts:
   `BLOCKED: COUNTER AT 0`. A goal that comes late says so at the end:
   `DOOR L11 (49, 25) OPENS ON THIS PRESS, AFTER 6 TICKS`.
 
-On the map each goal gets a frame and a badge: `NOW`, `2 MORE`, `1 BIT OFF`, `NEEDS OTHERS`,
-`BLOCKED`, `HOLD`, `DSA` or `DONE`. Goals that happen now, soon or already are gold; those that wait
+On the map each goal gets a frame with a badge on its top edge: `NOW`, `2 MORE`, `1 BIT OFF`,
+`NEEDS OTHERS`, `BLOCKED`, `HOLD`, `DSA` or `DONE`. Goals that happen now, soon or already are gold; those that wait
 on something else are orange. Hovering a relay draws what feeds it in blue and what it feeds in gold.
 
 A goal has one badge. When several presses reach it, the badge shows the most imminent state:

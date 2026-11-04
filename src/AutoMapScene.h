@@ -472,7 +472,8 @@ struct AutoMapFloorActuator
     : x(x_), y(y_), kind(kind_), op(AutoMapPadAnything),
       requiredFacing(-1), hasGeneratedMonster(false), generatedCount(-1),
       hasGeneratorHealth(false), levelMultiplier(-1), healthMultiplier(-1),
-      minHealth(-1), maxHealth(-1), counterValue(-1), relay(), record(AUTOMAP_NO_RECORD)
+      minHealth(-1), maxHealth(-1), counterValue(-1), relay(), record(AUTOMAP_NO_RECORD),
+      spent(false)
   {
     generatedKind.frontPicture = AUTOMAP_NO_PICTURE;
     generatedKind.size = 0;
@@ -524,6 +525,9 @@ struct AutoMapFloorActuator
   AutoMapRelay relay;
   // The actuator record behind this contraption.
   AutoMapRecordId record;
+  // A dormant pad that was once-only: it fired, and the engine made it type 0
+  // (QueueSwitchAction), so it is a spent pad, not one the dungeon left inert
+  bool spent;
 };
 
 struct AutoMapParty
@@ -700,7 +704,8 @@ enum AutoMapTipStyle
   AutoMapTipCondition,     // cyan: when a step passes the signal on
   AutoMapTipResult,        // goal gold
   AutoMapTipHint,          // dim: SHIFT: ROUTE, +N MORE
-  AutoMapTipMonsterName    // the monster's name line, link gold
+  AutoMapTipMonsterName,   // the monster's name line, link gold
+  AutoMapTipFeeder         // pale blue: what acts on the cell (OPENED BY: ...), as its blue lines
 };
 
 struct AutoMapTipLine
@@ -1335,7 +1340,8 @@ struct AutoMapEffect
 struct AutoMapPressSource
 {
   AutoMapPressSource(void)
-    : source(AUTOMAP_NO_RECORD), srcIsWall(false), srcSide(-1), truncated(false)
+    : source(AUTOMAP_NO_RECORD), srcIsWall(false), srcSide(-1), truncated(false),
+      links(0), onceOnlyLinks(0)
   {
   }
   // The first actuator record of the face or cell, in link order
@@ -1346,6 +1352,11 @@ struct AutoMapPressSource
   // The walk ran out of its budget (1000 effects per call) while on this source, so
   // the effects are incomplete
   bool truncated;
+  // The links of the source the walk follows, and how many of them are once-only (the
+  // engine makes such an actuator inert when it fires): all of them read ONCE ONLY, some
+  // PARTLY ONCE ONLY
+  int links;
+  int onceOnlyLinks;
 };
 
 // What one press of each face (or the pads) of (x, y) does, down the whole relay chain:
@@ -1391,7 +1402,8 @@ std::vector<const AutoMapEffect *> AutoMapScene_PressGoalsByCell(
 
 // The tooltip lines of one press source, from AutoMapScene_PressEffects, at depth 0 (the
 // caller indents them under the source's PAD / SWITCH header), each entry two spaces in.
-// Compact (shift false): THIS PRESS: the receivers the press reaches first (plain), then
+// First, in both modes, ONCE ONLY (AutoMapTipState) when every link of the source is
+// once-only, PARTLY ONCE ONLY when some are. Compact (shift false): THIS PRESS: the receivers the press reaches first (plain), then
 // RESULT: every goal behind them and how far it is (AutoMapTipResult), a delay at the end
 // (", AFTER 6 TICKS"). Shift with steps (AutoMapScene_PressHasSteps): ROUTE: and the
 // route, two spaces per depth, where a line one step further in only happens when the line
@@ -1447,6 +1459,15 @@ std::string AutoMapScene_GoalBadge(const AutoMapGoalDistance &distance);
 // full (Shift held) lifts that cap.
 std::vector<AutoMapTipLine> AutoMapScene_RelayBlock(const AutoMapDrawList &drawList, int x, int y,
                                                     bool full);
+
+// What acts on (x, y), for a cell that is a source as well (a pad on a pit): one line per
+// signal (AutoMapTipFeeder), OPENED BY / CLOSED BY / TOGGLED BY / HELD BY, or SET BY /
+// CLEARED BY for a target that does not open (openable false). The sources of one kind are
+// named once: TOGGLED BY: PADS L4 (21, 8), (20, 9). Unindented; the caller puts the lines
+// under the header of the part they act on. Empty below All, for a cell nothing leaves, for
+// a relay cell (its FED BY says it) and for a cell nothing reaches.
+std::vector<AutoMapTipLine> AutoMapScene_ActedOnBy(const AutoMapDrawList &drawList, int x, int y,
+                                                   bool openable);
 
 // How a spinner reads on the map: an absolute spinner forces its exit facing
 // no matter how the victim entered, a relative one turns it (right / around /

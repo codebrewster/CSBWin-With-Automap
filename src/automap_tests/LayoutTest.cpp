@@ -120,17 +120,92 @@ static void LineStopsAtTheTargetEdge(void)
   CHECK(diagonal.x > 87.1f && diagonal.x < 87.3f && diagonal.y > 87.1f && diagonal.y < 87.3f);
 }
 
-// The tooltip opens on the side away from the lines' other ends
+static AutoMapRect TipPlace(int hoverX, int hoverY, const std::vector<AutoMapLink> &lines,
+                            const std::vector<AutoMapLink> &goals, int w, int h, int areaW, int areaH)
+{
+  AutoMapRect area = {0, 0, areaW, areaH};
+  return AutoMapLayout_TooltipPlace(hoverX, hoverY, lines, goals, w, h, 0, 0, 40, 16, area);
+}
+
+// Cells of 40 pixels from 0, 0: does the rect cover any pixel of cell (x, y)?
+static bool Covers(const AutoMapRect &r, int x, int y)
+{
+  AutoMapRect cell = {x * 40, y * 40, 40, 40};
+  return AutoMapLayout_Overlap(r, cell);
+}
+
+// With room all round, the tooltip opens away from the lines' other ends, off the hovered cell
 static void TooltipOpensAwayFromTheLines(void)
 {
+  std::vector<AutoMapLink> none;
+  // Nothing lit: right beside the cell, level with it (the nearest free place)
+  AutoMapRect free = TipPlace(5, 5, none, none, 100, 60, 1000, 1000);
+  CHECK(free.x == 244 && free.y == 200);
   std::vector<AutoMapLink> lines;
-  CHECK(AutoMapLayout_TooltipSide(5, 5, lines) == 0);
   lines.push_back(AutoMapLink(5, 5, 9, 5));
   lines.push_back(AutoMapLink(5, 5, 6, 8));
-  CHECK(AutoMapLayout_TooltipSide(5, 5, lines) == (AUTOMAP_TOOLTIP_LEFT | AUTOMAP_TOOLTIP_UP));
-  std::vector<AutoMapLink> incoming;
-  incoming.push_back(AutoMapLink(1, 5, 5, 5));
-  CHECK(AutoMapLayout_TooltipSide(5, 5, incoming) == 0);
+  AutoMapRect away = TipPlace(5, 5, lines, none, 100, 60, 1000, 1000);
+  CHECK(away.x + away.w <= 200); // to the left, away from the lines
+  CHECK(!Covers(away, 5, 5) && !Covers(away, 9, 5) && !Covers(away, 6, 8));
+}
+
+// Lines left, right and down (L4 (21, 6)): the sum of the directions leaves only "down", but the
+// free corner is up and left, and no goal or its tab is covered
+static void TooltipFindsTheFreeCorner(void)
+{
+  std::vector<AutoMapLink> lines;
+  lines.push_back(AutoMapLink(5, 5, 4, 5));
+  lines.push_back(AutoMapLink(5, 5, 6, 5));
+  lines.push_back(AutoMapLink(5, 5, 5, 6));
+  AutoMapRect place = TipPlace(5, 5, lines, lines, 100, 60, 1000, 1000);
+  for (size_t i = 0; i < lines.size(); i++) CHECK(!Covers(place, lines[i].dstX, lines[i].dstY));
+  CHECK(!Covers(place, 5, 5));
+  // The tab of (4, 5) sticks 8 pixels above its row: the tooltip ends above it
+  CHECK(place.y + place.h <= 5 * 40 - 8);
+}
+
+// No room above or below (three rows shown): the tooltip goes beside the lit group, not over it
+static void TooltipGoesBesideTheLitGroup(void)
+{
+  std::vector<AutoMapLink> lines;
+  lines.push_back(AutoMapLink(5, 1, 4, 1));
+  lines.push_back(AutoMapLink(5, 1, 6, 1));
+  lines.push_back(AutoMapLink(5, 1, 5, 2));
+  AutoMapRect place = TipPlace(5, 1, lines, lines, 100, 60, 1000, 120);
+  CHECK(place.y >= 0 && place.y + place.h <= 120);
+  for (size_t i = 0; i < lines.size(); i++) CHECK(!Covers(place, lines[i].dstX, lines[i].dstY));
+  CHECK(!Covers(place, 5, 1));
+}
+
+// Lines on one straight line spread across lanes; lines that only meet stay on their axis
+static void BundlesSpreadOverlappingLines(void)
+{
+  // A gold line (0,0)->(1,0) and a blue one (2,0)->(0,0) over the same stretch: a line width
+  // either side, gold first. Seen along the axis pointing east (+ is south): gold north, blue
+  // south. In each line's own terms (to the right of its direction) both are -1: gold runs east
+  // and north is its left; blue runs west and south is its left.
+  std::vector<AutoMapLink> pair;
+  pair.push_back(AutoMapLink(0, 0, 1, 0));
+  pair.push_back(AutoMapLink(2, 0, 0, 0));
+  std::vector<bool> feed;
+  feed.push_back(false);
+  feed.push_back(true);
+  std::vector<float> lanes = AutoMapLayout_BundleLanes(pair, feed);
+  CHECK(lanes.size() == 2 && lanes[0] == -1.0f && lanes[1] == -1.0f);
+  // Three on one line: 1.5 apart, the shortest first
+  std::vector<AutoMapLink> three;
+  three.push_back(AutoMapLink(0, 0, 3, 0));
+  three.push_back(AutoMapLink(1, 0, 3, 0));
+  three.push_back(AutoMapLink(2, 0, 3, 0));
+  lanes = AutoMapLayout_BundleLanes(three, std::vector<bool>(3, false));
+  CHECK(lanes.size() == 3 && lanes[2] == -1.5f && lanes[1] == 0.0f && lanes[0] == 1.5f);
+  // Meeting at a point only, or crossing: no lanes
+  std::vector<AutoMapLink> apart;
+  apart.push_back(AutoMapLink(0, 0, 1, 0));
+  apart.push_back(AutoMapLink(1, 0, 2, 0));
+  apart.push_back(AutoMapLink(1, 1, 1, -1));
+  lanes = AutoMapLayout_BundleLanes(apart, std::vector<bool>(3, false));
+  CHECK(lanes.size() == 3 && lanes[0] == 0.0f && lanes[1] == 0.0f && lanes[2] == 0.0f);
 }
 
 // The tooltip's icon grid: six to a row, two rows; with more kinds the twelfth tile reads +N
@@ -274,6 +349,9 @@ void TestAutoMapLayout(void)
   TooltipGridHasTwoRowsOfSix();
   LineStopsAtTheTargetEdge();
   TooltipOpensAwayFromTheLines();
+  TooltipFindsTheFreeCorner();
+  TooltipGoesBesideTheLitGroup();
+  BundlesSpreadOverlappingLines();
   BadgesSpeakOneVocabulary();
   SlotsNeverOverlap();
   LoneSlotIsBig();

@@ -131,6 +131,24 @@ void AutoMapPaint_Triangle(float x0, float y0, float x1, float y1, float x2, flo
 void AutoMapPaint_Head(float tipX, float tipY, float angle, float size, SDL_Color colour, AutoMapHead kind)
 {
   float ax = std::cos(angle), ay = std::sin(angle);
+  if (kind == AutoMapHeadRhomb)
+  {
+    // Tip, the two wide corners halfway back, the back corner a head's length behind the tip; the
+    // rim the same diamond a pixel and a half larger all round
+    for (int pass = 0; pass < 2; pass++)
+    {
+      float grow = pass == 0 ? 1.5f : 0.0f, half = size * 0.5f + grow;
+      float frontX = tipX + ax * grow, frontY = tipY + ay * grow;
+      float backX = tipX - ax * (size + grow), backY = tipY - ay * (size + grow);
+      float midX = tipX - ax * size * 0.5f, midY = tipY - ay * size * 0.5f;
+      float leftX = midX - ay * half, leftY = midY + ax * half;
+      float rightX = midX + ay * half, rightY = midY - ax * half;
+      SDL_Color fill = pass == 0 ? RIM : colour;
+      AutoMapPaint_Triangle(frontX, frontY, leftX, leftY, rightX, rightY, fill);
+      AutoMapPaint_Triangle(backX, backY, leftX, leftY, rightX, rightY, fill);
+    }
+    return;
+  }
   float leftX = tipX - ax * size - ay * size * 0.6f, leftY = tipY - ay * size + ax * size * 0.6f;
   float rightX = tipX - ax * size + ay * size * 0.6f, rightY = tipY - ay * size - ax * size * 0.6f;
   // The rim: the same head a pixel and a half larger all round

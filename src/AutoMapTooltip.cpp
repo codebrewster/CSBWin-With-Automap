@@ -104,6 +104,46 @@ static void AddPitGroup(const AutoMapDrawList &drawList, const AutoMapShownCell 
   AddGroup(out, hidden ? "HIDDEN PIT" : "PIT", AutoMapTipHeader, children);
 }
 
+// The headers of a part something acts on, and whether it opens (OPENED BY) or is set (SET BY)
+static bool TargetHeader(const std::string &text, bool *openable)
+{
+  static const char *const OPENS[] = {"PIT", "HIDDEN PIT", "DOOR", "FALSE WALL"};
+  static const char *const SET[] = {"TELEPORTER", "DORMANT TELEPORTER", "SPINNER",
+                                    "DORMANT SPINNER", "LAUNCHER", "GENERATOR",
+                                    "SPENT GENERATOR"};
+  for (int pass = 0; pass < 2; pass++)
+  {
+    const char *const *names = pass == 0 ? OPENS : SET;
+    int count = pass == 0 ? 4 : 7;
+    for (int i = 0; i < count; i++)
+    {
+      std::string name = names[i];
+      if (text == name || text.compare(0, name.size() + 2, name + " (") == 0)
+      {
+        *openable = pass == 0;
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// What acts on the cell goes under the first group of a part it acts on, after its lines
+static void AddActedOnBy(const AutoMapDrawList &drawList, int x, int y,
+                         std::vector<AutoMapTipLine> *out)
+{
+  for (size_t h = 0; h < out->size(); h++)
+  {
+    bool openable = false;
+    if (!TargetHeader((*out)[h].text, &openable)) continue;
+    std::vector<AutoMapTipLine> lines = AutoMapScene_ActedOnBy(drawList, x, y, openable);
+    size_t at = h + 1;
+    while (at < out->size() && !(*out)[at].text.empty() && (*out)[at].text[0] == ' ') at++;
+    for (size_t i = 0; i < lines.size(); i++) out->insert(out->begin() + at + i, Indented(lines[i], 2));
+    return;
+  }
+}
+
 std::vector<AutoMapTipLine> AutoMapTooltip_Machinery(const AutoMapDrawList &drawList, int x, int y,
                                                      bool shift, AutoMapItemNameFn nameForIndex,
                                                      std::vector<AutoMapTipLine> *hint)
@@ -159,7 +199,8 @@ std::vector<AutoMapTipLine> AutoMapTooltip_Machinery(const AutoMapDrawList &draw
       if (!children.empty()) AddGroup(&out, "PAD", AutoMapTipHeader, children);
       break;
     case AutoMapActuatorDormantPad:
-      AddGroup(&out, "DORMANT PAD", AutoMapTipDormantHeader, children);
+      AddGroup(&out, actuator.spent ? "SPENT PAD" : "DORMANT PAD", AutoMapTipDormantHeader,
+               children);
       break;
     default:
     {
@@ -201,6 +242,7 @@ std::vector<AutoMapTipLine> AutoMapTooltip_Machinery(const AutoMapDrawList &draw
     AddGroup(&out, generatorHeaders[g], spent ? AutoMapTipDormantHeader : AutoMapTipHeader,
              generators[g]);
   }
+  AddActedOnBy(drawList, x, y, &out);
   // The relays of the cell last: a header per lettered relay, then what feeds the cell
   std::vector<AutoMapTipLine> relays = AutoMapScene_RelayBlock(drawList, x, y, shift);
   out.insert(out.end(), relays.begin(), relays.end());

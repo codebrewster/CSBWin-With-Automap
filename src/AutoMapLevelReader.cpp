@@ -1407,6 +1407,7 @@ static void ReadObjectsAt(int x, int y, AutoMapCellRecord *record, AutoMapLevelS
       if (!FloorActuatorKind(actuator->actuatorType(), &kind)) continue;
       AutoMapFloorActuator pad(x, y, kind);
       pad.record = RecordIdOf(object);
+      pad.spent = kind == AutoMapActuatorDormantPad && actuator->onceOnly() != 0;
       if (kind == AutoMapActuatorCog)
       {
         if (actuator->actuatorType() == 48)

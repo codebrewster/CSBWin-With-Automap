@@ -386,30 +386,80 @@ function head(tx, ty, ang, size, col, mode) { // mode: 'fill' | 'hollow' | 'open
   if (mode === 'fill') tri(pts, col);
   else { g.strokeStyle = col; g.lineWidth = 2; g.beginPath(); g.moveTo(...pts[1]); g.lineTo(...pts[0]); g.lineTo(...pts[2]); if (mode === 'hollow') g.closePath(); g.stroke(); }
 }
-function drawEdge(l, col, learned) {
+// A toggle's head: a filled diamond, half as wide as long, on a rim (the game's AutoMapHeadRhomb)
+function toggleHead(tx, ty, ang, size, col) {
+  const ax = Math.cos(ang), ay = Math.sin(ang), qx = -ay, qy = ax, w = size * .5, P = (a, b) => [tx - ax * a + qx * b, ty - ay * a + qy * b];
+  const ring = [P(-1.5, 0), P(size / 2, w + 1.5), P(size + 1.5, 0), P(size / 2, -w - 1.5)];
+  g.fillStyle = '#0b0a08'; g.beginPath(); g.moveTo(...ring[0]); ring.slice(1).forEach(p => g.lineTo(...p)); g.closePath(); g.fill();
+  const pts = [P(0, 0), P(size / 2, w), P(size, 0), P(size / 2, -w)];
+  g.fillStyle = col; g.beginPath(); g.moveTo(...pts[0]); pts.slice(1).forEach(p => g.lineTo(...p)); g.closePath(); g.fill();
+}
+// lane: pixels off the axis, to the right of the line's direction (bundleLanes), so lines on
+// one straight line never sit on one another; all of them still leave their source square
+function drawEdge(l, col, learned, lane) {
   const w = Math.max(2, Math.round(cs / 12)), hs = Math.max(7, cs * .26);
-  const [sx, sy] = faceExit(l);
+  let [sx, sy] = faceExit(l);
   if (l[0] === l[2] && l[1] === l[3] && !l[4]) { const x = px(l[2]), y = py(l[3]); if (l[7]) dashed(x + cs * .25, y + cs * .25, cs * .5, cs * .5, col); else frame(x + cs * .25, y + cs * .25, cs * .5, cs * .5, col, 2); return; }
-  const [tx, ty] = clipToCell(sx, sy, l[2], l[3]); const ang = Math.atan2(ty - sy, tx - sx);
+  let [tx, ty] = clipToCell(sx, sy, l[2], l[3]); const ang = Math.atan2(ty - sy, tx - sx);
+  if (lane) { const nx = -Math.sin(ang) * lane, ny = Math.cos(ang) * lane; sx += nx; sy += ny; tx += nx; ty += ny; }
   chunkyLine(sx, sy, tx - Math.cos(ang) * hs * .8, ty - Math.sin(ang) * hs * .8, col, w, !!l[7]);
   const sig = l[6];
   if (learned) { head(tx, ty, ang, hs, col, 'open'); return; }
-  head(tx, ty, ang, hs, col, sig === 1 ? 'hollow' : 'fill');
-  if (sig === 2) head(sx, sy, ang + Math.PI, hs * .7, col, 'fill');
+  if (sig === 2) toggleHead(tx, ty, ang, hs, col); else head(tx, ty, ang, hs, col, sig === 1 ? 'hollow' : 'fill');
   if (sig === 3) { const mx = (sx + tx) / 2, my = (sy + ty) / 2, q = Math.max(4, cs * .14); chunkyLine(mx - Math.sin(ang) * q, my + Math.cos(ang) * q, mx + Math.sin(ang) * q, my - Math.cos(ang) * q, col, w, false); }
+}
+// One line width: two lanes sit this far either side of the axis, a line apart, both inside the source square
+const laneOffset = () => Math.max(2, Math.round(cs / 12));
+// Where a line runs, in cells: from the source's centre (a switch: its face) to the target's centre
+function linePoints(l) {
+  let sx = l[0] + .5, sy = l[1] + .5;
+  if (l[4]) { const s = l[5] & 3; if (s === 0) sy -= .5; else if (s === 2) sy += .5; else if (s === 1) sx += .5; else sx -= .5; }
+  return [sx, sy, l[2] + .5, l[3] + .5];
+}
+// Two lines on one straight line that share a stretch (not just a point)
+function sharesStretch(a, b) {
+  const [ax, ay, bx, by] = linePoints(a), [cx, cy, dx2, dy2] = linePoints(b);
+  const dx = bx - ax, dy = by - ay, len = dx * dx + dy * dy; if (!len) return false;
+  const off = (x, y) => (x - ax) * dy - (y - ay) * dx; if (Math.abs(off(cx, cy)) > 1e-9 || Math.abs(off(dx2, dy2)) > 1e-9) return false;
+  const t = (x, y) => ((x - ax) * dx + (y - ay) * dy) / len; const t1 = t(cx, cy), t2 = t(dx2, dy2);
+  return Math.min(1, Math.max(t1, t2)) - Math.max(0, Math.min(t1, t2)) > 1e-6;
+}
+// Lines that share a stretch form a bundle and spread across lanes around the axis: two lines a
+// line width either side, three or more 1.5 widths apart (the outer ones at the square's edge).
+// Gold before blue, then the shorter first, so every bundle sorts alike whichever way it runs.
+// Returns a Map line -> lane for drawEdge (pixels to the right of the line's own direction).
+function bundleLanes(lines) {
+  const n = lines.length, root = [...Array(n).keys()], find = i => { while (root[i] !== i) i = root[i]; return i; };
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) if (sharesStretch(lines[i].l, lines[j].l)) root[find(i)] = find(j);
+  const groups = {}; for (let i = 0; i < n; i++) (groups[find(i)] = groups[find(i)] || []).push(lines[i]);
+  const lanes = new Map(), w = laneOffset();
+  for (const g of Object.values(groups)) {
+    if (g.length < 2) continue;
+    const length = e => { const [a, b, c, d] = linePoints(e.l); return Math.hypot(c - a, d - b); };
+    g.sort((p, q) => (p.feed - q.feed) || (length(p) - length(q)));
+    const step = g.length === 2 ? 2 * w : 1.5 * w;
+    // One normal for the whole bundle: of the axis pointing right (or down when upright)
+    g.forEach((e, i) => {
+      const [a, b, c, d] = linePoints(e.l), along = Math.abs(c - a) > 1e-9 ? c - a : d - b;
+      lanes.set(e.l, (i - (g.length - 1) / 2) * step * (along > 0 ? 1 : -1));
+    });
+  }
+  return lanes;
 }
 function sourceNode(l, col) { const w = Math.max(2, Math.round(cs / 12)); const [x, y] = faceExit(l); rect(x - w * 1.5 - 1, y - w * 1.5 - 1, w * 3 + 2, w * 3 + 2, '#0b0a08'); rect(x - w * 1.5, y - w * 1.5, w * 3, w * 3, col); }
 function spotlight(cells) { g.save(); g.beginPath(); g.rect(RUL, RUL, cv.width - 2 * RUL, cv.height - 2 * RUL); cells.forEach(k => { const [a, b] = k.split(',').map(Number); g.rect(px(a) + cs, py(b), -cs, cs); }); g.fillStyle = 'rgba(8,7,5,.62)'; g.fill('evenodd'); g.restore(); }
 function goalBadge(gl) {
   const [x0, y0, badge, good] = gl; const col = good ? COL.link : COL.warn; const x = px(x0), y = py(y0), t = Math.max(2, Math.round(cs / 14));
-  frame(x + 2, y + 2, cs - 4, cs - 4, col, t); const p = 2, w = textW(badge, p) + 6, h = 5 * p + 6; const X = Math.round(x + (cs - w) / 2), Y = Math.round(y + (cs - h) / 2); rect(X, Y, w, h, '#0b0a08'); frame(X, Y, w, h, col); text(g, X + 3, Y + 3, badge, col, p);
+  // The badge is a tab on the frame's top edge, so the centre stays free for the source square
+  frame(x + 2, y + 2, cs - 4, cs - 4, col, t); const p = 2, w = textW(badge, p) + 6, h = 5 * p + 6; const X = Math.round(x + (cs - w) / 2), Y = Math.round(y + 2 + t / 2 - h / 2); rect(X, Y, w, h, '#0b0a08'); frame(X, Y, w, h, col); text(g, X + 3, Y + 3, badge, col, p);
 }
 const teleCell = c => c && (c.k === 5 || c.k === 8) && c.tele[7] && c.tele[6];
 function hoverLines() { // what hovering shows: {gold, blue, violet, cyan, dormant, goals, ghosts}
   const out = { gold: [], feed: [], violet: [], cyan: [], dormant: [], goals: [], ghosts: [], learned: spoil !== 0 };
   if (!hover) return out; const key = hover.x + ',' + hover.y; const h = V.hover[key] || {};
-  if (spoil === 0 && h.chain && (h.chain.length || h.relay)) { out.gold = h.chain.length ? h.chain : (h.from || []); if (h.relay) out.feed = h.to || []; out.goals = h.goals || []; out.ghosts = h.ghost || []; }
-  else { out.gold = (h.from && h.from.length) ? h.from : (h.to || []); if (spoil === 0) out.ghosts = h.ghost || []; }
+  if (spoil === 0 && h.chain && (h.chain.length || h.relay)) { out.gold = h.chain.length ? h.chain : (h.from || []); out.feed = h.to || []; out.goals = h.goals || []; out.ghosts = h.ghost || []; }
+  else { out.gold = h.from || []; out.feed = h.to || []; if (!out.gold.length) { out.gold = out.feed; out.feed = []; } if (spoil === 0) out.ghosts = h.ghost || []; }
+  // A cell nothing leaves keeps its incoming links gold, as before; blue is "into the hovered cell" only beside gold
   const pl = allPlayerLinks(); const fromHere = pl.filter(l => l[0] === hover.x && l[1] === hover.y); out.violet = fromHere.length ? fromHere : pl.filter(l => l[2] === hover.x && l[3] === hover.y);
   const c = C(hover.x, hover.y);
   if (teleCell(c) && c.tele[0] === lvl && !(c.tele[1] === c.x && c.tele[2] === c.y)) out.cyan.push([c.x, c.y, c.tele[1], c.tele[2]]);
@@ -425,12 +475,19 @@ function drawHover() {
   const w = Math.max(2, Math.round(cs / 12)), hs = Math.max(7, cs * .26);
   for (const [sx0, sy0, dx0, dy0] of L.cyan) { const sx = px(sx0) + cs / 2, sy = py(sy0) + cs / 2; const [tx, ty] = clipToCell(sx, sy, dx0, dy0); const a = Math.atan2(ty - sy, tx - sx); chunkyLine(sx, sy, tx - Math.cos(a) * hs * .8, ty - Math.sin(a) * hs * .8, COL.cyan, w, false); head(tx, ty, a, hs, COL.cyan, 'fill'); frame(px(dx0) + 2, py(dy0) + 2, cs - 4, cs - 4, COL.cyan, Math.max(2, Math.round(cs / 14))); }
   for (const [sx0, sy0, dx0, dy0] of L.dormant) { const sx = px(sx0) + cs / 2, sy = py(sy0) + cs / 2; const [tx, ty] = clipToCell(sx, sy, dx0, dy0); const a = Math.atan2(ty - sy, tx - sx); chunkyLine(sx, sy, tx - Math.cos(a) * hs * .8, ty - Math.sin(a) * hs * .8, '#5a8a94', w, true); head(tx, ty, a, hs, '#5a8a94', 'hollow'); dashed(px(dx0) + 2, py(dy0) + 2, cs - 4, cs - 4, '#5a8a94'); }
-  for (const l of L.feed) drawEdge(l, COL.feed, L.learned);
-  for (const l of dedupe(L.gold)) drawEdge(l, COL.link, L.learned);
+  // A link drawn in gold is not drawn again in blue (a relay that feeds itself is in both lists)
+  const gold = dedupe(L.gold), same = (a, b) => a.slice(0, 6).join() === b.slice(0, 6).join();
+  const feed = dedupe(L.feed).filter(l => !gold.some(g => same(g, l)));
+  const lanes = bundleLanes([...gold.map(l => ({ l, feed: 0 })), ...feed.map(l => ({ l, feed: 1 }))]), lane = l => lanes.get(l) || 0;
+  for (const l of feed) drawEdge(l, COL.feed, L.learned, lane(l));
+  for (const l of gold) drawEdge(l, COL.link, L.learned, lane(l));
   for (const l of L.violet) drawEdge(l, COL.note, true);
   for (const gh of L.ghosts) doorGhost(px(gh[0]), py(gh[1]), gh[2], gh[3]);
   for (const gl of L.goals) goalBadge(gl);
-  if (L.gold.length) sourceNode(L.gold[0], COL.link);
+  // Every source square sits at its cell's centre (the badges are tabs on the frame's top edge)
+  const fed = new Set(); for (const l of feed) { const k = l.slice(0, 2).join() + ',' + l[4] + ',' + l[5]; if (!fed.has(k)) { fed.add(k); sourceNode(l, COL.feed); } }
+  // As the game: every source gets its square, the hovered one and those of incoming gold lines
+  const sent = new Set(); for (const l of gold) { const k = l.slice(0, 2).join() + ',' + l[4] + ',' + l[5]; if (!sent.has(k)) { sent.add(k); sourceNode(l, COL.link); } }
   return L;
 }
 function dedupe(ls) { const s = new Set(); return ls.filter(l => { const k = l.slice(0, 4).join(); if (s.has(k)) return false; s.add(k); return true; }); }
@@ -441,7 +498,7 @@ function dedupe(ls) { const s = new Set(); return ls.filter(l => { const k = l.s
 // Lines are {t, s, i}: text with glyph codes (\x01\x01 party, \x02\x02 claw, \x03\x03 box, \x04<n> item n of i,
 // \x05<facing> gold turned arrow) and a style (the game's AutoMapTipStyle); older data and the page's own lines are plain strings
 const TOK = /(\{party\}|\{claw\}|\{box\}|\x01\x01|\x02\x02|\x03\x03|\x04[0-9]|\x05[0-3])/;
-const TIPCOL = ['#fff', '#e0b64a', '#a8b8bc', '#a8b8bc', '#a8b8bc', '#6ad8e8', '#ffcc33', '#8a8a9a', '#ffc83a'];
+const TIPCOL = ['#fff', '#e0b64a', '#a8b8bc', '#a8b8bc', '#a8b8bc', '#6ad8e8', '#ffcc33', '#8a8a9a', '#ffc83a', '#7fb4ff'];
 const isGlyph = t => t[0] === '{' || t.charCodeAt(0) < 6;
 function richParts(s) { return s.split(TOK).filter(t => t !== ''); }
 function richW(s, p) { return richParts(s).reduce((n, t) => n + (isGlyph(t) ? 8 * p + 2 : textW(t, p) + p), 0); }
@@ -482,10 +539,81 @@ function tooltipLines() {
     lines.push(s.s === undefined ? { t: presentLine(s.t) } : s);
     if (i === 0 && !hasName && nameLine && SHOW.MONSTERS) lines.push({ t: nameLine, s: 8 });
   });
+  insertActedOnBy(lines, h);
   const key = hover.x + ',' + hover.y, N = noteOf();
   if (key in N.pits) lines.push({ t: N.pits[key] ? 'YOUR MARK: HIDDEN PIT OPEN' : 'YOUR MARK: HIDDEN PIT CLOSED' });
   N.links.filter(l => l[0] === hover.x && l[1] === hover.y).forEach(l => lines.push({ t: `YOUR LINK TO (${l[2] + OX}, ${l[3] + OY})` }));
   return { lines, icons: h && h.icons ? h.icons : [] };
+}
+// What acts on the hovered cell, under the header of the part it acts on (PIT, DOOR, ...): one
+// line per verb, the sources of a kind named once ("PADS L4 (21, 8), (20, 9)"). Relays have their FED BY.
+const TARGET_HEAD = /^(PIT|HIDDEN PIT|DOOR|FALSE WALL|TELEPORTER|SPINNER|GENERATOR|LAUNCHER)/;
+const OPENABLE = /^(PIT|HIDDEN PIT|DOOR|FALSE WALL)/;
+function feederName(l) {
+  if (l[4]) return 'SWITCH (' + 'NESW'[l[5] & 3] + ')';
+  const t = (V.hover[l[0] + ',' + l[1]] || {}).tip || [];
+  const relay = t.find(x => x && x.s === 1 && /^(GATE|COUNTER)/.test(x.t));
+  return relay ? relay.t : 'PAD';
+}
+function actedOnBy(h, head) {
+  const verbs = OPENABLE.test(head) ? ['OPENED', 'CLOSED', 'TOGGLED', 'HELD'] : ['SET', 'CLEARED', 'TOGGLED', 'HELD'];
+  const by = {}; // verb -> name -> [loc]
+  for (const l of dedupe(h.to || [])) {
+    const v = verbs[l[6]] || 'SET', n = feederName(l), loc = `(${l[0] + OX}, ${l[1] + OY})`;
+    const m = by[v] || (by[v] = {}); const a = m[n] || (m[n] = []); if (!a.includes(loc)) a.push(loc);
+  }
+  return verbs.filter(v => by[v]).map(v => '  ' + v + ' BY: ' + Object.entries(by[v]).map(([n, a]) =>
+    (a.length > 1 ? n.replace(/^(PAD|SWITCH|GATE|COUNTER)/, '$1' + (n.startsWith('SWITCH') ? 'ES' : 'S')) : n) + ` L${lvl} ` + a.join(', ')).join(', '));
+}
+function insertActedOnBy(lines, h) {
+  // Data exported after the game learnt these lines (style 9) has them already
+  if (spoil !== 0 || !h || h.relay || !(h.to && h.to.length) || !(h.from && h.from.length) || lines.some(l => l.s === 9)) return;
+  let at = lines.findIndex(l => l.s === 1 && TARGET_HEAD.test(l.t)); if (at < 0) return;
+  const head = lines[at].t; at++; while (at < lines.length && lines[at].s !== 1 && /^ /.test(lines[at].t)) at++;
+  lines.splice(at, 0, ...actedOnBy(h, head).map(t => ({ t, s: 9 })));
+}
+// Where the tooltip goes: the place that hides the least of what the hover lights up. Tried:
+// beside the hovered cell and beside the whole lit group (left or right), each above, below or
+// level with the hovered row or above or below the lit group; a place that does not fit is
+// pushed into the map. Any overlap is a hit: the cells lines start or end in and the goals (with
+// the tab above their frame) weigh 4, cells a line runs through 1, plus how much of them is
+// covered; the hovered cell can never be covered. Of equal places the nearest to the hovered
+// cell wins, then the old choice (away from where the lines lead).
+function tooltipPlace(L, w, h) {
+  const lines = [...L.gold, ...L.feed, ...L.cyan, ...L.dormant, ...L.violet], weight = new Map();
+  const add = (x, y, v) => { const k = x + ',' + y; weight.set(k, Math.max(weight.get(k) || 0, v)); };
+  for (const l of lines) {
+    const n = Math.max(1, 2 * Math.max(Math.abs(l[2] - l[0]), Math.abs(l[3] - l[1])));
+    for (let i = 1; i < n; i++) add(Math.round(l[0] + (l[2] - l[0]) * i / n), Math.round(l[1] + (l[3] - l[1]) * i / n), 1);
+  }
+  for (const l of lines) { add(l[0], l[1], 4); add(l[2], l[3], 4); }
+  for (const gl of L.goals) add(gl[0], gl[1], 4);
+  add(hover.x, hover.y, 1000);
+  let lx = 0, ly = 0; [...L.gold, ...L.cyan, ...L.feed].forEach(l => { lx += l[2] + l[0] - 2 * hover.x; ly += l[3] + l[1] - 2 * hover.y; });
+  const prefer = (lx > 0 ? 1 : 0) | (ly > 0 ? 2 : 0);
+  const gap = 4, gapY = gap + (5 * 2 + 6) / 2; // above or below, the gap clears the goal tabs
+  let minX = hover.x, maxX = hover.x, minY = hover.y, maxY = hover.y;
+  for (const k of weight.keys()) { const [a, b] = k.split(',').map(Number); minX = Math.min(minX, a); maxX = Math.max(maxX, a); minY = Math.min(minY, b); maxY = Math.max(maxY, b); }
+  const left = [px(hover.x) - w - gap, px(minX) - w - gap], right = [px(hover.x) + cs + gap, px(maxX) + cs + gap];
+  const up = [py(hover.y) - h - gapY, py(minY) - h - gapY], down = [py(hover.y) + cs + gapY, py(maxY) + cs + gapY], level = [py(hover.y), py(hover.y) + cs - h];
+  const tab = 5 * 2 + 6, cx0 = px(hover.x) + cs / 2, cy0 = py(hover.y) + cs / 2;
+  let best = null;
+  for (const side of [prefer, prefer ^ 2, prefer ^ 1, prefer ^ 3]) {
+    for (const x0 of side & 1 ? left : right) for (const y0 of [...(side & 2 ? up : down), ...level]) {
+      const x = Math.round(Math.max(RUL, Math.min(x0, cv.width - RUL - w))), y = Math.round(Math.max(RUL, Math.min(y0, cv.height - RUL - h)));
+      let score = 0;
+      for (const [k, v] of weight) {
+        const [cx, cy] = k.split(',').map(Number), X = px(cx), Y = py(cy) - (v >= 4 ? tab / 2 : 0), H = py(cy) + cs - Y;
+        const ox = Math.min(X + cs, x + w) - Math.max(X, x), oy = Math.min(Y + H, y + h) - Math.max(Y, y);
+        if (ox > 0 && oy > 0) score += v * (1 + (ox * oy) / (cs * H));
+      }
+      // How far the box is from the hovered cell's centre, as a tie-breaker far below one hit
+      const dx = Math.max(x - cx0, 0, cx0 - (x + w)), dy = Math.max(y - cy0, 0, cy0 - (y + h));
+      score += Math.hypot(dx, dy) / 1e6;
+      if (!best || score < best.score - 1e-9) best = { x, y, score };
+    }
+  }
+  return [best.x, best.y];
 }
 function drawTooltip(L) {
   if (!hover || menu || drag) return; const { lines, icons } = tooltipLines(); if (!lines.length) return;
@@ -496,9 +624,7 @@ function drawTooltip(L) {
   const maxLines = Math.max(4, Math.floor((cv.height - 2 * RUL - gridH - 40) / lh)); const scrollMax = Math.max(0, lines.length - maxLines); tipScroll = Math.min(tipScroll, scrollMax);
   const shown = lines.slice(tipScroll, tipScroll + maxLines); if (tipScroll > 0) shown[0] = { t: `-${tipScroll} MORE`, s: 7 }; if (tipScroll + maxLines < lines.length) shown[shown.length - 1] = { t: `+${lines.length - tipScroll - maxLines + 1} MORE, SHIFT+WHEEL`, s: 7 };
   const w = Math.max(gridW + 4, ...shown.map(l => richW(l.t, p))) + 10, h = gridH + shown.length * lh + 8;
-  let lx = 0, ly = 0; [...L.gold, ...L.cyan, ...L.feed].forEach(l => { lx += l[2] + l[0] - 2 * hover.x; ly += l[3] + l[1] - 2 * hover.y; });
-  let x = lx > 0 ? px(hover.x) - w - cs * .2 : px(hover.x) + cs * 1.2, y = ly > 0 ? py(hover.y) - h + cs * .2 : py(hover.y) + cs * .8;
-  x = Math.round(Math.max(RUL, Math.min(x, cv.width - RUL - w))); y = Math.round(Math.max(RUL, Math.min(y, cv.height - RUL - h)));
+  const [x, y] = tooltipPlace(L, w, h);
   rect(x, y, w, h, '#111'); frame(x, y, w, h, '#ffc83a');
   for (let i = 0; i < nt; i++) {
     const tx = x + 6 + (i % PER) * (T + 4), ty = y + 6 + Math.floor(i / PER) * (T + 4);

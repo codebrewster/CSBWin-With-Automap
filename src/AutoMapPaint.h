@@ -31,7 +31,8 @@ enum AutoMapHead
 {
   AutoMapHeadFilled,
   AutoMapHeadHollow,
-  AutoMapHeadOpen
+  AutoMapHeadOpen,
+  AutoMapHeadRhomb // a toggle: a filled diamond, half as wide as long
 };
 
 // An arrowhead with its tip at (tipX, tipY), pointing along angle (radians, screen axes: 0 east,

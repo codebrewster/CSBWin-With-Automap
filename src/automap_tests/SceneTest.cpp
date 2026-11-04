@@ -3296,6 +3296,16 @@ static void MachineryHeadsPitsDoorsAndGenerators(void)
   CHECK(dormant != NULL && dormant->style == AutoMapTipDormantHeader);
   CHECK(JoinedTip(AutoMapTooltip_Machinery(drawList, 2, 1, false, TestItemName))
         == "DOOR\n  BREAK FORCE: 60 (AXE)");
+  // A once-only pad that fired is type 0 now: spent, not a pad the dungeon left inert
+  AutoMapFloorActuator spent(1, 1, AutoMapActuatorDormantPad);
+  spent.spent = true;
+  snapshot.actuators.back() = spent;
+  drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
+  pit = AutoMapTooltip_Machinery(drawList, 1, 1, false, TestItemName);
+  CHECK(JoinedTip(pit)
+        == "HIDDEN PIT\n  CLOSED\nSPENT PAD\nGENERATOR\n  GENERATES 3X Mummy\nSPENT GENERATOR");
+  const AutoMapTipLine *spentLine = TipLineAt(pit, "SPENT PAD");
+  CHECK(spentLine != NULL && spentLine->style == AutoMapTipDormantHeader);
 }
 
 static const char *SearchItemName(int nameIndex)
@@ -4821,6 +4831,38 @@ static void PressLinesCompact(void)
   CHECK(AutoMapScene_PressBlock(drawList, AutoMapPressSource(), false).empty());
 }
 
+// A once-only switch goes inert when it fires (the map draws its arrow dashed): the press says so
+static void PressLinesOnceOnly(void)
+{
+  AutoMapLevelSnapshot snapshot = L5Machine();
+  snapshot.links[0].onceOnly = true;
+  AutoMapDrawList drawList = DrawAll(snapshot);
+  std::vector<AutoMapPressSource> sources = AutoMapScene_PressEffects(drawList, 0, 3);
+  CHECK(sources.size() == 1);
+  if (sources.size() != 1) return;
+  std::vector<AutoMapTipLine> block = AutoMapScene_PressBlock(drawList, sources[0], false);
+  CHECK(!block.empty() && block[0].text == "ONCE ONLY" && block[0].style == AutoMapTipState);
+  CHECK(block.size() > 1 && block[1].text == "THIS PRESS:");
+  std::vector<AutoMapTipLine> route = AutoMapScene_PressBlock(drawList, sources[0], true);
+  CHECK(!route.empty() && route[0].text == "ONCE ONLY");
+  // A second actuator of the face that stays: only part of the press goes
+  AutoMapLink more = snapshot.links[0];
+  more.onceOnly = false;
+  more.source = LEVER_RECORD + 1;
+  snapshot.links.push_back(more);
+  drawList = DrawAll(snapshot);
+  sources = AutoMapScene_PressEffects(drawList, 0, 3);
+  CHECK(sources.size() == 1);
+  if (sources.size() != 1) return;
+  block = AutoMapScene_PressBlock(drawList, sources[0], false);
+  CHECK(!block.empty() && block[0].text == "PARTLY ONCE ONLY");
+  // Without once-only links nothing is said
+  CHECK(Texts(AutoMapScene_PressBlock(DrawAll(L5Machine()),
+                                      AutoMapScene_PressEffects(DrawAll(L5Machine()), 0, 3)[0],
+                                      false))[0]
+        == "THIS PRESS:");
+}
+
 static void PressLinesTree(void)
 {
   AutoMapDrawList drawList = DrawAll(L5Machine());
@@ -5568,6 +5610,43 @@ static void ResultNamesItsDelay(void)
   CHECK(block[0].style == AutoMapTipPlain);
   CHECK(block[1].style == AutoMapTipResult);
   CHECK(!AutoMapScene_PressHasSteps(sources[0]));
+}
+
+// A pad on a pit that other pads and a lever act on: under PIT, one blue line per verb, the
+// sources of a kind named once. Not below All, not for a cell that only receives.
+static void PadOnPitNamesWhatActsOnIt(void)
+{
+  AutoMapLevelSnapshot snapshot = PadRoom(6);
+  snapshot.cells[1 * 6 + 1].kind = AutoMapCellPit;
+  snapshot.cells[1 * 6 + 5].doorState = AutoMapDoorClosed;
+  for (int x = 2; x <= 3; x++)
+  {
+    snapshot.cells[1 * 6 + x].kind = AutoMapCellFloor;
+    AutoMapFloorActuator pad = PadWithOp(x, 1, AutoMapPadParty);
+    pad.record = (AutoMapRecordId)(299 + x);
+    snapshot.actuators.push_back(pad);
+    AutoMapLink toggle = Message(x, 1, 1, 1, pad.record, AutoMapSignalToggle, 0, 0);
+    toggle.srcIsWall = false;
+    toggle.srcSide = -1;
+    snapshot.links.push_back(toggle);
+  }
+  snapshot.links.push_back(Message(0, 1, 1, 1, LEVER_RECORD, AutoMapSignalSet, 0, 0));
+  snapshot.links.push_back(PadMessage(5, 1, AutoMapSignalSet, 0));
+  AutoMapDrawList drawList = DrawAll(snapshot);
+  std::vector<AutoMapTipLine> lines = AutoMapTooltip_Machinery(drawList, 1, 1, false, TestItemName);
+  CHECK(JoinedTip(lines).find("PIT\n"
+                              "  CLOSED\n"
+                              "  OPENED BY: SWITCH (E) L0 (0, 1)\n"
+                              "  TOGGLED BY: PADS L0 (2, 1), (3, 1)\n"
+                              "PAD\n") != std::string::npos);
+  const AutoMapTipLine *by = TipLineAt(lines, "  TOGGLED BY: PADS L0 (2, 1), (3, 1)");
+  CHECK(by != NULL && by->style == AutoMapTipFeeder);
+  // The door only receives: its lines from the pad say enough
+  CHECK(JoinedTip(AutoMapTooltip_Machinery(drawList, 5, 1, false, TestItemName)).find(" BY: ")
+        == std::string::npos);
+  drawList.spoilers = AutoMapSpoilersLearned;
+  CHECK(JoinedTip(AutoMapTooltip_Machinery(drawList, 1, 1, false, TestItemName)).find(" BY: ")
+        == std::string::npos);
 }
 
 static void ShiftHintOnlyWithStepsBetween(void)
@@ -7050,6 +7129,7 @@ void TestAutoMapScene(void)
   PressChainLinksCoverTheTree();
   GoalBadgeWords();
   PressLinesCompact();
+  PressLinesOnceOnly();
   PressLinesTree();
   WhenNoteWords();
   RouteCounterThenGoal();
@@ -7073,6 +7153,7 @@ void TestAutoMapScene(void)
   RouteNamesBareTargetsAndLocalActions();
   ResultNamesItsDelay();
   ShiftHintOnlyWithStepsBetween();
+  PadOnPitNamesWhatActsOnIt();
   ShiftOnACappedDirectListShowsEveryResult();
   PressLinesWordTheGoalDistance();
   RouteGateNeedsBothConditions();
