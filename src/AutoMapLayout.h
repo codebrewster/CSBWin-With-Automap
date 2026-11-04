@@ -122,11 +122,28 @@ AutoMapTooltipGrid AutoMapLayout_TooltipGrid(int entries);
 
 // The bar above the map: one rectangle per label, left to right, 4 pixels from the top and 18 high.
 // A label starting with '|' begins a group (a wider gap), one starting with '#' is a caption, not
-// a button; shownLabels gets the labels as drawn, without those marks. When the bar is wider than
+// a button (a mark of either kind can be followed by the other); shownLabels gets the labels as drawn, without those marks. When the bar is wider than
 // width the long labels shorten (EXPLORED to EXPL, LEARNED to LRND, FOLLOW to FOL, VISION to VIS,
 // SPOILERS to SPOIL); if it is still too wide it reaches past width and scrolls. Nothing is dropped.
 std::vector<AutoMapRect> AutoMapLayout_PackBar(const std::vector<std::string> &labels, int width, int pixel,
                                                std::vector<std::string> *shownLabels);
+// The spacing of one bar style, in screen pixels: between the buttons of a group, between
+// groups, before a group that belongs to the one in front (a label starting with '^', such as
+// TINT after the vision choices), the space a caption gets around its text (0: bare text), and
+// the frame a style draws around each group, which the gaps leave room for
+struct AutoMapBarSpacing
+{
+  int itemGap;
+  int groupGap;
+  int nearGap;
+  int captionPad;
+  int groupFrame;
+};
+// The spacing of the classic bar, the one PackBar above uses
+AutoMapBarSpacing AutoMapLayout_ClassicBarSpacing(int pixel);
+std::vector<AutoMapRect> AutoMapLayout_PackBarSpaced(const std::vector<std::string> &labels, int width, int pixel,
+                                                     const AutoMapBarSpacing &spacing,
+                                                     std::vector<std::string> *shownLabels);
 // The bar's height for a font pixel
 int AutoMapLayout_BarHeight(int pixel);
 

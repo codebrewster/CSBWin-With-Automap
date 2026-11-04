@@ -106,7 +106,9 @@ struct AutoMapChampionLevels
 };
 
 std::vector<AutoMapChampionLevels> AutoMap_ChampionLevels(void);
-void AutoMap_RequestLevelUp(int champion, int skill);
+// champion and skill -1 mean every champion and every base skill; toTheTop keeps going until
+// no more level can be gained instead of stopping after one
+void AutoMap_RequestLevelUp(int champion, int skill, bool toTheTop);
 
 // Debug forgetting for the map window (map_debug), so visibility and learning can be tried
 // again on cells already seen: the explored cells and seen wall faces of one level or of

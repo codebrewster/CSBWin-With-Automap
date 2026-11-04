@@ -875,6 +875,40 @@ static void KnownLauncherHasNoLaunchesLineBelowAll(void)
   CHECK(HasLineStartingWith(Texts(AutoMapScene_RelayLines(all, 1, 0)), "  LAUNCHES"));
 }
 
+// A generator that fired and waits on its reactivation timer is type 0, like a dormant pad; the
+// reader tells it by the timer. Learned, it stays a sleeping generator with the time it wakes in
+// (the game's ticks, about six a second), and the tooltip says what it makes and when.
+static void KnownSleepingGeneratorSaysWhenItWakes(void)
+{
+  AutoMapLevelSnapshot snapshot = Corridor();
+  AutoMapFloorActuator sleeping(1, 1, AutoMapActuatorSleepingGenerator);
+  sleeping.record = 6;
+  sleeping.wakeTicks = 380;
+  sleeping.hasGeneratedMonster = true;
+  sleeping.generatedMonsterName = "MUMMY";
+  snapshot.actuators.push_back(sleeping);
+  AutoMapKnowledge knowledge;
+  AutoMapDrawList unknown = Build(snapshot, AutoMapSpoilersLearned, &knowledge);
+  CHECK(unknown.actuators.empty());
+  knowledge.Learn(AutoMapFact_OfRecord(AutoMapFactActuator, 6));
+  AutoMapDrawList drawList = Build(snapshot, AutoMapSpoilersLearned, &knowledge);
+  CHECK(drawList.actuators.size() == 1);
+  CHECK(drawList.actuators[0].kind == AutoMapActuatorSleepingGenerator);
+  CHECK(drawList.actuators[0].wakeTicks == 380);
+  std::vector<std::string> lines = Texts(AutoMapTooltip_Machinery(drawList, 1, 1, false, NULL));
+  CHECK(HasLineStartingWith(lines, "SLEEPING GENERATOR"));
+  bool makes = false, wakes = false;
+  for (size_t i = 0; i < lines.size(); i++)
+  {
+    makes = makes || lines[i].find("GENERATES MUMMY") != std::string::npos;
+    wakes = wakes || lines[i].find("WAKES IN 380 TICKS, ABOUT 1:03") != std::string::npos;
+  }
+  CHECK(makes && wakes);
+  CHECK(AutoMapScene_WakeLine(5) == "WAKES IN 5 TICKS, ABOUT 0:01");
+  CHECK(AutoMapScene_WakeLine(6 * 3600) == "WAKES IN 21600 TICKS, ABOUT 1:00:00");
+  CHECK(AutoMapScene_WakeLine(0) == "WAKES NOW");
+}
+
 static void KnownSpentGeneratorShowsAsAGenerator(void)
 {
   AutoMapLevelSnapshot snapshot = Corridor();
@@ -2308,6 +2342,7 @@ void TestAutoMapSpoilers(void)
   VisiblePressurePlateKeepsItsFloorPicture();
   CountersAndDormantPadsNeverShowBelowAll();
   KnownSpentGeneratorShowsAsAGenerator();
+  KnownSleepingGeneratorSaysWhenItWakes();
   KnownLauncherHasNoLaunchesLineBelowAll();
   KnownLinkSkipsAHiddenCounter();
   NoLinkWithoutAFact();

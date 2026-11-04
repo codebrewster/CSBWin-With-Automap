@@ -255,6 +255,26 @@ static void BarFitsNarrowWindow(void)
   CHECK(narrow.back().x + narrow.back().w < wide.back().x + wide.back().w);
 }
 
+// A segmented style packs a group's buttons a divider apart, and leaves each group's frame room
+// on both sides, so no two groups' frames touch; TINT ('^') sits nearer than a new group
+static void SegmentedBarLeavesRoomForFrames(void)
+{
+  AutoMapBarSpacing spacing = {1, 10, 4, 8, 2};
+  std::vector<std::string> labels = BarLabels();
+  labels[8] = "^TINT";
+  std::vector<std::string> shown;
+  std::vector<AutoMapRect> rects = AutoMapLayout_PackBarSpaced(labels, 1400, 2, spacing, &shown);
+  CHECK(rects.size() == labels.size() && PackedInOrderWithoutOverlap(rects));
+  CHECK(rects[0].x == 3 * 2 + 2);
+  CHECK(rects[1].x == rects[0].x + rects[0].w + 1);
+  CHECK(rects[3].x == rects[2].x + rects[2].w + 10 + 2 * 2);
+  CHECK(rects[8].x == rects[7].x + rects[7].w + 4 + 2 * 2);
+  CHECK(shown[4] == "VISION" && rects[4].w == (6 * 4 - 1) * 2 + 8);
+  CHECK(shown[8] == "TINT");
+  std::vector<AutoMapRect> narrow = AutoMapLayout_PackBarSpaced(labels, 300, 2, spacing, &shown);
+  CHECK(shown[6] == "EXPL" && shown[4] == "VIS");
+}
+
 // The level list opens with the shown level four rows down, and stays within the dungeon; typing
 // a level beyond the last goes to the last
 static void LevelListClamps(void)
@@ -346,6 +366,7 @@ void TestAutoMapLayout(void)
   PlatesKeepInsideTheirCell();
   LevelListClamps();
   BarFitsNarrowWindow();
+  SegmentedBarLeavesRoomForFrames();
   TooltipGridHasTwoRowsOfSix();
   LineStopsAtTheTargetEdge();
   TooltipOpensAwayFromTheLines();

@@ -398,27 +398,33 @@ int AutoMapLayout_BarHeight(int pixel)
 }
 
 static std::vector<AutoMapRect> PackBarAs(const std::vector<std::string> &labels, int pixel, bool shorten,
-                                          std::vector<std::string> *shownLabels)
+                                          const AutoMapBarSpacing &spacing, std::vector<std::string> *shownLabels)
 {
   static const char *const LONG[] = {"EXPLORED", "LEARNED", "FOLLOW", "VISION", "SPOILERS"};
   static const char *const SHORT[] = {"EXPL", "LRND", "FOL", "VIS", "SPOIL"};
   std::vector<AutoMapRect> rects;
   shownLabels->clear();
-  int x = 3 * pixel;
+  int x = 3 * pixel + spacing.groupFrame;
   for (size_t i = 0; i < labels.size(); i++)
   {
     std::string label = labels[i];
     bool group = !label.empty() && label[0] == '|';
-    if (group) label.erase(0, 1);
+    bool near = !label.empty() && label[0] == '^';
+    if (group || near) label.erase(0, 1);
     bool caption = !label.empty() && label[0] == '#';
     if (caption) label.erase(0, 1);
     for (int k = 0; shorten && k < 5; k++)
     {
       if (label == LONG[k]) label = SHORT[k];
     }
-    if (i > 0) x += group ? 7 * pixel : pixel;
+    if (i > 0)
+    {
+      if (group) x += spacing.groupGap + 2 * spacing.groupFrame;
+      else if (near) x += spacing.nearGap + 2 * spacing.groupFrame;
+      else x += spacing.itemGap;
+    }
     int textWidth = label.empty() ? 0 : ((int)label.size() * 4 - 1) * pixel;
-    int w = caption ? textWidth : textWidth + 5 * pixel;
+    int w = caption ? textWidth + spacing.captionPad : textWidth + 5 * pixel;
     AutoMapRect rect = {x, 2 * pixel, w, 9 * pixel};
     rects.push_back(rect);
     shownLabels->push_back(label);
@@ -427,12 +433,25 @@ static std::vector<AutoMapRect> PackBarAs(const std::vector<std::string> &labels
   return rects;
 }
 
+AutoMapBarSpacing AutoMapLayout_ClassicBarSpacing(int pixel)
+{
+  AutoMapBarSpacing spacing = {pixel, 7 * pixel, pixel, 0, 0};
+  return spacing;
+}
+
+std::vector<AutoMapRect> AutoMapLayout_PackBarSpaced(const std::vector<std::string> &labels, int width, int pixel,
+                                                     const AutoMapBarSpacing &spacing,
+                                                     std::vector<std::string> *shownLabels)
+{
+  std::vector<AutoMapRect> rects = PackBarAs(labels, pixel, false, spacing, shownLabels);
+  if (rects.empty() || rects.back().x + rects.back().w + spacing.groupFrame <= width) return rects;
+  return PackBarAs(labels, pixel, true, spacing, shownLabels);
+}
+
 std::vector<AutoMapRect> AutoMapLayout_PackBar(const std::vector<std::string> &labels, int width, int pixel,
                                                std::vector<std::string> *shownLabels)
 {
-  std::vector<AutoMapRect> rects = PackBarAs(labels, pixel, false, shownLabels);
-  if (rects.empty() || rects.back().x + rects.back().w <= width) return rects;
-  return PackBarAs(labels, pixel, true, shownLabels);
+  return AutoMapLayout_PackBarSpaced(labels, width, pixel, AutoMapLayout_ClassicBarSpacing(pixel), shownLabels);
 }
 
 int AutoMapLayout_LevelListTop(int levels, int rows, int focusLevel)

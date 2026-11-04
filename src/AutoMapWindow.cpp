@@ -145,6 +145,20 @@ static Uint32 drawListSerial = 0;
 // The unmoving layer (cells, items, clouds, pads, highlight) rendered once per draw list
 // and zoom step: panning then only blits this texture and draws what moves
 static SDL_Texture *staticCache = NULL;
+// The tooltip magnified (Ctrl+wheel, map_tip_scale) is drawn into this first, at its scale
+static SDL_Texture *tooltipTexture = NULL;
+static int tooltipTextureW = 0;
+static int tooltipTextureH = 0;
+static int tooltipScale = 1;
+static const int TOOLTIP_SCALE_MOST = 4;
+
+static void DropTooltipTexture(void)
+{
+  if (tooltipTexture != NULL) SDL_DestroyTexture(tooltipTexture);
+  tooltipTexture = NULL;
+  tooltipTextureW = 0;
+  tooltipTextureH = 0;
+}
 static Uint32 staticSerial = 0;
 static int staticCellSize = 0;
 static WindowPlacement placement = {SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, DEFAULT_SIZE, DEFAULT_SIZE};
@@ -212,6 +226,9 @@ static bool renderShift = false;
 static float viewCenterX = 0;
 // The centre for a level asked for but not on screen yet (Page Down, a search hit elsewhere)
 static AutoMapPendingCentre pendingCentre = AutoMapScene_NoPendingCentre();
+// The centre waiting for another level is a search hit's: it lands below the search panel too
+static bool pendingCentreIsSearchHit = false;
+static void ShiftCentreBelowSearchPanel(void);
 static float viewCenterY = 0;
 static const int DRAG_START_DISTANCE = 4;
 static void EndLeftDrag(void);
@@ -360,6 +377,9 @@ void AutoMapWindow_ReadSettings(void)
   // The hidden things are kept, so that whatever a later version adds starts out shown
   unsigned everything = (1u << AUTOMAP_SHOWN_COUNT) - 1;
   shownThings = everything & ~(unsigned)csb_get_config_int(SETTINGS_SECTION, "map_hide", 0);
+  char stone[] = "stone";
+  AutoMapBar_SetStyle(csb_get_config_string(SETTINGS_SECTION, "map_bar_style", stone));
+  tooltipScale = std::max(1, std::min(TOOLTIP_SCALE_MOST, csb_get_config_int(SETTINGS_SECTION, "map_tip_scale", 1)));
 }
 
 static void RememberPlacement(void)
@@ -379,6 +399,10 @@ void AutoMapWindow_WriteSettings(void)
   csb_set_config_int(SETTINGS_SECTION, "map_height", placement.height);
   unsigned everything = (1u << AUTOMAP_SHOWN_COUNT) - 1;
   csb_set_config_int(SETTINGS_SECTION, "map_hide", (int)(everything & ~shownThings));
+  // Written back so the key is there to edit
+  std::string style = AutoMapBar_StyleName();
+  csb_set_config_string(SETTINGS_SECTION, "map_bar_style", &style[0]);
+  csb_set_config_int(SETTINGS_SECTION, "map_tip_scale", tooltipScale);
 }
 
 static bool Shows(AutoMapShown what)
@@ -443,6 +467,7 @@ static void ReportThatTheWindowCannotBeCreated(void)
 
 static void DestroyMapWindow(void)
 {
+  DropTooltipTexture();
   if (staticCache != NULL) SDL_DestroyTexture(staticCache);
   if (mapRenderer != NULL) SDL_DestroyRenderer(mapRenderer);
   if (mapWindow != NULL) SDL_DestroyWindow(mapWindow);
@@ -574,6 +599,8 @@ void AutoMapWindow_ShowDrawList(const AutoMapDrawList &drawList)
     viewFollowsParty = false;
     viewCenterX = x;
     viewCenterY = y;
+    if (pendingCentreIsSearchHit && searchOpen) ShiftCentreBelowSearchPanel();
+    pendingCentreIsSearchHit = false;
   }
   drawListSerial++;
   isDirty = true;
@@ -716,6 +743,16 @@ static void SearchCloseBox(void)
 
 static AutoMapView ViewOfShownLevel(void);
 static SDL_Rect SearchPanelRect(void);
+static SDL_Rect SearchPanelPlace(void);
+
+// The panel hangs from the top of the map: the hit goes in the middle of the map below it.
+// Near the top of a level (or with the whole level in view) the view cannot move that far;
+// the panel then steps aside (SearchPanelRect).
+static void ShiftCentreBelowSearchPanel(void)
+{
+  AutoMapView view = ViewOfShownLevel();
+  if (view.cellSize > 0) viewCenterY -= SearchPanelPlace().h / 2.0f / view.cellSize;
+}
 
 static void SearchCenterOnSelected(void)
 {
@@ -728,18 +765,18 @@ static void SearchCenterOnSelected(void)
   {
     // The level on screen keeps its view until the hit's level arrives
     AutoMapScene_RequestCentre(&pendingCentre, hit.level, (float)hit.x, (float)hit.y);
+    pendingCentreIsSearchHit = true;
     AutoMap_ShowLevel(hit.level);
     return;
   }
   pendingCentre = AutoMapScene_NoPendingCentre();
+  pendingCentreIsSearchHit = false;
   followWhenPartyShown = false;
 
   viewFollowsParty = false;
   viewCenterX = (float)hit.x;
   viewCenterY = (float)hit.y;
-  // In the free part of the map below the panel, not under it
-  AutoMapView view = ViewOfShownLevel();
-  if (view.cellSize > 0) viewCenterY -= SearchPanelRect().h / 2.0f / view.cellSize;
+  ShiftCentreBelowSearchPanel();
   isDirty = true;
 }
 
@@ -904,6 +941,7 @@ static bool IsPointerEventOfMapWindow(const SDL_Event &event)
 static void RecenterViewOnParty(void)
 {
   pendingCentre = AutoMapScene_NoPendingCentre();
+  pendingCentreIsSearchHit = false;
   if (shownDrawList.partyIsOnShownLevel || AutoMap_PartyLevel() == shownDrawList.level)
   {
     followWhenPartyShown = false;
@@ -1085,10 +1123,12 @@ static void StepLevelCenteredOn(int delta, int cellX, int cellY)
     // The centre is in the target's cells: the level still on screen keeps its own view until
     // the target's draw list arrives (AutoMapWindow_ShowDrawList)
     AutoMapScene_RequestCentre(&pendingCentre, target, centerX, centerY);
+    pendingCentreIsSearchHit = false;
     AutoMap_ShowLevel(target);
     return;
   }
   pendingCentre = AutoMapScene_NoPendingCentre();
+  pendingCentreIsSearchHit = false;
   followWhenPartyShown = false;
 
   viewFollowsParty = false;
@@ -1231,7 +1271,14 @@ static bool HandleMapPointerEvent(const SDL_Event &event)
     // The wheel scrolls the results panel when the pointer sits over it,
     // zooms otherwise. Wheel events carry no pointer position of their own,
     // so the last hovered pixel decides.
-    if (shiftHeld && hoverValid && tooltipScrollMax > 0)
+    bool ctrlHeld = (SDL_GetModState() & KMOD_CTRL) != 0;
+    if (ctrlHeld && event.wheel.y != 0)
+    {
+      // Ctrl sizes the tooltip, never the map
+      tooltipScale = std::max(1, std::min(TOOLTIP_SCALE_MOST, tooltipScale + (event.wheel.y > 0 ? 1 : -1)));
+      isDirty = true;
+    }
+    else if (shiftHeld && hoverValid && tooltipScrollMax > 0)
     {
       // A tall tooltip under Shift: one footer line per notch, and no zoom
       tooltipScrollLines += notches > 0 ? -1 : 1;
@@ -2467,6 +2514,23 @@ static void DrawGeneratedMonster(const SDL_Rect &cell, const AutoMapFloorActuato
   DrawBadge(cell, badge, NULL, GENERATOR);
 }
 
+// A sleeping generator: what it makes, faint, inside the spent generator's empty diamond
+static void DrawSleepingGenerator(const SDL_Rect &cell, const AutoMapFloorActuator &pad)
+{
+  if (pad.hasGeneratedMonster)
+  {
+    AutoMapSpriteRequest request = {pad.generatedKind.frontPicture, pad.generatedKind.transparentColour};
+    const AutoMapSprite *sprite = sprites.Find(request);
+    if (sprite != NULL)
+    {
+      SDL_SetTextureAlphaMod(sprite->texture, 50);
+      DrawSprite(*sprite, FitInto(Inset(cell, 8), *sprite));
+      SDL_SetTextureAlphaMod(sprite->texture, 255);
+    }
+  }
+  DrawGeneratorMark(cell, true);
+}
+
 static void DrawFloorActuators(const SDL_Rect &cell, const AutoMapShownCell &shown,
                                const AutoMapDrawList &drawList)
 {
@@ -2481,6 +2545,7 @@ static void DrawFloorActuators(const SDL_Rect &cell, const AutoMapShownCell &sho
       break;
     case AutoMapActuatorGenerator: DrawGeneratedMonster(cell, drawList.actuators[i]); break;
     case AutoMapActuatorSpentGenerator: DrawGeneratorMark(cell, true); break;
+    case AutoMapActuatorSleepingGenerator: DrawSleepingGenerator(cell, drawList.actuators[i]); break;
     case AutoMapActuatorCog: DrawCogMark(cell); break;
     }
   }
@@ -3799,6 +3864,29 @@ static void AppendTipLines(std::vector<AutoMapTipLine> &out, const std::vector<s
   for (size_t i = 0; i < lines.size(); i++) out.push_back(AutoMapScene_TipLine(lines[i], AutoMapTipPlain));
 }
 
+// The texture a magnified tooltip is drawn into, as big as the map area; false when the tooltip
+// is not magnified or the renderer cannot draw into a texture (it is drawn plain then)
+static bool TooltipTextureFor(int width, int height)
+{
+  if (tooltipScale <= 1 || width <= 0 || height <= 0) return false;
+  if (tooltipTexture != NULL && tooltipTextureW >= width && tooltipTextureH >= height) return true;
+  DropTooltipTexture();
+  tooltipTexture = SDL_CreateTexture(mapRenderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, width, height);
+  if (tooltipTexture == NULL) return false;
+  tooltipTextureW = width;
+  tooltipTextureH = height;
+  return true;
+}
+
+// The last line of every tooltip: how to size it, and its size now
+static std::string TooltipSizeHint(void)
+{
+  char hint[48];
+  if (tooltipScale > 1) std::snprintf(hint, sizeof(hint), "CTRL+WHEEL: SIZE (%dX)", tooltipScale);
+  else std::snprintf(hint, sizeof(hint), "CTRL+WHEEL: SIZE");
+  return hint;
+}
+
 static void DrawTileTooltip(const AutoMapView &view)
 {
   // Set again below once the footer is known; early returns must not leave a stale max
@@ -3824,8 +3912,10 @@ static void DrawTileTooltip(const AutoMapView &view)
   }
   int windowWidth = 0, windowHeight = 0;
   OutputSizeBelowBar(&windowWidth, &windowHeight);
-  int maxW = windowWidth - 2 * RULER - 16;
-  int maxH = windowHeight - 2 * RULER - 16;
+  // Magnified, the tooltip is laid out at its own size and drawn scale times as big
+  int scale = TooltipTextureFor(windowWidth, windowHeight) ? tooltipScale : 1;
+  int maxW = (windowWidth - 2 * RULER - 16) / scale;
+  int maxH = (windowHeight - 2 * RULER - 16) / scale;
   if (maxW < 60) maxW = 60;
   if (maxH < 60) maxH = 60;
   // Footer: position first, then HP lines, then one name line per named stack,
@@ -3850,9 +3940,10 @@ static void DrawTileTooltip(const AutoMapView &view)
   std::vector<std::string> textLines =
       BuildTooltipTextLines(scrolls, walls, maxW - 2 * TOOLTIP_PAD);
   AppendTipLines(footerLines, textLines);
-  // The player's own notes come after what the map knows; the hint is the last line
+  // The player's own notes come after what the map knows; the hints are the last lines
   AppendTipLines(footerLines, notes);
   footerLines.insert(footerLines.end(), hint.begin(), hint.end());
+  footerLines.push_back(AutoMapScene_TipLine(TooltipSizeHint(), AutoMapTipHint));
   int footerTextH = 5 * DIGIT_SCALE;
   int footerLineGap = 4;
   int footerTextW = 0;
@@ -3966,11 +4057,25 @@ static void DrawTileTooltip(const AutoMapView &view)
   if (plateW < 60) plateW = 60;
   // Where it hides the least of what the hover lights up (AutoMapLayout_TooltipPlace)
   AutoMapRect mapArea = {RULER, RULER, windowWidth - 2 * RULER, windowHeight - 2 * RULER};
-  AutoMapRect place = AutoMapLayout_TooltipPlace(hoverX, hoverY, spotlightLines, spotlightGoals, plateW,
-                                                 plateH, view.originX, view.originY, view.cellSize,
-                                                 GOAL_TAB_HEIGHT, mapArea);
+  AutoMapRect place = AutoMapLayout_TooltipPlace(hoverX, hoverY, spotlightLines, spotlightGoals,
+                                                 plateW * scale, plateH * scale, view.originX, view.originY,
+                                                 view.cellSize, GOAL_TAB_HEIGHT, mapArea);
   int x = place.x;
   int y = place.y;
+  SDL_Rect oldClip;
+  bool wasClipped = SDL_RenderIsClipEnabled(mapRenderer) == SDL_TRUE;
+  SDL_RenderGetClipRect(mapRenderer, &oldClip);
+  if (scale > 1)
+  {
+    if (SDL_SetRenderTarget(mapRenderer, tooltipTexture) == 0)
+    {
+      SDL_RenderSetClipRect(mapRenderer, NULL);
+      SDL_RenderSetScale(mapRenderer, (float)scale, (float)scale);
+      x = 0;
+      y = 0;
+    }
+    else scale = 1;
+  }
   SDL_Rect plate = {x, y, plateW, plateH};
   Fill(plate, BACKGROUND);
   Outline(plate, ITEM_MARKER);
@@ -4005,6 +4110,16 @@ static void DrawTileTooltip(const AutoMapView &view)
         + (int)i * (footerTextH + footerLineGap);
     DrawLegendText(x + TOOLTIP_PAD, lineY, AutoMapScene_TipTextWithoutGlyphs(footerLines[i].text).c_str(), TipLineColour(footerLines[i].style));
     DrawBadgeGlyphsOfLine(x + TOOLTIP_PAD, lineY, footerLines[i]);
+  }
+  if (scale > 1)
+  {
+    SDL_RenderSetScale(mapRenderer, 1.0f, 1.0f);
+    SDL_SetRenderTarget(mapRenderer, NULL);
+    UseMapViewport();
+    SDL_RenderSetClipRect(mapRenderer, wasClipped ? &oldClip : NULL);
+    SDL_Rect from = {0, 0, plateW * scale, plateH * scale};
+    SDL_Rect to = {place.x, place.y, plateW * scale, plateH * scale};
+    SDL_RenderCopy(mapRenderer, tooltipTexture, &from, &to);
   }
 }
 
@@ -4154,7 +4269,7 @@ static int SearchVisibleRows(void)
 }
 
 // Below the bar's / button, as wide as the results need, at most 440 pixels
-static SDL_Rect SearchPanelRect(void)
+static SDL_Rect SearchPanelPlace(void)
 {
   SDL_Rect empty = {0, 0, 0, 0};
   if (!searchOpen || mapRenderer == NULL) return empty;
@@ -4168,6 +4283,41 @@ static SDL_Rect SearchPanelRect(void)
   int rows = std::max(1, std::min(SearchVisibleRows(), total));
   int h = SEARCH_QUERY_H + rows * SEARCH_ROW_H + 8;
   SDL_Rect plate = {x, 2, w, h};
+  return plate;
+}
+
+// The selected hit on the map, with a margin, when it is on the level shown
+static bool SelectedHitArea(SDL_Rect *area)
+{
+  if (!searchOpen || searchSelected < 0 || searchSelected >= (int)searchHits.size()) return false;
+  const AutoMapSearchHit &hit = searchHits[(size_t)searchSelected];
+  if (hit.level != shownDrawList.level || hit.x < 0 || hit.y < 0) return false;
+  AutoMapView view = ViewOfShownLevel();
+  if (view.cellSize <= 0) return false;
+  const int margin = 8;
+  SDL_Rect cell = {view.originX + hit.x * view.cellSize - margin, view.originY + hit.y * view.cellSize - margin,
+                   view.cellSize + 2 * margin, view.cellSize + 2 * margin};
+  *area = cell;
+  return true;
+}
+
+// Where the panel is drawn: under the / button, unless it would cover the selected hit; then at
+// the window's edge away from the hit
+static SDL_Rect SearchPanelRect(void)
+{
+  SDL_Rect plate = SearchPanelPlace();
+  SDL_Rect hit;
+  if (plate.w <= 0 || !SelectedHitArea(&hit) || !SDL_HasIntersection(&plate, &hit)) return plate;
+  int windowWidth = 0, windowHeight = 0;
+  OutputSizeBelowBar(&windowWidth, &windowHeight);
+  SDL_Rect left = plate, right = plate;
+  left.x = RULER;
+  right.x = windowWidth - RULER - plate.w;
+  bool hitIsRight = hit.x + hit.w / 2 > windowWidth / 2;
+  SDL_Rect away = hitIsRight ? left : right;
+  SDL_Rect near = hitIsRight ? right : left;
+  if (!SDL_HasIntersection(&away, &hit)) return away;
+  if (!SDL_HasIntersection(&near, &hit)) return near;
   return plate;
 }
 
@@ -4383,15 +4533,20 @@ static void DrawSearchMarkers(const AutoMapView &view)
     if (!dim.empty()) SDL_RenderFillRects(mapRenderer, dim.data(), (int)dim.size());
   }
   int thickness = AutoMapLayout_FaceLine(view.cellSize);
-  for (size_t i = 0; i < searchHits.size(); i++)
+  // Several hits can share a cell; the selected one is drawn last so its light frame stays on top
+  for (int pass = 0; pass < 2; pass++)
   {
-    if (searchHits[i].level != shownDrawList.level) continue;
-    SDL_Rect cell = CellArea(view, searchHits[i].x, searchHits[i].y);
-    AutoMapRect rim = {cell.x + 1, cell.y + 1, cell.w - 2, cell.h - 2};
-    AutoMapRect frame = {cell.x + 2, cell.y + 2, cell.w - 4, cell.h - 4};
-    SDL_Color dark = {0x0b, 0x0a, 0x08, 0xff};
-    AutoMapPaint_Frame(rim, dark, thickness + 2);
-    AutoMapPaint_Frame(frame, (int)i == searchSelected ? KNOWN_SWITCH_LINE : LINK_GOLD, thickness);
+    for (size_t i = 0; i < searchHits.size(); i++)
+    {
+      bool selected = (int)i == searchSelected;
+      if (searchHits[i].level != shownDrawList.level || selected != (pass == 1)) continue;
+      SDL_Rect cell = CellArea(view, searchHits[i].x, searchHits[i].y);
+      AutoMapRect rim = {cell.x + 1, cell.y + 1, cell.w - 2, cell.h - 2};
+      AutoMapRect frame = {cell.x + 2, cell.y + 2, cell.w - 4, cell.h - 4};
+      SDL_Color dark = {0x0b, 0x0a, 0x08, 0xff};
+      AutoMapPaint_Frame(rim, dark, thickness + 2);
+      AutoMapPaint_Frame(frame, selected ? KNOWN_SWITCH_LINE : LINK_GOLD, thickness);
+    }
   }
 }
 
@@ -4829,8 +4984,9 @@ static void LevelPanelOpen(void)
   isDirty = true;
 }
 
-// The panel's rows: one per champion, then the light, monsters, forget and measure rows. Hover and
-// clicks name a row and a column; champion rows have the four skills as columns.
+// The panel's rows: one per champion and an ALL row for the whole party, then the light,
+// monsters, forget and measure rows. Hover and clicks name a row and a column; champion rows
+// have the four skills and ALL as columns.
 static const char *const LIGHT_ROW_NAME = "LIGHT";
 static const char *const FORGET_ROW_NAME = "FORGET";
 static const int LIGHT_PALETTE_COUNT = 6;
@@ -4842,29 +4998,57 @@ static const char *const MONSTERS_CELLS[2] = {"MOVE", "FROZEN"};
 static const char *const MEASURE_ROW_NAME = "MEASURE";
 static const char *const MEASURE_CELLS[1] = {"WALLS"};
 
-static int LightRow(const std::vector<AutoMapChampionLevels> &champions)
+static const char *const PARTY_ROW_NAME = "ALL";
+static const int ALL_SKILLS_COLUMN = 4;
+
+// The champions' rows and the ALL row under them (none without a champion)
+static int ChampionRowCount(const std::vector<AutoMapChampionLevels> &champions)
+{
+  return champions.empty() ? 0 : (int)champions.size() + 1;
+}
+
+static int PartyRow(const std::vector<AutoMapChampionLevels> &champions)
 {
   return (int)champions.size();
 }
 
+static int LightRow(const std::vector<AutoMapChampionLevels> &champions)
+{
+  return ChampionRowCount(champions);
+}
+
 static int MonstersRow(const std::vector<AutoMapChampionLevels> &champions)
 {
-  return (int)champions.size() + 1;
+  return ChampionRowCount(champions) + 1;
 }
 
 static int ForgetRow(const std::vector<AutoMapChampionLevels> &champions)
 {
-  return (int)champions.size() + 2;
+  return ChampionRowCount(champions) + 2;
 }
 
 static int MeasureRow(const std::vector<AutoMapChampionLevels> &champions)
 {
-  return (int)champions.size() + 3;
+  return ChampionRowCount(champions) + 3;
 }
 
 static int PanelRowCount(const std::vector<AutoMapChampionLevels> &champions)
 {
-  return (int)champions.size() + 4;
+  return ChampionRowCount(champions) + 4;
+}
+
+// Whether a click on a champion row's cell (or the ALL row's, champion -1) can raise anything
+static bool LevelCellCanGain(const std::vector<AutoMapChampionLevels> &champions, int champion, int column)
+{
+  for (size_t c = 0; c < champions.size(); c++)
+  {
+    if (champion >= 0 && (int)c != champion) continue;
+    for (int skill = 0; skill < 4; skill++)
+    {
+      if ((column == ALL_SKILLS_COLUMN || column == skill) && champions[c].canGainLevel[skill]) return true;
+    }
+  }
+  return false;
 }
 
 // The light row's first cell is the party's own light, then the six palettes
@@ -4902,8 +5086,9 @@ static int LevelPanelNameWidth(const std::vector<AutoMapChampionLevels> &champio
 {
   int widest = std::max(AutoMapScene_TextWidth(LIGHT_ROW_NAME),
                         std::max(AutoMapScene_TextWidth(FORGET_ROW_NAME),
+                                 std::max(AutoMapScene_TextWidth(PARTY_ROW_NAME),
                                  std::max(AutoMapScene_TextWidth(MONSTERS_ROW_NAME),
-                                          AutoMapScene_TextWidth(MEASURE_ROW_NAME))));
+                                          AutoMapScene_TextWidth(MEASURE_ROW_NAME)))));
   for (size_t i = 0; i < champions.size(); i++)
   {
     widest = std::max(widest, AutoMapScene_TextWidth(champions[i].name.c_str()));
@@ -4930,12 +5115,12 @@ static int ToolRowWidth(const std::vector<std::string> &cells)
 
 static const char *LevelPanelTitle(const std::vector<AutoMapChampionLevels> &champions)
 {
-  return champions.empty() ? "NO CHAMPION TO GAIN A LEVEL" : "GAIN A LEVEL";
+  return champions.empty() ? "NO CHAMPION TO GAIN A LEVEL" : "GAIN A LEVEL   SHIFT: TO THE TOP";
 }
 
 static SDL_Rect LevelPanelRect(const std::vector<AutoMapChampionLevels> &champions)
 {
-  int cells = std::max(4 * LevelPanelCellWidth(),
+  int cells = std::max(4 * LevelPanelCellWidth() + ToolCellWidth(PARTY_ROW_NAME),
                        std::max(ToolRowWidth(LightCells()), ToolRowWidth(ForgetCells())));
   int w = LevelPanelNameWidth(champions) + LEVEL_PANEL_GAP + cells;
   w = std::max(w, AutoMapScene_TextWidth(LevelPanelTitle(champions)) * DIGIT_SCALE);
@@ -4983,8 +5168,9 @@ static bool LevelPanelCellAtPixel(const std::vector<AutoMapChampionLevels> &cham
   else if (panelRow == MeasureRow(champions)) cell = ToolColumnAt(MeasureCells(), cellsX, pixelX);
   else
   {
-    cell = (pixelX - cellsX) / LevelPanelCellWidth();
-    if (cell > 3) cell = -1;
+    int along = pixelX - cellsX;
+    if (along < 4 * LevelPanelCellWidth()) cell = along / LevelPanelCellWidth();
+    else if (along < 4 * LevelPanelCellWidth() + ToolCellWidth(PARTY_ROW_NAME)) cell = ALL_SKILLS_COLUMN;
   }
   if (cell < 0) return false;
   *row = panelRow;
@@ -5026,7 +5212,11 @@ static void CarryOutPanelClick(const std::vector<AutoMapChampionLevels> &champio
     AutoMap_RequestDecorationMeasure();
     return;
   }
-  if (champions[(size_t)row].canGainLevel[column]) AutoMap_RequestLevelUp(row, column);
+  // A champion's row or the ALL row; the ALL column is every skill. Shift goes on to the top.
+  int champion = row == PartyRow(champions) ? -1 : row;
+  if (!LevelCellCanGain(champions, champion, column)) return;
+  bool toTheTop = (SDL_GetModState() & KMOD_SHIFT) != 0;
+  AutoMap_RequestLevelUp(champion, column == ALL_SKILLS_COLUMN ? -1 : column, toTheTop);
 }
 
 static bool LevelPanelHandlePointerEvent(const SDL_Event &event)
@@ -5101,18 +5291,22 @@ static void DrawLevelPanel(void)
   DrawLegendText(nameX, y, LevelPanelTitle(champions), WHITE);
   y += DEBUG_MENU_ROW_H;
   int cellsX = LevelPanelCellsX(champions);
-  for (size_t champion = 0; champion < champions.size(); champion++)
+  for (int row = 0; row < ChampionRowCount(champions); row++)
   {
-    const AutoMapChampionLevels &levels = champions[champion];
-    DrawLegendText(nameX, y, levels.name.c_str(), RULER_TEXT);
-    for (int skill = 0; skill < 4; skill++)
+    bool isParty = row == PartyRow(champions);
+    int champion = isParty ? -1 : row;
+    DrawLegendText(nameX, y, isParty ? PARTY_ROW_NAME : champions[(size_t)row].name.c_str(), RULER_TEXT);
+    for (int column = 0; column <= ALL_SKILLS_COLUMN; column++)
     {
-      bool isHovered = (int)champion == levelPanelHoveredRow
-                       && skill == levelPanelHoveredColumn && levels.canGainLevel[skill];
+      bool canGain = LevelCellCanGain(champions, champion, column);
+      bool isHovered = row == levelPanelHoveredRow && column == levelPanelHoveredColumn && canGain;
       char label[16];
-      std::snprintf(label, sizeof(label), "%s %d", LEVEL_PANEL_SKILLS[skill], levels.level[skill]);
-      DrawPanelCell(cellsX + skill * LevelPanelCellWidth(), y, LevelPanelCellWidth(), label,
-                    isHovered, levels.canGainLevel[skill] ? RULER_TEXT : RULER_TICK);
+      if (column == ALL_SKILLS_COLUMN) std::snprintf(label, sizeof(label), "%s", PARTY_ROW_NAME);
+      else if (isParty) std::snprintf(label, sizeof(label), "%s", LEVEL_PANEL_SKILLS[column]);
+      else std::snprintf(label, sizeof(label), "%s %d", LEVEL_PANEL_SKILLS[column], champions[(size_t)row].level[column]);
+      int w = column == ALL_SKILLS_COLUMN ? ToolCellWidth(PARTY_ROW_NAME) : LevelPanelCellWidth();
+      DrawPanelCell(cellsX + column * LevelPanelCellWidth(), y, w, label, isHovered,
+                    canGain ? RULER_TEXT : RULER_TICK);
     }
     y += DEBUG_MENU_ROW_H;
   }
@@ -5363,12 +5557,20 @@ bool AutoMapWindow_RenderToFile(const AutoMapDrawList &list, int width, int heig
   AutoMapPaint_Use(mapRenderer);
   if (staticCache != NULL) SDL_DestroyTexture(staticCache);
   staticCache = NULL;
+  // The window's tooltip texture belongs to the window's renderer: kept aside, not dropped
+  SDL_Texture *windowTooltip = tooltipTexture;
+  int windowTooltipW = tooltipTextureW, windowTooltipH = tooltipTextureH;
+  tooltipTexture = NULL;
+  tooltipTextureW = tooltipTextureH = 0;
   AutoMapWindow_ShowDrawList(list);
   hoverValid = true;
   hoverX = cellX;
   hoverY = cellY;
   renderCellSize = cellSize;
   renderShift = shift;
+  // Pictures for the manual show the tooltip at its plain size
+  int windowTooltipScale = tooltipScale;
+  tooltipScale = 1;
   // The pointer rests on the middle of the hovered cell
   AutoMapView view = ViewOfShownLevel();
   hoverPixelX = view.originX + cellX * cellSize + cellSize / 2;
@@ -5378,9 +5580,14 @@ bool AutoMapWindow_RenderToFile(const AutoMapDrawList &list, int width, int heig
   bool saved = SDL_SaveBMP(surface, path) == 0;
   renderCellSize = 0;
   renderShift = false;
+  tooltipScale = windowTooltipScale;
   ClearHover();
   if (staticCache != NULL) SDL_DestroyTexture(staticCache);
   staticCache = NULL;
+  DropTooltipTexture();
+  tooltipTexture = windowTooltip;
+  tooltipTextureW = windowTooltipW;
+  tooltipTextureH = windowTooltipH;
   sprites.UseRenderer(windowRenderer);
   AutoMapPaint_Use(windowRenderer);
   mapRenderer = windowRenderer;

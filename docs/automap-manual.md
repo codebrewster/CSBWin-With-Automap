@@ -64,6 +64,11 @@ A strip above the map holds every map setting:
 In a narrow window the long labels shorten (`EXPL`, `LRND`); if the bar still does not fit, the
 wheel over it scrolls it.
 
+The bar comes in five looks, set by `map_bar_style` in `csb.cfg`: `stone` (the default: a grey bar,
+each group sunk into a black well, brass buttons like the game's save dialog), `segmented` (dark,
+each group one framed control), `cyan` (black and cyan, like a champion's action panel), `brass`
+(dark, with the game's brass buttons) and `classic` (separate buttons, as in earlier versions).
+
 ### The level list
 
 Click the level on the bar for a list of every level. The shown level is gold, the party's level
@@ -141,7 +146,9 @@ in the lower right of its square, the key a lock wants in the lower left in a go
 faint with a dotted edge. A small dark badge in the lower left says who sets it off: the party's red
 arrow (turned the way the party must face, gold frame), claw marks for monsters, the item's own
 icon, or arrow and icon when the party must carry the item. Teleporters use the same badge for who
-they take, with a box for objects. A generator shows its monster faded with a `GEN` badge.
+they take, with a box for objects. A generator shows its monster faded with a `GEN` badge. A
+generator that has fired and sleeps until it may fire again is an empty diamond over its monster,
+fainter still.
 
 **Stairs** carry a plate with an arrow and the level they lead to. A **teleporter** is a cyan
 checkerboard; one to another level shows that level's number. A pile of more than three items shows
@@ -188,6 +195,10 @@ At **All**, also:
 - **What every lock needs**, such as `NEEDS SOLID KEY (S)`.
 - **What sets off a pad**, such as `TRIGGER: PARTY OR MONSTER`.
 - **Monster generators**: what they create and its hit point range.
+
+A generator the map knows that has fired and sleeps for a while is headed `SLEEPING GENERATOR`, with
+when it wakes: `WAKES IN 380 TICKS, ABOUT 1:03`. The time is at the game's normal speed, about six
+ticks a second, and counts down as you watch.
 - **The monsters' hit points**, under the damage lines.
 - **The whole press chain** of a switch or pad; see
   [Tracing switches and pads](#tracing-switches-and-pads).
@@ -203,6 +214,10 @@ The tooltip goes where it hides the least of the lines, squares and goal frames
 the hover lights up: beside the hovered cell or beside the whole lit group,
 above, below or level with it. A tooltip that does not fit the window shows a
 `+N MORE` line. Hold **Shift** and turn the wheel to scroll it.
+
+Hold **Ctrl** and turn the wheel to make the tooltip bigger or smaller, up to four times its size,
+without zooming the map. Its last line says so: `CTRL+WHEEL: SIZE (2X)`. The size is kept in
+`csb.cfg`.
 
 ### How the tooltip is laid out
 
@@ -387,6 +402,10 @@ of the shown level gets a gold frame, the selected one a light frame. Once a hit
 of the map dims around the hits, also on any level you step to afterwards. Hovering a trigger or its target shows its links
 instead, until the pointer moves on.
 
+The map moves the selected hit below the results, and on another level too. Where the map cannot
+move that far, near the top of a level or with the whole level in view, the results step aside to
+the other side of the window, so they never cover the hit.
+
 The search follows the same spoiler and fog rules as the map: nothing in an unopened chest and
 nothing beyond the explored cells is found.
 
@@ -434,6 +453,8 @@ most of them for you; only `map_debug` needs editing by hand.
 | `map_level` | The level shown when not following the party | `0` |
 | `map_highlight` | `1` tints the explored cells in whole level vision | `0` |
 | `map_hide` | What **Show** leaves out, one bit each: 1 scrolls, 2 chests, 4 potions, 8 weapons, 16 armour, 32 other items, 64 monsters, 128 wall decorations, 256 wall writing, 512 floor decorations, 1024 food, 2048 keys | `0` |
+| `map_bar_style` | The bar's look: `stone`, `segmented`, `cyan`, `brass` or `classic` | `stone` |
+| `map_tip_scale` | The tooltip's size, `1` to `4` (Ctrl+wheel) | `1` |
 | `map_debug` | `1` turns on the testing aids below | `0` |
 
 ## Testing aids (debug mode)
@@ -449,8 +470,12 @@ without a drawer full of saved games.
   rows are greyed out.
 - The **+** button on the bar opens a panel with a row per champion
   and their `FIG`, `NIN`, `PRI` and `WIZ` levels. A click gives exactly one
-  level in that skill. It is greyed out for a dead champion, a sleeping party
-  or the level cap.
+  level in that skill; **Shift**+click goes on to the top. A champion's `ALL`
+  cell raises all four skills, and the `ALL` row under the champions does it
+  for the whole party, so one Shift+click on `ALL` `ALL` makes every champion
+  a master of everything. Each level goes through the game's own level-up, so
+  the statistics rise as in play. A cell is greyed out when nothing in it can
+  gain a level: a dead champion, a sleeping party or the level cap.
 - **LIGHT** shows the view in the party's own light (`REAL n`) or in palette
   `0` to `5`, without changing what the game believes: monsters and light
   spells keep using the real light.

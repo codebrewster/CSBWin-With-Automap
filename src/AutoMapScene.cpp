@@ -1494,6 +1494,7 @@ std::vector<AutoMapTipLine> AutoMapScene_ActuatorLines(const AutoMapDrawList &dr
   switch (pad.kind)
   {
   case AutoMapActuatorGenerator:
+  case AutoMapActuatorSleepingGenerator:
   {
     if (pad.hasGeneratedMonster && !pad.generatedMonsterName.empty())
     {
@@ -1511,6 +1512,10 @@ std::vector<AutoMapTipLine> AutoMapScene_ActuatorLines(const AutoMapDrawList &dr
       }
     }
     else AddTriggerLine(&lines, AutoMapScene_TipLine("GENERATES MONSTER", AutoMapTipPlain));
+    if (pad.kind == AutoMapActuatorSleepingGenerator && pad.wakeTicks >= 0)
+    {
+      AddTriggerLine(&lines, AutoMapScene_TipLine(AutoMapScene_WakeLine(pad.wakeTicks), AutoMapTipPlain));
+    }
     if (pad.hasGeneratorHealth)
     {
       std::vector<std::string> health = AutoMapScene_GeneratorHealthLines(
@@ -1567,6 +1572,23 @@ std::vector<AutoMapTipLine> AutoMapScene_ActuatorLines(const AutoMapDrawList &dr
     break;
   }
   return lines;
+}
+
+// The engine's ticks at its normal speed, as the route's delays count them
+static const int TICKS_PER_SECOND = 6;
+
+std::string AutoMapScene_WakeLine(int ticks)
+{
+  if (ticks <= 0) return "WAKES NOW";
+  int seconds = (ticks + TICKS_PER_SECOND / 2) / TICKS_PER_SECOND;
+  char line[64];
+  if (seconds >= 3600)
+  {
+    std::snprintf(line, sizeof(line), "WAKES IN %d TICKS, ABOUT %d:%02d:%02d", ticks, seconds / 3600,
+                  seconds / 60 % 60, seconds % 60);
+  }
+  else std::snprintf(line, sizeof(line), "WAKES IN %d TICKS, ABOUT %d:%02d", ticks, seconds / 60, seconds % 60);
+  return line;
 }
 
 bool AutoMapScene_GeneratorHealthRange(int levelMultiplier, int healthMultiplier,
@@ -2399,7 +2421,8 @@ std::vector<AutoMapSearchHit> AutoMapScene_SearchItems(const AutoMapDrawList &dr
   for (size_t i = 0; i < drawList.actuators.size(); i++)
   {
     const AutoMapFloorActuator &generator = drawList.actuators[i];
-    if (generator.kind != AutoMapActuatorGenerator || !generator.hasGeneratedMonster) continue;
+    bool isGenerator = generator.kind == AutoMapActuatorGenerator || generator.kind == AutoMapActuatorSleepingGenerator;
+    if (!isGenerator || !generator.hasGeneratedMonster) continue;
     AutoMapSearchHit hit;
     hit.kind = AutoMapHitGenerator;
     hit.level = drawList.level;

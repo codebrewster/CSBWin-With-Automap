@@ -205,7 +205,9 @@ std::vector<AutoMapTipLine> AutoMapTooltip_Machinery(const AutoMapDrawList &draw
     default:
     {
       // Generators come after the switches; the same generator twice is said once
-      std::string header = actuator.kind == AutoMapActuatorGenerator ? "GENERATOR" : "SPENT GENERATOR";
+      std::string header = actuator.kind == AutoMapActuatorGenerator          ? "GENERATOR"
+                           : actuator.kind == AutoMapActuatorSleepingGenerator ? "SLEEPING GENERATOR"
+                                                                                : "SPENT GENERATOR";
       bool known = false;
       for (size_t g = 0; g < generators.size() && !known && !pressed; g++)
       {
@@ -238,7 +240,7 @@ std::vector<AutoMapTipLine> AutoMapTooltip_Machinery(const AutoMapDrawList &draw
   }
   for (size_t g = 0; g < generators.size(); g++)
   {
-    bool spent = generatorHeaders[g] == "SPENT GENERATOR";
+    bool spent = generatorHeaders[g] != "GENERATOR";
     AddGroup(&out, generatorHeaders[g], spent ? AutoMapTipDormantHeader : AutoMapTipHeader,
              generators[g]);
   }

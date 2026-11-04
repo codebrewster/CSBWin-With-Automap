@@ -1062,9 +1062,10 @@ std::vector<AutoMapChampionLevels> AutoMap_ChampionLevels(void)
   return champions;
 }
 
-void AutoMap_RequestLevelUp(int champion, int skill)
+void AutoMap_RequestLevelUp(int champion, int skill, bool toTheTop)
 {
-  DebugRequest request = {true, DebugRequestLevelUp, 0, 0, 0, 0, champion, skill, 1, 255, -1};
+  // count: the levels each skill gains at most; the cap ends "to the top" long before
+  DebugRequest request = {true, DebugRequestLevelUp, 0, 0, 0, 0, champion, skill, toTheTop ? 1000 : 1, 255, -1};
   debugRequest = request;
 }
 
@@ -1159,7 +1160,20 @@ static void CarryOutDebugRequest(void)
   }
   if (request.kind == DebugRequestLevelUp)
   {
-    if (ChampionCanGainLevel(request.champion, request.skill)) GainLevel(request.champion, request.skill);
+    int firstChampion = request.champion < 0 ? 0 : request.champion;
+    int lastChampion = request.champion < 0 ? d.NumCharacter - 1 : request.champion;
+    int firstSkill = request.skill < 0 ? SKILL_Fighter : request.skill;
+    int lastSkill = request.skill < 0 ? SKILL_Wizard : request.skill;
+    for (int champion = firstChampion; champion <= lastChampion; champion++)
+    {
+      for (int skill = firstSkill; skill <= lastSkill; skill++)
+      {
+        for (int gained = 0; gained < request.count && ChampionCanGainLevel(champion, skill); gained++)
+        {
+          GainLevel(champion, skill);
+        }
+      }
+    }
     return;
   }
   AutoMapLevelSnapshot snapshot = AutoMapLevelReader_ReadLevel(request.level);

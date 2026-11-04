@@ -2,6 +2,7 @@
 #include "stdafx.h"
 
 // Before CSB.h, which leaves #pragma pack(1) switched on
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -582,7 +583,7 @@ static std::string DisplayNameOf(int monsterType, int graphic)
 
 static void ResolveGeneratedMonster(DB3 *actuator, AutoMapFloorActuator *pad, int level)
 {
-  if (pad->kind != AutoMapActuatorGenerator) return;
+  if (pad->kind != AutoMapActuatorGenerator && pad->kind != AutoMapActuatorSleepingGenerator) return;
   int monsterType = actuator->value() & 0x1f;
   if (monsterType < 0 || monsterType >= GENERATOR_MONSTER_TYPES) return;
   pad->hasGeneratedMonster = true;
@@ -1171,6 +1172,45 @@ static bool SideRotatesActuatorList(int x, int y, int side)
     if (localAction == 1 || localAction == 2) return true;
   }
   return false;
+}
+
+// A generator that fired with a disable time is type 0 until its TT_ReactivateGenerator timer
+// runs out (Timer.cpp): the reader took it for a dormant pad. The timer names the cell and the
+// generator; like ProcessTT_ReactivateGenerator, a timer whose generator is not found wakes the
+// cell's first type 0 actuator. Runs while the snapshot's level is loaded, before the boundary
+// rock moves the coordinates.
+static void FindSleepingGenerators(AutoMapLevelSnapshot *snapshot)
+{
+  for (i32 i = 0; i < gameTimers.QueuedTimerCount(); i++)
+  {
+    TIMER *timer = gameTimers.QueuedTimer(i);
+    if (timer->Function() != TT_ReactivateGenerator || timer->Level() != snapshot->level) continue;
+    int x = timer->timerUByte6();
+    int y = timer->timerUByte7();
+    if (x >= snapshot->width || y >= snapshot->height) continue;
+    RN wanted = timer->timerObj8();
+    RN generator = RNeof;
+    RN firstTypeZero = RNeof;
+    for (RN object = FindFirstObject(x, y); object != RNeof; object = GetDBRecordLink(object))
+    {
+      if (object.dbType() != dbACTUATOR || GetRecordAddressDB3(object)->actuatorType() != 0) continue;
+      if (firstTypeZero == RNeof) firstTypeZero = object;
+      if (object == wanted) generator = object;
+    }
+    if (generator == RNeof) generator = firstTypeZero;
+    if (generator == RNeof) continue;
+    AutoMapRecordId id = RecordIdOf(generator);
+    for (size_t a = 0; a < snapshot->actuators.size(); a++)
+    {
+      AutoMapFloorActuator &pad = snapshot->actuators[a];
+      if (pad.x != x || pad.y != y || pad.record != id || pad.kind != AutoMapActuatorDormantPad) continue;
+      pad.kind = AutoMapActuatorSleepingGenerator;
+      pad.spent = false;
+      pad.wakeTicks = std::max(0, (int)((i32)timer->Time() - d.Time));
+      ResolveGeneratedMonster(GetRecordAddressDB3(generator), &pad, snapshot->level);
+      break;
+    }
+  }
 }
 
 // One walk over the objects of a cell feeds items, monsters, missiles, clouds, pads and
@@ -1865,6 +1905,7 @@ AutoMapLevelSnapshot AutoMapLevelReader_ReadPartyLevel(void)
     }
   }
   ReportReadSplit(cellTicks, objectTicks);
+  FindSleepingGenerators(&snapshot);
   snapshot.itemOfDescIndex = ItemsOfAllDescriptions();
   MaybeInspectSnapshot(snapshot);
   ResolveStairsTargets(&snapshot);
@@ -2001,6 +2042,7 @@ AutoMapLevelSnapshot AutoMapLevelReader_ReadLevel(int level)
     }
   }
   ReportReadSplit(otherCellTicks, otherObjectTicks);
+  FindSleepingGenerators(&snapshot);
   snapshot.itemOfDescIndex = ItemsOfAllDescriptions();
   // While this level is still loaded: FindFirstObject reads it, not the party level.
   MaybeInspectSnapshot(snapshot);

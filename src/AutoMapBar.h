@@ -22,5 +22,9 @@ bool AutoMapBar_LevelListIsOpen(void);
 void AutoMapBar_ClosePanels(void);
 // Where the / button sits, in window pixels, for the search panel to open below it
 int AutoMapBar_SearchButtonX(void);
+// The bar's look, map_bar_style in csb.cfg: stone (the default), segmented, cyan, brass or
+// classic; any other name gives stone
+void AutoMapBar_SetStyle(const char *name);
+const char *AutoMapBar_StyleName(void);
 
 #endif

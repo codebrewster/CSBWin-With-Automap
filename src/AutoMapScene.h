@@ -449,6 +449,9 @@ enum AutoMapActuatorKind
   AutoMapActuatorDormantPad,
   AutoMapActuatorGenerator,
   AutoMapActuatorSpentGenerator,
+  // A generator that fired and sleeps until its reactivation timer runs out (Timer.cpp: the
+  // engine makes it type 0 meanwhile); wakeTicks says when
+  AutoMapActuatorSleepingGenerator,
   AutoMapActuatorCog
 };
 
@@ -473,7 +476,7 @@ struct AutoMapFloorActuator
       requiredFacing(-1), hasGeneratedMonster(false), generatedCount(-1),
       hasGeneratorHealth(false), levelMultiplier(-1), healthMultiplier(-1),
       minHealth(-1), maxHealth(-1), counterValue(-1), relay(), record(AUTOMAP_NO_RECORD),
-      spent(false)
+      spent(false), wakeTicks(-1)
   {
     generatedKind.frontPicture = AUTOMAP_NO_PICTURE;
     generatedKind.size = 0;
@@ -528,6 +531,8 @@ struct AutoMapFloorActuator
   // A dormant pad that was once-only: it fired, and the engine made it type 0
   // (QueueSwitchAction), so it is a spent pad, not one the dungeon left inert
   bool spent;
+  // A sleeping generator: the game ticks until it wakes, -1 for every other kind
+  int wakeTicks;
 };
 
 struct AutoMapParty
@@ -1209,13 +1214,17 @@ std::vector<std::string> AutoMapScene_GeneratorHealthLines(int levelMultiplier,
 // "TRIGGER: <item glyph> OBJECT <name>", "TRIGGER: \x01\x01 CARRY <item glyph> <name>"
 // (the item in the line's items, index 0), "TRIGGER: ANYTHING"; a generator's
 // "GENERATES 3X <monster>" plus its spawn range on separate lines (the multipliers and
-// "HP RANGE", when resolved). A dormant pad, a spent generator and a cog have none: the header
+// "HP RANGE", when resolved). A sleeping generator adds when it wakes
+// (AutoMapScene_WakeLine). A dormant pad, a spent generator and a cog have none: the header
 // names the first two, and cogs (counters, DSAs) are drawn at All only, where
 // AutoMapScene_RelayBlock names them. Below All a pad prints no line: what a pad wants
 // is not found out by stepping on it. A known generator still reads "GENERATES ...".
 std::vector<AutoMapTipLine> AutoMapScene_ActuatorLines(const AutoMapDrawList &drawList,
                                                        const AutoMapFloorActuator &actuator,
                                                        AutoMapItemNameFn nameForIndex);
+// When a sleeping generator wakes: "WAKES IN 380 TICKS, ABOUT 1:03", the time at about six
+// ticks a second (the game's normal speed), hours added from an hour on; "WAKES NOW" at 0
+std::string AutoMapScene_WakeLine(int ticks);
 
 // AutoMapScene_ActuatorLines of every floor actuator on a cell, in draw-list order with
 // duplicates folded. Empty when the cell is absent from the draw list (unexplored), so

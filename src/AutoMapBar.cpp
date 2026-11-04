@@ -94,7 +94,7 @@ static std::vector<BarItem> ItemsNow(void)
       {"ALL", ActionVisionWhole, vision == 2},
   };
   list.assign(entries, entries + sizeof(entries) / sizeof(entries[0]));
-  if (vision == 2) list.push_back(BarItem{"TINT", ActionTint, AutoMap_ExploredIsHighlighted()});
+  if (vision == 2) list.push_back(BarItem{"^TINT", ActionTint, AutoMap_ExploredIsHighlighted()});
   BarItem rest[] = {
       {"|#SPOILERS", ActionNone, false},
       {"SEEN", ActionSeen, spoilers == 0},
@@ -114,18 +114,198 @@ int AutoMapBar_Height(void)
   return AutoMapLayout_BarHeight(PIXEL);
 }
 
+// ---------------- the looks (map_bar_style) ----------------
+enum BarLook
+{
+  LookStone,     // grey stone, each group in a black well, bevelled brass buttons (the save dialog)
+  LookSegmented, // the classic colours, each group one framed control
+  LookCyan,      // black and cyan, like the champion's action panel
+  LookBrass,     // a dark bar, segmented groups, flat brass buttons
+  LookClassic,   // separate buttons, captions as bare text
+  LOOK_COUNT
+};
+static const char *const LOOK_NAMES[LOOK_COUNT] = {"stone", "segmented", "cyan", "brass", "classic"};
+static int look = LookStone;
+
+void AutoMapBar_SetStyle(const char *name)
+{
+  look = LookStone;
+  if (name == NULL) return;
+  for (int i = 0; i < LOOK_COUNT; i++)
+  {
+    if (SDL_strcasecmp(name, LOOK_NAMES[i]) == 0) look = i;
+  }
+}
+
+const char *AutoMapBar_StyleName(void)
+{
+  return LOOK_NAMES[look];
+}
+
+static SDL_Color Rgb(int rgb)
+{
+  SDL_Color colour = {(Uint8)(rgb >> 16), (Uint8)(rgb >> 8), (Uint8)rgb, 0xff};
+  return colour;
+}
+
+static AutoMapBarSpacing Spacing(void)
+{
+  if (look == LookClassic) return AutoMapLayout_ClassicBarSpacing(PIXEL);
+  AutoMapBarSpacing spacing = {1, 5 * PIXEL, 2 * PIXEL, 4 * PIXEL, look == LookStone ? 2 : 1};
+  return spacing;
+}
+
+static AutoMapRect Grown(const AutoMapRect &r, int by)
+{
+  AutoMapRect grown = {r.x - by, r.y - by, r.w + 2 * by, r.h + 2 * by};
+  return grown;
+}
+
+static SDL_Color BarFill(void)
+{
+  switch (look)
+  {
+  case LookStone: return Rgb(0x6a6d6a);
+  case LookCyan: return Rgb(0x000000);
+  case LookBrass: return Rgb(0x1f1c18);
+  default: return BAR_FILL;
+  }
+}
+
+static SDL_Color ArrowColour(void)
+{
+  switch (look)
+  {
+  case LookStone:
+  case LookBrass: return Rgb(0xffb500);
+  case LookCyan: return Rgb(0x00dade);
+  default: return GOLD;
+  }
+}
+
+static void DrawBarBack(int width)
+{
+  int h = AutoMapBar_Height();
+  AutoMapRect bar = {0, 0, width, h};
+  AutoMapPaint_Fill(bar, BarFill());
+  AutoMapRect bottom = {0, h - 1, width, 1};
+  if (look == LookStone)
+  {
+    AutoMapRect top = {0, 0, width, 1};
+    AutoMapRect shade = {0, h - 2, width, 1};
+    AutoMapPaint_Fill(top, Rgb(0x949194));
+    AutoMapPaint_Fill(shade, Rgb(0x4a484a));
+    AutoMapPaint_Fill(bottom, Rgb(0x000000));
+  }
+  else AutoMapPaint_Fill(bottom, look == LookCyan ? Rgb(0x006d6f) : BAR_LINE);
+}
+
+// Behind a group's cells: the frame, which shows between the cells as their dividers
+static void DrawGroupBack(const AutoMapRect &r)
+{
+  switch (look)
+  {
+  case LookStone:
+  {
+    // Sunk into the stone: shade at the top and left, light at the bottom and right
+    AutoMapRect well = Grown(r, 2);
+    AutoMapPaint_Fill(well, Rgb(0x949194));
+    well.w -= 1;
+    well.h -= 1;
+    AutoMapPaint_Fill(well, Rgb(0x4a484a));
+    AutoMapPaint_Fill(Grown(r, 1), Rgb(0x000000));
+    break;
+  }
+  case LookSegmented: AutoMapPaint_Fill(Grown(r, 1), Rgb(0x5d5548)); break;
+  case LookCyan: AutoMapPaint_Fill(Grown(r, 1), Rgb(0x00dade)); break;
+  case LookBrass: AutoMapPaint_Fill(Grown(r, 1), Rgb(0x000000)); break;
+  default: break;
+  }
+}
+
+static void DrawCaption(const AutoMapRect &r, const std::string &label)
+{
+  int y = r.y + 2 * PIXEL;
+  switch (look)
+  {
+  case LookStone: AutoMapPaint_Text(r.x + 2 * PIXEL, y, label, Rgb(0x949194), PIXEL); break;
+  case LookSegmented:
+    AutoMapPaint_Fill(r, Rgb(0x3a352d));
+    AutoMapPaint_Text(r.x + 2 * PIXEL, y, label, Rgb(0xb3a78f), PIXEL);
+    break;
+  case LookCyan:
+    AutoMapPaint_Fill(r, Rgb(0x00494a));
+    AutoMapPaint_Text(r.x + 2 * PIXEL, y, label, Rgb(0x7fecee), PIXEL);
+    break;
+  case LookBrass:
+    AutoMapPaint_Fill(r, Rgb(0x2b2824));
+    AutoMapPaint_Text(r.x + 2 * PIXEL, y, label, Rgb(0xa8a39a), PIXEL);
+    break;
+  default: AutoMapPaint_Text(r.x, y, label, CAPTION_TEXT, PIXEL); break;
+  }
+}
+
+static void Bevel(const AutoMapRect &r, SDL_Color light, SDL_Color dark)
+{
+  int t = std::max(1, PIXEL / 2);
+  AutoMapRect top = {r.x, r.y, r.w, t};
+  AutoMapRect left = {r.x, r.y, t, r.h};
+  AutoMapRect bottom = {r.x, r.y + r.h - t, r.w, t};
+  AutoMapRect right = {r.x + r.w - t, r.y, t, r.h};
+  AutoMapPaint_Fill(top, light);
+  AutoMapPaint_Fill(left, light);
+  AutoMapPaint_Fill(bottom, dark);
+  AutoMapPaint_Fill(right, dark);
+}
+
+static void DrawButton(const AutoMapRect &r, const std::string &label, bool on)
+{
+  SDL_Color text = BUTTON_TEXT;
+  switch (look)
+  {
+  case LookStone:
+    // A choice that is on is a gold key pressed in: its bevel turned around
+    AutoMapPaint_Fill(r, on ? Rgb(0xffb500) : Rgb(0x944800));
+    if (on) Bevel(r, Rgb(0xa86e00), Rgb(0xffe08a));
+    else Bevel(r, Rgb(0xde916a), Rgb(0x6a2400));
+    text = on ? Rgb(0x5a1e00) : Rgb(0xffb500);
+    break;
+  case LookSegmented:
+    AutoMapPaint_Fill(r, on ? ON_FILL : BUTTON_FILL);
+    text = on ? ON_TEXT : BUTTON_TEXT;
+    break;
+  case LookCyan:
+    AutoMapPaint_Fill(r, on ? Rgb(0x00dade) : Rgb(0x000000));
+    text = on ? Rgb(0x000000) : Rgb(0x00dade);
+    break;
+  case LookBrass:
+  {
+    AutoMapPaint_Fill(r, on ? Rgb(0xffb500) : Rgb(0x6e3600));
+    AutoMapRect top = {r.x, r.y, r.w, 1};
+    AutoMapPaint_Fill(top, on ? Rgb(0xffe08a) : Rgb(0xa8603a));
+    text = on ? Rgb(0x4a1a00) : Rgb(0xffb500);
+    break;
+  }
+  default:
+    AutoMapPaint_Fill(r, on ? ON_FILL : BUTTON_FILL);
+    AutoMapPaint_Frame(r, on ? ON_FILL : BUTTON_FRAME, 1);
+    text = on ? ON_TEXT : BUTTON_TEXT;
+    break;
+  }
+  AutoMapPaint_Text(r.x + 5 * PIXEL / 2, r.y + 2 * PIXEL, label, text, PIXEL);
+}
+
 void AutoMapBar_Draw(int width)
 {
   items = ItemsNow();
   std::vector<std::string> labels, shown;
   for (size_t i = 0; i < items.size(); i++) labels.push_back(items[i].label);
-  itemRects = AutoMapLayout_PackBar(labels, width, PIXEL, &shown);
-  int reach = itemRects.empty() ? 0 : itemRects.back().x + itemRects.back().w + 3 * PIXEL;
+  AutoMapBarSpacing spacing = Spacing();
+  itemRects = AutoMapLayout_PackBarSpaced(labels, width, PIXEL, spacing, &shown);
+  int reach = itemRects.empty() ? 0
+                                : itemRects.back().x + itemRects.back().w + spacing.groupFrame + 3 * PIXEL;
   barScroll = std::max(0, std::min(barScroll, reach - width));
-  AutoMapRect bar = {0, 0, width, AutoMapBar_Height()};
-  AutoMapPaint_Fill(bar, BAR_FILL);
-  AutoMapRect line = {0, AutoMapBar_Height() - 1, width, 1};
-  AutoMapPaint_Fill(line, BAR_LINE);
+  DrawBarBack(width);
   for (size_t i = 0; i < itemRects.size(); i++)
   {
     itemRects[i].x -= barScroll;
@@ -133,31 +313,40 @@ void AutoMapBar_Draw(int width)
     if (items[i].action == ActionShow) showButtonX = r.x;
     if (items[i].action == ActionLevelList) levelButtonX = r.x;
     if (items[i].action == ActionSearch) searchButtonX = r.x + r.w / 2;
-    if (items[i].action == ActionNone)
-    {
-      AutoMapPaint_Text(r.x, r.y + 2 * PIXEL, shown[i], CAPTION_TEXT, PIXEL);
-      continue;
-    }
-    AutoMapPaint_Fill(r, items[i].on ? ON_FILL : BUTTON_FILL);
-    AutoMapPaint_Frame(r, items[i].on ? ON_FILL : BUTTON_FRAME, 1);
-    AutoMapPaint_Text(r.x + 5 * PIXEL / 2, r.y + 2 * PIXEL, shown[i], items[i].on ? ON_TEXT : BUTTON_TEXT, PIXEL);
+  }
+  // The groups' frames first: a group starts at a label marked '|' or '^'
+  for (size_t first = 0; first < itemRects.size();)
+  {
+    size_t end = first + 1;
+    while (end < itemRects.size() && labels[end][0] != '|' && labels[end][0] != '^') end++;
+    AutoMapRect span = itemRects[first];
+    span.w = itemRects[end - 1].x + itemRects[end - 1].w - span.x;
+    DrawGroupBack(span);
+    first = end;
+  }
+  for (size_t i = 0; i < itemRects.size(); i++)
+  {
+    if (items[i].action == ActionNone) DrawCaption(itemRects[i], shown[i]);
+    else DrawButton(itemRects[i], shown[i], items[i].on);
   }
   // The bar reaches past the window: arrows at the clipped ends scroll it
   scrollLeft = barScroll > 0;
   scrollRight = reach - barScroll > width;
   barWidth = width;
   int arrowW = 9 * PIXEL;
+  int arrowH = AutoMapBar_Height() - (look == LookStone ? 3 : 1);
+  int arrowTop = look == LookStone ? 1 : 0;
   if (scrollLeft)
   {
-    AutoMapRect arrow = {0, 0, arrowW, AutoMapBar_Height() - 1};
-    AutoMapPaint_Fill(arrow, BAR_FILL);
-    AutoMapPaint_Text(3 * PIXEL, 4 * PIXEL, "<", GOLD, PIXEL);
+    AutoMapRect arrow = {0, arrowTop, arrowW, arrowH};
+    AutoMapPaint_Fill(arrow, BarFill());
+    AutoMapPaint_Text(3 * PIXEL, 4 * PIXEL, "<", ArrowColour(), PIXEL);
   }
   if (scrollRight)
   {
-    AutoMapRect arrow = {width - arrowW, 0, arrowW, AutoMapBar_Height() - 1};
-    AutoMapPaint_Fill(arrow, BAR_FILL);
-    AutoMapPaint_Text(width - arrowW + 3 * PIXEL, 4 * PIXEL, ">", GOLD, PIXEL);
+    AutoMapRect arrow = {width - arrowW, arrowTop, arrowW, arrowH};
+    AutoMapPaint_Fill(arrow, BarFill());
+    AutoMapPaint_Text(width - arrowW + 3 * PIXEL, 4 * PIXEL, ">", ArrowColour(), PIXEL);
   }
 }
 
@@ -256,6 +445,7 @@ static const char *const HELP[][2] = {
     {"HOVER", "WHAT IS THERE, AND ITS LINKS"},
     {"SHIFT", "THE WHOLE PRESS CHAIN (SPOILERS ALL)"},
     {"SHIFT+WHEEL", "SCROLL A LONG TOOLTIP"},
+    {"CTRL+WHEEL", "SIZE OF THE TOOLTIP"},
     {"RIGHT-CLICK", "YOUR OWN MARKS AND LINKS"},
     {"", ""},
     {"", "CLICK ANYWHERE TO CLOSE"}};
@@ -263,8 +453,15 @@ static const int HELP_ROWS = sizeof(HELP) / sizeof(HELP[0]);
 
 static void DrawHelp(int width)
 {
-  int keyW = AutoMapPaint_TextWidth("PAGE DOWN / UP", PIXEL) + 20;
-  int w = keyW + AutoMapPaint_TextWidth("LEVEL DOWN / UP UNDER THE POINTER", PIXEL) + 20;
+  // Measured from the rows, so a longer line never runs out of the box
+  int keyW = 0, textW = 0;
+  for (int i = 0; i < HELP_ROWS; i++)
+  {
+    keyW = std::max(keyW, AutoMapPaint_TextWidth(HELP[i][0], PIXEL));
+    textW = std::max(textW, AutoMapPaint_TextWidth(HELP[i][1], PIXEL));
+  }
+  keyW += 20;
+  int w = 10 + keyW + textW + 10;
   int h = HELP_ROWS * ROW + 30;
   AutoMapRect panel = {std::max(4, (width - w) / 2), AutoMapBar_Height() + 30, w, h};
   AutoMapPaint_Fill(panel, PANEL_FILL);

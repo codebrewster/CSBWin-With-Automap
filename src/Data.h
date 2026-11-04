@@ -1593,6 +1593,10 @@ public:
   void AdjustTimerPriority(HTIMER hTimer);
   void AdjustTimerQueue(i32 timerQueueIndex);
   /*inline*/ TIMER *pTimer(HTIMER i); //{return m_timers+i;};
+  // The queued timers, in queue order, for readers that change nothing (the map). Unlike
+  // TIMER_SEARCH this may run while a search is going on.
+  i32 QueuedTimerCount(void) const {return m_numTimer;};
+  TIMER *QueuedTimer(i32 i) {return pTimer(m_timerQueue[i]);};
   //void DeleteTimer(TIMER_SEARCH& timerSearch);
   void DeleteTimer(HTIMER timerIndex, const char *tag = NULL);
   HTIMER SetTimer(TIMER *pNewTimer);
