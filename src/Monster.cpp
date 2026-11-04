@@ -4560,6 +4560,7 @@ i16 MonsterDamagesCharacter(DB4 *pDB4,i32 chIdx, bool supressPoison)
   w_2 = sw(2 * d.pCurLevelDesc->experienceMultiplier());
   memmove(&mtDesc, &d.MonsterDescriptor[DB4A3->monsterType()],26);
   // local copy of monster descriptor
+  HeroStats_ExperienceFromMonster(DB4A3->monsterType());
   AdjustSkills(chIdx, 7, mtDesc.word16_8_11(), ASW_MonsterDamagesCharacter);
   if (d.PartySleeping == 0)
   {

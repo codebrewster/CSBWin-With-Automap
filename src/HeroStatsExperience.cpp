@@ -47,6 +47,20 @@ std::string HeroXp_RankName(int rank)
   return NAMES[rank - 2];
 }
 
+int HeroXp_Mastery(int experience, int *percentToNext)
+{
+  int mastery = 1;
+  long long low = 0, high = 500;
+  while (experience >= high)
+  {
+    mastery++;
+    low = high;
+    high *= 2;
+  }
+  if (percentToNext != NULL) *percentToNext = (int)((experience - low) * 100 / (high - low));
+  return mastery;
+}
+
 void HeroStatsExperience::Forget(void)
 {
   m_gained.clear();

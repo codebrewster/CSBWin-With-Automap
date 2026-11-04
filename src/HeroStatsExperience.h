@@ -38,6 +38,10 @@ const char *HeroXp_SkillName(int skill);  // "Swing" ... "Water"; 0-3: the class
 // at 16: 1 shows no rank (""), 2 Neophyte ... 9 Expert, 10-15 the masters (the game writes their
 // rune with a glyph: Lo, Um, On, Ee, Pal, Mon), 16 Archmaster
 std::string HeroXp_RankName(int rank);
+// The mastery of a class's experience as DetermineMastery(slot, cls | 0xc000) finds it awake (asleep
+// the game reports 1): 1 below 500, one more for each doubling. percentToNext (may be NULL): how
+// far the experience is from this mastery's threshold to the next one's, 0-99.
+int HeroXp_Mastery(int experience, int *percentToNext);
 
 struct HeroXpRow { int skill; HeroXpSource source; int amount; };
 // A class reached a new rank: the source is the gain that did it

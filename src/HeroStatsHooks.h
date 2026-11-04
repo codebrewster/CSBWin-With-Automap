@@ -244,4 +244,23 @@ void HeroStats_OnHpRegenerated(int slot, int amount);
 void HeroStats_OnPotionDrunk(int slot, int potionIndex, int hpGained, int manaGained);
 void HeroStats_OnResurrected(HeroStatsChampion who);
 
+// Experience. Every gain goes through AdjustSkills (or AddToSkill, a script's). The call sites
+// that know where it comes from name it right before the call; AdjustSkills takes the source as
+// its first statement, so a call that returns early leaves nothing behind for the next one.
+void HeroStats_ExperienceFromAttack(int slot, int attackType);   // a blow, shot, or item's spell
+void HeroStats_ExperienceFromAction(int slot, int attackType);   // War Cry, Calm, Brandish ...
+void HeroStats_ExperienceFromThrow(int slot, RN item);
+void HeroStats_ExperienceFromSpell(int slot, uint32_t spell);    // runes cast, failed or not
+void HeroStats_ExperienceFromMonster(int monsterType);           // a monster attacks: Parry
+HeroXpSource HeroStats_TakeExperienceSource(void);               // none named: Other
+// The skill's experience rose by gained, after the level's multiplier, the combat bonus, the
+// dungeon's filter and the game's limit
+void HeroStats_OnExperienceGained(int slot, int skill, int gained, const HeroXpSource &source);
+// AdjustSkills is about to call LevelUp: the class reached rank (its mastery). The source is the
+// gain just counted.
+void HeroStats_OnRankGained(int slot, int cls, int rank);
+// The champion's rank in the class now and how far to the next (HeroXp_Mastery of the class's
+// experience); -1 when the champion is not in the party
+int HeroStats_RankNow(HeroStatsChampion who, int cls, int *percentToNext);
+
 #endif

@@ -449,6 +449,7 @@ void PhysicalAttackFilter(ATTACKPARAMETERS *pParam, FILTER *pFilter, const char 
   };
   if (pParam->attdep.physicalAttack.skillAdjust != 0)
   {
+    HeroStats_ExperienceFromAttack(pParam->charIdx, pParam->attackType);
     AdjustSkills(pParam->charIdx,
                  pParam->skillNumber,
                  pParam->attdep.physicalAttack.skillAdjust,
@@ -1556,6 +1557,7 @@ i32 WarCryEtc(ATTACKPARAMETERS *pParam,
     pi16_4->uByte5 = D0B;
     success = 1;
   };
+  HeroStats_ExperienceFromAction(pParam->charIdx, pParam->attackType);
   AdjustSkills(pParam->charIdx, 14, pParam->attdep.warcryetc.skillIncrement, ASW_WarCryEtc);
   return success;
 }
@@ -2190,6 +2192,7 @@ RESTARTABLE _Attack(const i32 initialChIdx, const ATTACKTYPE initialAttackType)
   };
   if (pParam->experienceGained != 0)
   {
+    HeroStats_ExperienceFromAttack(pParam->charIdx, pParam->attackType);
     AdjustSkills(pParam->charIdx, pParam->skillNumber, pParam->experienceGained, ASW_Attack);
   };
   if (TimerTraceActive)

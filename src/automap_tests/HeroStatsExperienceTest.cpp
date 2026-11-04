@@ -140,8 +140,22 @@ static void RankNamesAreTheGames(void)
   CHECK(HeroXp_RankName(0) == "");
 }
 
+// As DetermineMastery counts it without the items held: 1 below 500, one more for each doubling
+static void MasteryFollowsTheGame(void)
+{
+  int percent = -1;
+  CHECK(HeroXp_Mastery(0, &percent) == 1 && percent == 0);
+  CHECK(HeroXp_Mastery(250, &percent) == 1 && percent == 50);
+  CHECK(HeroXp_Mastery(500, &percent) == 2 && percent == 0);
+  CHECK(HeroXp_Mastery(750, &percent) == 2 && percent == 50);
+  CHECK(HeroXp_Mastery(1000, &percent) == 3);
+  CHECK(HeroXp_Mastery(500 << 14, &percent) == 16);
+  CHECK(HeroXp_Mastery(999, NULL) == 2);
+}
+
 void TestHeroStatsExperience(void)
 {
+  MasteryFollowsTheGame();
   HiddenSkillsAddUpToTheirClass();
   RowsKeepTheirSource();
   RankUpsAreNewestFirst();

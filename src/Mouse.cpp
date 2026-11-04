@@ -749,6 +749,7 @@ i16 ThrowByCharacter(i32 chIdx,i16 hand,i16 LeftOrRight, int disableTime,
       D6W = sw(D6W + D5W/4);
     };
   };
+  HeroStats_ExperienceFromThrow(chIdx, objD4);
   AdjustSkills(chIdx, 10, D6W, ASW_ThrowByCharacter);
   D7W = sw(D7W + D5W);
   D5W = (i16)DetermineMastery(chIdx, 10); // Skill #10

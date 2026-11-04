@@ -195,6 +195,9 @@ void LevelUp(i32 chIdx, i32 basicSkill) // Fighter, ninja, etc.
 //   TAG01605a
 void AdjustSkills(i32 chIdx,i32 skillNumber,i32 experience, i32 why)
 {//(void)
+  // Taken first: a call that returns early leaves no source for the next one
+  HeroXpSource heroStatsSource = HeroStats_TakeExperienceSource();
+  i32 heroStatsBefore;
   //dReg D6;
   SKILL *psA3;
   CHARDESC *pcA2;
@@ -326,8 +329,10 @@ void AdjustSkills(i32 chIdx,i32 skillNumber,i32 experience, i32 why)
   if (experience == 0) return;
 
 
+  heroStatsBefore = psA3->experience;
   psA3->experience += (UI16)(experience);
   psA3->experience = LimitSkillExperience(psA3->experience);
+  HeroStats_OnExperienceGained(chIdx, skillNumber, (i32)(psA3->experience - heroStatsBefore), heroStatsSource);
   if (TimerTraceActive)
   {
     fprintf(GETFILE(TraceFile),"skill[%02x]=%08x ",skillNumber, psA3->experience);
@@ -362,6 +367,7 @@ void AdjustSkills(i32 chIdx,i32 skillNumber,i32 experience, i32 why)
   {
     fprintf(GETFILE(TraceFile)," LevelUp\n");
   };
+  HeroStats_OnRankGained(chIdx, basicSkill, newMastery);
   LevelUp(chIdx, basicSkill);
 }
 
@@ -370,6 +376,7 @@ void AdjustSkills(i32 chIdx,i32 skillNumber,i32 experience, i32 why)
 //   TAG01605a
 void AddToSkill(i32 chIdx,i32 skillNumber,i32 experience)
 {//(void)
+  i32 heroStatsBefore;
   //dReg D6;
   SKILL *psA3;
   CHARDESC *pcA2;
@@ -417,8 +424,10 @@ void AddToSkill(i32 chIdx,i32 skillNumber,i32 experience)
   if (experience <= 0) return;
 
 
+  heroStatsBefore = psA3->experience;
   psA3->experience += (UI16)(experience);
   psA3->experience = LimitSkillExperience(psA3->experience);
+  HeroStats_OnExperienceGained(chIdx, skillNumber, (i32)(psA3->experience - heroStatsBefore), HeroXpSource_Other());
   if (TimerTraceActive)
   {
     fprintf(GETFILE(TraceFile),"skill[%02x]=%08x ",skillNumber, psA3->experience);
@@ -450,6 +459,7 @@ void AddToSkill(i32 chIdx,i32 skillNumber,i32 experience)
   {
     fprintf(GETFILE(TraceFile)," LevelUp");
   };
+  HeroStats_OnRankGained(chIdx, basicSkill, newMastery);
   LevelUp(chIdx, basicSkill);
 }
 
@@ -1238,6 +1248,7 @@ i16 CastSpell(i16 chIdx, SPELL_PARAMETERS& spellParameters)
       D1L = Smaller(pcA3->Attributes[Wisdom].Current()+15, 115);
       if (D0W > D1W)
       {
+        HeroStats_ExperienceFromSpell(chIdx, HeroStats_RuneSpellKey(incantation));
         AdjustSkills(chIdx,             //chIdx
                      spellByte5,        //Which skill
                      w_4 >> (D4W-D6W), //Experience gained
@@ -1413,6 +1424,7 @@ tag01cdaa:
       }; //switch
   }; // switch
   HeroStats_OnSpellCast(chIdx, HeroStats_RuneSpellKey(incantation));
+  HeroStats_ExperienceFromSpell(chIdx, HeroStats_RuneSpellKey(incantation));
   AdjustSkills(chIdx,          //chIdx
                spellByte5,     //Which skill
                w_4,            //Experience gained

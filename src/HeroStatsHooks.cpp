@@ -94,12 +94,21 @@ std::vector<HeroStatsChampion> HeroStats_PartyNow(void)
   return party;
 }
 
+static int ClassMastery(int slot, int cls, int *percentToNext)
+{
+  return HeroXp_Mastery((int)d.hero[slot].skills92[cls].experience, percentToNext);
+}
+
 static void MeetHero(int slot)
 {
   char name[sizeof d.hero[slot].name + 1];
   memcpy(name, d.hero[slot].name, sizeof d.hero[slot].name);
   name[sizeof d.hero[slot].name] = 0;
   store.MeetChampion(d.hero[slot].fingerPrint, name);
+  // The ranks the statistics first saw: a new champion's, or an old save's on its first load
+  HeroStatsChampion who = d.hero[slot].fingerPrint;
+  if (store.Experience().StartRank(who, 0) < 0)
+    for (int cls = 0; cls < HERO_XP_CLASS_COUNT; cls++) store.Experience().SetStartRank(who, cls, ClassMastery(slot, cls, NULL));
 }
 
 static void MeetParty(void)
@@ -985,4 +994,84 @@ void HeroStats_OnPotionDrunk(int slot, int potionIndex, int hpGained, int manaGa
 void HeroStats_OnResurrected(HeroStatsChampion who)
 {
   store.CountResurrection(who, PartyLevel());
+}
+
+// ---------------------------------------------------------------------------------------------
+// Experience
+
+static bool experienceSourceSet = false;
+static HeroXpSource experienceSource;
+static HeroXpSource lastExperienceSource;  // the gain just counted, for the rank it brings
+
+static void SetExperienceSource(HeroXpSourceKind kind, int weapon, int option, uint32_t spell, int monsterType)
+{
+  experienceSource = HeroXpSource_Other();
+  experienceSource.kind = kind;
+  experienceSource.weapon = weapon;
+  experienceSource.option = option;
+  experienceSource.spell = spell;
+  experienceSource.monsterType = monsterType;
+  experienceSourceSet = true;
+}
+
+void HeroStats_ExperienceFromAttack(int slot, int attackType)
+{
+  if (IsHero(slot)) SetExperienceSource(HeroXpAttack, HeroStats_WeaponInHand(slot), attackType, HERO_STATS_NO_SPELL, -1);
+}
+
+void HeroStats_ExperienceFromAction(int slot, int attackType)
+{
+  if (IsHero(slot)) SetExperienceSource(HeroXpOtherAction, HeroStats_WeaponInHand(slot), attackType, HERO_STATS_NO_SPELL, -1);
+}
+
+void HeroStats_ExperienceFromThrow(int slot, RN item)
+{
+  if (IsHero(slot)) SetExperienceSource(HeroXpAttack, HeroStats_WeaponOf(item), HERO_STATS_THROW_OPTION, HERO_STATS_NO_SPELL, -1);
+}
+
+void HeroStats_ExperienceFromSpell(int slot, uint32_t spell)
+{
+  if (IsHero(slot)) SetExperienceSource(HeroXpSpell, HERO_STATS_NO_WEAPON, HERO_STATS_NO_OPTION, spell, -1);
+}
+
+void HeroStats_ExperienceFromMonster(int monsterType)
+{
+  SetExperienceSource(HeroXpMonster, HERO_STATS_NO_WEAPON, HERO_STATS_NO_OPTION, HERO_STATS_NO_SPELL, monsterType);
+}
+
+HeroXpSource HeroStats_TakeExperienceSource(void)
+{
+  HeroXpSource source = experienceSourceSet ? experienceSource : HeroXpSource_Other();
+  experienceSourceSet = false;
+  return source;
+}
+
+void HeroStats_OnExperienceGained(int slot, int skill, int gained, const HeroXpSource &source)
+{
+  if (!IsHero(slot) || gained <= 0) return;
+  MeetHero(slot);
+  lastExperienceSource = source;
+  store.Experience().Credit(d.hero[slot].fingerPrint, PartyLevel(), skill, source, gained);
+}
+
+void HeroStats_OnRankGained(int slot, int cls, int rank)
+{
+  if (!IsHero(slot) || cls < 0 || cls >= HERO_XP_CLASS_COUNT) return;
+  MeetHero(slot);
+  HeroRankUp up;
+  up.who = d.hero[slot].fingerPrint;
+  up.level = PartyLevel();
+  up.cls = cls;
+  up.rank = rank;
+  up.time = (uint32_t)d.Time;
+  up.source = lastExperienceSource;
+  store.Experience().CountRankUp(up);
+}
+
+int HeroStats_RankNow(HeroStatsChampion who, int cls, int *percentToNext)
+{
+  if (percentToNext != NULL) *percentToNext = 0;
+  for (int slot = 0; slot < d.NumCharacter && slot < 4; slot++)
+    if (d.hero[slot].fingerPrint == who) return ClassMastery(slot, cls, percentToNext);
+  return -1;
 }
