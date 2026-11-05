@@ -16,9 +16,15 @@ saw to the whole dungeon laid open.
 setting.
 
 The **Statistics** window beside it shows what each champion did, for the whole run and per
-level: damage, kills, attacks, spells, healing, deaths, food and the party's exploration. It
-can be exported as one HTML file to share. See the
+level: damage, kills, attacks, spells, healing, deaths, food, experience, records and the
+party's exploration. It can be exported as one HTML file to share. See the
 **[Statistics manual](docs/statistics-manual.md)**.
+
+**Record a game and replay it.** Every input goes into a small `.log` file, and the replay
+runs the same game again, tick by tick. Pause it with Space and run it at any speed from
+0.5x to 64x. Recordings made with Paul Stevens' CSBwin 17.6 play too, so a classic run
+from the forum can be watched again. The map and the statistics fill up while the replay
+runs. See the **[recording manual](docs/recording-manual.md)**.
 
 ## Download
 
@@ -42,6 +48,8 @@ next to the program:
    into `fonts`, named `diogenes.ttf` and `OldeEnglish.ttf`.
 4. **Play:** start `csb.exe`, or `./csb` on Linux, and open the map with
    **Misc → Map → Window** and the statistics with **Misc → Statistics → Window**.
+   Record a game with **File → Record**, and replay one with **File → Playback..** at the
+   prison door.
 
 Copy only the files named above: the other packages also hold a program and a
 `csb.cfg` that would replace this one. `HOW-TO-PLAY.txt` in each release
@@ -125,11 +133,13 @@ A legend behind the **?** button explains every mark on the map.
 
 - A window of its own, opened with **Misc → Statistics → Window**, that counts while you play
   and opens by itself when you win.
-- Seven topics: **Overview**, **Combat**, **Magic**, **Survival**, **Food & items**,
-  **Exploration** and **Monsters**. Each shows its main numbers as tiles, every number of the
-  topic with one column per champion and the party, and detail tables: attacks by weapon and
-  action, spells, damage taken by source (which monster's fireball, which pit, whose friendly
-  fire), healing, deaths with their causes, food and drink, items, monsters killed.
+- Nine topics: **Overview**, **Combat**, **Magic**, **Survival**, **Food & items**,
+  **Exploration**, **Monsters**, **Experience** and **Records**. Each shows its main numbers as
+  tiles, every number of the topic with one column per champion and the party, and detail
+  tables: attacks by weapon and action, spells, damage taken by source (which monster's
+  fireball, which pit, whose friendly fire), healing, deaths with their causes, food and drink,
+  items, monsters killed, experience by source and ranks gained, and records such as the
+  biggest hit, the closest call and the longest kill streak.
 - **Whole run**, any single level, or **Per level**: one row per level, for the party's totals
   or one number with the champions side by side.
 - One click switches between the **Party** and each champion; the topic stays.
@@ -139,6 +149,22 @@ A legend behind the **?** button explains every mark on the map.
   topic, champion and level, sortable and foldable, with nothing loaded from the internet.
 - Kept in the save's `.map` file (a zip archive, about a sixth of the size it had before);
   saves from before the statistics load with empty statistics.
+
+### Record a game, replay it at up to 64x
+
+- **File → Record** writes every input of a game into a `RecordNNNNN.log` (in the `logs` folder
+  when the game folder has one); a red **REC** on the menu bar shows it is on. The files are small.
+- **File → Playback..** replays one, tick by tick, with the same fights, deaths and win.
+- **Pause** and resume with **Space**, at any moment.
+- **Eight speeds**, 0.5x, 1x, 2x, 4x, 8x, 16x, 32x and 64x, with **+** and **-** or from the
+  **Replay** menu. The speed never changes what happens in the replay; nothing is skipped.
+- **Old recordings play too**: playfiles made with Paul Stevens' CSBwin 17.6, such as
+  Antman's Dungeon Master run, replay to their end, so runs shared on the forum can be watched
+  again with the `dungeon.dat` they were recorded with.
+- **Stop the replay and play on** from that point, or let it run out: the game is then yours.
+- The map and the statistics fill up as the replay runs, and both exports work during and after
+  it: a replay turns any recorded run into a map and a statistics page. See the
+  [manual](docs/recording-manual.md).
 
 ### Testing aids
 
@@ -170,6 +196,7 @@ this repository; see [Game data and community](#game-data-and-community).
 - Windows: [BUILDING-WINDOWS.md](BUILDING-WINDOWS.md)
 - How to use the map: [docs/automap-manual.md](docs/automap-manual.md)
 - How to use the Statistics window: [docs/statistics-manual.md](docs/statistics-manual.md)
+- Recording and replaying a game: [docs/recording-manual.md](docs/recording-manual.md)
 - Code map and internals: [docs/automap.md](docs/automap.md) and, for the statistics,
   [docs/statistics.md](docs/statistics.md)
 - Visibility rules in detail: [docs/automap-visibility.md](docs/automap-visibility.md)
