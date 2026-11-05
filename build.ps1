@@ -65,8 +65,9 @@ $CppSources = @(
     'AutoMapMonsterDamage', 'AutoMapVisibilityCases', 'AutoMapWindow',
     'AutoMapHooks', 'AutoMapRecorder',
     'AutoMapLevelReader', 'AutoMapSprites', 'AutoMapMeasure', 'AutoMapExport', 'AutoMapPaint', 'AutoMapLayout', 'AutoMapBar', 'AutoMapZip', 'AutoMapHtml', 'AutoMapExportChoice', 'AutoMapExportDialog', 'AutoMapTickRate',
-    'ShotMissiles',
-    'HeroStats', 'HeroStatsCatalogue', 'HeroStatsOrigins', 'HeroStatsPending',
+    'ShotMissiles', 'PlaybackControl',
+    'HeroStats', 'HeroStatsExperience', 'HeroStatsRecords',
+    'HeroStatsCatalogue', 'HeroStatsOrigins', 'HeroStatsPending',
     'HeroStatsRunes', 'HeroStatsDump', 'HeroStatsGame', 'HeroStatsView',
     'HeroStatsPages', 'HeroStatsExport', 'HeroStatsHooks', 'HeroStatsWindow',
     'HeroStatsDraw'
