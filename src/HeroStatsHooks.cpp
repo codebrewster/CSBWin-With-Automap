@@ -249,6 +249,11 @@ static void MeetNewChampions(void)
   metCount = count;
 }
 
+void HeroStats_OnFusionTick(void)
+{
+  store.CountTick(d.partyLevel, d.PartySleeping != 0);
+}
+
 void HeroStats_OnPartyOnLevel(void)
 {
   MarkPartyLevelVisited();

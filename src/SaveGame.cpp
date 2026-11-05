@@ -403,7 +403,8 @@ i32 ReadExtendedFeatures(i32 handle)
   RecordFile_Record(DM_rules ? "#DMRules\n" : "#NoDMRules\n");
   drawAsSize4Monsters =
        (efb.extendedFlags & EXTENDEDFEATURESBLOCK::DrawAsSize4Monsters) != 0;
-  if ((efb.flags & EXTENDEDFEATURESBLOCK::AutoRecord) != 0) {
+  // A replay never records, so it does not ask
+  if ((efb.flags & EXTENDEDFEATURESBLOCK::AutoRecord) != 0 && !IsPlayFileOpen()) {
       if (UI_MessageBox("This dungeon asks to create a recording file.\nDo you agree ?", NULL, MESSAGE_YESNO) == MESSAGE_IDYES)
 	  RecordDesignOption = 1;
   }

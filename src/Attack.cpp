@@ -2242,6 +2242,7 @@ RESTARTABLE _ProcessTimersViewportAndSound(void)
   DrawViewport(d.partyFacing, d.partyX, d.partyY);
   display();
   StartQueuedSound();
+  HeroStats_OnFusionTick();
   d.Time++;
   if ((currentOverlay.m_p3 != 0) && (currentOverlay.m_p3 < d.Time)) overlayActive = false;
   parameterMessageSequence = 0;
@@ -2317,7 +2318,7 @@ RESTARTABLE _FusionSequence(void)
     RESTART(14)
     RESTART(15)
     RESTART(16)
-    // RESTART(17)
+    RESTART(17)
     // RESTART(18)
     // RESTART(19)
     RESTART(20)
@@ -2478,6 +2479,7 @@ RESTARTABLE _FusionSequence(void)
       {
         TAG00187e();
         b_226[1] = 10;
+	{ // Scoped, so the return from the tick below does not jump into it
 	char *s = (char*)b_226+1;
 	if (*s < 32) s++; // may start by 10
 	const char *tr = TranslateLanguage(s);
@@ -2486,6 +2488,7 @@ RESTARTABLE _FusionSequence(void)
 	strcpy(&s2[1],tr);
         PrintLines(15, s2);
 	delete [] s2;
+	}
 	// PrintLines calls ClockTick which sends everything on screen
 	// the only exception to this is when there is some scrolling to do...
 	// in this case it scrolls 1 screen line (not 1 text line) / vbl, which means that it needs 8 vbls to scroll 1 text line!
@@ -2500,7 +2503,8 @@ RESTARTABLE _FusionSequence(void)
 	    }
 	else
 	    display();
-        // ProcessTimersViewportAndSound(_17_);//TAG01fed6(_17_);
+        // One tick for each message, as in CSBwin 17.6: its final time is the one records quote
+        ProcessTimersViewportAndSound(_17_);//TAG01fed6(_17_);
         // VBLDelay(_18_,180);
 	my_Delay(9000);
         b_9++;

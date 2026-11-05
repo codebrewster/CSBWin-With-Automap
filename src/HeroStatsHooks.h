@@ -39,6 +39,9 @@ void HeroStats_OnGameSaved(void);
 // Only a change of level since the last mark (or a new or loaded game) touches the store.
 // It also counts the tick on that level, and whether the party slept through it.
 void HeroStats_OnPartyOnLevel(void);
+// The Chaos fusion runs its ticks in a loop of its own, past AutoMap_OnEngineTick: each one
+// still counts on the party's level, so the run's ticks end where the game's clock does.
+void HeroStats_OnFusionTick(void);
 // The player moved the party: MoveParty went to another square or up or down stairs, TurnParty
 // turned it (turning on stairs takes the stairs: a step). Bumping into a wall is neither.
 void HeroStats_OnPartyStepped(void);
