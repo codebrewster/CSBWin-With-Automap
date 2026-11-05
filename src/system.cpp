@@ -12,6 +12,7 @@
 
 #include "CSB.h"
 #include "Data.h"
+#include "PlaybackControl.h"
 
 #if defined _LINUX || defined CSB_CLASSIC_MAC
 #include "LinuxFileName.inl" // class FILENAME
@@ -554,8 +555,33 @@ void checkVBL(void)
   ui32 increment;
   ui64 delta;
   i32 pointX, pointY;
+  static PlaybackClock playbackClock;
+  static ui64 lastPausedPaint(0);
   CheckVBLCount++;
-  if ((NoSpeedLimit!=0) || NoClock)
+  // A replay that stands still or runs at other than 1x keeps its own clock (PlaybackControl.h);
+  // at 1x it runs on the game's clock below
+  bool replayPaced = IsPlayFileOpen()
+                  && (PlaybackControl_IsPaused() || ((PlaybackControl_Factor() != 1.0) && (NoSpeedLimit == 0)));
+  if (!replayPaced) playbackClock.Restart();
+  if (replayPaced)
+  {
+    ui64 now = UI_GetSystemTime();
+    bool paused = PlaybackControl_IsPaused();
+    forceVBL = playbackClock.Due(now, PlaybackControl_Factor(), paused, millisecondsPerVBL);
+    // The game does nothing while paused; the screen and menu bar are still shown
+    if (paused && (now - lastPausedPaint >= 50))
+    {
+      lastPausedPaint = now;
+      UI_Invalidate();
+#ifdef _LINUX
+      LIN_Invalidate();
+#endif
+    };
+    // Back on the game's clock, it starts afresh instead of making up the time
+    prevTime = now;
+    goal = actual;
+  }
+  else if ((NoSpeedLimit!=0) || NoClock)
   {
     forceVBL = true;
   }

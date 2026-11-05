@@ -19,6 +19,7 @@
 #include "AutoMapHooks.h"
 #include "AutoMapWindow.h"
 #include "HeroStatsWindow.h"
+#include "PlaybackControl.h"
 
 #include "Dispatch.h"
 #include "Objects.h"
@@ -308,6 +309,7 @@ extern bool PlaybackCommandOption;
 extern unsigned char *encipheredDataFile;// Oh?
 
 extern i32 NoSpeedLimit;
+extern i32 VBLMultiplier;
 extern i32 GameMode;
 extern i32 MostRecentlyAdjustedSkills[2];
 extern i32 LatestSkillValues[2];
@@ -789,7 +791,7 @@ void Process_ecode_IDC_Record(void)
   csbMessage.type = UIM_SETOPTION;
   csbMessage.p1 = OPT_RECORD;
   csbMessage.p2 = 1;
-  if (RecordMenuOption) csbMessage.p2 = 0;
+  if (RecordMenuOption || RecordfileIsOpen()) csbMessage.p2 = 0;
   if (CSBUI(&csbMessage) != UI_STATUS_NORMAL)
   {
     PostQuitMessage(0x13);
@@ -1204,6 +1206,7 @@ void Process_SDL_WINDOWEVENT(const SDL_Event &event)
 ImGuiIO io;
 static int drawn = 0;
 void post_render();
+static bool HandleReplayKey(const SDL_Event &event);
 extern bool saveRequestedFromMenu; // Mouse.cpp
 extern bool GameIsComplete;
 
@@ -1651,6 +1654,7 @@ int main(int argc, char* argv[])
 	AutoMapWindow_PaintIfDirty();
 	continue;
     }
+    if (!capturing_key && HandleReplayKey(evert)) continue;
     ImGui_ImplSDL2_ProcessEvent(&evert);
     if (imgui_active) {
 	switch(evert.type) {
@@ -1731,6 +1735,9 @@ int main(int argc, char* argv[])
 		MsgList[tb].messagetime--;
 	} */
     }
+    // A paused replay and the game won or lost do not wake the game's main loop, which rebuilds
+    // the map on its ticks or while the game is frozen: the map's level and settings still change
+    if ((PlayfileIsOpen() && PlaybackControl_IsPaused()) || GameIsOver()) AutoMap_OnClockStopped();
     AutoMapWindow_PaintIfDirty();
     HeroStatsWindow_Paint();
 
@@ -2375,8 +2382,111 @@ imgui_addons::ImGuiFileBrowser file_dialog; // As a class member or globally
 
 extern void ReadTranslationFile(char*);
 
+// ---------------------------------------------------------------------------------------------
+// Replay controls: speed and pause of a playback (PlaybackControl.h)
+
+static void SetReplaySpeed(int index)
+{
+  PlaybackControl_SetSpeedIndex(index);
+  // A chosen speed ends quick play (#NoSpeedLimit in the file, or --quick)
+  NoSpeedLimit = 0;
+  VBLMultiplier = 1;
+}
+
+// The player takes over where the replay stands
+static void StopReplay(void)
+{
+  if (!PlayfileIsOpen()) return;
+  Process_ecode_IDC_Playback();
+  PlaybackControl_Reset();
+  NoSpeedLimit = 0;
+  VBLMultiplier = 1;
+}
+
+// Space pauses, + and - change the speed. Taken before the game sees them: a key the game took
+// in the middle of a replay could only disturb it
+static bool HandleReplayKey(const SDL_Event &event)
+{
+  if (event.type != SDL_KEYDOWN || !PlayfileIsOpen()) return false;
+  if (ImGui::GetCurrentContext() != NULL && ImGui::GetIO().WantTextInput) return false;
+  switch (event.key.keysym.sym)
+  {
+  case SDLK_SPACE:
+  case SDLK_PAUSE:
+    if (!event.key.repeat) PlaybackControl_TogglePause();
+    return true;
+  case SDLK_PLUS:
+  case SDLK_EQUALS:
+  case SDLK_KP_PLUS:
+    SetReplaySpeed(PlaybackControl_SpeedIndex() + 1);
+    return true;
+  case SDLK_MINUS:
+  case SDLK_KP_MINUS:
+    SetReplaySpeed(PlaybackControl_SpeedIndex() - 1);
+    return true;
+  default:
+    return false;
+  }
+}
+
+static const char *ReplaySpeedLabel(void)
+{
+  return NoSpeedLimit != 0 ? "max" : PlaybackControl_LabelOf(PlaybackControl_SpeedIndex());
+}
+
+// The replay menu and, beside it on the bar, pause, slower, the speed, faster and the tick
+static void DrawReplayControls(bool &was_active)
+{
+  if (ImGui::BeginMenu(_("Replay")))
+  {
+    imgui_active = true;
+    was_active = true;
+    if (ImGui::MenuItem(_("Pause"), "Space", PlaybackControl_IsPaused())) PlaybackControl_TogglePause();
+    ImGui::Separator();
+    for (int i = 0; i < PLAYBACK_SPEED_COUNT; i++)
+    {
+      const char *shortcut = i == PlaybackControl_SpeedIndex() + 1 ? "+"
+                           : i == PlaybackControl_SpeedIndex() - 1 ? "-" : NULL;
+      bool chosen = NoSpeedLimit == 0 && i == PlaybackControl_SpeedIndex();
+      if (ImGui::MenuItem(PlaybackControl_LabelOf(i), shortcut, chosen)) SetReplaySpeed(i);
+    }
+    ImGui::Separator();
+    if (ImGui::MenuItem(_("Stop replay, play on from here"))) StopReplay();
+    ImGui::EndMenu();
+  }
+  if (ImGui::SmallButton(PlaybackControl_IsPaused() ? _("Resume") : _("Pause"))) PlaybackControl_TogglePause();
+  if (ImGui::SmallButton("-")) SetReplaySpeed(PlaybackControl_SpeedIndex() - 1);
+  ImGui::Text("%4s", ReplaySpeedLabel());
+  if (ImGui::SmallButton("+")) SetReplaySpeed(PlaybackControl_SpeedIndex() + 1);
+  if (PlaybackControl_IsPaused())
+    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), _("Paused at tick %d"), (int)d.Time);
+  else
+    ImGui::TextDisabled(_("tick %d"), (int)d.Time);
+  if (PlaybackControl_MutesSound() && NoSpeedLimit == 0) ImGui::TextDisabled(_("(fewer sounds)"));
+}
+
+static const char *RecordTooltip(void)
+{
+  if (PlayfileIsOpen()) return _("Not while a replay runs.");
+  if (RecordfileIsOpen()) return _("Recording into a RecordNNNNN.log in the logs folder. Choose again to stop.");
+  if (RecordMenuOption)
+    return _("Recording starts at the prison door of the next game, or when a saved game is loaded.");
+  if (BeginRecordOK) return _("Records this game from here into a RecordNNNNN.log in the logs folder.");
+  return _("Records the next game, from its prison door or when a saved game is loaded.");
+}
+
 void post_render() {
     static bool was_active;
+    // A replay that ended (its file ran out, the party died, or it was stopped) says so on the bar
+    // for a while; no message box, which would stop the game and its windows until answered
+    static bool replayWasOpen = false;
+    static Uint32 replayEndedAt = 0;
+    static int replayEndTick = 0;
+    if (PlayfileIsOpen()) replayEndTick = (int)d.Time;
+    if (replayWasOpen && !PlayfileIsOpen()) replayEndedAt = SDL_GetTicks() | 1;
+    if (!replayWasOpen && PlayfileIsOpen()) replayEndedAt = 0;
+    replayWasOpen = PlayfileIsOpen();
+    if (replayEndedAt != 0 && SDL_GetTicks() - replayEndedAt > 15000) replayEndedAt = 0;
     drawn = 1;
     SDL_Rect r;
     bool open = false,save = false,open_dungeon = false, open_playback = false;
@@ -2420,8 +2530,14 @@ void post_render() {
 				&& d.NumCharacter > 0 && d.PotentialCharacterOrdinal == 0 && !GameIsOver()))
 		save = true;
 	    // Limited playback in front the dungeon door
-	    if (ImGui::MenuItem(_("Playback.."), NULL,false,d.partyLevel == 255 && d.NumGraphic > 0))
+	    if (ImGui::MenuItem(_("Playback.."), NULL,false,d.partyLevel == 255 && d.NumGraphic > 0 && !PlayfileIsOpen()))
 		open_playback = true;
+	    // Recording keeps every input of a game in logs/RecordNNNNN.log, for Playback
+	    if (ImGui::MenuItem(_("Record"), NULL, RecordMenuOption || RecordfileIsOpen(),
+				d.NumGraphic > 0 && !PlayfileIsOpen() && !endSequencePlaying))
+		Process_ecode_IDC_Record();
+	    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+		ImGui::SetTooltip("%s", RecordTooltip());
 	    if (ImGui::MenuItem(_("Save params"), NULL))
 		save_conf();
 	    if (ImGui::MenuItem(_("Quit"), NULL))
@@ -2536,6 +2652,14 @@ void post_render() {
 		was_active = false;
 	    }
 	}
+
+	if (PlayfileIsOpen()) {
+	    DrawReplayControls(was_active);
+	} else if (replayEndedAt != 0) {
+	    ImGui::TextColored(ImVec4(0.6f, 0.9f, 0.6f, 1.0f), _("Replay ended at tick %d: you play on from here"), replayEndTick);
+	}
+	if (RecordfileIsOpen())
+	    ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), _("REC"));
 
 	if (show_coords && d.pLevelDescriptors) {
 	    // Apparently d.pLevelDescriptors becomes unavailable during the loading of a saved game...

@@ -25,6 +25,7 @@ int main(void)
   TestAutoMapExportChoice();
   TestAutoMapTickRate();
   TestShotMissiles();
+  TestPlaybackControl();
   TestHeroStats();
   TestHeroStatsOrigins();
   TestHeroStatsPending();

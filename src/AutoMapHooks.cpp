@@ -963,6 +963,8 @@ void AutoMap_OnEngineTick(void)
 // level, the vision, the spoilers, a forgotten level, a note. The main loop calls this while the
 // clock stands still, at the same settled point the tick would run, and the map rebuilds as it
 // does on a tick. Nothing in the dungeon moves meanwhile, so a rebuild reads what the party left.
+// The platform loop calls it too where the main loop does not run: a replay paused, the end
+// sequence and the screens after the game is won or lost.
 void AutoMap_OnClockStopped(void)
 {
   tickRate.Interrupt();

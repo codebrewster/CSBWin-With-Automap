@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "PlaybackControl.h"
 
 #include "UI.h"
 
@@ -39,6 +40,7 @@
 
 extern i32 NoSpeedLimit;
 extern i32 VBLMultiplier;
+bool IsPlayFileOpen(void);
 
 struct SNDHEAD
 {
@@ -588,7 +590,8 @@ void SOUNDER::Sound(char *wave, i32 attenuation,int size)
   // it again after you call us to play it!
   ASSERT(m_wave[0] != wave,"wave");
   ASSERT(wave != NULL,"wave");
-  if (VBLMultiplier != 1)
+  // At quick play, and in a replay from 4x on, sounds would only pile up
+  if ((VBLMultiplier != 1) || (IsPlayFileOpen() && PlaybackControl_MutesSound()))
   {
     UI_free(wave);
     return;

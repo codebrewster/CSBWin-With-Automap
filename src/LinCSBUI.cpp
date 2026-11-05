@@ -1,4 +1,5 @@
 // Keep imgui includes at the top to avoid the pragma pack in CSB.h
+#include "PlaybackControl.h"
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_sdlrenderer2.h"
@@ -65,6 +66,7 @@ extern bool PlayfileIsOpen();
 void PlayfileOpen(bool);
 void RecordfileOpen(bool);
 void RecordfilePreOpen(void);
+bool RecordfileIsOpen(void);
 extern bool BeginRecordOK;
 extern bool TimerTraceActive;
 extern bool AttackTraceActive;
@@ -143,10 +145,15 @@ i32 CSBUI(CSB_UI_MESSAGE *msg)
 	{
 		RecordMenuOption = true;
 		NoRecordMenuOption = false;
+		// At the prison door the recording starts now, as UI_BeginRecordOK starts it when
+		// Record was chosen before; elsewhere it starts at the next prison door or loaded game
+		if (BeginRecordOK) RecordfileOpen(true);
 	}
 	else {
-		//RecordfileOpen(true);
-		RecordfileOpen(false);
+		// A recording on disk ends here. Lines kept in memory at the prison door stay, so
+		// choosing Record again before entering still records from the start (SaveGame.cpp
+		// drops them when the game begins without Record)
+		if (RecordfileIsOpen()) RecordfileOpen(false);
 		RecordMenuOption = false;
 		NoRecordMenuOption = true;
 	}
@@ -317,6 +324,8 @@ i32 CSBUI(CSB_UI_MESSAGE *msg)
         //Then dispatch until nothing is left to do.  Then
         //call CheckVBL again.  Repeat entire process 10 times
         CallCheckVBL = VBLperTimer*VBLMultiplier; // do it 10 times
+        // A fast replay needs more chances for its blanks (PlaybackControl.h)
+        if (PlayfileIsOpen()) CallCheckVBL = PlaybackControl_ChecksPerTimer(VBLperTimer)*VBLMultiplier;
         break;
     case UIM_PAINT:
         display();

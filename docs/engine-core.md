@@ -124,9 +124,17 @@ Reads and writes savegames and the per-game state: byte-order swaps
 ## Recording.cpp — record and replay
 
 A built-in macro system: `RecordfileOpen`/`PlayfileOpen`
-(`Recording.cpp:1299`, `850`) open a recording or a playback, and the thin
+(`Recording.cpp:1300`, `851`) open a recording or a playback, and the thin
 `PlayFile_*`/`RecordFile_*` wrappers feed mouse events through it. This is how
-the game's "record your run" feature and the test traces work.
+the game's "record your run" feature and the test traces work. A replay takes its
+input by game tick, so it stays in step with CSBwin 17.6 playfiles as long as the
+engine does what 17.6 does tick for tick.
+
+The pace of a replay (pause, 0.5x to 64x) lives in `PlaybackControl.cpp` /
+`PlaybackControl.h`, which need neither the engine nor SDL and are tested by
+`make test`. `checkVBL` (`system.cpp:549`) takes its vertical blanks from a
+`PlaybackClock` while a replay is paused or not at 1x. The user side is in
+[recording-manual.md](recording-manual.md).
 
 ## Translation.cpp — text localisation
 

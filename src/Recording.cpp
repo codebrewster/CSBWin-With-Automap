@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "PlaybackControl.h"
 
 #include <stdio.h>
 #include <ctype.h>
@@ -192,6 +193,7 @@ void PLAYFILE::Open(void)
     };
   };
   STHideCursor(HC35);
+  PlaybackControl_Reset();
   m_eofEncountered = m_forceClose = false;
   tableXYF.Clear();
   tableTXYF.Clear();
@@ -252,10 +254,8 @@ bool PLAYFILE::Play(MouseQueueEnt *ent)
       d.RandomNumber ^= 0xaa00;
       RecordFile.Record(&tent);
       Close();
-      if (!RepeatGame)
-      {
-        UI_MessageBox("End Of PlaybackFile","Info",MESSAGE_OK);
-      };
+      // No message box: it would stop the game, the map and the statistics windows until
+      // answered. The menu bar says the replay ended (CSBlinux.cpp)
       if (!RepeatGame)
       {
         NoSpeedLimit = 0;

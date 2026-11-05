@@ -2280,6 +2280,7 @@ void my_Delay(int ms) {
 	    }
 	}
 	post_render();
+	AutoMap_OnClockStopped(); // the map's level and settings still change meanwhile
 	AutoMapWindow_PaintIfDirty();
 	HeroStatsWindow_Paint();
     }

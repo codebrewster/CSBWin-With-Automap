@@ -648,6 +648,6 @@ make -C src test
 runs `automap_tests/TestMain.cpp`, which calls `TestAutoMapExplored`,
 `TestAutoMapKnowledge`, `TestAutoMapSight`, `TestAutoMapFile`, `TestAutoMapScene`,
 `TestAutoMapSpoilers`, `TestAutoMapLinkWatch`, `TestAutoMapVision`, `TestAutoMapZip`, `TestAutoMapHtml`,
-`TestAutoMapExportChoice` and `TestShotMissiles`
-and prints `All tests passed`. The tests live in `src/automap_tests/`; the
+`TestAutoMapExportChoice`, `TestShotMissiles`, `TestPlaybackControl` and the `TestHeroStats*`
+suites, and prints `All tests passed`. The tests live in `src/automap_tests/`; the
 largest, `SceneTest.cpp`, covers the draw-list and tooltip rules.

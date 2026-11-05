@@ -35,6 +35,7 @@ void TestAutoMapHtml(void);
 void TestAutoMapExportChoice(void);
 void TestAutoMapTickRate(void);
 void TestShotMissiles(void);
+void TestPlaybackControl(void);
 void TestHeroStats(void);
 void TestHeroStatsOrigins(void);
 void TestHeroStatsPending(void);

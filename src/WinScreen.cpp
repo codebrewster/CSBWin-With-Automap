@@ -1466,16 +1466,20 @@ void DumpImages(void)
 ui8 prevScreen[32000];
 
 bool pc1, pc2;
-// After the game is won or lost the picture stands still, but presenting a frame is what draws
-// the menu bar and lets it take clicks: keep presenting there, 20 times a second
-static bool EndScreenNeedsFrame(void)
+// Presenting a frame is what draws the menu bar, its open menus and the replay controls. A
+// picture that stands still (the game frozen, a replay paused, the game won or lost) would leave
+// them unseen: present at least 20 times a second, changed or not
+static i64 lastPresentTime = 0;
+
+static void PresentScreen(void)
 {
-  static i64 lastFrameTime = 0;
-  if ((videoMode != VM_CAST) && (videoMode != VM_THEEND)) return false;
-  i64 now = UI_GetSystemTime();
-  if (now - lastFrameTime < 50) return false;
-  lastFrameTime = now;
-  return true;
+  lastPresentTime = UI_GetSystemTime();
+  UI_ScreenPresent();
+}
+
+static bool StillScreenNeedsFrame(void)
+{
+  return UI_GetSystemTime() - lastPresentTime >= 50;
 }
 
 void display (void){
@@ -1500,7 +1504,12 @@ void display (void){
     };
   };
 #endif
-  if ((VBLMultiplier!=1) && ((d.Time&0xf)!=0) && (VBLMultiplier!=99)) return;
+  if ((VBLMultiplier!=1) && ((d.Time&0xf)!=0) && (VBLMultiplier!=99))
+  {
+    // The picture is not copied now, but the menu bar still wants its frames
+    if (StillScreenNeedsFrame()) PresentScreen();
+    return;
+  };
   if (d.DynamicPaletteSwitching)
   {
     memcpy(palette1,&d.Palette11978, 32);
@@ -1655,11 +1664,11 @@ void display (void){
     if (areaChangedCount)
     {
       memcpy(prevScreen, physbase(), 32000);
-      UI_ScreenPresent();
+      PresentScreen();
     }
-    else if (EndScreenNeedsFrame())
+    else if (StillScreenNeedsFrame())
     {
-      UI_ScreenPresent();
+      PresentScreen();
     };
   };
 #ifdef _MOVIE
