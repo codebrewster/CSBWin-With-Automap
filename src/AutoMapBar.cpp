@@ -201,7 +201,7 @@ static void DrawBarBack(int width)
     AutoMapPaint_Fill(shade, Rgb(0x4a484a));
     AutoMapPaint_Fill(bottom, Rgb(0x000000));
   }
-  else AutoMapPaint_Fill(bottom, look == LookCyan ? Rgb(0x006d6f) : BAR_LINE);
+  else AutoMapPaint_Fill(bottom, BAR_LINE);
 }
 
 // Behind a group's cells: the frame, which shows between the cells as their dividers

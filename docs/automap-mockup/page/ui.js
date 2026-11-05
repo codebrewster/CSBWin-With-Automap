@@ -77,7 +77,7 @@ function drawBar() {
   const rects = packBar(items, tbar.width, false);
   const h = 26; barRect(0, 0, tbar.width, h, barFill());
   if (barLook === 'stone') { barRect(0, 0, tbar.width, 1, 0x949194); barRect(0, h - 2, tbar.width, 1, 0x4a484a); barRect(0, h - 1, tbar.width, 1, 0x000000); }
-  else barRect(0, h - 1, tbar.width, 1, barLook === 'cyan' ? 0x006d6f : 0x3a362f);
+  else barRect(0, h - 1, tbar.width, 1, 0x3a362f);
   // The groups' frames first: they show between the cells as their dividers
   for (let i = 0; i < rects.length;) { let e = i + 1; while (e < rects.length && !rects[e].starts) e++; const a = rects[i], b = rects[e - 1]; drawGroupBack({ x: a.x, y: a.y, w: b.x + b.w - a.x, h: a.h }); i = e; }
   for (const r of rects) {
