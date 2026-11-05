@@ -55,6 +55,112 @@ static ImU32 ChampionRgb(size_t column)
   return CHAMPION_RGB[column % 4];
 }
 
+// The record star and the arrow. Neither ImGui's own font nor Vera Mono has glyphs for them,
+// so text holding one is drawn in pieces with the symbol painted between them.
+static const char *const STAR = "\xe2\x98\x85";
+static const char *const ARROW = "\xe2\x86\x92";
+static const size_t SYMBOL_BYTES = 3; // both are three bytes in UTF-8
+
+// The next painted symbol in the text from a position, or npos
+static size_t NextSymbol(const std::string &text, size_t from)
+{
+  return std::min(text.find(STAR, from), text.find(ARROW, from));
+}
+
+static bool IsStar(const std::string &text, size_t at)
+{
+  return text.compare(at, SYMBOL_BYTES, STAR) == 0;
+}
+
+static float SymbolWidth(float fontSize, bool star)
+{
+  return fontSize * (star ? 0.75f : 0.9f);
+}
+
+static float TextPieceWidth(float fontSize, const std::string &text, size_t from, size_t end)
+{
+  return ImGui::GetFont()->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, text.c_str() + from, text.c_str() + end).x;
+}
+
+static float TextWidthWithSymbols(float fontSize, const std::string &text)
+{
+  float width = 0;
+  size_t from = 0;
+  for (;;)
+  {
+    size_t symbol = NextSymbol(text, from);
+    width += TextPieceWidth(fontSize, text, from, symbol == std::string::npos ? text.size() : symbol);
+    if (symbol == std::string::npos) return width;
+    width += SymbolWidth(fontSize, IsStar(text, symbol));
+    from = symbol + SYMBOL_BYTES;
+  }
+}
+
+static void DrawStar(ImDrawList *drawList, ImVec2 centre, float radius, ImU32 colour)
+{
+  ImVec2 points[10];
+  for (int i = 0; i < 10; i++)
+  {
+    float r = (i % 2) == 0 ? radius : radius * 0.42f;
+    float angle = -1.5707963f + i * 0.62831853f; // from the top, a tenth of a turn each
+    points[i] = ImVec2(centre.x + r * cosf(angle), centre.y + r * sinf(angle));
+  }
+  // Concave: a fan from the centre over each spike keeps it filled
+  for (int i = 0; i < 10; i++) drawList->AddTriangleFilled(centre, points[i], points[(i + 1) % 10], colour);
+}
+
+// A right arrow across the box, a little in from both ends
+static void DrawArrow(ImDrawList *drawList, ImVec2 min, float width, float fontSize, ImU32 colour)
+{
+  float y = min.y + fontSize * 0.5f;
+  float left = min.x + width * 0.15f, right = min.x + width * 0.85f;
+  float head = fontSize * 0.25f;
+  float thickness = std::max(1.0f, fontSize / 12.0f);
+  drawList->AddLine(ImVec2(left, y), ImVec2(right - head * 0.5f, y), colour, thickness);
+  drawList->AddTriangleFilled(ImVec2(right - head, y - head), ImVec2(right, y), ImVec2(right - head, y + head), colour);
+}
+
+static void TextWithSymbols(ImDrawList *drawList, float fontSize, ImVec2 at, ImU32 colour, const std::string &text)
+{
+  size_t from = 0;
+  for (;;)
+  {
+    size_t symbol = NextSymbol(text, from);
+    size_t end = symbol == std::string::npos ? text.size() : symbol;
+    drawList->AddText(ImGui::GetFont(), fontSize, at, colour, text.c_str() + from, text.c_str() + end);
+    at.x += TextPieceWidth(fontSize, text, from, end);
+    if (symbol == std::string::npos) return;
+    bool star = IsStar(text, symbol);
+    float width = SymbolWidth(fontSize, star);
+    if (star) DrawStar(drawList, ImVec2(at.x + width / 2, at.y + fontSize * 0.5f), width * 0.5f, colour);
+    else DrawArrow(drawList, at, width, fontSize, colour);
+    at.x += width;
+    from = symbol + SYMBOL_BYTES;
+  }
+}
+
+// TextColored for text that may hold a symbol: an item of its own, so hovering it still works
+static void TextPackedWithSymbols(ImU32 colour, const std::string &text)
+{
+  float fontSize = ImGui::GetFontSize();
+  ImVec2 at = ImGui::GetCursorScreenPos();
+  ImGui::Dummy(ImVec2(TextWidthWithSymbols(fontSize, text), ImGui::GetTextLineHeight()));
+  TextWithSymbols(ImGui::GetWindowDrawList(), fontSize, at, colour, text);
+}
+
+static void TextColoredWithSymbols(ImU32 rgb, const std::string &text)
+{
+  TextPackedWithSymbols(Packed(rgb), text);
+}
+
+// SetTooltip for text that may hold a symbol
+static void TooltipWithSymbols(const std::string &text)
+{
+  ImGui::BeginTooltip();
+  TextPackedWithSymbols(ImGui::GetColorU32(ImGuiCol_Text), text);
+  ImGui::EndTooltip();
+}
+
 void HeroStatsDraw_ApplyStyle(void)
 {
   ImGui::StyleColorsDark();
@@ -498,10 +604,10 @@ static bool SectionHeader(HeroStatsDrawState *state, int section, const char *ti
   if (open) drawList->AddTriangleFilled(ImVec2(cx - 4, cy - 2), ImVec2(cx + 4, cy - 2), ImVec2(cx, cy + 3), Packed(DIM_RGB));
   else drawList->AddTriangleFilled(ImVec2(cx - 2, cy - 4), ImVec2(cx - 2, cy + 4), ImVec2(cx + 3, cy), Packed(DIM_RGB));
   drawList->AddText(ImVec2(at.x + 16, at.y + 3), Packed(hovered ? WHITE_RGB : TEXT_RGB), upper.c_str());
-  float summaryWidth = ImGui::CalcTextSize(summary.c_str()).x;
+  float summaryWidth = TextWidthWithSymbols(ImGui::GetFontSize(), summary);
   float titleEnd = at.x + 16 + ImGui::CalcTextSize(upper.c_str()).x + 20;
   if (at.x + width - summaryWidth > titleEnd)
-    drawList->AddText(ImVec2(at.x + width - summaryWidth, at.y + 3), Packed(DIM_RGB), summary.c_str());
+    TextWithSymbols(drawList, ImGui::GetFontSize(), ImVec2(at.x + width - summaryWidth, at.y + 3), Packed(DIM_RGB), summary);
   drawList->AddLine(ImVec2(at.x, at.y + height - 1), ImVec2(at.x + width, at.y + height - 1), Packed(LINE_RGB));
   return open;
 }
@@ -709,7 +815,7 @@ static TileText TileTextOf(const HeroStatsTopicPage &page, HeroStatsNumber numbe
       else
       {
         tile.gold = record.held;
-        if (record.held) tile.big += " \xe2\x98\x85";
+        if (record.held) tile.big += std::string(" ") + STAR;
         else if (!record.partyValue.empty())
           tile.sub = "party: " + record.partyValue + " " + WhoLabel(columns, record.partyHolder);
       }
@@ -745,7 +851,7 @@ static void DrawTiles(const HeroStatsTopicPage &page, const HeroStatsDrawState &
     drawList->PushClipRect(min, ImVec2(min.x + tileWidth - 6, min.y + height), true);
     // The big number in red alone, as in the export: a pill behind it looks heavy
     ImU32 bigRgb = tile.bad ? BAD_RGB : tile.gold ? GOLD_RGB : WHITE_RGB;
-    drawList->AddText(ImGui::GetFont(), bigSize, ImVec2(min.x + 10, min.y + 7), Packed(bigRgb), tile.big.c_str());
+    TextWithSymbols(drawList, bigSize, ImVec2(min.x + 10, min.y + 7), Packed(bigRgb), tile.big);
     drawList->AddText(ImVec2(min.x + 10, min.y + 9 + bigSize), Packed(DIM_RGB), tile.label.c_str());
     float y = min.y + 13 + bigSize + lineHeight;
     if (tile.hasBar)
@@ -764,7 +870,7 @@ static void DrawTiles(const HeroStatsTopicPage &page, const HeroStatsDrawState &
         ChampionDot(ImVec2(x + 4, y + lineHeight / 2), tile.dotColumn, columns[tile.dotColumn].hasLeft);
         x += 13;
       }
-      drawList->AddText(ImVec2(x, y), Packed(tile.hasBar ? FAINT_RGB : TEXT_RGB), tile.sub.c_str());
+      TextWithSymbols(drawList, ImGui::GetFontSize(), ImVec2(x, y), Packed(tile.hasBar ? FAINT_RGB : TEXT_RGB), tile.sub);
     }
     drawList->PopClipRect();
   }
@@ -1555,7 +1661,7 @@ static void DrawRankUps(HeroStatsDrawState *state, const std::vector<HeroStatsRa
       ImGui::TableSetColumnIndex(column++);
       ImGui::TextColored(Colour(TEXT_RGB), "%s", line.className.c_str());
       ImGui::TableSetColumnIndex(column++);
-      ImGui::TextColored(Colour(TEXT_RGB), "%s", line.rank.c_str());
+      TextColoredWithSymbols(TEXT_RGB, line.rank);
       ImGui::TableSetColumnIndex(column++);
       ImGui::TextColored(Colour(DIM_RGB), "%s", line.with.c_str());
       ImGui::TableSetColumnIndex(column++);
@@ -1575,7 +1681,7 @@ static void DrawRecords(HeroStatsDrawState *state, const std::vector<HeroStatsRe
   int held = 0;
   for (size_t i = 0; i < lines.size(); i++) held += lines[i].held ? 1 : 0;
   std::string summary = isParty ? "the best of the run " + std::string(MIDDLE_DOT) + " hover a value for when"
-                                : WhoLabel(columns, state->who) + "'s best " + MIDDLE_DOT + " \xe2\x98\x85 " +
+                                : WhoLabel(columns, state->who) + "'s best " + MIDDLE_DOT + " " + STAR + " " +
                                       Count(held, held == 1 ? "party record" : "party records");
   if (!SectionHeader(state, HeroDetailRecords, "Records", summary)) return;
   size_t champion = ColumnOf(columns, state->who);
@@ -1609,8 +1715,8 @@ static void DrawRecords(HeroStatsDrawState *state, const std::vector<HeroStatsRe
       if (!line.has) ImGui::TextColored(Colour(FAINT_RGB), "-");
       else
       {
-        ImGui::TextColored(Colour(line.held ? GOLD_RGB : WHITE_RGB), "%s%s", line.value.c_str(), line.held ? " \xe2\x98\x85" : "");
-        if (ImGui::IsItemHovered() && !line.when.empty()) ImGui::SetTooltip("%s", line.when.c_str());
+        TextColoredWithSymbols(line.held ? GOLD_RGB : WHITE_RGB, line.value + (line.held ? std::string(" ") + STAR : ""));
+        if (ImGui::IsItemHovered() && !line.when.empty()) TooltipWithSymbols(line.when);
       }
       if (isParty)
       {
@@ -1625,7 +1731,7 @@ static void DrawRecords(HeroStatsDrawState *state, const std::vector<HeroStatsRe
         ImGui::TextColored(Colour(line.who == "party" ? DIM_RGB : TEXT_RGB), "%s", line.who.c_str());
       }
       ImGui::TableSetColumnIndex(column++);
-      ImGui::TextColored(Colour(DIM_RGB), "%s", line.how.c_str());
+      TextColoredWithSymbols(DIM_RGB, line.how);
       ImGui::TableSetColumnIndex(column++);
       ImGui::TextColored(Colour(DIM_RGB), "%s", line.whom.c_str());
       ImGui::TableSetColumnIndex(column++);
