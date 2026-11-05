@@ -1982,9 +1982,11 @@ void DrawSingleObject(
       {
         height_32 >>= 1;
         //uA3[2] = ub(uA3[2] + height_LOCAL_24 - 7);
-	// I don't know where this line comes from, but what is sure is that with it selecting an object on the floor works only on the lower part!
-	// Commenting it out seems to fix it for now, so I'll try it for a while...
-        // pButtonDef->y1 = ub(pButtonDef->y1 + height_LOCAL_24 - 7);
+        // A small item on the floor takes clicks on its lowest 7 rows only, as in DM and
+        // CSBwin 17.6. A port once took this line out to make items easier to grab; then a
+        // recorded click on the upper part picks the item up here but not in 17.6, and the
+        // playback goes out of step ("Sequence/timing error").
+        pButtonDef->y1 = ub(pButtonDef->y1 + height_LOCAL_24 - 7);
         if (height_32 < 4)
         {
 //          uA3[3] = ub(uA3[3] - (height_32 - 3));
