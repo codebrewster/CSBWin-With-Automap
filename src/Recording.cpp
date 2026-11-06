@@ -34,6 +34,7 @@ extern bool legacyLevelTimer22;
 extern bool legacyNoMouseUp;
 extern bool legacyAttackAfterDamage;
 extern bool legacyWoundPenalty;
+extern bool legacyDamageMonsterResult;
 extern bool legacyUnsequencedTimers;
 extern bool legacyPitViewportRedraw;
 extern bool legacyMonsterAttackOrder;
@@ -213,6 +214,7 @@ void PLAYFILE::Open(void)
   legacyNoMouseUp        = PlayfileVersionBefore(versionLine+1, 9.96);
   legacyAttackAfterDamage = PlayfileVersionBefore(versionLine+1, 9.9);
   legacyWoundPenalty     = PlayfileVersionBefore(versionLine+1, 9.6);
+  legacyDamageMonsterResult = PlayfileVersionBefore(versionLine+1, 9.9);
   legacyUnsequencedTimers = PlayfileVersionBefore(versionLine+1, 11.0);
   legacyPitViewportRedraw = PlayfileVersionBefore(versionLine+1, 10.078);
   legacyMonsterAttackOrder = PlayfileVersionBefore(versionLine+1, 9.9);

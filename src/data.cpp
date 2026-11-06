@@ -293,6 +293,11 @@ bool legacyAttackAfterDamage = false;
 // body part lost (vitality random number + 8) of its protection instead of
 // (random 0..3 + 8), in 16 bits (TAG01680a); 9.6 has it right.
 bool legacyWoundPenalty = false;
+// Set while replaying a playfile recorded by CSBwin before 9.9.  When a
+// monster died and others in its group lived, DamageMonster returned a loop
+// counter (the number of monsters in the group less one) instead of 1, so a
+// group of three losing one counted as wiped out.  Fixed between 9.8 and 9.95.
+bool legacyDamageMonsterResult = false;
 // Set while replaying a playfile recorded by CSBwin before 11.0.  Those
 // versions had no timer sequence numbers: timers due at the same time were
 // ordered by their slot in the timer array (TIMER::operator <).

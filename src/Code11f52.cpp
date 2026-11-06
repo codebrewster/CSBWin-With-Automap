@@ -10,6 +10,7 @@
 #include "Dispatch.h"
 #include "CSB.h"
 #include "Data.h"
+extern bool legacyDamageMonsterResult;
 #include "AutoMapHooks.h"
 #include "ShotMissiles.h"
 
@@ -1276,6 +1277,9 @@ MONSTER_DAMAGE_RESULT DamageMonster(DB4 *pMonster,   //8
       //30OCT02SETWBITS5_6(pMonster->word14, (BITS5_6(pMonster->word14)-1)&3);
       pMonster->numMonM1(pMonster->numMonM1()-1);
       monsterDamageResult = SOME_NOT_ALL_MONSTERS_DIED;
+      // Before 9.9 the result here was the loop counter left over from moving
+      // the survivors up: 2 (all died) when a group of three lost one.
+      if (legacyDamageMonsterResult) monsterDamageResult = (MONSTER_DAMAGE_RESULT)d4Index;
     };
     D5W = pmtDesc->horizontalSize();
     if (D5W == 0)
