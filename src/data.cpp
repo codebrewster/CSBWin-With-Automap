@@ -278,6 +278,12 @@ bool legacySmartDiscardSlow = false;
 // Set while replaying a playfile recorded by CSBwin before 9.7.  Entering a
 // level set a timer of type 22 (LoadPartyLevel), which 9.7 left out.
 bool legacyLevelTimer22 = false;
+// Set while replaying a playfile recorded by CSBwin before 9.96 (between 9.95
+// and 9.963).  They did not record the mouse button going up (0x0add), so a
+// replayed click on the eye must let go at once, as it did then because no
+// button was held.  Otherwise the eye stays pressed and every later click is
+// ignored (playback_71).
+bool legacyNoMouseUp = false;
 // Set while replaying a playfile recorded by CSBwin before 11.0.  Those
 // versions had no timer sequence numbers: timers due at the same time were
 // ordered by their slot in the timer array (TIMER::operator <).

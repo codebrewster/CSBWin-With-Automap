@@ -31,6 +31,7 @@ extern bool legacyMissileRange;
 extern bool legacySmartDiscard;
 extern bool legacySmartDiscardSlow;
 extern bool legacyLevelTimer22;
+extern bool legacyNoMouseUp;
 extern bool legacyUnsequencedTimers;
 extern bool legacyPitViewportRedraw;
 extern bool legacyMonsterAttackOrder;
@@ -207,6 +208,7 @@ void PLAYFILE::Open(void)
   legacySmartDiscard     = PlayfileVersionBefore(versionLine+1, 11.052);
   legacySmartDiscardSlow = PlayfileVersionBefore(versionLine+1, 9.7);
   legacyLevelTimer22     = PlayfileVersionBefore(versionLine+1, 9.7);
+  legacyNoMouseUp        = PlayfileVersionBefore(versionLine+1, 9.96);
   legacyUnsequencedTimers = PlayfileVersionBefore(versionLine+1, 11.0);
   legacyPitViewportRedraw = PlayfileVersionBefore(versionLine+1, 10.078);
   legacyMonsterAttackOrder = PlayfileVersionBefore(versionLine+1, 9.9);
@@ -660,7 +662,7 @@ bool PLAYFILE::Play(MouseQueueEnt *ent)
       };
     };
   };
-  if (m_num == 71)
+  if ((m_num == 71) && !legacyNoMouseUp)
   {
     playback_71 = true;
   };
