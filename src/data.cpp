@@ -284,6 +284,11 @@ bool legacyLevelTimer22 = false;
 // button was held.  Otherwise the eye stays pressed and every later click is
 // ignored (playback_71).
 bool legacyNoMouseUp = false;
+// Set while replaying a playfile recorded by CSBwin before 9.9.  A hit with a
+// weapon damaged the monster (dropping its remains if it died), then gained
+// skill, then drew the stamina cost; later versions draw the cost first
+// (PhysicalAttackFilter).  Changed between 9.8 and 9.95.
+bool legacyAttackAfterDamage = false;
 // Set while replaying a playfile recorded by CSBwin before 11.0.  Those
 // versions had no timer sequence numbers: timers due at the same time were
 // ordered by their slot in the timer array (TIMER::operator <).

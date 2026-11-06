@@ -8,6 +8,7 @@
 #include "Dispatch.h"
 #include "CSB.h"
 #include "Data.h"
+extern bool legacyAttackAfterDamage;
 #include "AutoMapWindow.h"
 #include "HeroStatsWindow.h"
 #include "AutoMapHooks.h"
@@ -434,14 +435,12 @@ void CallAttackFilter(FILTER *pFilter, ATTACKPARAMETERS *pParam, i32 msg)
 
 
 
-void PhysicalAttackFilter(ATTACKPARAMETERS *pParam, FILTER *pFilter, const char *traceID)
+// Set by DeterminePhysicalAttackDamage when a hit's stamina cost is to be
+// drawn after the monster is damaged, as before 9.9 (legacyAttackAfterDamage).
+static bool legacyStaminaDrawPending = false;
+
+static void ApplyAttackSkillAndStamina(ATTACKPARAMETERS *pParam)
 {
-  MONSTER_DAMAGE_RESULT monsterDamageResult;
-  RN objMon;
-  pParam->dataType = ADT_Physical;
-  CallAttackFilter(pFilter, pParam, 1);
-  if (pParam->monsterUnderAttack == 0) return;
-  objMon.ConstructFromInteger(pParam->monsterUnderAttack);
   if (pParam->attdep.physicalAttack.staminaAdjust != 0)
   {
     AdjustStamina(pParam->charIdx,
@@ -455,6 +454,19 @@ void PhysicalAttackFilter(ATTACKPARAMETERS *pParam, FILTER *pFilter, const char 
                  pParam->attdep.physicalAttack.skillAdjust,
                  ASW_PhysicalAttack);
   };
+}
+
+void PhysicalAttackFilter(ATTACKPARAMETERS *pParam, FILTER *pFilter, const char *traceID)
+{
+  MONSTER_DAMAGE_RESULT monsterDamageResult;
+  RN objMon;
+  bool staminaAfterDamage = legacyStaminaDrawPending;
+  legacyStaminaDrawPending = false;
+  pParam->dataType = ADT_Physical;
+  CallAttackFilter(pFilter, pParam, 1);
+  if (pParam->monsterUnderAttack == 0) return;
+  objMon.ConstructFromInteger(pParam->monsterUnderAttack);
+  if (!staminaAfterDamage) ApplyAttackSkillAndStamina(pParam);
   // The same number DeterminePhysicalAttackDamage returns for the attack panel to show
   AutoMap_OnMonsterDamageShown(pParam->monsterUnderAttack,
                                pParam->attdep.physicalAttack.attackedMonsterOrdinal-1,
@@ -472,6 +484,13 @@ void PhysicalAttackFilter(ATTACKPARAMETERS *pParam, FILTER *pFilter, const char 
                       false,
                       NULL);
   HeroStats_EndMonsterBlow();
+  if (staminaAfterDamage)
+  { // Before 9.9: DamageMonster, AdjustSkills, then AdjustStamina(4 + random)
+    pParam->attdep.physicalAttack.staminaAdjust = 0;
+    ApplyAttackSkillAndStamina(pParam);
+    pParam->attdep.physicalAttack.staminaAdjust = 4 + STRandom0_3();
+    AdjustStamina(pParam->charIdx, pParam->attdep.physicalAttack.staminaAdjust);
+  };
   if (traceID!=NULL)
   {
     fprintf(GETFILE(TraceFile),"%sw_2 = DamageMonster() --> %d\n",
@@ -895,7 +914,15 @@ i32 DeterminePhysicalAttackDamage(
                          traceID,pParam->skillNumber, D0W);
     };
     //AdjustStamina(pParam->charIdx, (ranResult=STRandom0_3()) + 4);
-    pParam->attdep.physicalAttack.staminaAdjust = 4 + STRandom0_3();
+    if (legacyAttackAfterDamage)
+    { // drawn in PhysicalAttackFilter after DamageMonster
+      pParam->attdep.physicalAttack.staminaAdjust = 0;
+      legacyStaminaDrawPending = true;
+    }
+    else
+    {
+      pParam->attdep.physicalAttack.staminaAdjust = 4 + STRandom0_3();
+    };
     if (traceID!=NULL)
     {
       fprintf(GETFILE(TraceFile),"%sDecrement Stamina by random(4)+4 = %d\n",

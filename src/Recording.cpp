@@ -32,6 +32,7 @@ extern bool legacySmartDiscard;
 extern bool legacySmartDiscardSlow;
 extern bool legacyLevelTimer22;
 extern bool legacyNoMouseUp;
+extern bool legacyAttackAfterDamage;
 extern bool legacyUnsequencedTimers;
 extern bool legacyPitViewportRedraw;
 extern bool legacyMonsterAttackOrder;
@@ -209,6 +210,7 @@ void PLAYFILE::Open(void)
   legacySmartDiscardSlow = PlayfileVersionBefore(versionLine+1, 9.7);
   legacyLevelTimer22     = PlayfileVersionBefore(versionLine+1, 9.7);
   legacyNoMouseUp        = PlayfileVersionBefore(versionLine+1, 9.96);
+  legacyAttackAfterDamage = PlayfileVersionBefore(versionLine+1, 9.9);
   legacyUnsequencedTimers = PlayfileVersionBefore(versionLine+1, 11.0);
   legacyPitViewportRedraw = PlayfileVersionBefore(versionLine+1, 10.078);
   legacyMonsterAttackOrder = PlayfileVersionBefore(versionLine+1, 9.9);
@@ -549,6 +551,7 @@ bool PLAYFILE::Play(MouseQueueEnt *ent)
       )
   {
     i32 answer;
+
     answer = UI_MessageBox("Sequence/timing error\nShould we quit?",
                            "Playback error",
                            MESSAGE_YESNO);
