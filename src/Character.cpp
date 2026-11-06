@@ -9,6 +9,7 @@
 #include "Dispatch.h"
 #include "CSB.h"
 #include "Data.h"
+extern bool legacyWoundPenalty;
 #include "AutoMapHooks.h"
 
 extern ui32 *pDSAparameters;
@@ -2381,6 +2382,7 @@ i32 DetermineThrowingDistance(i32 chIdx,i32 hand)
 #define shieldEfficency 0
 i16 TAG01680a(i32 chIdx,i32 possessionIndex)
 {
+  i32 vitalityRandom;
   dReg D0, D1, D5, D6, D7;
   CLOTHINGDESC *clA2;
   RN objD4;
@@ -2429,6 +2431,7 @@ i16 TAG01680a(i32 chIdx,i32 possessionIndex)
   D1W = (UI8)(pcA3->Attributes[Vitality].Current());
   D1W = sw(D1W/8 + 1 );
   D0L &= 0xffff;
+  vitalityRandom = D0L;
   D7W = sw(D0L % D1W); // zero to 8*vitality
   //D7W = D0W;
   if (D5W != 0)
@@ -2468,7 +2471,12 @@ i16 TAG01680a(i32 chIdx,i32 possessionIndex)
   };
   if (pcA3->ouches & (1<<possessionIndex))
   {
-    D7W = sw(D7W - (STRandom0_3() + 8));
+    i32 penalty = STRandom0_3();
+    // Before 9.6 the random number was drawn but the one drawn above for
+    // vitality (0 to 65535) was subtracted instead, in 16 bits: a wounded
+    // part's protection could wrap around to a large value.
+    if (legacyWoundPenalty) penalty = vitalityRandom;
+    D7W = sw(D7W - (penalty + 8));
   };
   if (d.PartySleeping)
   {
