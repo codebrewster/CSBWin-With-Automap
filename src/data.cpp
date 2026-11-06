@@ -298,6 +298,11 @@ bool legacyWoundPenalty = false;
 // counter (the number of monsters in the group less one) instead of 1, so a
 // group of three losing one counted as wiped out.  Fixed between 9.8 and 9.95.
 bool legacyDamageMonsterResult = false;
+// Set while replaying a playfile recorded by the original CSBwin (its version
+// line has a version number, or it has none).  This port makes missiles shot
+// with a launcher hit four times as hard (ShotMissiles.h); CSBwin did not.
+// The port's own playfiles ("CSB Version <build date>") keep the bonus.
+bool noShotMissileBonus = false;
 // Set while replaying a playfile recorded by CSBwin before 11.0.  Those
 // versions had no timer sequence numbers: timers due at the same time were
 // ordered by their slot in the timer array (TIMER::operator <).

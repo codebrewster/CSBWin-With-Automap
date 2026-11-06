@@ -10,6 +10,7 @@
 #include "Dispatch.h"
 #include "CSB.h"
 #include "Data.h"
+extern bool noShotMissileBonus;
 #include "ShotMissiles.h"
 
 
@@ -78,7 +79,8 @@ i16 LaunchMissile(
   timer.timerWord8() = (I16)((timer.timerWord8() & 0x0fff) | (D3W << 12));
   timer.timerWord8() = (I16)((timer.timerWord8() & 0xf3ff) | ((dir & 3) << 10));
   DB14A3->timerIndex(gameTimers.SetTimer(&timer));
-  if (shotWithLauncher) RememberShotMissile(db.GetDBIndex(DB14A3, dbMISSILE));
+  // The original CSBwin had no launcher bonus: not in a replay of its playfiles
+  if (shotWithLauncher && !noShotMissileBonus) RememberShotMissile(db.GetDBIndex(DB14A3, dbMISSILE));
   return sw((DB14A3->timerIndex()));
 }
 
