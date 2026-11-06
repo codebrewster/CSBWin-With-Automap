@@ -37,6 +37,7 @@ extern bool legacyWoundPenalty;
 extern bool legacyDamageMonsterResult;
 extern bool noShotMissileBonus;
 extern bool legacyStaminaLevelUp;
+extern bool legacyThrowStamina;
 extern bool legacyUnsequencedTimers;
 extern bool legacyPitViewportRedraw;
 extern bool legacyMonsterAttackOrder;
@@ -218,6 +219,7 @@ void PLAYFILE::Open(void)
   legacyWoundPenalty     = PlayfileVersionBefore(versionLine+1, 9.6);
   legacyDamageMonsterResult = PlayfileVersionBefore(versionLine+1, 9.9);
   legacyStaminaLevelUp   = PlayfileVersionBefore(versionLine+1, 9.9);
+  legacyThrowStamina     = PlayfileVersionBefore(versionLine+1, 11.024);
   // Any numbered version (or none) is the original CSBwin
   noShotMissileBonus     = PlayfileVersionBefore(versionLine+1, 1.0e9);
   legacyUnsequencedTimers = PlayfileVersionBefore(versionLine+1, 11.0);

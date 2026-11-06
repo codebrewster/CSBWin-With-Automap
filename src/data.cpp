@@ -308,6 +308,11 @@ bool noShotMissileBonus = false;
 // 9.95 made it (increment + random(increment/2) + 1), or 1 with no random
 // number for a zero increment (AdjustSkills).
 bool legacyStaminaLevelUp = false;
+// Set while replaying a playfile recorded by CSBwin before 11.024.  The
+// stamina a throw costs (TAG016382) replaced its value with half of each
+// further 10 of weight instead of adding it, so heavy objects cost little or
+// nothing ("Fixed 7 Feb 2010 in version 11.024").
+bool legacyThrowStamina = false;
 // Set while replaying a playfile recorded by CSBwin before 11.0.  Those
 // versions had no timer sequence numbers: timers due at the same time were
 // ordered by their slot in the timer array (TIMER::operator <).

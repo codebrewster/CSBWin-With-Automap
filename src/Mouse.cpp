@@ -10,6 +10,7 @@
 #include "Dispatch.h"
 #include "CSB.h"
 #include "Data.h"
+extern bool legacyThrowStamina;
 #include "AutoMapHooks.h"
 
 
@@ -675,7 +676,8 @@ i16 TAG016382(RN object)
   {
     //D6W = sw(D7W / 2);
     // Fixed 7 Feb 2010 in version 11.024
-    D6L = D6W + sw(D7W / 2);
+    if (legacyThrowStamina) D6W = sw(D7W / 2);
+    else D6L = D6W + sw(D7W / 2);
 //
   };
   return D6W;
