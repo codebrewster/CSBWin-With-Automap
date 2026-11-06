@@ -39,6 +39,8 @@ extern bool noShotMissileBonus;
 extern bool legacyStaminaLevelUp;
 extern bool legacyThrowStamina;
 extern bool legacyKeyWeightKept;
+extern bool legacyNoEkkhardCross;
+extern bool legacyFluxcageCheck;
 extern bool legacyUnsequencedTimers;
 extern bool legacyPitViewportRedraw;
 extern bool legacyMonsterAttackOrder;
@@ -224,6 +226,8 @@ void PLAYFILE::Open(void)
   // 9.6 only: CSBMovie15 (8.2) needs the weight taken off
   legacyKeyWeightKept    =    PlayfileVersionBefore(versionLine+1, 9.7)
                           && !PlayfileVersionBefore(versionLine+1, 9.6);
+  legacyNoEkkhardCross   = PlayfileVersionBefore(versionLine+1, 10.056);
+  legacyFluxcageCheck    = PlayfileVersionBefore(versionLine+1, 9.9);
   // Any numbered version (or none) is the original CSBwin
   noShotMissileBonus     = PlayfileVersionBefore(versionLine+1, 1.0e9);
   legacyUnsequencedTimers = PlayfileVersionBefore(versionLine+1, 11.0);

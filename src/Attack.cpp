@@ -9,6 +9,7 @@
 #include "CSB.h"
 #include "Data.h"
 extern bool legacyAttackAfterDamage;
+extern bool legacyFluxcageCheck;
 #include "AutoMapWindow.h"
 #include "HeroStatsWindow.h"
 #include "AutoMapHooks.h"
@@ -1607,7 +1608,33 @@ void FluxCage(i32 mapX,i32 mapY, ATTACKPARAMETERS *pParam)
   if ( (rt != roomSTONE) && (rt != roomSTAIRS) )
   {
     rnD5 = CreateFluxcage(mapX, mapY);
-    if (rnD5 != RNnul)
+    if ((rnD5 != RNnul) && legacyFluxcageCheck)
+    { // Before 9.9 (TAG00f182): Lord Chaos reacts at once when this count is 2
+      i32 count;
+      if (IsLordChaosHere(mapX, mapY-1) != RNempty)
+      {
+        count = IsCellFluxcage(mapX+1, --mapY) ? 1 : 0;
+        count += (IsCellFluxcage(mapX, mapY-1) ? 1 : 0) + (IsCellFluxcage(mapX-1, mapY) ? 1 : 0);
+      }
+      else if (IsLordChaosHere(mapX-1, mapY) != RNempty)
+      {
+        count = IsCellFluxcage(--mapX, mapY+1) ? 1 : 0;
+        count += (IsCellFluxcage(mapX, mapY-1) ? 1 : 0) + (IsCellFluxcage(mapX-1, mapY) ? 1 : 0);
+      }
+      else if (IsLordChaosHere(mapX+1, mapY) != RNempty)
+      {
+        count = IsCellFluxcage(++mapX, mapY-1) ? 1 : 0;
+        count += (IsCellFluxcage(mapX, mapY+1) ? 1 : 0) + (IsCellFluxcage(mapX+1, mapY) ? 1 : 0);
+      }
+      else if (IsLordChaosHere(mapX, mapY+1) != RNempty)
+      {
+        count = IsCellFluxcage(mapX-1, ++mapY) ? 1 : 0;
+        count += (IsCellFluxcage(mapX, mapY+1) ? 1 : 0) + (IsCellFluxcage(mapX+1, mapY) ? 1 : 0);
+      }
+      else count = 0;
+      if (count == 2) ProcessTimers29to41(mapX, mapY, TT_M3, 0);
+    }
+    else if (rnD5 != RNnul)
     {
 //      rnD0 = IsLordChaosHere(mapX, mapY-1);
 //      if (rnD0 != RNempty)

@@ -9,6 +9,7 @@
 #include "Dispatch.h"
 #include "CSB.h"
 #include "Data.h"
+extern bool legacyNoEkkhardCross;
 
 //  TAG015f1e
 i32 DetermineMastery(i32 chIdx,i32 skill,const char *traceID)
@@ -368,7 +369,9 @@ void TenSecondUpdate(void)
             LOCAL_4 = sw(2 * LOCAL_4);
           };
           objNID0 = pcA3->Possession(10).NameIndex(); //necklace
-          if (objNID0 == objNI_EkkhardCross)
+          // Before 10.056 this compared the time bits (0..112) instead of the
+          // necklace, so the Ekkhard Cross never helped (legacyNoEkkhardCross)
+          if ((objNID0 == objNI_EkkhardCross) && !legacyNoEkkhardCross)
           {
             LOCAL_4 = sw(LOCAL_4 + (LOCAL_4 / 2) + 1);
           };

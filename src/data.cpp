@@ -319,6 +319,16 @@ bool legacyThrowStamina = false;
 // the memory of the 9.6a exe).  8.2 did take the weight off (CSBMovie15), so
 // the fault probably came with 9.6's new DeleteDBEntry; 9.5 is not known.
 bool legacyKeyWeightKept = false;
+// Set while replaying a playfile recorded by CSBwin before 10.056.  The HP a
+// hero recovers was raised for an Ekkhard Cross worn as necklace, but the code
+// compared a time value instead of the necklace, so it never happened
+// (TenSecondUpdate).  Fixed between 10.0 and 10.056.
+bool legacyNoEkkhardCross = false;
+// Set while replaying a playfile recorded by CSBwin before 9.9.  A fluxcage
+// cast next to Lord Chaos counted the cages around him in the Atari way and
+// woke him at once (TT_M3) when the count was 2; 9.95 counts differently,
+// needs 3 and wakes him after the action (TT_M1).  (FluxCage)
+bool legacyFluxcageCheck = false;
 // Set while replaying a playfile recorded by CSBwin before 11.0.  Those
 // versions had no timer sequence numbers: timers due at the same time were
 // ordered by their slot in the timer array (TIMER::operator <).
