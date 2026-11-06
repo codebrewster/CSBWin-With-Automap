@@ -197,10 +197,11 @@ void PLAYFILE::Open(void)
       versionLine[n] = 0;
     };
   };
-  // 9.7 and earlier used the attributes like 12.6 and later do; only
-  // 9.8 up to 12.5 ignored them.
-  legacyAttributeDefense =    PlayfileVersionBefore(versionLine+1, 12.6)
-                          && !PlayfileVersionBefore(versionLine+1, 9.8);
+  // The attributes counted in 9.6 and 9.7 and since 12.6.  Before 9.6 and
+  // from 9.8 up to 12.5 they were ignored, as on the Atari.
+  legacyAttributeDefense =    (   PlayfileVersionBefore(versionLine+1, 12.6)
+                               && !PlayfileVersionBefore(versionLine+1, 9.8))
+                           || PlayfileVersionBefore(versionLine+1, 9.6);
   legacyQuietParamFetch  = PlayfileVersionBefore(versionLine+1, 11.049);
   legacyMissileRange     = PlayfileVersionBefore(versionLine+1, 14.4);
   legacySmartDiscard     = PlayfileVersionBefore(versionLine+1, 11.052);
@@ -546,7 +547,6 @@ bool PLAYFILE::Play(MouseQueueEnt *ent)
       )
   {
     i32 answer;
-
     answer = UI_MessageBox("Sequence/timing error\nShould we quit?",
                            "Playback error",
                            MESSAGE_YESNO);

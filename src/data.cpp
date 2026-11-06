@@ -257,9 +257,10 @@ bool DM_rules = false;
 bool indirectText = false;
 i32  totalMoveCount;
 bool version90Compatible = false;
-// Set while replaying a playfile recorded by CSBwin 9.8 up to 12.5.  Those
-// versions ignored Vitality, Anti-Magic and Anti-Fire when reducing poison,
-// spell and fire damage (see TAG016426).  9.7 and earlier used them.
+// Set while replaying a playfile recorded by CSBwin before 9.6 or by 9.8 up
+// to 12.5.  Those versions ignored Vitality, Anti-Magic and Anti-Fire when
+// reducing poison, spell and fire damage (see TAG016426), as the Atari did.
+// 9.6 ("Allow Anti-Fire and -Magic to operate") and 9.7 used them.
 bool legacyAttributeDefense = false;
 // Set while replaying a playfile recorded by CSBwin before 11.049, which had
 // no "&PARAM@ non-existent parameter" warning.
