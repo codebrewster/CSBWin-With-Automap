@@ -270,6 +270,13 @@ bool legacyMissileRange = false;
 // Set while replaying a playfile recorded by CSBwin before 11.052, which had
 // the older SmartDiscard (SmartDiscardLegacy.cpp).
 bool legacySmartDiscard = false;
+// Set while replaying a playfile recorded by CSBwin before 9.7.  Their
+// SmartDiscard counted one object and scanned one cell per tick (9.7 does
+// 50) and began discarding at 950 objects instead of 7000.
+bool legacySmartDiscardSlow = false;
+// Set while replaying a playfile recorded by CSBwin before 9.7.  Entering a
+// level set a timer of type 22 (LoadPartyLevel), which 9.7 left out.
+bool legacyLevelTimer22 = false;
 // Set while replaying a playfile recorded by CSBwin before 11.0.  Those
 // versions had no timer sequence numbers: timers due at the same time were
 // ordered by their slot in the timer array (TIMER::operator <).

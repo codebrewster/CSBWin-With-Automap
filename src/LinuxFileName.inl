@@ -124,6 +124,37 @@ void FILENAME::createThreeNames (const char *filename)
   m_name[3] = (char*)createName (root, filename);
 }
 
+#include <dirent.h>
+#include <string>
+#include <strings.h>
+
+// The Windows versions found "csbgame.dat" as CSBGAME.DAT or Csbgame.dat, and old
+// game folders (recorded games from Windows) are named that way.  When the exact
+// name is missing, look for the file in its folder ignoring case.  Returns a
+// malloc'ed path or NULL.
+static char *FindFileIgnoringCase(const char *path)
+{
+  const char *slash = strrchr(path, '/');
+  std::string folder = (slash == NULL) ? std::string(".") : std::string(path, slash - path);
+  const char *file = (slash == NULL) ? path : slash + 1;
+  if (folder.empty()) folder = "/";
+  if (*file == 0) return NULL;
+  DIR *dir = opendir(folder.c_str());
+  if (dir == NULL) return NULL;
+  char *result = NULL;
+  struct dirent *entry;
+  while ((entry = readdir(dir)) != NULL)
+  {
+    if (strcasecmp(entry->d_name, file) != 0) continue;
+    std::string found = (slash == NULL) ? std::string(entry->d_name)
+                                        : std::string(path, slash - path + 1) + entry->d_name;
+    result = strdup(found.c_str());
+    break;
+  };
+  closedir(dir);
+  return result;
+}
+
 FILE *FILENAME::Open(const char *name, const char *flags)
 {
   FILE *result = NULL;
@@ -136,6 +167,21 @@ FILE *FILENAME::Open(const char *name, const char *flags)
       continue;
     };
     result = UI_fopen (m_name[i], flags);
+    if ((result == NULL) && (flags[0] == 'r'))
+    {
+      char *other = FindFileIgnoringCase(m_name[i]);
+      if (other != NULL)
+      {
+        result = UI_fopen (other, flags);
+        if (result != NULL)
+        {
+          UI_free (m_name[i]);
+          m_name[i] = (char*)UI_malloc(strlen(other)+1, MALLOC033);
+          strcpy(m_name[i], other);
+        };
+        free(other);
+      };
+    };
     //		g_warning ("Ick, ick, ick: %s\n", m_name[i]);
     //printf("open(%s)\n",m_name[i]);
     if (result != NULL)

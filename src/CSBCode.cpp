@@ -51,6 +51,7 @@ void QueueDSASwitchAction(
 //pnt A0,A1,A2,A3,A4,A5,A6,A7;
 
 extern bool PlaybackCommandOption;
+extern bool legacyLevelTimer22;
 extern bool DMRulesDesignOption;
 extern bool invisibleMonsters;
 extern bool drawAsSize4Monsters;
@@ -836,6 +837,14 @@ void LoadPartyLevel(const i32 level)
     LOCALa.Time(D0L);
     LOCALa.Level((ui8)level);
     //Not needed, I think. PRS 17 Feb 2004....SetTimer(&LOCALa);
+    // 9.6 and earlier did set it, with level 0 (level>>24).  It does
+    // nothing when it fires, but it takes a timer slot, and the order of
+    // timers due at the same time followed the slots then.
+    if (legacyLevelTimer22)
+    {
+      LOCALa.Level(0);
+      gameTimers.SetTimer(&LOCALa);
+    };
     InsertDisk(0,0);
     HopefullyNotNeeded(0xcdb7);
     //d.Word19218 = 12777; // Seems in middle of graphic data

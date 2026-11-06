@@ -17,6 +17,7 @@
 #include "Data.h"
 
 RN FindFirstObject(i32 level, i32 x, i32 y);
+extern bool legacySmartDiscardSlow;
 
 namespace
 {
@@ -538,7 +539,8 @@ void SmartDiscardLegacy(bool Initialize)
     {
       fprintf(GETFILE(TraceFile),"SmartDiscard - Mode Count\n");
     };
-    for (repeat=0; repeat<50; repeat++)
+    // Before 9.7 one object per tick
+    for (repeat=0; repeat<(legacySmartDiscardSlow ? 1 : 50); repeat++)
     {
       if (currentIndex >= db.NumEntry(currentDBNum))
       { // We have finished counting
@@ -593,19 +595,22 @@ void SmartDiscardLegacy(bool Initialize)
     {
       fprintf(GETFILE(TraceFile),"SmartDiscard - ModeScan\n");
     };
-    for (repeat=50; repeat>0; repeat-=ScanDungeon());
+    // Before 9.7 one cell per tick
+    if (legacySmartDiscardSlow) ScanDungeon();
+    else for (repeat=50; repeat>0; repeat-=ScanDungeon());
     return;
   case ModeDiscard:
     if (TimerTraceActive)
     {
       fprintf(GETFILE(TraceFile),"SmartDiscard - ModeDiscard\n");
     };
-    if (totalCount < ((currentDBNum==dbMISC)?32000:7000))
+    if (totalCount < (legacySmartDiscardSlow ? 950 : ((currentDBNum==dbMISC)?32000:7000)))
     {
       currentMode = ModeNewDB;
       if (m_trace!=NULL)
       {
-        fprintf(m_trace,"fewer than 7000. Set mode to NewDB\n");
+        fprintf(m_trace, legacySmartDiscardSlow ? "fewer than 950. Set mode to NewDB\n"
+                                                : "fewer than 7000. Set mode to NewDB\n");
       };
       return;
     };

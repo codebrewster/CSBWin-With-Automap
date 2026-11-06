@@ -29,6 +29,8 @@ extern bool legacyAttributeDefense;
 extern bool legacyQuietParamFetch;
 extern bool legacyMissileRange;
 extern bool legacySmartDiscard;
+extern bool legacySmartDiscardSlow;
+extern bool legacyLevelTimer22;
 extern bool legacyUnsequencedTimers;
 extern bool legacyPitViewportRedraw;
 extern bool legacyMonsterAttackOrder;
@@ -164,12 +166,12 @@ TABLE tableTXYFR(2);
 
 
 // True when the playfile header ("CSB for Windows/Linux Version 11.022")
-// names a version older than 'version'.  A header without a version number
-// counts as current.
+// names a version older than 'version'.  Every version since 8.x writes that
+// line first; a playfile without it (7.x) counts as older than any version.
 static bool PlayfileVersionBefore(const char *header, double version)
 {
   const char *p = strstr(header, "Version ");
-  if (p == NULL) return false;
+  if (p == NULL) return true;
   p += 8;
   if ((*p < '0') || (*p > '9')) return false;
   return atof(p) < version;
@@ -202,6 +204,8 @@ void PLAYFILE::Open(void)
   legacyQuietParamFetch  = PlayfileVersionBefore(versionLine+1, 11.049);
   legacyMissileRange     = PlayfileVersionBefore(versionLine+1, 14.4);
   legacySmartDiscard     = PlayfileVersionBefore(versionLine+1, 11.052);
+  legacySmartDiscardSlow = PlayfileVersionBefore(versionLine+1, 9.7);
+  legacyLevelTimer22     = PlayfileVersionBefore(versionLine+1, 9.7);
   legacyUnsequencedTimers = PlayfileVersionBefore(versionLine+1, 11.0);
   legacyPitViewportRedraw = PlayfileVersionBefore(versionLine+1, 10.078);
   legacyMonsterAttackOrder = PlayfileVersionBefore(versionLine+1, 9.9);
@@ -467,6 +471,16 @@ bool PLAYFILE::Play(MouseQueueEnt *ent)
     {
       numfield = sscanf(line+1,"%x %x %x %x %x\n",
                            &deltatime, &m_x, &m_y, &m_num, &m_ran);
+      // Playfiles of CSBwin 7.x and 8.x leave out x and y when both are
+      // zero (key presses):  +deltatime button random
+      if (numfield == 3)
+      { // The button went into m_x and the random value into m_y
+        m_num = m_x;
+        m_ran = m_y;
+        m_x = 0;
+        m_y = 0;
+        numfield = 5;
+      };
       if (numfield != 5)
       {
         UI_MessageBox("Playback Plus line did not have 5 fields","Error",MESSAGE_OK);
