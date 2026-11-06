@@ -21,7 +21,8 @@ static const int MOST_STEPS_EVER = 200;
 static AutoMapWallSide PlainWallSide(void)
 {
   AutoMapWallSide side = {AUTOMAP_NO_PICTURE, false, false, false, false, AUTOMAP_NO_PICTURE,
-                          std::string(), std::vector<AutoMapRecordId>(), AutoMapWallFeatureNone, false};
+                          std::string(), std::vector<AutoMapRecordId>(), AutoMapWallFeatureNone, false,
+                          std::string()};
   return side;
 }
 
@@ -157,6 +158,7 @@ static void HideTextsNotReadYet(const AutoMapCell &wallCell, const AutoMapFog &f
     if (fog.explored->TextIsRead(wallCell, side)) continue;
     record->wallSides[side].text.clear();
     record->wallSides[side].portrait = AUTOMAP_NO_PICTURE;
+    record->wallSides[side].championName.clear();
   }
   std::vector<AutoMapAlcoveEntry> lookedAt;
   for (size_t i = 0; i < record->alcoveContents.size(); i++)
@@ -169,6 +171,17 @@ static void HideTextsNotReadYet(const AutoMapCell &wallCell, const AutoMapFog &f
     }
   }
   record->alcoveContents = lookedAt;
+}
+
+// Below All a champion's name shows once the party clicked the mirror and saw the champion
+static void HideChampionsNotViewed(const AutoMapCell &wallCell, const AutoMapFog &fog,
+                                   AutoMapCellRecord *record)
+{
+  for (int side = 0; side < AUTOMAP_SIDE_COUNT; side++)
+  {
+    if (fog.explored != NULL && fog.explored->AlcoveIsLookedInto(wallCell, side)) continue;
+    record->wallSides[side].championName.clear();
+  }
 }
 
 // An explored cell only had some strip of it on screen: its floor picture (a puddle, moss, a
@@ -680,6 +693,7 @@ static void AddCells(const AutoMapLevelSnapshot &snapshot, const AutoMapFog &fog
       if (fog.isOn && fog.spoilers != AutoMapSpoilersAll) HideTextsNotReadYet(levelCell, fog, &shown.cell);
       if (fog.isOn && fog.spoilers != AutoMapSpoilersAll) HideFloorPictureNotSeenYet(levelCell, fog, &shown.cell);
       if (!fog.isOn && fog.spoilers != AutoMapSpoilersAll) HideGoodsNotDrawn(levelCell, fog, &shown.cell);
+      if (fog.spoilers != AutoMapSpoilersAll) HideChampionsNotViewed(levelCell, fog, &shown.cell);
       if (fog.isOn && fog.items != NULL && fog.spoilers != AutoMapSpoilersAll)
       {
         const AutoMapCellRecord &live = snapshot.cells[(size_t)y * snapshot.width + x];
@@ -1273,6 +1287,16 @@ std::vector<AutoMapWallText> AutoMapScene_WallTexts(const AutoMapDrawList &drawL
   std::vector<AutoMapWallText> found;
   const AutoMapShownCell *shown = FindShownCell(drawList, x, y);
   if (shown == NULL) return found;
+  // The champions first: a portrait's name reads before any writing
+  for (int side = 0; side < AUTOMAP_SIDE_COUNT; side++)
+  {
+    if (shown->cell.wallSides[side].championName.empty()) continue;
+    AutoMapWallText entry;
+    entry.side = side;
+    entry.text = shown->cell.wallSides[side].championName;
+    entry.isChampion = true;
+    found.push_back(entry);
+  }
   for (int side = 0; side < AUTOMAP_SIDE_COUNT; side++)
   {
     if (!shown->cell.wallSides[side].text.empty())
@@ -1280,6 +1304,7 @@ std::vector<AutoMapWallText> AutoMapScene_WallTexts(const AutoMapDrawList &drawL
       AutoMapWallText entry;
       entry.side = side;
       entry.text = shown->cell.wallSides[side].text;
+      entry.isChampion = false;
       found.push_back(entry);
     }
   }

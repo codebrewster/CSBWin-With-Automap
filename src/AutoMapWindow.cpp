@@ -3797,6 +3797,27 @@ static std::vector<std::string> BuildTooltipNameLines(const std::vector<TooltipC
   return lines;
 }
 
+// The champions in the portraits of a wall, one line each with the side: they come right after
+// the position, like a monster's name
+static std::vector<std::string> BuildTooltipChampionLines(const std::vector<AutoMapWallText> &walls)
+{
+  std::vector<std::string> lines;
+  for (size_t i = 0; i < walls.size(); i++)
+  {
+    if (!walls[i].isChampion) continue;
+    std::string line = "CHAMPION";
+    char sideInitial = SideInitial(walls[i].side);
+    if (sideInitial != '\0')
+    {
+      line += " (";
+      line += sideInitial;
+      line += ")";
+    }
+    lines.push_back(line + ": " + walls[i].text);
+  }
+  return lines;
+}
+
 // Excerpt lines for the tile tooltip: scroll texts first, then wall texts with
 // their side. Capped so one tile never grows the plate without bound.
 static std::vector<std::string> BuildTooltipTextLines(
@@ -3808,6 +3829,7 @@ static std::vector<std::string> BuildTooltipTextLines(
   for (size_t i = 0; i < scrolls.size(); i++) full.push_back("SCROLL: " + scrolls[i]);
   for (size_t i = 0; i < walls.size(); i++)
   {
+    if (walls[i].isChampion) continue;
     char sideInitial = SideInitial(walls[i].side);
     std::string line = "WALL";
     if (sideInitial != '\0')
@@ -3975,6 +3997,7 @@ static void DrawTileTooltip(const AutoMapView &view)
     std::snprintf(pos, sizeof(pos), "POS: L%d (%d, %d)", shownDrawList.level, gx, gy);
     footerLines.push_back(AutoMapScene_TipLine(pos, AutoMapTipPlain));
   }
+  AppendTipLines(footerLines, BuildTooltipChampionLines(walls));
   std::string monsterName = AutoMapScene_MonsterNameLine(shownDrawList, hoverX, hoverY);
   if (!monsterName.empty() && Shows(AutoMapShowMonsters))
     footerLines.push_back(AutoMapScene_TipLine(monsterName, AutoMapTipMonsterName));
@@ -5580,6 +5603,7 @@ void AutoMapWindow_TooltipFor(const AutoMapDrawList &list, int x, int y, bool fu
     char pos[64];
     std::snprintf(pos, sizeof(pos), "POS: L%d (%d, %d)", shownDrawList.level, gx, gy);
     lines->push_back(AutoMapScene_TipLine(pos, AutoMapTipPlain));
+    AppendTipLines(*lines, BuildTooltipChampionLines(walls));
     std::string monsterName = AutoMapScene_MonsterNameLine(shownDrawList, x, y);
     if (!monsterName.empty()) lines->push_back(AutoMapScene_TipLine(monsterName, AutoMapTipMonsterName));
     AppendTipLines(*lines, hpLines);

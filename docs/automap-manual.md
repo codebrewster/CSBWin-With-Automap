@@ -231,8 +231,9 @@ without zooming the map. Its last line says so: `CTRL+WHEEL: SIZE (2X)`. The siz
 
 ### How the tooltip is laid out
 
-The tooltip is grouped by what is in the cell. The `POS:` line comes first, then the monster
-names, then one **header** per thing in the cell, in gold: `TELEPORTER`, `PAD`, `SWITCH (E)`,
+The tooltip is grouped by what is in the cell. The `POS:` line comes first, then the champion in
+a mirror of the Hall of Champions (`CHAMPION (S): HALK THE BARBARIAN`; below spoilers `ALL` only once the
+mirror was clicked), then the monster names, then one **header** per thing in the cell, in gold: `TELEPORTER`, `PAD`, `SWITCH (E)`,
 `GATE A`, `COUNTER B`. A thing the party cannot use yet is a *dormant* one: its header
 (`DORMANT TELEPORTER`) and its `WOULD ...` lines are in pale blue-grey. Everything that belongs to a
 header sits under it, indented by the one rule: **every line is two spaces further in than the

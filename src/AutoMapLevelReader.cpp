@@ -320,6 +320,31 @@ static int PortraitOnSide(int x, int y, int side)
   return AUTOMAP_NO_PICTURE;
 }
 
+// The name and title of the champion in the portrait on side of the wall (x, y), as AddCharacter
+// reads them (Character.cpp): the first two lines of the first text on the floor cell in front of the
+// mirror, where the party stands to click it. "" when none.
+static std::string ChampionNameOnSide(int x, int y, int side)
+{
+  static const int STEP_X[AUTOMAP_SIDE_COUNT] = {0, 1, 0, -1};
+  static const int STEP_Y[AUTOMAP_SIDE_COUNT] = {-1, 0, 1, 0};
+  int floorX = x + STEP_X[side], floorY = y + STEP_Y[side];
+  if (floorX < 0 || floorY < 0 || floorX >= d.width || floorY >= d.height) return "";
+  for (RN object = FindFirstObject(floorX, floorY); object != RNeof; object = GetDBRecordLink(object))
+  {
+    if (object.dbType() != dbTEXT) continue;
+    char raw[1000];
+    if (DecodeText(raw, GetRecordAddressDB2(object), (i16)0x8002, 990) == -1) return "";
+    // Name and title, the first two lines, as the champion's panel shows them
+    std::string name, title;
+    const char *c = raw;
+    for (; *c != 0 && *c != 10; c++) name += *c;
+    if (*c == 10) for (c++; *c != 0 && *c != 10; c++) title += *c;
+    if (title.empty()) return name;
+    return name + (title[0] == ',' ? "" : " ") + title;
+  }
+  return "";
+}
+
 static void ReadWall(int x, int y, const SUMMARIZEROOMDATA &seenFromSouth, AutoMapCellRecord *record)
 {
   DB3 *actuators[AUTOMAP_SIDE_COUNT];
@@ -331,6 +356,8 @@ static void ReadWall(int x, int y, const SUMMARIZEROOMDATA &seenFromSouth, AutoM
   for (int side = 0; side < AUTOMAP_SIDE_COUNT; side++)
   {
     record->wallSides[side].portrait = PortraitOnSide(x, y, side);
+    if (record->wallSides[side].portrait != AUTOMAP_NO_PICTURE)
+      record->wallSides[side].championName = ChampionNameOnSide(x, y, side);
     record->wallSides[side].isTorchHolder = SideHasTorchHolder(x, y, side);
     record->wallSides[side].actuators = actuatorRecords[side];
   }

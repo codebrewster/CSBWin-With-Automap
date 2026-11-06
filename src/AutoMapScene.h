@@ -105,6 +105,10 @@ struct AutoMapWallSide
   // A torch holder (actuator type 13): its picture already shows whether it holds a torch,
   // so the map draws no goods on this face
   bool isTorchHolder;
+  // The name of the champion in the portrait, read like AddCharacter does from the first text
+  // on the floor cell in front of the mirror; "" when no portrait shows. Below All it shows
+  // only once the mirror was clicked.
+  std::string championName;
 };
 
 // One item as the game knows it: the small sprite the 3D view draws plus, when the
@@ -1004,10 +1008,12 @@ std::string AutoMapScene_MakeExcerpt(const std::string &text);
 // survives only with its side.
 std::vector<std::string> AutoMapScene_ScrollTexts(const AutoMapDrawList &drawList,
                                                   int x, int y);
+// A wall text, or the name of the champion in a portrait on that side (isChampion)
 struct AutoMapWallText
 {
   int side;
   std::string text;
+  bool isChampion;
 };
 std::vector<AutoMapWallText> AutoMapScene_WallTexts(const AutoMapDrawList &drawList,
                                                    int x, int y);

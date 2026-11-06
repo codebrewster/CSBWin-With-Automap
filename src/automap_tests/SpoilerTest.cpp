@@ -487,6 +487,34 @@ static void PortraitGoodsShowOnceThePortraitWasViewed(void)
   CHECK(FindCell(viewed, 1, 0) != NULL && FindCell(viewed, 1, 0)->cell.alcoveContents.size() == 1);
 }
 
+static void ChampionNameShowsOnceThePortraitWasViewed(void)
+{
+  // The face in the mirror shows once seen straight ahead; the name in the tooltip only once the
+  // mirror was clicked, or at All
+  AutoMapLevelSnapshot snapshot = Corridor();
+  AutoMapCellRecord &wall = At(&snapshot, 1, 0);
+  wall.wallSides[AutoMapSouth].portrait = 3;
+  wall.wallSides[AutoMapSouth].championName = "HALK";
+  AutoMapExplored explored = Explored();
+  explored.Mark(AutoMapCell{LEVEL, 1, 1});
+  explored.Mark(AutoMapCell{LEVEL, 1, 0});
+  explored.MarkFace(AutoMapCell{LEVEL, 1, 0}, AutoMapSouth);
+  explored.MarkTextRead(AutoMapCell{LEVEL, 1, 0}, AutoMapSouth);
+  AutoMapVisibleCells visibleNow;
+  AutoMapKnowledge knowledge;
+  AutoMapFog fog = Fog(true, AutoMapSpoilersLearned, explored, visibleNow, &knowledge);
+  AutoMapDrawList seen = AutoMapScene_BuildDrawList(snapshot, fog);
+  CHECK(FindCell(seen, 1, 0)->cell.wallSides[AutoMapSouth].portrait == 3);
+  CHECK(AutoMapScene_WallTexts(seen, 1, 0).empty());
+  explored.MarkAlcoveLookedInto(AutoMapCell{LEVEL, 1, 0}, AutoMapSouth);
+  std::vector<AutoMapWallText> viewed = AutoMapScene_WallTexts(AutoMapScene_BuildDrawList(snapshot, fog), 1, 0);
+  CHECK(viewed.size() == 1 && viewed[0].isChampion && viewed[0].text == "HALK" && viewed[0].side == AutoMapSouth);
+  AutoMapExplored none = Explored();
+  AutoMapFog all = Fog(true, AutoMapSpoilersAll, none, visibleNow, &knowledge);
+  all.isOn = false;
+  CHECK(AutoMapScene_WallTexts(AutoMapScene_BuildDrawList(snapshot, all), 1, 0).size() == 1);
+}
+
 static void LauncherAndHiddenFlagShowOnlyOnceTheLauncherFired(void)
 {
   AutoMapLevelSnapshot snapshot = Corridor();
@@ -2344,6 +2372,7 @@ void TestAutoMapSpoilers(void)
   LockRequirementOnlyAfterAnItemOpenedIt();
   DoorLockShowsUnderFogOnceTheCellInFrontIsExplored();
   PortraitGoodsShowOnceThePortraitWasViewed();
+  ChampionNameShowsOnceThePortraitWasViewed();
   LauncherAndHiddenFlagShowOnlyOnceTheLauncherFired();
   RelayMachineryNeverShowsBelowAll();
   BreakableDoorLooksLikeAPlainDoor();
