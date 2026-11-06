@@ -38,6 +38,7 @@ extern bool legacyDamageMonsterResult;
 extern bool noShotMissileBonus;
 extern bool legacyStaminaLevelUp;
 extern bool legacyThrowStamina;
+extern bool legacyKeyWeightKept;
 extern bool legacyUnsequencedTimers;
 extern bool legacyPitViewportRedraw;
 extern bool legacyMonsterAttackOrder;
@@ -220,6 +221,9 @@ void PLAYFILE::Open(void)
   legacyDamageMonsterResult = PlayfileVersionBefore(versionLine+1, 9.9);
   legacyStaminaLevelUp   = PlayfileVersionBefore(versionLine+1, 9.9);
   legacyThrowStamina     = PlayfileVersionBefore(versionLine+1, 11.024);
+  // 9.6 only: CSBMovie15 (8.2) needs the weight taken off
+  legacyKeyWeightKept    =    PlayfileVersionBefore(versionLine+1, 9.7)
+                          && !PlayfileVersionBefore(versionLine+1, 9.6);
   // Any numbered version (or none) is the original CSBwin
   noShotMissileBonus     = PlayfileVersionBefore(versionLine+1, 1.0e9);
   legacyUnsequencedTimers = PlayfileVersionBefore(versionLine+1, 11.0);

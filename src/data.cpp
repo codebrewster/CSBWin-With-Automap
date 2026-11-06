@@ -313,6 +313,12 @@ bool legacyStaminaLevelUp = false;
 // further 10 of weight instead of adding it, so heavy objects cost little or
 // nothing ("Fixed 7 Feb 2010 in version 11.024").
 bool legacyThrowStamina = false;
+// Set while replaying a playfile recorded by CSBwin 9.6.  A key (or other
+// object) taken by a wall lock was destroyed before it left the hand, so its
+// weight stayed in the hero's load ("Fix Load problem", 9.7 notes; seen in
+// the memory of the 9.6a exe).  8.2 did take the weight off (CSBMovie15), so
+// the fault probably came with 9.6's new DeleteDBEntry; 9.5 is not known.
+bool legacyKeyWeightKept = false;
 // Set while replaying a playfile recorded by CSBwin before 11.0.  Those
 // versions had no timer sequence numbers: timers due at the same time were
 // ordered by their slot in the timer array (TIMER::operator <).

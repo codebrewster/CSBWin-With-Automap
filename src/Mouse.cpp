@@ -11,6 +11,7 @@
 #include "CSB.h"
 #include "Data.h"
 extern bool legacyThrowStamina;
+extern bool legacyKeyWeightKept;
 #include "AutoMapHooks.h"
 
 
@@ -572,7 +573,14 @@ i16 TouchWall(i32 mapX,i32 mapY,i32 touchedPosition)
             if (cfp.type != CURSORFILTER_Cancel)
             {
               HeroStats_OnItemUsedInWall(objectInHand.ConvertToInteger());
+              i32 keyWeight = GetObjectWeight(objectInHand);
               RemoveObjectFromHand();
+              // Before 9.7 the key was destroyed before it left the hand, and
+              // its weight stayed in the hero's load (9.7 release notes)
+              if (legacyKeyWeightKept && (d.HandChar != -1))
+              {
+                d.hero[d.HandChar].load = sw(d.hero[d.HandChar].load + keyWeight);
+              };
               //I reversed these two lines so that the object
               //will still exist when we delete it from the
               //player's hand.  So it has the proper weight!!!
