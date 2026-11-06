@@ -95,7 +95,7 @@ void HeroStatsWindow_ReadSettings(void)
   if (csb_get_config_int(SETTINGS_SECTION, "stats_layout", 0) < SETTINGS_LAYOUT)
     drawState.topic = HeroStatsCatalogue_TopicOfOldPage(page);
   else
-    drawState.topic = page >= 0 && page < HERO_TOPIC_COUNT ? page : HeroTopicOverview;
+    drawState.topic = page >= 0 && page <= HERO_STATS_CHAMPIONS_TAB ? page : HeroTopicOverview;
   drawState.closedSections = csb_get_config_int(SETTINGS_SECTION, "stats_closed", 0);
   char defaultSeparator[] = "comma";
   separatorSetting = csb_get_config_string(SETTINGS_SECTION, "stats_separator", defaultSeparator);
@@ -456,7 +456,7 @@ static void DrawWindowContents(void)
     std::vector<HeroStatsColumn> columns = HeroStatsView_Columns(stats, HeroStats_PartyNow());
     // A champion of a game before is not in this game's list
     drawState.who = HeroStatsView_ValidWho(columns, drawState.who);
-    HeroStatsDraw_Frame(&drawState, stats, columns, picker, ExportStatistics);
+    HeroStatsDraw_Frame(&drawState, stats, columns, picker, HeroStats_LiveParty(), ExportStatistics);
   }
   ImGui::End();
 }
@@ -490,7 +490,7 @@ static void ExportStatistics(void)
   std::string path = std::string(pwd) + "/statistics-" + stamp + ".html";
   HeroStats_RefreshMapCounts(true);
   const HeroStats &stats = HeroStats_Store();
-  HeroStatsExportInfo info = {HeroStats_DungeonInPlay(), date};
+  HeroStatsExportInfo info = {HeroStats_DungeonInPlay(), date, HeroStats_LiveParty()};
   std::string html = HeroStatsExport_Html(stats, HeroStatsView_Columns(stats, HeroStats_PartyNow()),
                                           HeroStats_NamesOfTheGame(), info);
   FILE *file = fopen(path.c_str(), "wb");

@@ -19,6 +19,7 @@ save.
 - [Monsters](#monsters)
 - [Experience](#experience)
 - [Records](#records)
+- [Champions](#champions)
 - [Per level](#per-level)
 - [Numbers](#numbers)
 - [Sorting](#sorting)
@@ -61,7 +62,8 @@ The window has three controls that never move:
   arrows step to the previous or next visited level, and the list jumps to any of them.
 - **The topic**, the tabs under them: **Overview**, **Combat**, **Magic**, **Survival**,
   **Food & items**, **Exploration**, **Monsters**, **Experience** and **Records**. The tabs are the
-  same whoever is picked.
+  same whoever is picked. After them comes **Champions**, which is not a topic of the statistics
+  but the party as it is now (see [Champions](#champions)).
 
 The **title strip** shows what you are looking at ("SYRA · Combat · Lv 3") and holds the
 **Export as HTML...** button (see [Sharing](#sharing-export-as-html)).
@@ -207,6 +209,8 @@ A gulp from an empty waterskin or flask does not count.
   custom dungeon are told apart by a number, "(2)". A charged item that runs out of charges, or
   is recharged on an altar of Vi, stays the same item. What the champions
   carried when they joined is not counted.
+- **From chest**: of the items picked up, the ones taken out of an open chest. Taking a whole chest
+  does not count what is inside; each item counts when it is taken out.
 - **Used in walls**: keys in locks, coins and gems in slots, and anything else a lock in a custom
   dungeon takes.
 
@@ -332,6 +336,21 @@ shows their own best, and the party's best beside it; a record the champion hold
 gold with a ★. The party's own records (falls, teleports, sleep) are not on a champion's page.
 
 **Records go back with a reload** like the other numbers: a hit you reloaded away did not happen.
+
+## Champions
+
+The last tab shows the champions as they are **now**, what the game's own inventory screen shows
+of each: health, stamina and mana (bars in the champion's colour), food and water, the load
+against what the champion can carry, wounds, poison, the six attributes (current and max; drained
+in red, raised above the max in gold), the rank in each class with the way to the next rank, and
+every item carried, slot by slot, with a chest's contents under it. The **Party** shows every
+champion one under the other and the item on the cursor; a champion shows only them.
+
+It only reads the champions: nothing is opened or changed in the game. That makes it the way to
+look into the champions while **watching a replay**, someone else's included: the replay stays in
+step with its recording. The level picker is hidden on this tab; it has no levels.
+
+The HTML export has the tab too, with the champions as they were when it was written.
 
 ## Per level
 

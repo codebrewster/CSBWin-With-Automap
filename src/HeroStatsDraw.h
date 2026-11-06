@@ -4,6 +4,7 @@
 #include <vector>
 #include "HeroStats.h"
 #include "HeroStatsCatalogue.h"
+#include "HeroStatsLive.h"
 #include "HeroStatsView.h"
 
 // The pages of the Statistics window, drawn with Dear ImGui in the window's own context.
@@ -13,6 +14,10 @@
 // HERO_STATS_WHOLE_RUN or a level; perLevel: the Per level table instead of one level;
 // sideBySide: the Party's Per level shows one number per champion (gridNumber of the topic);
 // closedSections: the folded sections, see HeroStatsDraw_SectionBit.
+// The tab after the topics: the champions as they are now (HeroStatsLive.h), not a topic of the
+// statistics, so the topics' tables never see it
+const int HERO_STATS_CHAMPIONS_TAB = HERO_TOPIC_COUNT;
+
 struct HeroStatsDrawState
 {
   HeroStatsChampion who;
@@ -32,9 +37,10 @@ const int HERO_STATS_NUMBERS_SECTION = -1;
 const int HERO_STATS_KEY_NUMBERS_SECTION = -2;
 
 void HeroStatsDraw_ApplyStyle(void);
-// The whole window: the title strip, who, the level, the topic tabs and the page
+// The whole window: the title strip, who, the level, the topic tabs and the page. live is the
+// party now, for the Champions tab.
 void HeroStatsDraw_Frame(HeroStatsDrawState *state, const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
-                         const HeroStatsPicker &picker, void (*exportStatistics)(void));
+                         const HeroStatsPicker &picker, const HeroStatsLiveParty &live, void (*exportStatistics)(void));
 // The pages' numbers are rebuilt on the next frame (a game loaded, the window shown again)
 void HeroStatsDraw_Forget(void);
 

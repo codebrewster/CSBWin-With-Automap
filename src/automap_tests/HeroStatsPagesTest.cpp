@@ -256,6 +256,34 @@ static void JsonStringsAreSafeInAScript(void)
   CHECK(HeroStatsExport_JsonString("\x01") == "\"\\u0001\"");
 }
 
+// The Champions tab: the party when the page was written, a champion found by its column
+static void ExportHoldsTheChampionsAsTheyWere(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  HeroStatsExportInfo info = {"dungeon.dat", "2026-11-06 12:00"};
+  std::string json = HeroStatsExport_Json(stats, Columns(stats), NAMES, info);
+  CHECK(json.find("\"live\":{\"inHand\":\"\",\"champions\":[]}") != std::string::npos);
+  HeroStatsLiveChampion halk = {};
+  halk.who = 7;
+  halk.name = "HALK";
+  halk.health = 80;
+  halk.maxHealth = 120;
+  halk.wounds = 0x04;
+  halk.rank[0] = 2;
+  HeroStatsLiveItem dagger = {0, "DAGGER", false};
+  halk.items.push_back(dagger);
+  info.live.champions.push_back(halk);
+  info.live.inHand = "TORCH";
+  json = HeroStatsExport_Json(stats, Columns(stats), NAMES, info);
+  CHECK(json.find("\"inHand\":\"TORCH\"") != std::string::npos);
+  CHECK(json.find("{\"hero\":0,\"name\":\"HALK\"") != std::string::npos);
+  CHECK(json.find("\"hp\":[80,120]") != std::string::npos);
+  CHECK(json.find("\"wounds\":\"Head\"") != std::string::npos);
+  CHECK(json.find("[\"Fighter\",\"Neophyte\",0]") != std::string::npos);
+  CHECK(json.find("\"items\":[[\"Ready hand\",\"DAGGER\",false]]") != std::string::npos);
+}
+
 static void ExportHoldsEveryLevel(void)
 {
   HeroStats stats;
@@ -734,4 +762,5 @@ void TestHeroStatsPages(void)
   ItemsAreListedByName();
   JsonStringsAreSafeInAScript();
   ExportHoldsEveryLevel();
+  ExportHoldsTheChampionsAsTheyWere();
 }

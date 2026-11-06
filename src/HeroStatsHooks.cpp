@@ -99,6 +99,86 @@ static int ClassMastery(int slot, int cls, int *percentToNext)
   return HeroXp_Mastery((int)d.hero[slot].skills92[cls].experience, percentToNext);
 }
 
+// A fixed-size name of the champion's record, without the zeros and spaces that pad it
+static std::string RecordText(const char *chars, size_t size)
+{
+  std::string text(chars, strnlen(chars, size));
+  while (!text.empty() && text[text.size() - 1] == ' ') text.erase(text.size() - 1);
+  return text;
+}
+
+static std::string LiveItemName(RN rn)
+{
+  return HeroStats_WeaponNameOf(HeroStats_WeaponOf(rn));
+}
+
+// The item in a slot, then a chest's contents: the open chest shown in the action hand keeps them
+// in d.rnChestContents while it is open, a closed one in its own record
+static void AddLiveItem(std::vector<HeroStatsLiveItem> *items, int slot, RN rn)
+{
+  HeroStatsLiveItem item = {slot, LiveItemName(rn), false};
+  items->push_back(item);
+  if (rn.dbType() != dbCHEST) return;
+  if (rn == d.objOpenChest)
+  {
+    for (int i = 0; i < 8; i++)
+    {
+      if (d.rnChestContents[i] == RNnul) continue;
+      HeroStatsLiveItem held = {slot, LiveItemName(d.rnChestContents[i]), true};
+      items->push_back(held);
+    }
+    return;
+  }
+  int guard = 0;
+  for (RN held = GetRecordAddressDB9(rn)->contents(); held != RNeof && held != RNnul && guard < 32;
+       held = GetDBRecordLink(held), guard++)
+  {
+    HeroStatsLiveItem inside = {slot, LiveItemName(held), true};
+    items->push_back(inside);
+  }
+}
+
+HeroStatsLiveParty HeroStats_LiveParty(void)
+{
+  HeroStatsLiveParty party;
+  for (int slot = 0; slot < d.NumCharacter && slot < 4; slot++)
+  {
+    // A candidate in a mirror is in a slot already, but not in the party until taken
+    if (d.PotentialCharacterOrdinal != 0 && slot == d.PotentialCharacterOrdinal - 1) continue;
+    CHARDESC &hero = d.hero[slot];
+    HeroStatsLiveChampion live;
+    live.who = hero.fingerPrint;
+    live.name = RecordText(hero.name, sizeof hero.name);
+    live.title = RecordText(hero.title, sizeof hero.title);
+    live.health = hero.HP();
+    live.maxHealth = hero.MaxHP();
+    live.stamina = hero.Stamina();
+    live.maxStamina = hero.MaxStamina();
+    live.mana = hero.Mana();
+    live.maxMana = hero.MaxMana();
+    live.food = hero.food;
+    live.water = hero.water;
+    live.load = hero.load;
+    live.maxLoad = MaxLoad(&hero);
+    for (int a = 0; a < HERO_LIVE_ATTRIBUTE_COUNT; a++)
+    {
+      live.attributeNow[a] = hero.Attributes[a + 1].Current();
+      live.attributeMax[a] = hero.Attributes[a + 1].Maximum();
+    }
+    for (int cls = 0; cls < 4; cls++) live.rank[cls] = ClassMastery(slot, cls, &live.percentToNext[cls]);
+    live.poisonCount = hero.poisonCount;
+    live.wounds = hero.ouches;
+    for (int place = 0; place < HERO_LIVE_SLOT_COUNT; place++)
+    {
+      RN rn = hero.Possession(place);
+      if (rn != RNnul) AddLiveItem(&live.items, place, rn);
+    }
+    party.champions.push_back(live);
+  }
+  if (d.objectInHand != RNnul) party.inHand = LiveItemName(d.objectInHand);
+  return party;
+}
+
 static void MeetHero(int slot)
 {
   char name[sizeof d.hero[slot].name + 1];

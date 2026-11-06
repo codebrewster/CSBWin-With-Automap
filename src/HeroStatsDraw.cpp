@@ -419,10 +419,10 @@ static void DrawTabs(HeroStatsDrawState *state)
   ImDrawList *drawList = ImGui::GetWindowDrawList();
   ImGui::SetCursorPosX(GUTTER);
   float lineY = 0;
-  for (int t = 0; t < HERO_TOPIC_COUNT; t++)
+  for (int t = 0; t <= HERO_STATS_CHAMPIONS_TAB; t++)
   {
     if (t > 0) ImGui::SameLine(0, 2);
-    const char *label = HeroStatsCatalogue_Topic(t).label;
+    const char *label = t == HERO_STATS_CHAMPIONS_TAB ? "Champions" : HeroStatsCatalogue_Topic(t).label;
     ImVec2 size = ImGui::CalcTextSize(label);
     ImVec2 at = ImGui::GetCursorScreenPos();
     ImGui::PushID(t);
@@ -2142,8 +2142,233 @@ static void DrawPage(HeroStatsDrawState *state, const HeroStats &stats, const st
   ImGui::EndChild();
 }
 
+// ---------------------------------------------------------------------------------------------
+// The Champions tab: what the game's inventory screen shows of each champion, read only
+
+static const float LIVE_LABEL_WIDTH = 90;
+static const float LIVE_BAR_WIDTH = 140;
+
+// A label, a bar of now against most in the colour, and the text after it
+static void LiveBar(const char *label, int now, int most, ImU32 rgb, const std::string &text)
+{
+  ImGui::TextColored(Colour(DIM_RGB), "%s", label);
+  ImGui::SameLine(LIVE_LABEL_WIDTH);
+  ImVec2 at = ImGui::GetCursorScreenPos();
+  float lineHeight = ImGui::GetTextLineHeight();
+  ImDrawList *drawList = ImGui::GetWindowDrawList();
+  ImVec2 top(at.x, at.y + lineHeight / 2 - 5), bottom(at.x + LIVE_BAR_WIDTH, at.y + lineHeight / 2 + 5);
+  drawList->AddRectFilled(top, bottom, Packed(TRACK_RGB), 2.0f);
+  if (most > 0 && now > 0)
+    drawList->AddRectFilled(top, ImVec2(top.x + LIVE_BAR_WIDTH * std::min(1.0f, (float)now / (float)most), bottom.y),
+                            Packed(rgb), 2.0f);
+  ImGui::Dummy(ImVec2(LIVE_BAR_WIDTH, lineHeight));
+  ImGui::SameLine(0, 10);
+  ImGui::TextColored(Colour(TEXT_RGB), "%s", text.c_str());
+}
+
+static std::string OutOf(int now, int most)
+{
+  return std::to_string(now) + " / " + std::to_string(most);
+}
+
+// Food and water: the game's bar, full at HERO_LIVE_FOOD_FULL, and a word when it runs low
+static void LiveNourishment(const char *label, int value, const char *empty)
+{
+  int percent = std::max(0, value) * 100 / HERO_LIVE_FOOD_FULL;
+  std::string text = std::to_string(percent) + "%";
+  ImU32 rgb = value < HERO_LIVE_FOOD_FULL / 4 ? BAD_RGB : (value < HERO_LIVE_FOOD_FULL / 2 ? GOLD_RGB : 0x5fbf5f);
+  if (value < 0) text += std::string(" (") + empty + ")";
+  LiveBar(label, value, HERO_LIVE_FOOD_FULL, rgb, text);
+}
+
+static void LiveVitals(const HeroStatsLiveChampion &live, ImU32 rgb)
+{
+  LiveBar("Health", live.health, live.maxHealth, rgb, OutOf(live.health, live.maxHealth));
+  LiveBar("Stamina", live.stamina, live.maxStamina, rgb, OutOf(live.stamina / 10, live.maxStamina / 10));
+  LiveBar("Mana", live.mana, live.maxMana, rgb, OutOf(live.mana, live.maxMana));
+  LiveNourishment("Food", live.food, "starving");
+  LiveNourishment("Water", live.water, "parched");
+  bool heavy = live.load > live.maxLoad;
+  ImGui::TextColored(Colour(DIM_RGB), "Load");
+  ImGui::SameLine(LIVE_LABEL_WIDTH);
+  ImGui::TextColored(Colour(heavy ? BAD_RGB : TEXT_RGB), "%s / %s kg", HeroStatsLive_Tenths(live.load).c_str(),
+                     HeroStatsLive_Tenths(live.maxLoad).c_str());
+  std::string wounds = HeroStatsLive_Wounds(live.wounds);
+  ImGui::TextColored(Colour(DIM_RGB), "Wounds");
+  ImGui::SameLine(LIVE_LABEL_WIDTH);
+  ImGui::TextColored(Colour(wounds.empty() ? DIM_RGB : BAD_RGB), "%s", wounds.empty() ? "none" : wounds.c_str());
+  ImGui::TextColored(Colour(DIM_RGB), "Poison");
+  ImGui::SameLine(LIVE_LABEL_WIDTH);
+  if (live.poisonCount > 0)
+    ImGui::TextColored(Colour(BAD_RGB), "poisoned (%d %s)", live.poisonCount, live.poisonCount == 1 ? "dose" : "doses");
+  else ImGui::TextColored(Colour(DIM_RGB), "none");
+}
+
+// A table of the Champions tab: exactly as wide as its half of the page. BeginPageTable keeps a
+// label column of at least LABEL_SMALLEST and runs past a half that is narrower, where the
+// page's two halves clip it; the labels here are short.
+static bool BeginLiveTable(const char *id, int columnCount)
+{
+  return ImGui::BeginTable(id, columnCount, TABLE_FLAGS, ImVec2(ImGui::GetContentRegionAvail().x, 0));
+}
+
+// A column wide enough for its header: HeaderRow keeps room for the sort arrow beside it
+static float HeaderFits(const char *label, float atLeast)
+{
+  return std::max(atLeast, ImGui::CalcTextSize(label).x + 24);
+}
+
+// The attributes, current and max: drained below the max in red, raised above it in gold
+static void LiveAttributes(const HeroStatsLiveChampion &live)
+{
+  float current = HeaderFits("Current", NUMBER_WIDTH), most = HeaderFits("Max", NUMBER_WIDTH);
+  if (!BeginLiveTable("##attributes", 3)) return;
+  LabelColumn("Attribute");
+  NumberColumn("Current", current);
+  NumberColumn("Max", most);
+  HeaderRow(std::vector<int>(), std::vector<HeroStatsColumn>());
+  for (int a = 0; a < HERO_LIVE_ATTRIBUTE_COUNT; a++)
+  {
+    ImGui::TableNextRow();
+    LabelCell(HeroStatsLive_AttributeName(a), 0, TEXT_RGB);
+    int now = live.attributeNow[a], most = live.attributeMax[a];
+    ImGui::TableSetColumnIndex(1);
+    RightText(std::to_string(now), now < most ? BAD_RGB : (now > most ? GOLD_RGB : TEXT_RGB));
+    ImGui::TableSetColumnIndex(2);
+    RightText(std::to_string(most), TEXT_RGB);
+  }
+  ImGui::EndTable();
+}
+
+static void LiveRanks(const HeroStatsLiveChampion &live, ImU32 rgb)
+{
+  float bar = HeaderFits("To next rank", 110);
+  if (!BeginLiveTable("##ranks", 3)) return;
+  LabelColumn("Class");
+  NumberColumn("Rank", 120);
+  BarColumn("To next rank", bar);
+  HeaderRow(std::vector<int>(), std::vector<HeroStatsColumn>());
+  for (int cls = 0; cls < 4; cls++)
+  {
+    ImGui::TableNextRow();
+    LabelCell(HeroXp_ClassName(cls), 0, TEXT_RGB);
+    std::string rank = HeroXp_RankName(live.rank[cls]);
+    ImGui::TableSetColumnIndex(1);
+    RightText(rank.empty() ? "-" : rank, rank.empty() ? DIM_RGB : TEXT_RGB);
+    ImGui::TableSetColumnIndex(2);
+    ImVec2 at = ImGui::GetCursorScreenPos();
+    float width = std::max(20.0f, ImGui::GetContentRegionAvail().x - 2);
+    float lineHeight = ImGui::GetTextLineHeight();
+    ImDrawList *drawList = ImGui::GetWindowDrawList();
+    ImVec2 top(at.x, at.y + lineHeight / 2 - 4), bottom(at.x + width, at.y + lineHeight / 2 + 5);
+    drawList->AddRectFilled(top, bottom, Packed(TRACK_RGB), 2.0f);
+    if (live.percentToNext[cls] > 0)
+      drawList->AddRectFilled(top, ImVec2(top.x + width * live.percentToNext[cls] / 100.0f, bottom.y), Packed(rgb), 2.0f);
+    ImGui::Dummy(ImVec2(width, lineHeight));
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%d%% of the way to the next rank", live.percentToNext[cls]);
+  }
+  ImGui::EndTable();
+}
+
+// Every slot that holds an item, a chest's contents indented under it
+static void LiveItems(const HeroStatsLiveChampion &live)
+{
+  if (live.items.empty())
+  {
+    ImGui::TextColored(Colour(DIM_RGB), "Carries nothing.");
+    return;
+  }
+  if (!BeginLiveTable("##items", 2)) return;
+  ImGui::TableSetupColumn("Slot", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort, 110);
+  LabelColumn("Item");
+  // Both left-aligned, as their texts are (HeaderRow puts the headers after the first on the right)
+  ImGui::PushStyleColor(ImGuiCol_Text, Colour(DIM_RGB));
+  ImGui::TableHeadersRow();
+  ImGui::PopStyleColor();
+  for (size_t i = 0; i < live.items.size(); i++)
+  {
+    const HeroStatsLiveItem &item = live.items[i];
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+    if (!item.inChest) ImGui::TextColored(Colour(DIM_RGB), "%s", HeroStatsLive_SlotName(item.slot).c_str());
+    ImGui::TableSetColumnIndex(1);
+    if (item.inChest) ImGui::Indent(14.0f);
+    ImGui::TextColored(Colour(item.inChest ? PART_RGB : TEXT_RGB), "%s", item.name.c_str());
+    if (item.inChest) ImGui::Unindent(14.0f);
+  }
+  ImGui::EndTable();
+}
+
+static void DrawLiveChampion(HeroStatsDrawState *state, const HeroStatsLiveChampion &live, ImU32 rgb)
+{
+  ImGui::PushID((int)live.who);
+  std::string heading = live.name + (live.title.empty() ? "" : " " + live.title);
+  std::string status;
+  if (live.health <= 0) status = "dead";
+  else if (live.poisonCount > 0) status = "poisoned";
+  ImGui::TextColored(Colour(rgb), "%s", heading.c_str());
+  if (!status.empty())
+  {
+    ImGui::SameLine(0, 12);
+    ImGui::TextColored(Colour(BAD_RGB), "%s", status.c_str());
+  }
+  ImGui::Dummy(ImVec2(0, 2));
+  if (ImGui::BeginTable("##champion", 2, ImGuiTableFlags_SizingStretchSame))
+  {
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+    LiveVitals(live, rgb);
+    ImGui::Dummy(ImVec2(0, 6));
+    LiveAttributes(live);
+    ImGui::Dummy(ImVec2(0, 6));
+    LiveRanks(live, rgb);
+    ImGui::TableSetColumnIndex(1);
+    LiveItems(live);
+    ImGui::EndTable();
+  }
+  (void)state;
+  ImGui::PopID();
+}
+
+static void DrawChampionsPage(HeroStatsDrawState *state, const HeroStatsLiveParty &live,
+                              const std::vector<HeroStatsColumn> &columns)
+{
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 10));
+  bool visible = ImGui::BeginChild("##champions", ImGui::GetContentRegionAvail(), ImGuiChildFlags_AlwaysUseWindowPadding);
+  ImGui::PopStyleVar();
+  if (visible)
+  {
+    bool isParty = state->who == HERO_STATS_PARTY;
+    if (live.champions.empty()) ImGui::TextColored(Colour(DIM_RGB), "No champion in the party.");
+    else if (!isParty && HeroStatsLive_Find(live, state->who) == NULL)
+      ImGui::TextColored(Colour(DIM_RGB), "%s is not in the party now.", WhoLabel(columns, state->who).c_str());
+    if (isParty && !live.inHand.empty())
+    {
+      ImGui::TextColored(Colour(DIM_RGB), "In the hand:");
+      ImGui::SameLine();
+      ImGui::TextColored(Colour(TEXT_RGB), "%s", live.inHand.c_str());
+      ImGui::Dummy(ImVec2(0, 4));
+    }
+    bool first = true;
+    for (size_t i = 0; i < live.champions.size(); i++)
+    {
+      const HeroStatsLiveChampion &champion = live.champions[i];
+      if (!isParty && champion.who != state->who) continue;
+      if (!first)
+      {
+        ImGui::Dummy(ImVec2(0, 6));
+        ImGui::Separator();
+        ImGui::Dummy(ImVec2(0, 6));
+      }
+      first = false;
+      DrawLiveChampion(state, champion, ChampionRgb(ColumnOf(columns, champion.who)));
+    }
+  }
+  ImGui::EndChild();
+}
+
 void HeroStatsDraw_Frame(HeroStatsDrawState *state, const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
-                         const HeroStatsPicker &picker, void (*exportStatistics)(void))
+                         const HeroStatsPicker &picker, const HeroStatsLiveParty &live, void (*exportStatistics)(void))
 {
   DrawTitle(*state, columns, exportStatistics);
   ImGui::SetCursorPos(ImVec2(GUTTER, ImGui::GetCursorPosY() + 6));
@@ -2156,8 +2381,15 @@ void HeroStatsDraw_Frame(HeroStatsDrawState *state, const HeroStats &stats, cons
     ImGui::NewLine();
     ImGui::SetCursorPosX(GUTTER);
   }
-  DrawPicker(state, picker);
+  // The levels and Per level are the statistics': the Champions tab shows the party now
+  if (state->topic != HERO_STATS_CHAMPIONS_TAB) DrawPicker(state, picker);
+  else ImGui::NewLine();
   DrawTabs(state);
+  if (state->topic == HERO_STATS_CHAMPIONS_TAB)
+  {
+    DrawChampionsPage(state, live, columns);
+    return;
+  }
   // Steps and items count before a champion joins: only a game with no level yet has nothing
   if (stats.Champions().empty() && stats.VisitedLevels().empty())
   {

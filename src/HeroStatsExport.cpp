@@ -26,7 +26,11 @@
 //              "rankups": [[hero, class, rank, with, level], ...]},
 //       "records": [[kind, group, label, value, who, how, whom, when, level, has, held, party value, party's hero], ...] },
 //     "monsters": [[name, [kills per hero], door, pit, other, total], ...] most killed first,
-//     "items": [[name, picked up, used in walls], ...] } } }
+//     "items": [[name, picked up, used in walls, from chests], ...] } } },
+//   "live": the party when the page was written (the Champions tab): {"inHand", "champions": [{"hero" (its
+//     index in heroes, -1 none), "name", "title", "hp", "stamina" (in tenths), "mana": [now, max], "food",
+//     "water", "load": [tenths, max tenths], "attrs": [[name, current, max], ...], "ranks": [[class, rank,
+//     % to next], ...], "poison", "wounds", "items": [[slot, name, in a chest], ...]}, ...]}
 // [by hero] is empty except on the party's page.
 
 // ---------------------------------------------------------------------------------------------
@@ -284,6 +288,42 @@ static std::string Details(const std::vector<HeroStatsDetail> &details)
   return Ints(ids);
 }
 
+static std::string Pair(int a, int b)
+{
+  return "[" + Number(a) + "," + Number(b) + "]";
+}
+
+static std::string LiveJson(const HeroStatsLiveParty &live, const std::vector<HeroStatsColumn> &columns)
+{
+  std::string out = "{\"inHand\":" + HeroStatsExport_JsonString(live.inHand) + ",\"champions\":[";
+  for (size_t i = 0; i < live.champions.size(); i++)
+  {
+    const HeroStatsLiveChampion &c = live.champions[i];
+    int hero = -1;
+    for (size_t k = 0; k < columns.size(); k++)
+      if (columns[k].id == c.who) hero = (int)k;
+    out += std::string(i > 0 ? "," : "") + "{\"hero\":" + Number(hero) + ",\"name\":" + HeroStatsExport_JsonString(c.name) +
+           ",\"title\":" + HeroStatsExport_JsonString(c.title) + ",\"hp\":" + Pair(c.health, c.maxHealth) +
+           ",\"stamina\":" + Pair(c.stamina, c.maxStamina) + ",\"mana\":" + Pair(c.mana, c.maxMana) +
+           ",\"food\":" + Number(c.food) + ",\"water\":" + Number(c.water) + ",\"load\":" + Pair(c.load, c.maxLoad) +
+           ",\"attrs\":[";
+    for (int a = 0; a < HERO_LIVE_ATTRIBUTE_COUNT; a++)
+      out += std::string(a > 0 ? "," : "") + "[" + HeroStatsExport_JsonString(HeroStatsLive_AttributeName(a)) + "," +
+             Number(c.attributeNow[a]) + "," + Number(c.attributeMax[a]) + "]";
+    out += "],\"ranks\":[";
+    for (int cls = 0; cls < 4; cls++)
+      out += std::string(cls > 0 ? "," : "") + "[" + HeroStatsExport_JsonString(HeroXp_ClassName(cls)) + "," +
+             HeroStatsExport_JsonString(HeroXp_RankName(c.rank[cls])) + "," + Number(c.percentToNext[cls]) + "]";
+    out += "],\"poison\":" + Number(c.poisonCount) + ",\"wounds\":" + HeroStatsExport_JsonString(HeroStatsLive_Wounds(c.wounds)) +
+           ",\"items\":[";
+    for (size_t k = 0; k < c.items.size(); k++)
+      out += std::string(k > 0 ? "," : "") + "[" + HeroStatsExport_JsonString(HeroStatsLive_SlotName(c.items[k].slot)) + "," +
+             HeroStatsExport_JsonString(c.items[k].name) + "," + Bool(c.items[k].inChest) + "]";
+    out += "]}";
+  }
+  return out + "]}";
+}
+
 std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
                                  const HeroStatsNames &names, const HeroStatsExportInfo &info)
 {
@@ -326,7 +366,7 @@ std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroS
   out += ",\"views\":{\"-1\":" + ViewJson(stats, columns, names, HERO_STATS_WHOLE_RUN);
   for (size_t i = 0; i < levels.size(); i++)
     out += ",\"" + Number(levels[i]) + "\":" + ViewJson(stats, columns, names, levels[i]);
-  return out + "}}";
+  return out + "},\"live\":" + LiveJson(info.live, columns) + "}";
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -401,7 +441,13 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   .choices { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:8px }
   .note { color:var(--dim); padding:4px 0 }
   .wide { overflow-x:auto }
-  @media (max-width:640px) { .tiles, .cards { grid-template-columns:1fr 1fr } .topics { grid-template-columns:1fr } }
+  .live { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin:4px 0 6px }
+  .vit { display:grid; grid-template-columns:76px 140px auto; gap:4px 10px; align-items:center; margin-bottom:10px }
+  .vit .l { color:var(--dim) } .vit .bad, .live .bad { color:var(--bad) } .vit .none { color:var(--dim) }
+  .vbar { height:10px; background:var(--track); border-radius:2px; overflow:hidden } .vbar i { display:block; height:100% }
+  .live table { margin-bottom:10px } .live td.rk { width:110px }
+  .live .raised { color:#e0b54a } .live tr.in td:last-child { padding-left:22px; color:var(--part) }
+  @media (max-width:640px) { .tiles, .cards { grid-template-columns:1fr 1fr } .topics, .live { grid-template-columns:1fr } }
 </style></head>
 <body>
 )HTML";
@@ -414,6 +460,8 @@ const COLOUR = i => `var(--c${i % 4})`;
 const DETAIL = {WEAPONS: 0, SPELLS: 1, HARM: 2, HEALING: 3, DEATHS: 4, CONSUMED: 5, ITEMS: 6, MONSTERS: 7,
                 SKILLS: 8, XP_SOURCES: 9, RANK_UPS: 10, RECORDS: 11};
 const TOPIC_RECORDS = 8;
+// The tab after the topics: the champions when the page was written
+const CHAMPIONS = TOP.length, LIVE = D.live || {inHand: '', champions: []};
 const NUMBERS_SECTION = 'numbers', KEY_SECTION = 'key';
 const st = {who: N, topic: 0, level: -1, per: false, side: false, grid: {}, closed: {}, sort: {}, open: {}};
 
@@ -514,10 +562,11 @@ function frame() {
   let whos = `<button class="who${isParty() ? ' on' : ''}" onclick="set({who:${N}})">Party</button>`;
   for (let i = 0; i < N; i++)
     whos += `<button class="who${st.who === i ? ' on' : ''}${H[i].left ? ' left' : ''}" onclick="set({who:${i}})">${dotOf(i)}${esc(H[i].name)}</button>`;
-  document.getElementById('top').innerHTML = `<div class="whos">${whos}</div>${picker()}`;
-  document.getElementById('tabs').innerHTML = TOP.map((t, i) =>
-    `<button class="tab${st.topic === i ? ' on' : ''}" onclick="set({topic:${i}})">${esc(t.label)}</button>`).join('');
-  document.getElementById('where').textContent =
+  const onChampions = st.topic === CHAMPIONS;
+  document.getElementById('top').innerHTML = `<div class="whos">${whos}</div>${onChampions ? '' : picker()}`;
+  document.getElementById('tabs').innerHTML = TOP.map(t => t.label).concat(['Champions']).map((label, i) =>
+    `<button class="tab${st.topic === i ? ' on' : ''}" onclick="set({topic:${i}})">${esc(label)}</button>`).join('');
+  document.getElementById('where').textContent = onChampions ? [whoName(st.who), 'Champions'].join(' · ') :
     [whoName(st.who), TOP[st.topic].label, st.per ? 'Per level' : lvName(st.level)].join(' · ');
 }
 
@@ -857,12 +906,53 @@ function perLevel() {
   return html + sortTable('per' + t + (side ? 'g' : 't'), cols, rows, foot, 0);
 }
 
+// The Champions tab: what the game's inventory screen showed of each champion when the page was written
+function vitalBar(label, now, most, colour, txt) {
+  const w = most > 0 ? Math.max(0, Math.min(100, now * 100 / most)) : 0;
+  return `<span class="l">${label}</span><div class="vbar"><i style="width:${w}%;background:${colour}"></i></div><span>${txt}</span>`;
+}
+function nourished(label, v, empty) {
+  const full = 2048, colour = v < full / 4 ? 'var(--bad)' : v < full / 2 ? '#e0b54a' : 'var(--c0)';
+  return vitalBar(label, v, full, colour, Math.floor(Math.max(0, v) * 100 / full) + '%' + (v < 0 ? ` (${empty})` : ''));
+}
+const tenths = t => (t < 0 ? '-' : '') + Math.floor(Math.abs(t) / 10) + '.' + (Math.abs(t) % 10);
+function liveChampion(c, i) {
+  const colour = c.hero >= 0 ? COLOUR(c.hero) : 'var(--text)';
+  let vit = vitalBar('Health', c.hp[0], c.hp[1], colour, `${c.hp[0]} / ${c.hp[1]}`) +
+    vitalBar('Stamina', c.stamina[0], c.stamina[1], colour, `${Math.floor(c.stamina[0] / 10)} / ${Math.floor(c.stamina[1] / 10)}`) +
+    vitalBar('Mana', c.mana[0], c.mana[1], colour, `${c.mana[0]} / ${c.mana[1]}`) +
+    nourished('Food', c.food, 'starving') + nourished('Water', c.water, 'parched') +
+    `<span class="l">Load</span><span class="${c.load[0] > c.load[1] ? 'bad' : ''}" style="grid-column:span 2">${tenths(c.load[0])} / ${tenths(c.load[1])} kg</span>` +
+    `<span class="l">Wounds</span><span class="${c.wounds ? 'bad' : 'none'}" style="grid-column:span 2">${c.wounds ? esc(c.wounds) : 'none'}</span>` +
+    `<span class="l">Poison</span><span class="${c.poison ? 'bad' : 'none'}" style="grid-column:span 2">${c.poison ? `poisoned (${c.poison} ${c.poison === 1 ? 'dose' : 'doses'})` : 'none'}</span>`;
+  const attrs = '<table><tr><th>Attribute</th><th>Current</th><th>Max</th></tr>' + c.attrs.map(a =>
+    `<tr><td>${esc(a[0])}</td><td class="${a[1] < a[2] ? 'bad' : a[1] > a[2] ? 'raised' : ''}">${a[1]}</td><td>${a[2]}</td></tr>`).join('') + '</table>';
+  const ranks = '<table><tr><th>Class</th><th>Rank</th><th class="l">To next rank</th></tr>' + c.ranks.map(r =>
+    `<tr><td>${esc(r[0])}</td><td class="${r[1] ? '' : 'z'}">${r[1] ? esc(r[1]) : '-'}</td>` +
+    `<td class="rk" title="${r[2]}% of the way to the next rank"><div class="vbar"><i style="width:${r[2]}%;background:${colour}"></i></div></td></tr>`).join('') + '</table>';
+  const items = c.items.length ? '<table><tr><th style="width:110px">Slot</th><th class="l">Item</th></tr>' + c.items.map(it =>
+    `<tr class="${it[2] ? 'in' : ''}"><td class="${it[2] ? '' : 'nt'}">${it[2] ? '' : esc(it[0])}</td><td class="l">${esc(it[1])}</td></tr>`).join('') + '</table>'
+    : '<div class="note">Carries nothing.</div>';
+  const status = c.hp[0] <= 0 ? 'dead' : c.poison ? 'poisoned' : '';
+  const body = `<div class="live"><div><div class="vit">${vit}</div>${attrs}${ranks}</div><div>${items}</div></div>`;
+  return section('live' + i, c.name + (c.title ? ' ' + c.title : ''), status ? `<span class="pill">${status}</span>` : '', body);
+}
+function championsPage() {
+  const all = LIVE.champions.map((c, i) => [c, i]);
+  if (!all.length) return '<div class="note">No champion in the party when the page was written.</div>';
+  const shown = isParty() ? all : all.filter(([c]) => c.hero === st.who);
+  if (!shown.length) return `<div class="note">${esc(whoName(st.who))} was not in the party when the page was written.</div>`;
+  let html = '<div class="note">The champions as they were when the page was written.</div>';
+  if (isParty() && LIVE.inHand) html += `<div class="note">In the hand: <span style="color:var(--text)">${esc(LIVE.inHand)}</span></div>`;
+  return html + shown.map(([c, i]) => liveChampion(c, i)).join('');
+}
+
 function draw() {
   if (st.level !== -1 && !D.views[String(st.level)]) st.level = -1;
   frame();
   let html;
   if (N === 0 && D.levels.length === 0) html = '<div class="note">No statistics yet.</div>';
-  else html = st.per ? perLevel() : topicPage();
+  else html = st.topic === CHAMPIONS ? championsPage() : st.per ? perLevel() : topicPage();
   document.getElementById('view').innerHTML = html;
 }
 draw();

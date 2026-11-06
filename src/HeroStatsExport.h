@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include "HeroStatsPages.h"
+#include "HeroStatsLive.h"
 
 // The same layout whatever was included before: CSB.h leaves #pragma pack(1) switched on
 #pragma pack(push, 8)
@@ -16,6 +17,7 @@ struct HeroStatsExportInfo
 {
   std::string dungeon;  // the dungeon's file name, shown under the title
   std::string date;     // when it was written, as the player reads it
+  HeroStatsLiveParty live;  // the party when it was written, for the Champions tab; may be empty
 };
 
 // A JSON string, quotes included. Bytes that are not UTF-8 are taken as Latin-1, and "<" is

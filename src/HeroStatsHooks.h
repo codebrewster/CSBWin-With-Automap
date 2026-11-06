@@ -9,11 +9,14 @@
 #include "HeroStats.h"
 #include "HeroStatsOrigins.h"
 #include "HeroStatsPages.h"
+#include "HeroStatsLive.h"
 
 HeroStats &HeroStats_Store(void);
 HeroStatsOrigins &HeroStats_Origins(void);
 // Fingerprints of the champions in the party now, slot order (empty with no game loaded)
 std::vector<HeroStatsChampion> HeroStats_PartyNow(void);
+// The champions of the party as they are now (HeroStatsLive.h), read without changing the game
+HeroStatsLiveParty HeroStats_LiveParty(void);
 // The dungeon file of the game in play, "" before one is loaded
 std::string HeroStats_DungeonInPlay(void);
 
