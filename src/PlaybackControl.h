@@ -8,17 +8,27 @@
 // file by game tick, so how many vertical blanks come in a second changes only how fast it goes,
 // never what happens. No engine, no SDL.
 
-// 0.5x, 1x, 2x, 4x, 8x, 16x, 32x and 64x
-const int PLAYBACK_SPEED_COUNT = 8;
+// 0.5x, 1x, 2x, 4x, 8x, 16x, 32x, 64x and max. Max is the engine's quick play (NoSpeedLimit):
+// no clock at all, as many ticks as the machine manages (PLAYBACK_MAX_MS_PER_TIMER)
+const int PLAYBACK_SPEED_COUNT = 9;
 const int PLAYBACK_SPEED_NORMAL = 1; // the index of 1x
+const int PLAYBACK_SPEED_MAX = 8;    // the index of max
+
+// At max a timer message runs ticks for this long, then the window gets its turn to draw and
+// to take keys (pause, slower), so the replay stays answerable however fast it runs
+const int PLAYBACK_MAX_MS_PER_TIMER = 30;
+// and draws the game's window no more often than this
+const int PLAYBACK_MAX_FRAMES_PER_SECOND = 30;
 
 int PlaybackControl_SpeedIndex(void);
 void PlaybackControl_SetSpeedIndex(int index); // clamped to the list
 void PlaybackControl_Faster(void);
 void PlaybackControl_Slower(void);
-double PlaybackControl_Factor(void);              // 0.5 .. 64 for the chosen speed
+bool PlaybackControl_IsMax(void);
+// 0.5 .. 64 for the chosen speed; max has no factor, it counts as 64 (no sound)
+double PlaybackControl_Factor(void);
 double PlaybackControl_FactorOf(int index);
-const char *PlaybackControl_LabelOf(int index); // "0.5x", "1x", ... "64x"
+const char *PlaybackControl_LabelOf(int index); // "0.5x", "1x", ... "64x", "max"
 
 bool PlaybackControl_IsPaused(void);
 void PlaybackControl_SetPaused(bool paused);
@@ -31,7 +41,8 @@ void PlaybackControl_Reset(void);
 bool PlaybackControl_MutesSound(void);
 
 // How many times the platform layer checks for a due vertical blank per timer message:
-// base at 1x and below, base times the factor above, so 64x gets enough chances
+// base at 1x and below, base times the factor above, so 64x gets enough chances. Max takes as
+// many as fit into PLAYBACK_MAX_MS_PER_TIMER, which the platform layer measures itself
 int PlaybackControl_ChecksPerTimer(int base);
 
 // The vertical blanks of a replay at a speed other than 1x, or paused. The platform layer asks

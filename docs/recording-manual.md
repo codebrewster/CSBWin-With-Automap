@@ -32,13 +32,17 @@ While the replay runs, the menu bar has a **Replay** menu and its controls besid
 | Control | What it does |
 |---|---|
 | **Pause** / **Resume**, or **Space** | Stops the replay where it is, and goes on |
-| **-** and **+** buttons, or the **-** and **+** keys | Slower and faster: 0.5x, 1x, 2x, 4x, 8x, 16x, 32x, 64x |
-| **Replay → 0.5x … 64x** | Picks a speed directly |
+| **-** and **+** buttons, or the **-** and **+** keys | Slower and faster: 0.5x, 1x, 2x, 4x, 8x, 16x, 32x, 64x, max |
+| **Replay → 0.5x … max** | Picks a speed directly |
 | **Replay → Stop replay, play on from here** | Ends the replay; you play on from that point |
 
 - The speed is relative to **Speed** in the menu: 2x at Normal is twice as fast as Normal.
 - **tick N** shows how far the replay is; paused, it says so in yellow.
 - From 4x on the game's built-in sounds stay off, so they do not pile up, and the bar says **(fewer sounds)**. The extra sounds from the `sounds` folder (monster steps, war cry, horn, critical hits) still play.
+- **max** runs the replay as fast as the computer can, with no clock at all. The game window
+  then shows about 30 pictures a second, so the time goes to the game rather than to drawing;
+  Space and **-** still answer at once. A recording that asks for quick play itself
+  (`#NoSpeedLimit`), or `--quick` on the command line, shows as max too.
 - If the computer cannot keep up at a high speed, the replay simply runs as fast as it can; it
   never skips anything. How fast a replay runs never changes what happens in it.
 - A new replay starts at 1x.

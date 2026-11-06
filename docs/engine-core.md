@@ -130,10 +130,13 @@ the game's "record your run" feature and the test traces work. A replay takes it
 input by game tick, so it stays in step with CSBwin 17.6 playfiles as long as the
 engine does what 17.6 does tick for tick.
 
-The pace of a replay (pause, 0.5x to 64x) lives in `PlaybackControl.cpp` /
+The pace of a replay (pause, 0.5x to 64x, max) lives in `PlaybackControl.cpp` /
 `PlaybackControl.h`, which need neither the engine nor SDL and are tested by
 `make test`. `checkVBL` (`system.cpp:549`) takes its vertical blanks from a
-`PlaybackClock` while a replay is paused or not at 1x. The user side is in
+`PlaybackClock` while a replay is paused or not at 1x. Max is the engine's quick play
+(`NoSpeedLimit`): every blank is a tick, `CSBUI` (`LinCSBUI.cpp`) runs them for
+`PLAYBACK_MAX_MS_PER_TIMER` per timer message and `UI_ScreenPresent` draws at most
+`PLAYBACK_MAX_FRAMES_PER_SECOND` frames. The user side is in
 [recording-manual.md](recording-manual.md).
 
 ## Translation.cpp — text localisation

@@ -2,8 +2,8 @@
 
 namespace
 {
-const double FACTORS[PLAYBACK_SPEED_COUNT] = {0.5, 1, 2, 4, 8, 16, 32, 64};
-const char *const LABELS[PLAYBACK_SPEED_COUNT] = {"0.5x", "1x", "2x", "4x", "8x", "16x", "32x", "64x"};
+const double FACTORS[PLAYBACK_SPEED_COUNT] = {0.5, 1, 2, 4, 8, 16, 32, 64, 64};
+const char *const LABELS[PLAYBACK_SPEED_COUNT] = {"0.5x", "1x", "2x", "4x", "8x", "16x", "32x", "64x", "max"};
 
 int speedIndex = PLAYBACK_SPEED_NORMAL;
 bool paused = false;
@@ -20,6 +20,7 @@ int PlaybackControl_SpeedIndex(void) { return speedIndex; }
 void PlaybackControl_SetSpeedIndex(int index) { speedIndex = Clamped(index); }
 void PlaybackControl_Faster(void) { PlaybackControl_SetSpeedIndex(speedIndex + 1); }
 void PlaybackControl_Slower(void) { PlaybackControl_SetSpeedIndex(speedIndex - 1); }
+bool PlaybackControl_IsMax(void) { return speedIndex == PLAYBACK_SPEED_MAX; }
 double PlaybackControl_Factor(void) { return FACTORS[speedIndex]; }
 double PlaybackControl_FactorOf(int index) { return FACTORS[Clamped(index)]; }
 const char *PlaybackControl_LabelOf(int index) { return LABELS[Clamped(index)]; }

@@ -18,13 +18,19 @@ static int BlanksIn(PlaybackClock &clock, uint64_t &now, uint64_t ms, double fac
   return blanks;
 }
 
-static void TheSpeedsGoFromHalfTo64(void)
+static void TheSpeedsGoFromHalfTo64AndMax(void)
 {
   PlaybackControl_Reset();
   CHECK(PlaybackControl_Factor() == 1.0);
+  CHECK(!PlaybackControl_IsMax());
   CHECK(std::strcmp(PlaybackControl_LabelOf(0), "0.5x") == 0);
-  CHECK(std::strcmp(PlaybackControl_LabelOf(PLAYBACK_SPEED_COUNT - 1), "64x") == 0);
+  CHECK(std::strcmp(PlaybackControl_LabelOf(PLAYBACK_SPEED_MAX - 1), "64x") == 0);
+  CHECK(std::strcmp(PlaybackControl_LabelOf(PLAYBACK_SPEED_COUNT - 1), "max") == 0);
   for (int i = 0; i < 20; i++) PlaybackControl_Faster();
+  CHECK(PlaybackControl_IsMax());
+  CHECK(PlaybackControl_MutesSound());
+  PlaybackControl_Slower();
+  CHECK(!PlaybackControl_IsMax());
   CHECK(PlaybackControl_Factor() == 64.0);
   for (int i = 0; i < 20; i++) PlaybackControl_Slower();
   CHECK(PlaybackControl_Factor() == 0.5);
@@ -106,7 +112,7 @@ static void ASlowMachineLetsTheBacklogGo(void)
 
 void TestPlaybackControl(void)
 {
-  TheSpeedsGoFromHalfTo64();
+  TheSpeedsGoFromHalfTo64AndMax();
   SoundStopsFrom4x();
   EnoughChecksForEverySpeed();
   TheClockRunsAtTheFactor();

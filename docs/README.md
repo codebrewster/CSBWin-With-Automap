@@ -19,7 +19,7 @@ be read, not to replace the code — every non-obvious claim points at a
 | [platform.md](platform.md) | The platform mains, the UI layers, and the differences between Linux/macOS/Windows/Raspberry |
 | [automap-manual.md](automap-manual.md) | How to use the automap: controls, settings, tooltips, search, notes, testing aids |
 | [statistics-manual.md](statistics-manual.md) | How to use the Statistics window: topics, levels, champions, sorting, export as HTML, what is counted |
-| [recording-manual.md](recording-manual.md) | Recording a game, and replaying it: pause, 0.5x to 64x, what happens at its end |
+| [recording-manual.md](recording-manual.md) | Recording a game, and replaying it: pause, 0.5x to 64x and max, what happens at its end |
 | [automap.md](automap.md) | The `AutoMap*` feature: units, hooks, save/load, tests |
 | [statistics.md](statistics.md) | The `HeroStats*` feature: units, how a number is counted, save/load, adding a number, tests |
 | [data-formats.md](data-formats.md) | `dungeon.dat`, `graphics.dat`, savegames, `csb.cfg`, text/locale files, the decode tables |

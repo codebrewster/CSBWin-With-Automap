@@ -22,7 +22,7 @@ party's exploration. It can be exported as one HTML file to share. See the
 
 **Record a game and replay it.** Every input goes into a small `.log` file, and the replay
 runs the same game again, tick by tick. Pause it with Space and run it at any speed from
-0.5x to 64x. Recordings made with Paul Stevens' CSBwin 17.6 play too, so a classic run
+0.5x to 64x, or at max, as fast as the computer can. Recordings made with Paul Stevens' CSBwin 17.6 play too, so a classic run
 from the forum can be watched again. The map and the statistics fill up while the replay
 runs. See the **[recording manual](docs/recording-manual.md)**.
 
@@ -150,14 +150,14 @@ A legend behind the **?** button explains every mark on the map.
 - Kept in the save's `.map` file (a zip archive, about a sixth of the size it had before);
   saves from before the statistics load with empty statistics.
 
-### Record a game, replay it at up to 64x
+### Record a game, replay it at up to 64x or as fast as it goes
 
 - **File → Record** writes every input of a game into a `RecordNNNNN.log` (in the `logs` folder
   when the game folder has one); a red **REC** on the menu bar shows it is on. The files are small.
 - **File → Playback..** replays one, tick by tick, with the same fights, deaths and win.
 - **Pause** and resume with **Space**, at any moment.
-- **Eight speeds**, 0.5x, 1x, 2x, 4x, 8x, 16x, 32x and 64x, with **+** and **-** or from the
-  **Replay** menu. The speed never changes what happens in the replay; nothing is skipped.
+- **Nine speeds**, 0.5x, 1x, 2x, 4x, 8x, 16x, 32x, 64x and max (as fast as the computer can),
+  with **+** and **-** or from the **Replay** menu. The speed never changes what happens in the replay; nothing is skipped.
 - **Old recordings play too**: playfiles made with Paul Stevens' CSBwin 17.6, such as
   Antman's Dungeon Master run, replay to their end, so runs shared on the forum can be watched
   again with the `dungeon.dat` they were recorded with.

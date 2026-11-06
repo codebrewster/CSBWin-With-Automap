@@ -2388,9 +2388,16 @@ extern void ReadTranslationFile(char*);
 static void SetReplaySpeed(int index)
 {
   PlaybackControl_SetSpeedIndex(index);
-  // A chosen speed ends quick play (#NoSpeedLimit in the file, or --quick)
-  NoSpeedLimit = 0;
+  // Max is the engine's quick play, as #NoSpeedLimit in the file sets it; any other speed ends
+  // quick play (#NoSpeedLimit, or --quick)
+  NoSpeedLimit = PlaybackControl_IsMax() ? 0x20000000 : 0;
   VBLMultiplier = 1;
+}
+
+// The speed the replay runs at: quick play from the file or --quick counts as max
+static int ReplaySpeedIndex(void)
+{
+  return NoSpeedLimit != 0 ? PLAYBACK_SPEED_MAX : PlaybackControl_SpeedIndex();
 }
 
 // The player takes over where the replay stands
@@ -2418,11 +2425,11 @@ static bool HandleReplayKey(const SDL_Event &event)
   case SDLK_PLUS:
   case SDLK_EQUALS:
   case SDLK_KP_PLUS:
-    SetReplaySpeed(PlaybackControl_SpeedIndex() + 1);
+    SetReplaySpeed(ReplaySpeedIndex() + 1);
     return true;
   case SDLK_MINUS:
   case SDLK_KP_MINUS:
-    SetReplaySpeed(PlaybackControl_SpeedIndex() - 1);
+    SetReplaySpeed(ReplaySpeedIndex() - 1);
     return true;
   default:
     return false;
@@ -2431,7 +2438,7 @@ static bool HandleReplayKey(const SDL_Event &event)
 
 static const char *ReplaySpeedLabel(void)
 {
-  return NoSpeedLimit != 0 ? "max" : PlaybackControl_LabelOf(PlaybackControl_SpeedIndex());
+  return PlaybackControl_LabelOf(ReplaySpeedIndex());
 }
 
 // The replay menu and, beside it on the bar, pause, slower, the speed, faster and the tick
@@ -2445,9 +2452,9 @@ static void DrawReplayControls(bool &was_active)
     ImGui::Separator();
     for (int i = 0; i < PLAYBACK_SPEED_COUNT; i++)
     {
-      const char *shortcut = i == PlaybackControl_SpeedIndex() + 1 ? "+"
-                           : i == PlaybackControl_SpeedIndex() - 1 ? "-" : NULL;
-      bool chosen = NoSpeedLimit == 0 && i == PlaybackControl_SpeedIndex();
+      const char *shortcut = i == ReplaySpeedIndex() + 1 ? "+"
+                           : i == ReplaySpeedIndex() - 1 ? "-" : NULL;
+      bool chosen = i == ReplaySpeedIndex();
       if (ImGui::MenuItem(PlaybackControl_LabelOf(i), shortcut, chosen)) SetReplaySpeed(i);
     }
     ImGui::Separator();
@@ -2455,14 +2462,14 @@ static void DrawReplayControls(bool &was_active)
     ImGui::EndMenu();
   }
   if (ImGui::SmallButton(PlaybackControl_IsPaused() ? _("Resume") : _("Pause"))) PlaybackControl_TogglePause();
-  if (ImGui::SmallButton("-")) SetReplaySpeed(PlaybackControl_SpeedIndex() - 1);
+  if (ImGui::SmallButton("-")) SetReplaySpeed(ReplaySpeedIndex() - 1);
   ImGui::Text("%4s", ReplaySpeedLabel());
-  if (ImGui::SmallButton("+")) SetReplaySpeed(PlaybackControl_SpeedIndex() + 1);
+  if (ImGui::SmallButton("+")) SetReplaySpeed(ReplaySpeedIndex() + 1);
   if (PlaybackControl_IsPaused())
     ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), _("Paused at tick %d"), (int)d.Time);
   else
     ImGui::TextDisabled(_("tick %d"), (int)d.Time);
-  if (PlaybackControl_MutesSound() && NoSpeedLimit == 0) ImGui::TextDisabled(_("(fewer sounds)"));
+  if (PlaybackControl_MutesSound() || NoSpeedLimit != 0) ImGui::TextDisabled(_("(fewer sounds)"));
 }
 
 static const char *RecordTooltip(void)

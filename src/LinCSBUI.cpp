@@ -105,6 +105,8 @@ extern i32 CSBUI(CSB_UI_MESSAGE *msg);
 i32 CSBUI(CSB_UI_MESSAGE *msg)
 {
   i32 CallCheckVBL= 0;
+  // A replay at max: when the ticks of this timer message stop (0: no limit by time)
+  i64 maxSpeedUntil = 0;
   //printf("Lin_CSBUI type=%d\n", msg->type);
   if (messageMask == 0) return UI_STATUS_NORMAL;
   try
@@ -326,6 +328,13 @@ i32 CSBUI(CSB_UI_MESSAGE *msg)
         CallCheckVBL = VBLperTimer*VBLMultiplier; // do it 10 times
         // A fast replay needs more chances for its blanks (PlaybackControl.h)
         if (PlayfileIsOpen()) CallCheckVBL = PlaybackControl_ChecksPerTimer(VBLperTimer)*VBLMultiplier;
+        // A replay at max runs ticks until its time is up, then lets the window draw and
+        // take keys (PlaybackControl.h). --quick and #NoSpeedLimit keep their fixed count.
+        if (PlayfileIsOpen() && PlaybackControl_IsMax() && NoSpeedLimit != 0 && !PlaybackControl_IsPaused())
+        {
+          maxSpeedUntil = UI_GetSystemTime() + PLAYBACK_MAX_MS_PER_TIMER;
+          CallCheckVBL = 1000000;
+        }
         break;
     case UIM_PAINT:
         display();
@@ -398,6 +407,8 @@ i32 CSBUI(CSB_UI_MESSAGE *msg)
         if (eventNum < 20) printf("Attempt checkVBL()\n");
         checkVBL();
         CallCheckVBL--;
+        if (maxSpeedUntil != 0 && (CallCheckVBL % 16) == 0 && UI_GetSystemTime() >= maxSpeedUntil)
+          CallCheckVBL = 0;
       };
       while (msgStackLen != 0)
       {
@@ -1112,6 +1123,16 @@ void UI_ScreenEndUpdates(void)
 extern void post_render();
 void UI_ScreenPresent(void)
 {
+  // A replay at max changes the screen on nearly every tick, and drawing the window costs far
+  // more than a tick: it shows PLAYBACK_MAX_FRAMES_PER_SECOND frames, the rest of the time goes
+  // to the game. The picture stays in the texture, so the next frame shows the latest one.
+  static i64 lastFrame = 0;
+  if (PlayfileIsOpen() && PlaybackControl_IsMax() && NoSpeedLimit != 0 && !PlaybackControl_IsPaused())
+  {
+    i64 now = UI_GetSystemTime();
+    if (now - lastFrame < 1000 / PLAYBACK_MAX_FRAMES_PER_SECOND && now >= lastFrame) return;
+    lastFrame = now;
+  }
   post_render();
 }
 
