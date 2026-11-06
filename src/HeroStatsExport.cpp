@@ -272,7 +272,7 @@ static std::string ViewJson(const HeroStats &stats, const std::vector<HeroStatsC
   {
     if (items[i].pickedUp + items[i].usedInWall == 0) continue;  // only eaten or drunk: in Eaten and drunk
     out += std::string(first ? "" : ",") + "[" + HeroStatsExport_JsonString(items[i].name) + "," +
-           Number(items[i].pickedUp) + "," + Number(items[i].usedInWall) + "]";
+           Number(items[i].pickedUp) + "," + Number(items[i].usedInWall) + "," + Number(items[i].fromChest) + "]";
     first = false;
   }
   return out + "]}";
@@ -665,12 +665,12 @@ function consumed(p) {
 
 function items() {
   const lines = view(st.level).items;
-  const all = lines.reduce((a, l) => [a[0] + l[1], a[1] + l[2]], [0, 0]);
+  const all = lines.reduce((a, l) => [a[0] + l[1], a[1] + l[3], a[2] + l[2]], [0, 0, 0]);
   if (!lines.length) return section(DETAIL.ITEMS, 'Items', 'none', '<div class="note">No items picked up or used in walls.</div>');
-  const rows = lines.map(l => ({cells: [nameTd(l[0]), td(l[1], plain(l[1])), td(l[2], plain(l[2]))]}));
-  const foot = {cls: 'all', cells: [nameTd('All items'), td(0, plain(all[0])), td(0, plain(all[1]))]};
-  return section(DETAIL.ITEMS, 'Items', `${fmt(all[0])} picked up · ${fmt(all[1])} used in walls`,
-    sortTable('items', [nameCol('Item'), numCol('Picked up'), numCol('Used in walls')], rows, foot, 1));
+  const rows = lines.map(l => ({cells: [nameTd(l[0]), td(l[1], plain(l[1])), td(l[3], plain(l[3])), td(l[2], plain(l[2]))]}));
+  const foot = {cls: 'all', cells: [nameTd('All items'), td(0, plain(all[0])), td(0, plain(all[1])), td(0, plain(all[2]))]};
+  return section(DETAIL.ITEMS, 'Items', `${fmt(all[0])} picked up · ${fmt(all[1])} from chests · ${fmt(all[2])} used in walls`,
+    sortTable('items', [nameCol('Item'), numCol('Picked up'), numCol('From chest'), numCol('Used in walls')], rows, foot, 1));
 }
 
 function monsters() {

@@ -330,6 +330,39 @@ static void ItemsAreKeptPerLevel(void)
   CHECK(stats.Items(HERO_STATS_WHOLE_RUN).empty());
 }
 
+// Out of a chest counts as picked up and as from a chest; a version 23 item row has no chest count
+static void ItemsFromChestsAreCounted(void)
+{
+  const int GOLD_KEY = 11, TORCH = 4;
+  HeroStats stats;
+  stats.CountItem(2, TORCH, HeroItemPickedUp);
+  stats.CountItem(2, TORCH, HeroItemTakenFromChest);
+  stats.CountItem(3, GOLD_KEY, HeroItemTakenFromChest);
+  std::vector<HeroStatsItemRow> run = stats.Items(HERO_STATS_WHOLE_RUN);
+  CHECK(run.size() == 2);
+  if (run.size() == 2)
+  {
+    CHECK(run[0].item == TORCH && run[0].pickedUp == 2 && run[0].fromChest == 1 && run[0].usedInWall == 0);
+    CHECK(run[1].item == GOLD_KEY && run[1].pickedUp == 1 && run[1].fromChest == 1);
+  }
+  std::vector<uint8_t> bytes;
+  stats.Serialize(&bytes);
+  HeroStats read;
+  CHECK(read.Deserialize(bytes.data(), bytes.size()));
+  CHECK(read.Items(3).size() == 1 && read.Items(3)[0].fromChest == 1 && read.Items(2)[0].fromChest == 1);
+
+  HeroStats one;
+  one.CountItem(1, TORCH, HeroItemTakenFromChest);
+  bytes.clear();
+  one.Serialize(&bytes);
+  // The eight tables after the items are empty (32 bytes) and the experience and records follow
+  size_t tail = 32 + Layout23Tail();
+  bytes.erase(bytes.end() - (std::ptrdiff_t)(tail + 4), bytes.end() - (std::ptrdiff_t)tail);
+  CHECK(read.Deserialize(bytes.data(), bytes.size(), 23));
+  CHECK(read.Items(1).size() == 1 && read.Items(1)[0].pickedUp == 1 && read.Items(1)[0].fromChest == 0);
+  CHECK(!read.Deserialize(bytes.data(), bytes.size()));
+}
+
 // The layout of version 15 has no item table and nothing after it: the nine counts at the end are cut
 static void LayoutFifteenIsStillRead(void)
 {
@@ -399,6 +432,7 @@ static void EatingDoorsAndChestsAreCounted(void)
   bytes.clear();
   empty.Serialize(&bytes);
   bytes.erase(bytes.end() - (32 + Layout23Tail()), bytes.end());
+  bytes.erase(bytes.end() - 4, bytes.end());   // the item row's taken from chests (version 24)
   CHECK(read.Deserialize(bytes.data(), bytes.size(), 16));
   CHECK(read.Items(1).size() == 1 && read.Eaten(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN) == 0);
   stats.Forget();
@@ -855,6 +889,7 @@ void TestHeroStats(void)
   ActionUsesAreKeptApartFromTries();
   LayoutFourteenIsStillRead();
   ItemsAreKeptPerLevel();
+  ItemsFromChestsAreCounted();
   LayoutFifteenIsStillRead();
   EatingDoorsAndChestsAreCounted();
   FoodAndWaterAreGainedOrWasted();

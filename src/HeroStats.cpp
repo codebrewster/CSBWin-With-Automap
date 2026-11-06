@@ -675,9 +675,14 @@ HeroStatsMovement HeroStats::Movement(int level) const
 
 void HeroStats::CountItem(int level, int item, HeroItemEvent event)
 {
-  ItemCounts zero = {0, 0};
+  ItemCounts zero = {0, 0, 0};
   ItemCounts &counts = m_items.insert(std::make_pair(std::make_pair(level, item), zero)).first->second;
   if (event == HeroItemPickedUp) counts.pickedUp++;
+  else if (event == HeroItemTakenFromChest)
+  {
+    counts.pickedUp++;
+    counts.fromChest++;
+  }
   else if (event == HeroItemUsedInWall) counts.usedInWall++;
 }
 
@@ -687,16 +692,17 @@ std::vector<HeroStatsItemRow> HeroStats::Items(int level) const
   for (std::map<std::pair<int, int>, ItemCounts>::const_iterator at = m_items.begin(); at != m_items.end(); ++at)
   {
     if (!LevelMatches(level, at->first.first)) continue;
-    ItemCounts zero = {0, 0};
+    ItemCounts zero = {0, 0, 0};
     ItemCounts &sum = sums.insert(std::make_pair(at->first.second, zero)).first->second;
     sum.pickedUp += at->second.pickedUp;
+    sum.fromChest += at->second.fromChest;
     sum.usedInWall += at->second.usedInWall;
   }
   std::vector<HeroStatsItemRow> rows;
   for (std::map<int, ItemCounts>::const_iterator at = sums.begin(); at != sums.end(); ++at)
   {
     if (at->second.pickedUp == 0 && at->second.usedInWall == 0) continue;
-    HeroStatsItemRow row = {at->first, at->second.pickedUp, at->second.usedInWall};
+    HeroStatsItemRow row = {at->first, at->second.pickedUp, at->second.fromChest, at->second.usedInWall};
     rows.push_back(row);
   }
   return rows;
@@ -1102,6 +1108,7 @@ void HeroStats::Serialize(std::vector<uint8_t> *out) const
     HeroBytes_PutInt(out, it->first.second);
     HeroBytes_PutInt(out, it->second.pickedUp);
     HeroBytes_PutInt(out, it->second.usedInWall);
+    HeroBytes_PutInt(out, it->second.fromChest);
   }
   HeroBytes_Put(out, (uint32_t)m_consumed.size(), 4);
   for (std::map<ConsumeKey, int>::const_iterator it = m_consumed.begin(); it != m_consumed.end(); ++it)
@@ -1334,7 +1341,8 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
     }
     read.m_movement[level] = movement;
   }
-  count = layout >= FIRST_LAYOUT_WITH_ITEMS ? in.GetCount(4 * 4) : 0;
+  bool hasChestItems = layout >= FIRST_LAYOUT_WITH_CHEST_ITEMS;
+  count = layout >= FIRST_LAYOUT_WITH_ITEMS ? in.GetCount((hasChestItems ? 5 : 4) * 4) : 0;
   for (uint32_t i = 0; i < count && in.ok; i++)
   {
     int level = in.GetInt();
@@ -1342,6 +1350,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
     ItemCounts counts;
     counts.pickedUp = in.GetInt();
     counts.usedInWall = in.GetInt();
+    counts.fromChest = hasChestItems ? in.GetInt() : 0;
     read.m_items[std::make_pair(level, item)] = counts;
   }
   bool hasConsumption = layout >= FIRST_LAYOUT_WITH_CONSUMPTION;

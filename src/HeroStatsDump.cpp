@@ -149,7 +149,8 @@ static void DumpOne(const HeroStats &stats, HeroStatsChampion who, std::string *
   }
   std::vector<HeroStatsItemRow> items = stats.Items(run);
   for (size_t i = 0; i < items.size(); i++)
-    Line(out, name, "item %d picked up %d used in walls %d", items[i].item, items[i].pickedUp, items[i].usedInWall);
+    Line(out, name, "item %d picked up %d from chests %d used in walls %d", items[i].item, items[i].pickedUp,
+         items[i].fromChest, items[i].usedInWall);
   Number(out, name, "chests opened %d", stats.ChestsOpened(run));
   Number(out, name, "doors opened by button %d", stats.DoorsOpenedByButton(run));
   Number(out, name, "doors closed by button %d", stats.DoorsClosedByButton(run));

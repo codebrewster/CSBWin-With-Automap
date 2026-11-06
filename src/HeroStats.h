@@ -100,10 +100,11 @@ struct HeroStatsMovement
 };
 
 // What the party did with items, by item (its basic object type, like a weapon key): items picked
-// up the first time from the dungeon (the floor, alcoves, torch holders, chests), and items a
-// wall took (keys in locks, coins and gems in slots)
-enum HeroItemEvent { HeroItemPickedUp, HeroItemUsedInWall, HERO_ITEM_EVENT_COUNT };
-struct HeroStatsItemRow { int item; int pickedUp, usedInWall; };
+// up the first time from the dungeon (the floor, alcoves, torch holders, chests), of those the
+// ones taken out of an open chest, and items a wall took (keys in locks, coins and gems in slots).
+// HeroItemTakenFromChest counts as picked up and as from a chest.
+enum HeroItemEvent { HeroItemPickedUp, HeroItemUsedInWall, HeroItemTakenFromChest, HERO_ITEM_EVENT_COUNT };
+struct HeroStatsItemRow { int item; int pickedUp, fromChest, usedInWall; };
 // What a champion ate or drank (potions, water, food), by item
 enum HeroConsumeKind { HeroConsumeDrunk, HeroConsumeEaten, HERO_CONSUME_KIND_COUNT };
 struct HeroStatsConsumedRow { int item; int drunk, eaten; };
@@ -263,8 +264,9 @@ public:
   // chests opened, 17 no door methods (the doors read as HeroDoorUnknown), no food and water,
   // 18 no tiles walked, 19 no scrolls read, 20 and 21 no rune outcomes and no runes kept (the
   // outcomes are taken from the rune spells' rows, on the level of the cast; 21 has a table of
-  // rune mana per level, which is skipped), 22 no experience and no records.
-  static const int LAYOUT = 23;
+  // rune mana per level, which is skipped), 22 no experience and no records, 23 no items taken
+  // from chests (none counted).
+  static const int LAYOUT = 24;
   static const int FIRST_LAYOUT_WITH_MOVEMENT = 14;
   static const int FIRST_LAYOUT_WITH_PITS_AND_SLEEP = 15;
   static const int FIRST_LAYOUT_WITH_ITEMS = 16;
@@ -275,6 +277,7 @@ public:
   static const int FIRST_LAYOUT_WITH_RUNE_MANA = 21;
   static const int FIRST_LAYOUT_WITH_RUNE_OUTCOMES = 22;
   static const int FIRST_LAYOUT_WITH_EXPERIENCE = 23;
+  static const int FIRST_LAYOUT_WITH_CHEST_ITEMS = 24;
   void Serialize(std::vector<uint8_t> *out) const;
   bool Deserialize(const uint8_t *data, size_t size, int layout = LAYOUT);
   // Experience and ranks (HeroStatsExperience.h): no hardship, they go with the file
@@ -327,7 +330,7 @@ private:
   std::map<int, HeroStatsMovement> m_movement;
   std::set<std::tuple<int, int, int> > m_tilesWalked;   // (level, x, y)
   std::map<int, int> m_tilesExplored;                   // per level, not stored
-  struct ItemCounts { int pickedUp, usedInWall; };
+  struct ItemCounts { int pickedUp, fromChest, usedInWall; };
   std::map<std::pair<int, int>, ItemCounts> m_items;   // (level, item)
   // (champion, level, item, kind)
   typedef std::tuple<HeroStatsChampion, int, int, int> ConsumeKey;

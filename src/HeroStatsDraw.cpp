@@ -1332,7 +1332,8 @@ static void DrawItems(HeroStatsDrawState *state, const std::vector<HeroStatsItem
   std::vector<HeroStatsItemLine> lines;
   for (size_t i = 0; i < source.size(); i++)
     if (source[i].pickedUp + source[i].usedInWall > 0) lines.push_back(source[i]);
-  std::string summary = Joined(Count(all.pickedUp, "picked up"), Count(all.usedInWall, "used in walls"));
+  std::string summary = Joined(Joined(Count(all.pickedUp, "picked up"), Count(all.fromChest, "from chests")),
+                               Count(all.usedInWall, "used in walls"));
   if (!SectionHeader(state, HeroDetailItems, "Items", lines.empty() ? "none" : summary)) return;
   if (lines.empty())
   {
@@ -1340,15 +1341,17 @@ static void DrawItems(HeroStatsDrawState *state, const std::vector<HeroStatsItem
     SectionGap();
     return;
   }
-  if (BeginPageTable("##items", 3, NUMBER_WIDTH * 2 + 30, true))
+  if (BeginPageTable("##items", 4, NUMBER_WIDTH * 3 + 30, true))
   {
     LabelColumn("Item", true);
     NumberColumn("Picked up", NUMBER_WIDTH, true);
+    NumberColumn("From chest", NUMBER_WIDTH);
     NumberColumn("Used in walls", NUMBER_WIDTH + 30);
     HeaderRow(std::vector<int>(), columns);
     SortRows(&lines, CurrentSort(), [](const HeroStatsItemLine &a, const HeroStatsItemLine &b, int c) {
       if (c == 0) return a.name.compare(b.name);
-      return c == 1 ? Compare(a.pickedUp, b.pickedUp) : Compare(a.usedInWall, b.usedInWall);
+      if (c == 1) return Compare(a.pickedUp, b.pickedUp);
+      return c == 2 ? Compare(a.fromChest, b.fromChest) : Compare(a.usedInWall, b.usedInWall);
     });
     for (size_t i = 0; i <= lines.size(); i++)
     {
@@ -1361,6 +1364,8 @@ static void DrawItems(HeroStatsDrawState *state, const std::vector<HeroStatsItem
       ImGui::TableSetColumnIndex(1);
       PlainCell(line.pickedUp, rgb);
       ImGui::TableSetColumnIndex(2);
+      PlainCell(line.fromChest, rgb);
+      ImGui::TableSetColumnIndex(3);
       PlainCell(line.usedInWall, rgb);
     }
     ImGui::EndTable();

@@ -22,7 +22,7 @@ static const size_t FIRST_LEVEL_WIDTH_OFFSET = 16;
 // A file with no damaged monster group ends in its count of 4 bytes
 static const size_t NO_DAMAGE_BYTES = 4;
 
-// What a version 23 file ends in when both statistics stores are empty: the block length, the
+// What a version 24 file ends in when both statistics stores are empty: the block length, the
 // length of the statistics, and their empty tables
 static std::string EmptyStatistics(void)
 {
@@ -49,7 +49,7 @@ static std::string WithoutStatistics(std::string bytes)
 static std::string Complete(const std::string &withoutStatistics)
 {
   std::string bytes = withoutStatistics + EmptyStatistics();
-  bytes[VERSION_OFFSET] = 23;
+  bytes[VERSION_OFFSET] = 24;
   return bytes;
 }
 
@@ -295,7 +295,7 @@ static void FileOfAnotherKindIsRejected(void)
 static void UnknownVersionIsRejected(void)
 {
   std::string bytes = WrittenFile();
-  bytes[VERSION_OFFSET] = 24;
+  bytes[VERSION_OFFSET] = 25;
   CheckRejected(bytes, AutoMapFileHasUnknownVersion);
 }
 

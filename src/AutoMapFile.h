@@ -86,7 +86,8 @@ const char *AutoMapFile_Describe(AutoMapFileResult result);
 //     then the party wipes and the reloads, 4 bytes each
 //     movement (version 14): per level 4 bytes level, steps, turns, teleports, ticks, then
 //              (version 15) ticks asleep, pits fallen into, pits climbed down, bumps
-//     items (version 16): per row level, item (basic object type), picked up, used in walls
+//     items (version 16): per row level, item (basic object type), picked up, used in walls,
+//              then (version 24) taken from chests (a part of picked up)
 //     eaten and drunk (version 17): 2 bytes champion, level, item, kind (0 drunk, 1 eaten), count
 //     doors bashed (version 17): 2 bytes champion, level, count, then (version 18) the method
 //              (0 smashed, 1 shot open, 2 by spell, 4 a closed door opened by a Zo spell; 5 opened
@@ -124,7 +125,8 @@ const char *AutoMapFile_Describe(AutoMapFileResult result);
 // files no items, version 16 files nothing eaten or drunk, no doors bashed and no chests opened,
 // version 17 files no door methods and no food and water, version 18 files no tiles walked,
 // version 19 files no scrolls read, version 20 and 21 files no rune outcomes (taken from the rune
-// spells' rows); they are still read.
+// spells' rows), version 22 files no experience and no records, version 23 files no items taken
+// from chests; they are still read.
 class AutoMapFile
 {
 public:

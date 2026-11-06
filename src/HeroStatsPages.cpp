@@ -90,7 +90,7 @@ std::vector<HeroStatsItemLine> HeroStatsPages_Items(const HeroStats &stats, int 
     std::map<std::string, size_t>::iterator found = lineOf.find(name);
     if (found == lineOf.end())
     {
-      HeroStatsItemLine empty = {name, 0, 0, 0, 0};
+      HeroStatsItemLine empty = {name, 0, 0, 0, 0, 0};
       lines.push_back(empty);
       found = lineOf.insert(std::make_pair(name, lines.size() - 1)).first;
     }
@@ -101,6 +101,7 @@ std::vector<HeroStatsItemLine> HeroStatsPages_Items(const HeroStats &stats, int 
   {
     HeroStatsItemLine &line = lineFor(rows[r].item);
     line.pickedUp += rows[r].pickedUp;
+    line.fromChest += rows[r].fromChest;
     line.usedInWall += rows[r].usedInWall;
   }
   std::vector<HeroStatsConsumedRow> consumed = stats.Consumed(HERO_STATS_PARTY, level);
@@ -116,10 +117,11 @@ std::vector<HeroStatsItemLine> HeroStatsPages_Items(const HeroStats &stats, int 
 
 HeroStatsItemLine HeroStatsPages_AllItems(const std::vector<HeroStatsItemLine> &lines)
 {
-  HeroStatsItemLine all = {"All items", 0, 0, 0, 0};
+  HeroStatsItemLine all = {"All items", 0, 0, 0, 0, 0};
   for (size_t l = 0; l < lines.size(); l++)
   {
     all.pickedUp += lines[l].pickedUp;
+    all.fromChest += lines[l].fromChest;
     all.usedInWall += lines[l].usedInWall;
     all.drunk += lines[l].drunk;
     all.eaten += lines[l].eaten;

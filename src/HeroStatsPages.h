@@ -38,7 +38,7 @@ HeroStatsMonsterLine HeroStatsPages_AllMonsters(const std::vector<HeroStatsMonst
 
 // One row of the Items page: the items of one name the party picked up the first time, the ones
 // walls took (keys, coins, gems), and the ones the champions drank or ate
-struct HeroStatsItemLine { std::string name; int pickedUp, usedInWall, drunk, eaten; };
+struct HeroStatsItemLine { std::string name; int pickedUp, fromChest, usedInWall, drunk, eaten; };
 // Most picked up first, then most used in walls, drunk and eaten, then by name. Items of one name
 // share one line.
 std::vector<HeroStatsItemLine> HeroStatsPages_Items(const HeroStats &stats, int level, const HeroStatsNames &names);

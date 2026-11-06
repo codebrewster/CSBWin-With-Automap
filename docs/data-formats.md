@@ -103,7 +103,7 @@ Numbers are stored lowest byte first. Layout of version 20 (`AutoMapFile.h`):
 | 4 bytes | number of damaged monster groups |
 | per group | 4 bytes record, 2 bytes damage shown to each of the four members |
 | 4 bytes | length of the statistics block (version 13) |
-| block | 4 bytes length of the hero statistics (`HeroStats::Serialize`), those bytes, then the origins of missiles, clouds and potions (`HeroStatsOrigins::Serialize`); the tables inside are listed in the header comment of `AutoMapFile.h`. Version 14 adds the missile kind of a monster's missile to each harm record and the party's movement per level (steps, turns, teleports, ticks) at the end; version 15 adds the uses of actions that cannot hit to each attack record and ticks asleep, pit falls, pit climbs and wall bumps to the movement; version 16 adds the items picked up and used in walls, and the held items to the origins; version 17 adds what was eaten and drunk, the doors bashed and the chests opened (and the opened chests to the origins); version 18 adds how each door was opened and the food and water gained and wasted; version 19 adds the tiles walked; version 20 adds the scrolls read (and the read scrolls to the origins) |
+| block | 4 bytes length of the hero statistics (`HeroStats::Serialize`), those bytes, then the origins of missiles, clouds and potions (`HeroStatsOrigins::Serialize`); the tables inside are listed in the header comment of `AutoMapFile.h`. Version 14 adds the missile kind of a monster's missile to each harm record and the party's movement per level (steps, turns, teleports, ticks) at the end; version 15 adds the uses of actions that cannot hit to each attack record and ticks asleep, pit falls, pit climbs and wall bumps to the movement; version 16 adds the items picked up and used in walls, and the held items to the origins; version 17 adds what was eaten and drunk, the doors bashed and the chests opened (and the opened chests to the origins); version 18 adds how each door was opened and the food and water gained and wasted; version 19 adds the tiles walked; version 20 adds the scrolls read (and the read scrolls to the origins); version 24 adds to each item row how many of the items picked up were taken out of a chest |
 
 A record fact has `0xff` for level, x and y; a cell fact has `0xffffffff` for the record.
 The record is `(dbNum << 16) | idx`. Items are stored in the order seen, looks by level, then y, then x, marks by level, y, x and links by level, y, x, side, then target y, x. Version 1 has neither
@@ -117,7 +117,8 @@ no seen-floor bits (the loader counts the floor of every explored cell as seen),
 statistics (they start empty), version 13 no missile kinds and no movement, version 14 no
 action uses, sleep, pits or bumps, version 15 no items, version 16 nothing eaten or drunk, no
 doors bashed and no chests opened, version 17 no door methods and no food and water, version 18
-no tiles walked and version 19 no scrolls read; all are still read. A mark or link outside the dungeon, a side other than 0-3 or `0xff`, an open byte other than 0 or 1, or a link target on another level makes the whole file be ignored.
+no tiles walked, version 19 no scrolls read and version 23 no items taken from chests (none
+counted); all are still read. A mark or link outside the dungeon, a side other than 0-3 or `0xff`, an open byte other than 0 or 1, or a link target on another level makes the whole file be ignored.
 
 ## Item and attack tables
 

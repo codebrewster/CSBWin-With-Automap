@@ -298,6 +298,13 @@ void HeroStats_OnItemPickedUp(int item)
   store.CountItem(PartyLevel(), HeroStats_WeaponOf(rn), HeroItemPickedUp);
 }
 
+void HeroStats_OnItemTakenFromChest(int item)
+{
+  RN rn;
+  if (!IsItem(item, &rn) || !origins.MarkHeld(item)) return;
+  store.CountItem(PartyLevel(), HeroStats_WeaponOf(rn), HeroItemTakenFromChest);
+}
+
 void HeroStats_OnItemHeld(int item)
 {
   RN rn;

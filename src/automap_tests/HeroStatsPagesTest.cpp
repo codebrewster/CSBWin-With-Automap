@@ -189,7 +189,7 @@ static void ItemsAreListedByName(void)
 {
   HeroStats stats;
   stats.CountItem(1, 13, HeroItemPickedUp);
-  stats.CountItem(1, 13, HeroItemPickedUp);
+  stats.CountItem(1, 13, HeroItemTakenFromChest);
   stats.CountItem(1, 11, HeroItemPickedUp);
   stats.CountItem(2, 14, HeroItemUsedInWall);
   stats.CountItem(2, 11, HeroItemUsedInWall);
@@ -204,13 +204,13 @@ static void ItemsAreListedByName(void)
   CHECK(lines.size() == 4);
   if (lines.size() == 4)
   {
-    CHECK(lines[0].name == "TORCH" && lines[0].pickedUp == 2 && lines[0].usedInWall == 0 && lines[0].eaten == 1);
+    CHECK(lines[0].name == "TORCH" && lines[0].pickedUp == 2 && lines[0].fromChest == 1 && lines[0].usedInWall == 0 && lines[0].eaten == 1);
     CHECK(lines[1].name == "GOLD KEY" && lines[1].pickedUp == 1 && lines[1].usedInWall == 2);
     CHECK(lines[2].name == "GOLD COIN" && lines[2].pickedUp == 0 && lines[2].usedInWall == 1);
     CHECK(lines[3].name == "SWORD" && lines[3].drunk == 1 && lines[3].pickedUp == 0);
   }
   HeroStatsItemLine all = HeroStatsPages_AllItems(lines);
-  CHECK(all.name == "All items" && all.pickedUp == 3 && all.usedInWall == 3 && all.drunk == 1 && all.eaten == 1);
+  CHECK(all.name == "All items" && all.pickedUp == 3 && all.fromChest == 1 && all.usedInWall == 3 && all.drunk == 1 && all.eaten == 1);
   CHECK(HeroStatsPages_Items(stats, 2, NAMES).size() == 4);
   HeroStatsRecord party2 = HeroStatsCatalogue_Record(stats, HERO_STATS_PARTY, 2);
   HeroStatsRecord halk2 = HeroStatsCatalogue_Record(stats, 7, 2);
@@ -296,7 +296,7 @@ static void ExportHoldsEveryLevel(void)
     CHECK(partyValues[HeroNumWipes] == "null");  // the whole run's only
   }
   CHECK(json.find("[\"Screamer\",[1,0],0,0,0,1]") != std::string::npos);
-  CHECK(json.find("\"items\":[[\"GOLD KEY\",0,1]]") != std::string::npos);
+  CHECK(json.find("\"items\":[[\"GOLD KEY\",0,1,0]]") != std::string::npos);
   std::string html = HeroStatsExport_Html(stats, Columns(stats), NAMES, info);
   CHECK(html.find("<!doctype html>") == 0);
   // The only </script> are the ones that close the three scripts

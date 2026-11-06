@@ -64,6 +64,8 @@ void HeroStats_OnScrollRead(int scroll);
 // The party took an item from the dungeon into the hand: the floor, an alcove, a torch holder,
 // a swap alcove, a gift from the gods, an open chest
 void HeroStats_OnItemPickedUp(int item);
+// The same for an item taken out of an open chest: counted as picked up and as from a chest
+void HeroStats_OnItemTakenFromChest(int item);
 // The item is the party's without being found: taken from a champion's own inventory
 void HeroStats_OnItemHeld(int item);
 // Every item the champions carry, and the one in hand, is held: a game was loaded (files from
