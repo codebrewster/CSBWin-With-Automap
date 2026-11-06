@@ -1,5 +1,6 @@
 #include "PlaybackControl.h"
 
+#include <map>
 #include <set>
 #include <tuple>
 
@@ -15,6 +16,11 @@ typedef std::tuple<int, int, int> Cell;
 std::set<Cell> breakpoints;
 bool hasLastCell = false;
 bool pauseIsDue = false;
+
+bool soundsWhenFast = true;
+int soundGapMs = PLAYBACK_SOUND_GAP_MS;
+// When each sound last started in a fast replay
+std::map<uint64_t, uint64_t> soundStarted;
 Cell lastCell;
 
 int Clamped(int index)
@@ -78,7 +84,27 @@ void PlaybackControl_ApplyDuePause(void)
   paused = true;
 }
 
-bool PlaybackControl_MutesSound(void) { return PlaybackControl_Factor() >= 4; }
+bool PlaybackControl_IsFastForSound(void) { return PlaybackControl_Factor() >= PLAYBACK_FAST_FOR_SOUND; }
+
+void PlaybackControl_SetSoundsWhenFast(bool on, int gapMs)
+{
+  soundsWhenFast = on;
+  soundGapMs = gapMs < 0 ? 0 : gapMs;
+}
+
+bool PlaybackControl_SoundsWhenFast(void) { return soundsWhenFast; }
+int PlaybackControl_SoundGap(void) { return soundGapMs; }
+
+bool PlaybackControl_SoundMayPlay(uint64_t key, uint64_t nowMs)
+{
+  if (!PlaybackControl_IsFastForSound()) return true;
+  if (!soundsWhenFast) return false;
+  std::map<uint64_t, uint64_t>::iterator last = soundStarted.find(key);
+  // A clock that went back starts afresh
+  if (last != soundStarted.end() && nowMs >= last->second && nowMs - last->second < (uint64_t)soundGapMs) return false;
+  soundStarted[key] = nowMs;
+  return true;
+}
 
 int PlaybackControl_ChecksPerTimer(int base)
 {

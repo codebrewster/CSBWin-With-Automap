@@ -1959,6 +1959,8 @@ static void read_conf() {
     strcpy(graphicName,csb_get_config_string("settings","graphicName",(char*)"graphics.dat"));
     launcher_power = csb_get_config_int("settings","launcher_power",1);
     filter_dsa_door_sound = csb_get_config_int("settings","filter_dsa_door_sound",0);
+    PlaybackControl_SetSoundsWhenFast(csb_get_config_int("settings","replay_sounds",1) != 0,
+                                      csb_get_config_int("settings","replay_sound_gap",PLAYBACK_SOUND_GAP_MS));
     experimental_overlay = csb_get_config_int("settings","experimental_overlay",0);
     strncpy(translation, csb_get_config_string("settings","translation",(char*)""),10);
     translation[9] = 0;
@@ -1990,6 +1992,8 @@ static void save_conf() {
     csb_set_config_string("settings","graphicName",graphicName);
     csb_set_config_int("settings","launcher_power",launcher_power);
     csb_set_config_int("settings","filter_dsa_door_sound",filter_dsa_door_sound);
+    csb_set_config_int("settings","replay_sounds",PlaybackControl_SoundsWhenFast() ? 1 : 0);
+    csb_set_config_int("settings","replay_sound_gap",PlaybackControl_SoundGap());
     csb_set_config_int("settings","experimental_overlay",experimental_overlay);
     csb_set_config_string("settings","translation",translation);
     keyxlate.write_conf();
@@ -2469,7 +2473,8 @@ static void DrawReplayControls(bool &was_active)
     ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), _("Paused at tick %d"), (int)d.Time);
   else
     ImGui::TextDisabled(_("tick %d"), (int)d.Time);
-  if (PlaybackControl_MutesSound() || NoSpeedLimit != 0) ImGui::TextDisabled(_("(fewer sounds)"));
+  if (PlaybackControl_IsFastForSound() || NoSpeedLimit != 0)
+    ImGui::TextDisabled("%s", PlaybackControl_SoundsWhenFast() ? _("(fewer sounds)") : _("(no sounds)"));
 }
 
 static const char *RecordTooltip(void)

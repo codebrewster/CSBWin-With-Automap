@@ -136,7 +136,10 @@ The pace of a replay (pause, 0.5x to 64x, max) lives in `PlaybackControl.cpp` /
 `PlaybackClock` while a replay is paused or not at 1x. Max is the engine's quick play
 (`NoSpeedLimit`): every blank is a tick, `CSBUI` (`LinCSBUI.cpp`) runs them for
 `PLAYBACK_MAX_MS_PER_TIMER` per timer message and `UI_ScreenPresent` draws at most
-`PLAYBACK_MAX_FRAMES_PER_SECOND` frames. The user side is in
+`PLAYBACK_MAX_FRAMES_PER_SECOND` frames. From 4x on, `PlaybackControl_SoundMayPlay` thins out
+the sounds: `StartSound`, `PlayCustomSound` (`Sound.cpp`) and `LIN_PlayDirect` (`LinCSBUI.cpp`)
+ask it, keyed by what the sound plays, and the same key starts again only after
+`replay_sound_gap` milliseconds of real time. The user side is in
 [recording-manual.md](recording-manual.md).
 
 ## Translation.cpp — text localisation

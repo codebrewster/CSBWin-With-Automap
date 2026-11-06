@@ -52,8 +52,21 @@ bool PlaybackControl_PartyAt(int level, int x, int y);
 // between ticks, where a pause from the menu or Space takes effect too
 void PlaybackControl_ApplyDuePause(void);
 
-// From 4x on the sounds would only pile up: they are dropped, as at quick play
-bool PlaybackControl_MutesSound(void);
+// From 4x on (max included) a replay is fast: the same sound would start again and again, many
+// at once on Linux and in a long backlog on Windows. The sounds go through SoundMayPlay then.
+const int PLAYBACK_FAST_FOR_SOUND = 4;
+bool PlaybackControl_IsFastForSound(void);
+// The sounds of a fast replay (csb.cfg): replay_sounds 1 plays them thinned out, 0 drops them all
+// as before; replay_sound_gap is how many milliseconds of real time must pass before the same
+// sound starts again
+const int PLAYBACK_SOUND_GAP_MS = 100;
+void PlaybackControl_SetSoundsWhenFast(bool on, int gapMs);
+bool PlaybackControl_SoundsWhenFast(void);
+int PlaybackControl_SoundGap(void);
+// Whether a sound may start now (nowMs: a millisecond clock). key names the sound (what it plays).
+// Slower than 4x every sound plays; fast, a sound plays unless the same key started less than the
+// gap ago, or not at all with replay_sounds 0. A sound that plays is remembered from now.
+bool PlaybackControl_SoundMayPlay(uint64_t key, uint64_t nowMs);
 
 // How many times the platform layer checks for a due vertical blank per timer message:
 // base at 1x and below, base times the factor above, so 64x gets enough chances. Max takes as

@@ -28,7 +28,7 @@ static void TheSpeedsGoFromHalfTo64AndMax(void)
   CHECK(std::strcmp(PlaybackControl_LabelOf(PLAYBACK_SPEED_COUNT - 1), "max") == 0);
   for (int i = 0; i < 20; i++) PlaybackControl_Faster();
   CHECK(PlaybackControl_IsMax());
-  CHECK(PlaybackControl_MutesSound());
+  CHECK(PlaybackControl_IsFastForSound());
   PlaybackControl_Slower();
   CHECK(!PlaybackControl_IsMax());
   CHECK(PlaybackControl_Factor() == 64.0);
@@ -42,12 +42,31 @@ static void TheSpeedsGoFromHalfTo64AndMax(void)
   CHECK(PlaybackControl_SpeedIndex() == PLAYBACK_SPEED_NORMAL);
 }
 
-static void SoundStopsFrom4x(void)
+// Below 4x every sound plays; from 4x on, max included, the same sound waits for the gap and
+// other sounds do not; replay_sounds 0 drops them all when fast
+static void SoundsThinOutFrom4x(void)
 {
+  PlaybackControl_Reset();
+  PlaybackControl_SetSoundsWhenFast(true, 100);
   PlaybackControl_SetSpeedIndex(2); // 2x
-  CHECK(!PlaybackControl_MutesSound());
+  CHECK(!PlaybackControl_IsFastForSound());
+  CHECK(PlaybackControl_SoundMayPlay(1, 1000) && PlaybackControl_SoundMayPlay(1, 1001));
   PlaybackControl_Faster();         // 4x
-  CHECK(PlaybackControl_MutesSound());
+  CHECK(PlaybackControl_IsFastForSound());
+  CHECK(PlaybackControl_SoundMayPlay(1, 2000));
+  CHECK(!PlaybackControl_SoundMayPlay(1, 2050));   // the same sound too soon
+  CHECK(PlaybackControl_SoundMayPlay(2, 2050));    // another one
+  CHECK(PlaybackControl_SoundMayPlay(1, 2100));    // the gap has passed
+  CHECK(PlaybackControl_SoundMayPlay(1, 50));      // a clock that went back
+  PlaybackControl_SetSpeedIndex(PLAYBACK_SPEED_MAX);
+  CHECK(PlaybackControl_IsFastForSound() && !PlaybackControl_SoundMayPlay(1, 60));
+  PlaybackControl_SetSoundsWhenFast(false, 100);
+  CHECK(!PlaybackControl_SoundMayPlay(3, 5000));
+  PlaybackControl_SetSpeedIndex(PLAYBACK_SPEED_NORMAL);
+  CHECK(PlaybackControl_SoundMayPlay(3, 5000));
+  PlaybackControl_SetSoundsWhenFast(true, -5);
+  CHECK(PlaybackControl_SoundGap() == 0);
+  PlaybackControl_SetSoundsWhenFast(true, PLAYBACK_SOUND_GAP_MS);
   PlaybackControl_Reset();
 }
 
@@ -152,7 +171,7 @@ void TestPlaybackControl(void)
 {
   ABreakpointPausesOnceWhenSteppedOnto();
   TheSpeedsGoFromHalfTo64AndMax();
-  SoundStopsFrom4x();
+  SoundsThinOutFrom4x();
   EnoughChecksForEverySpeed();
   TheClockRunsAtTheFactor();
   APauseGivesNoneAndNoBurstAfter();

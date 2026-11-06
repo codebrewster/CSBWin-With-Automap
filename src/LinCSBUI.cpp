@@ -669,7 +669,13 @@ static bool LIN_PlaySound(i8* audio, const ui32 size, int volume)
   return 1;
 };
 
+bool PlaybackSoundMayPlay(uint64_t key);
+
 void LIN_PlayDirect(const char *name,int posX, int posY) {
+    // A fast replay thins out these sounds as the game's own, keyed by the file's name
+    uint64_t key = 0x200000000ull;
+    for (const char *c = name; *c != 0; c++) key = key * 31 + (unsigned char)*c;
+    if (!PlaybackSoundMayPlay(key)) return;
     Sound_AudioInfo info;
     char name2[FILENAME_MAX+8];
     snprintf(name2,FILENAME_MAX+8,"%s/sounds/%s",pwd,name);

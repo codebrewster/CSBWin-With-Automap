@@ -38,7 +38,14 @@ While the replay runs, the menu bar has a **Replay** menu and its controls besid
 
 - The speed is relative to **Speed** in the menu: 2x at Normal is twice as fast as Normal.
 - **tick N** shows how far the replay is; paused, it says so in yellow.
-- From 4x on the game's built-in sounds stay off, so they do not pile up, and the bar says **(fewer sounds)**. The extra sounds from the `sounds` folder (monster steps, war cry, horn, critical hits) still play.
+- From 4x on, max included, the sounds are thinned out and the bar says **(fewer sounds)**: a
+  sound plays, but the same sound does not start again until 100 milliseconds of real time have
+  passed. A fight at 64x is then a quick rattle of hits instead of a wall of noise or a backlog
+  that plays on long after. Other sounds are not held up by it. This covers the game's own
+  sounds, a dungeon's custom sounds and the extra ones from the `sounds` folder (monster steps,
+  war cry, horn, critical hits). In `csb.cfg`, `replay_sound_gap` sets the milliseconds, and
+  `replay_sounds = 0` turns the sounds of a fast replay off altogether, as before (the bar then
+  says **(no sounds)**).
 - **max** runs the replay as fast as the computer can, with no clock at all. The game window
   then shows about 30 pictures a second, so the time goes to the game rather than to drawing;
   Space and **-** still answer at once. A recording that asks for quick play itself

@@ -590,8 +590,8 @@ void SOUNDER::Sound(char *wave, i32 attenuation,int size)
   // it again after you call us to play it!
   ASSERT(m_wave[0] != wave,"wave");
   ASSERT(wave != NULL,"wave");
-  // At quick play, and in a replay from 4x on, sounds would only pile up
-  if ((VBLMultiplier != 1) || (IsPlayFileOpen() && PlaybackControl_MutesSound()))
+  // At quick play sounds would only pile up; a fast replay thins them out before (PlaybackSoundMayPlay)
+  if (VBLMultiplier != 1)
   {
     UI_free(wave);
     return;
@@ -613,6 +613,14 @@ SOUNDER sounder;
 // *********************************************************
 //
 // *********************************************************
+// A replay from 4x on lets the same sound start again only after a gap of real time
+// (PlaybackControl.h); slower, and outside a replay, every sound plays
+bool PlaybackSoundMayPlay(uint64_t key)
+{
+  if (!IsPlayFileOpen()) return true;
+  return PlaybackControl_SoundMayPlay(key, (uint64_t)UI_GetSystemTime());
+}
+
 //   TAG001d16
 void StartSound(ui8 *SoundBytes,
                 i32  /*timerData*/,
@@ -627,6 +635,7 @@ void StartSound(ui8 *SoundBytes,
   };
   if (gameVolume == VOLUME_OFF) return;
   if (NoSound) return;
+  if (!PlaybackSoundMayPlay((uint64_t)(uintptr_t)SoundBytes)) return;
   //printf("StartSound @%d\n",(ui32)UI_GetSystemTime());
   size = LE16(wordGear(SoundBytes));
   volume = 1;
@@ -1025,9 +1034,11 @@ void PlayCustomSound(i32 soundNum, i32 volume, i32 /*flags*/)
   }
   else
   {
-    if (!currentSound.ReadSound(soundNum)) return;
     if (gameVolume == VOLUME_OFF) return;
     if (NoSound) return;
+    // A custom sound by its number, apart from the game's own (keyed by their bytes)
+    if (!PlaybackSoundMayPlay(0x100000000ull + (uint64_t)soundNum)) return;
+    if (!currentSound.ReadSound(soundNum)) return;
     wav = currentSound.Decode(volume?volume:1);
     sounder.Sound(wav, volume + volumeTable[gameVolume].attenuation,currentSound.m_size);
   };
