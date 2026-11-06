@@ -151,6 +151,11 @@ void AutoMap_SetExploredHighlight(bool isOn);
 // as map_walked, off at first
 bool AutoMap_WalkedIsHighlighted(void);
 void AutoMap_SetWalkedHighlight(bool isOn);
+// Replay breakpoints (PlaybackControl.h), on a cell in level coordinates: offered and drawn only
+// while a replay runs
+bool AutoMap_ReplayIsRunning(void);
+bool AutoMap_HasReplayBreakpoint(int level, int x, int y);
+void AutoMap_ToggleReplayBreakpoint(int level, int x, int y);
 // 0 seen, 1 learned, 2 all, as map_spoilers in csb.cfg
 int AutoMap_SpoilerLevel(void);
 void AutoMap_SetSpoilerLevel(int level);

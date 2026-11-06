@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "PlaybackControl.h"
 #include "resource.h"
 
 #ifdef _MSVC_INTEL //001
@@ -1106,6 +1107,8 @@ i32 CSBUI(CSB_UI_MESSAGE *msg)
     {
       if (CallCheckVBL > 0)
       {
+        // Between ticks: a replay breakpoint's pause starts here (PlaybackControl.h)
+        PlaybackControl_ApplyDuePause();
         checkVBL();
         CallCheckVBL--;
       };

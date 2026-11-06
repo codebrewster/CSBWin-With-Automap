@@ -110,8 +110,47 @@ static void ASlowMachineLetsTheBacklogGo(void)
   CHECK(burst <= PlaybackClock::BACKLOG + 2 * 64);
 }
 
+// Stepping onto a breakpoint pauses the replay and removes it; standing on, or setting one under
+// the party, does not; a reset forgets them all
+static void ABreakpointPausesOnceWhenSteppedOnto(void)
+{
+  PlaybackControl_Reset();
+  PlaybackControl_ToggleBreakpoint(1, 5, 6);
+  PlaybackControl_ToggleBreakpoint(2, 3, 3);
+  CHECK(PlaybackControl_HasBreakpoint(1, 5, 6) && PlaybackControl_BreakpointCount() == 2);
+  CHECK(!PlaybackControl_PartyAt(1, 5, 5) && !PlaybackControl_IsPaused());
+  CHECK(!PlaybackControl_PartyAt(1, 5, 5));
+  // The pause waits for the loop, between ticks
+  CHECK(PlaybackControl_PartyAt(1, 5, 6) && !PlaybackControl_IsPaused());
+  PlaybackControl_ApplyDuePause();
+  CHECK(PlaybackControl_IsPaused());
+  PlaybackControl_SetPaused(false);
+  PlaybackControl_ApplyDuePause();   // only once
+  CHECK(!PlaybackControl_IsPaused());
+  CHECK(!PlaybackControl_HasBreakpoint(1, 5, 6) && PlaybackControl_HasBreakpoint(2, 3, 3));
+  PlaybackControl_SetPaused(false);
+  // The same cell on another level is another cell
+  CHECK(!PlaybackControl_PartyAt(2, 5, 6) && !PlaybackControl_IsPaused());
+  // Set under the party: it waits until the party leaves and comes back
+  PlaybackControl_ToggleBreakpoint(2, 5, 6);
+  CHECK(!PlaybackControl_PartyAt(2, 5, 6) && !PlaybackControl_IsPaused());
+  CHECK(!PlaybackControl_PartyAt(2, 5, 7));
+  CHECK(PlaybackControl_PartyAt(2, 5, 6));
+  PlaybackControl_ApplyDuePause();
+  CHECK(PlaybackControl_IsPaused());
+  // Toggling twice removes it
+  PlaybackControl_ToggleBreakpoint(2, 3, 3);
+  CHECK(PlaybackControl_BreakpointCount() == 0);
+  PlaybackControl_ToggleBreakpoint(1, 1, 1);
+  CHECK(PlaybackControl_PartyAt(1, 1, 1));
+  PlaybackControl_Reset();
+  PlaybackControl_ApplyDuePause();   // the reset dropped the due pause
+  CHECK(PlaybackControl_BreakpointCount() == 0 && !PlaybackControl_IsPaused());
+}
+
 void TestPlaybackControl(void)
 {
+  ABreakpointPausesOnceWhenSteppedOnto();
   TheSpeedsGoFromHalfTo64AndMax();
   SoundStopsFrom4x();
   EnoughChecksForEverySpeed();

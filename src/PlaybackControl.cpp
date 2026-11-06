@@ -1,5 +1,8 @@
 #include "PlaybackControl.h"
 
+#include <set>
+#include <tuple>
+
 namespace
 {
 const double FACTORS[PLAYBACK_SPEED_COUNT] = {0.5, 1, 2, 4, 8, 16, 32, 64, 64};
@@ -7,6 +10,12 @@ const char *const LABELS[PLAYBACK_SPEED_COUNT] = {"0.5x", "1x", "2x", "4x", "8x"
 
 int speedIndex = PLAYBACK_SPEED_NORMAL;
 bool paused = false;
+
+typedef std::tuple<int, int, int> Cell;
+std::set<Cell> breakpoints;
+bool hasLastCell = false;
+bool pauseIsDue = false;
+Cell lastCell;
 
 int Clamped(int index)
 {
@@ -33,6 +42,40 @@ void PlaybackControl_Reset(void)
 {
   speedIndex = PLAYBACK_SPEED_NORMAL;
   paused = false;
+  breakpoints.clear();
+  hasLastCell = false;
+  pauseIsDue = false;
+}
+
+void PlaybackControl_ToggleBreakpoint(int level, int x, int y)
+{
+  Cell cell(level, x, y);
+  if (!breakpoints.erase(cell)) breakpoints.insert(cell);
+}
+
+bool PlaybackControl_HasBreakpoint(int level, int x, int y)
+{
+  return breakpoints.count(Cell(level, x, y)) != 0;
+}
+
+int PlaybackControl_BreakpointCount(void) { return (int)breakpoints.size(); }
+
+bool PlaybackControl_PartyAt(int level, int x, int y)
+{
+  Cell cell(level, x, y);
+  bool stepped = !hasLastCell || cell != lastCell;
+  hasLastCell = true;
+  lastCell = cell;
+  if (!stepped || !breakpoints.erase(cell)) return false;
+  pauseIsDue = true;
+  return true;
+}
+
+void PlaybackControl_ApplyDuePause(void)
+{
+  if (!pauseIsDue) return;
+  pauseIsDue = false;
+  paused = true;
 }
 
 bool PlaybackControl_MutesSound(void) { return PlaybackControl_Factor() >= 4; }

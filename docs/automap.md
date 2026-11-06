@@ -517,6 +517,17 @@ first, then a separator. The player's rows (`AutoMapWindow.cpp`, `DebugMenuAddNo
   pointer (`AutoMapScene_NearestSide`, tested; ties go north, east, south, west), so one wall
   can carry a link set per face.
 
+While a replay runs (`AutoMap_ReplayIsRunning`), the player's rows start with **PAUSE REPLAY
+HERE** or **REMOVE REPLAY PAUSE** on any cell but a wall: a replay breakpoint
+(`PlaybackControl_ToggleBreakpoint`, kept in level coordinates). `AutoMap_OnEngineTick` hands
+the party's position to `PlaybackControl_PartyAt` every tick; stepping onto a breakpoint from
+another cell removes that breakpoint and makes a pause due (tested in `PlaybackControlTest`).
+The platform loop starts it with `PlaybackControl_ApplyDuePause` before its next `checkVBL`,
+between ticks: paused in the middle of a tick, the engine's `WaitForButtonFlash` would wait for
+a vertical blank that never comes, and the game hung at max speed.
+Breakpoints are drawn as a red double frame and are not stored; `PlaybackControl_Reset` drops
+them when a replay starts or stops.
+
 The rim rock the reader adds around a level (`ADDED ROCK: OUTSIDE THE LEVEL`) takes no notes:
 the menu offers no note rows there and link mode cannot pick it as a target
 (`AutoMapScene_CellTakesNotes`), since the .map file keeps only cells of the level. The hooks

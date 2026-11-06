@@ -405,6 +405,8 @@ i32 CSBUI(CSB_UI_MESSAGE *msg)
       if (CallCheckVBL > 0)
       {
         if (eventNum < 20) printf("Attempt checkVBL()\n");
+        // Between ticks: a replay breakpoint's pause starts here (PlaybackControl.h)
+        PlaybackControl_ApplyDuePause();
         checkVBL();
         CallCheckVBL--;
         if (maxSpeedUntil != 0 && (CallCheckVBL % 16) == 0 && UI_GetSystemTime() >= maxSpeedUntil)

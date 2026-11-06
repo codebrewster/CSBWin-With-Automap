@@ -34,8 +34,23 @@ bool PlaybackControl_IsPaused(void);
 void PlaybackControl_SetPaused(bool paused);
 void PlaybackControl_TogglePause(void);
 
-// A new replay starts at 1x and running
+// A new replay starts at 1x and running, without breakpoints; a stopped one loses them too
 void PlaybackControl_Reset(void);
+
+// Breakpoints: cells (level and the level's x, y, as the party's position) set on the automap.
+// When the party steps onto one, that breakpoint goes (the others stay) and a pause is due.
+// Stepping onto means coming from another cell: a breakpoint set under the party waits until it
+// leaves and comes back.
+void PlaybackControl_ToggleBreakpoint(int level, int x, int y);
+bool PlaybackControl_HasBreakpoint(int level, int x, int y);
+int PlaybackControl_BreakpointCount(void);
+// Every tick of a replay with the party's position: true when it stepped onto a breakpoint.
+// The replay is not paused yet: in the middle of a tick the engine may still wait for a vertical
+// blank (WaitForButtonFlash), which a paused replay never gives, so it would hang.
+bool PlaybackControl_PartyAt(int level, int x, int y);
+// The platform layer's loop calls this before each of its own checks for a vertical blank,
+// between ticks, where a pause from the menu or Space takes effect too
+void PlaybackControl_ApplyDuePause(void);
 
 // From 4x on the sounds would only pile up: they are dropped, as at quick play
 bool PlaybackControl_MutesSound(void);

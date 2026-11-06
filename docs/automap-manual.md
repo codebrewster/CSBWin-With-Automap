@@ -56,6 +56,7 @@ A strip above the map holds every map setting:
 | **FOLLOW** | On while the map follows the party's level; click to follow again |
 | **VISION** FOG, EXPLORED, ALL | Fog of war, Explored live, or Whole level; see [Vision and spoilers](#vision-and-spoilers) |
 | **TINT** | Only with VISION ALL: tints the cells the party has explored |
+| **WALKED** | Tints brown every cell the party has stood on, at every vision (also on the exported page) |
 | **SPOILERS** SEEN, LEARNED, ALL | How much the map tells |
 | **SHOW** | Kinds of things to draw; reads `SHOW: 3 HIDDEN` while any are off |
 | **/** | The search |
@@ -443,6 +444,15 @@ Notes are drawn in violet, at every spoiler level and on top of what the map
 knows, so at All a guess sits beside the truth. The map never checks or
 corrects them. Hovering a noted cell lists them at the end of its tooltip, for
 example `YOUR MARK: HIDDEN PIT OPEN`.
+
+## Pausing a replay on a cell
+
+While a replay runs, the right-click menu starts with **PAUSE REPLAY HERE** on any
+cell but a wall. The cell gets a red frame. When the party steps onto it, the
+replay pauses and the frame goes; the other ones stay. Resume with **Space** or
+the replay's Resume button. **REMOVE REPLAY PAUSE** takes one off again. A pause
+set on the cell the party stands on waits until it leaves and comes back. The
+pauses are forgotten when the replay ends.
 
 ## Exporting the map as a web page
 

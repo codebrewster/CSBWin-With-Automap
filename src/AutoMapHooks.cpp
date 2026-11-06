@@ -47,6 +47,9 @@ struct SavedGameFile
 #include "Data.h"
 
 #include "AutoMapHooks.h"
+#include "PlaybackControl.h"
+
+extern bool PlayfileIsOpen(void);
 
 char *GETFILENAME(i32 f);
 void AddToSkill(i32 chIdx, i32 skillNumber, i32 experience);
@@ -945,6 +948,8 @@ static void MeasureTheTick(void)
   AutoMapScene_SetTicksPerSecond(tickRate.TicksPerSecond(AutoMapTickRate_OfSpeed(speedTable[gameSpeed].vblPerTick)));
 }
 
+static void FilterLastSnapshotAnew(void);
+
 void AutoMap_OnEngineTick(void)
 {
   MeasureTheTick();
@@ -957,6 +962,8 @@ void AutoMap_OnEngineTick(void)
   // while partyLevel still names the old one: wait for the main loop to finish the move
   if (d.newPartyLevel != -1 || !PartyLevelIsLoaded()) return;
   HeroStats_OnPartyOnLevel();
+  // A breakpoint the party stepped onto pauses the replay at once and is gone from the map
+  if (PlayfileIsOpen() && PlaybackControl_PartyAt(d.partyLevel, d.partyX, d.partyY)) FilterLastSnapshotAnew();
   if (visibilityTestIsPending) RunVisibilityTest();
   recorder.MarkPartyCell();
   if (ViewOfThePartyIsHidden()) recorder.SeeOnlyThePartyCell();
@@ -1935,6 +1942,23 @@ bool AutoMap_ExploredIsHighlighted(void)
 void AutoMap_SetExploredHighlight(bool isOn)
 {
   exploredIsHighlighted = isOn;
+  FilterLastSnapshotAnew();
+}
+
+bool AutoMap_ReplayIsRunning(void)
+{
+  return PlayfileIsOpen();
+}
+
+bool AutoMap_HasReplayBreakpoint(int level, int x, int y)
+{
+  return PlayfileIsOpen() && PlaybackControl_HasBreakpoint(level, x, y);
+}
+
+void AutoMap_ToggleReplayBreakpoint(int level, int x, int y)
+{
+  if (!PlayfileIsOpen()) return;
+  PlaybackControl_ToggleBreakpoint(level, x, y);
   FilterLastSnapshotAnew();
 }
 

@@ -118,6 +118,8 @@ static const SDL_Color LINK_WARNING = {0xff, 0x6a, 0x2b, 0xff};
 // The player's own notes: pit marks, player links and link mode. A violet apart from the link
 // yellow, the feeder blue and the warning orange, and brighter than the false-wall purple.
 static const SDL_Color PLAYER_NOTE = {0xc7, 0x7d, 0xff, 0xff};
+// A replay's breakpoint: where the replay will pause
+static const SDL_Color BREAKPOINT = {0xff, 0x3b, 0x3b, 0xff};
 
 // Features, items and pits are drawn by the engine with this palette entry left out
 static const int TRANSPARENT_COLOUR_OF_THE_GAME = 10;
@@ -307,7 +309,8 @@ static int SearchVisibleRows(void);
 static bool BelongsToMapWindow(Uint32 windowId);
 // A right-click on a cell the map shows opens one menu. Its first rows are the player's notes:
 // a hidden-pit mark for a floor tile, LINK FROM HERE (link mode) for a floor tile or a wall
-// face, and REMOVE LINKS for a cell a player link starts or ends on. Set map_debug = 1 in the settings and the testing rows follow behind a separator, on any
+// face, and REMOVE LINKS for a cell a player link starts or ends on. While a replay runs, PAUSE
+// REPLAY HERE (or REMOVE REPLAY PAUSE) comes first on any cell but a wall. Set map_debug = 1 in the settings and the testing rows follow behind a separator, on any
 // cell: teleport the party there or spawn a monster there. A spawn asks for the monster, then how
 // many (skipped when only one fits a cell), for one alone its spot on the cell (skipped when it
 // fills the cell), and the facing. The menu rows hold the cell they act on; it closes with any
@@ -317,6 +320,8 @@ enum DebugMenuRowKind
   DebugRowTeleport, DebugRowMonster, DebugRowCount, DebugRowSpot, DebugRowFacing,
   // The player's notes; choice is the mark (-1 none, 0 closed, 1 open) or the link's side
   MenuRowPitMark, MenuRowLinkFromHere, MenuRowRemoveLinks,
+  // A replay's breakpoint on the cell, set or removed
+  MenuRowBreakpoint,
   // A line between the note rows and the debug rows: never chosen
   MenuRowSeparator
 };
@@ -2727,6 +2732,14 @@ static void DrawPlayerNotesOfCell(const AutoMapView &view, const AutoMapShownCel
                                   const AutoMapDrawList &drawList)
 {
   SDL_Rect cell = CellArea(view, shown.x, shown.y);
+  // A replay's breakpoint: a red frame two pixels wide just inside the cell
+  if (AutoMap_HasReplayBreakpoint(drawList.level, shown.x - drawList.boundaryMarginX, shown.y - drawList.boundaryMarginY))
+  {
+    SDL_Rect outer = {cell.x + 1, cell.y + 1, cell.w - 2, cell.h - 2};
+    SDL_Rect inner = {cell.x + 2, cell.y + 2, cell.w - 4, cell.h - 4};
+    Outline(outer, BREAKPOINT);
+    Outline(inner, BREAKPOINT);
+  }
   if (shown.playerPit >= 0)
   {
     DrawDashedRect(Inset(cell, 6), PLAYER_NOTE);
@@ -4651,6 +4664,14 @@ static bool IsWallKind(AutoMapCellKind kind)
 // can go now that the map knows. side is the face nearest the pointer, used for a wall.
 static void DebugMenuAddNoteRows(const AutoMapShownCell &shown, int side)
 {
+  // The party never stands in a wall; a false wall it may walk through
+  if (AutoMap_ReplayIsRunning() && shown.cell.kind != AutoMapCellWall)
+  {
+    bool isSet = AutoMap_HasReplayBreakpoint(shownDrawList.level, shown.x - shownDrawList.boundaryMarginX,
+                                             shown.y - shownDrawList.boundaryMarginY);
+    DebugMenuRow breakpoint = {MenuRowBreakpoint, 0, isSet ? "REMOVE REPLAY PAUSE" : "PAUSE REPLAY HERE", true};
+    debugMenuRows.push_back(breakpoint);
+  }
   if (shown.cell.kind == AutoMapCellFloor)
   {
     DebugMenuRow open = {MenuRowPitMark, 1, "HIDDEN PIT (OPEN)", true};
@@ -4854,6 +4875,12 @@ static void DebugMenuCarryOut(const DebugMenuRow &row)
   {
     AutoMap_RemovePlayerLinksOf(debugMenuLevel, debugMenuX - shownDrawList.boundaryMarginX,
                                 debugMenuY - shownDrawList.boundaryMarginY);
+    return;
+  }
+  if (row.kind == MenuRowBreakpoint)
+  {
+    AutoMap_ToggleReplayBreakpoint(debugMenuLevel, debugMenuX - shownDrawList.boundaryMarginX,
+                                   debugMenuY - shownDrawList.boundaryMarginY);
     return;
   }
   if (row.kind == MenuRowSeparator) return;
