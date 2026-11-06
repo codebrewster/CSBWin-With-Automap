@@ -303,6 +303,11 @@ bool legacyDamageMonsterResult = false;
 // with a launcher hit four times as hard (ShotMissiles.h); CSBwin did not.
 // The port's own playfiles ("CSB Version <build date>") keep the bonus.
 bool noShotMissileBonus = false;
+// Set while replaying a playfile recorded by CSBwin before 9.9.  A level
+// gained added (increment + random(increment/2 + 1)) to the maximum stamina;
+// 9.95 made it (increment + random(increment/2) + 1), or 1 with no random
+// number for a zero increment (AdjustSkills).
+bool legacyStaminaLevelUp = false;
 // Set while replaying a playfile recorded by CSBwin before 11.0.  Those
 // versions had no timer sequence numbers: timers due at the same time were
 // ordered by their slot in the timer array (TIMER::operator <).

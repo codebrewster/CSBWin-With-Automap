@@ -11,6 +11,7 @@
 #include "CSB.h"
 #include "Data.h"
 extern bool noShotMissileBonus;
+extern bool legacyStaminaLevelUp;
 #include "ShotMissiles.h"
 
 
@@ -171,8 +172,15 @@ void LevelUp(i32 chIdx, i32 basicSkill) // Fighter, ninja, etc.
     d.hero[chIdx].IncrMaxHP(maxHPIncrement);
   };
   //w_26 = uw(STRandom(((UI16)D6W/2)+1));
-  if (maxStaminaIncrement == 0) maxStaminaIncrement = 1;
-  else maxStaminaIncrement += STRandom(maxStaminaIncrement/2) + 1;
+  if (legacyStaminaLevelUp)
+  { // Before 9.9: always one random number, 0 to half the increment
+    maxStaminaIncrement += STRandom(maxStaminaIncrement/2 + 1);
+  }
+  else
+  {
+    if (maxStaminaIncrement == 0) maxStaminaIncrement = 1;
+    else maxStaminaIncrement += STRandom(maxStaminaIncrement/2) + 1;
+  };
   if (d.hero[chIdx].MaxStamina() + maxStaminaIncrement > 9999)
   {
     d.hero[chIdx].MaxStamina(9999);
