@@ -346,6 +346,26 @@ static void UnderFogNothingIsHighlighted(void)
   CHECK(!FindCell(drawList, 1, 1)->isHighlighted);
 }
 
+// The cells stood on are tinted under the fog as well; without the list none are
+static void TheCellsWalkedAreMarked(void)
+{
+  AutoMapExplored explored = FirstFloorCellAndTheWallNorthOfItExplored();
+  AutoMapVisibleCells visibleNow;
+  std::set<std::tuple<int, int, int> > walked;
+  walked.insert(std::make_tuple(LEVEL, 1, 1));
+  walked.insert(std::make_tuple(LEVEL + 1, 2, 1));   // another level's cell
+  AutoMapFog fog = FogOver(explored, visibleNow);
+  fog.walked = &walked;
+  AutoMapDrawList drawList = AutoMapScene_BuildDrawList(Corridor(), fog);
+  CHECK(FindCell(drawList, 1, 1)->isWalked && !FindCell(drawList, 1, 0)->isWalked);
+  fog = NoFog(explored, visibleNow);
+  fog.walked = &walked;
+  drawList = AutoMapScene_BuildDrawList(Corridor(), fog);
+  CHECK(FindCell(drawList, 1, 1)->isWalked && !FindCell(drawList, 2, 1)->isWalked);
+  drawList = AutoMapScene_BuildDrawList(Corridor(), NoFog(explored, visibleNow));
+  CHECK(!FindCell(drawList, 1, 1)->isWalked);
+}
+
 static void UpToThreeItemsAreShownWithoutAMark(void)
 {
   AutoMapLevelSnapshot corridor = Corridor();
@@ -6989,6 +7009,7 @@ void TestAutoMapScene(void)
   AnExploredWallIsNotHighlighted();
   NothingIsHighlightedUnlessAskedFor();
   UnderFogNothingIsHighlighted();
+  TheCellsWalkedAreMarked();
   UpToThreeItemsAreShownWithoutAMark();
   AFourthItemTurnsIntoTheMoreItemsMark();
   TooltipKeepsTheFullPileWhenTheCellIsTruncated();

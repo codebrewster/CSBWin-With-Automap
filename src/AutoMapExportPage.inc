@@ -32,7 +32,7 @@ static const char *const EXPORT_PAGE_CODE = R"CSBPAGE("use strict";
 const SAVE_NAMES = Object.keys(MAPDATA.saves);
 const SAVES = {};            // unpacked saves
 let DATA = null;             // the shown save: {index, views}
-let saveNo = 0, lvl = 0, vision = 0, spoil = 1 /* 0 All, 1 Learned, 2 Seen */, tint = true;
+let saveNo = 0, lvl = 0, vision = 0, spoil = 1 /* 0 All, 1 Learned, 2 Seen */, tint = true, walked = false;
 let follow = true, cs = 36, panX = 0, panY = 0, hover = null, shiftHeld = false, debugOn = true;
 let V = null, grid = {}, actsAt = {}, monAt = {}, W = 0, H = 0, OX = 0, OY = 0;
 let tipScroll = 0;
@@ -179,7 +179,9 @@ function drawCellBase(c) {
 }
 function drawCellOverlay(c) {
   const x = px(c.x), y = py(c.y), k = c.k;
-  if (vision === 2 && tint && c.hl) { g.fillStyle = 'rgba(76,208,106,.22)'; g.fillRect(x, y, cs, cs); }
+  // The cells the party stood on take their own tint instead of the explored one, as in the game
+  if (walked && c.wk) { g.fillStyle = 'rgba(255,154,46,.28)'; g.fillRect(x, y, cs, cs); }
+  else if (vision === 2 && tint && c.hl) { g.fillStyle = 'rgba(76,208,106,.22)'; g.fillRect(x, y, cs, cs); }
   if (k === 9) { const d = Math.max(2, Math.round(cs / 12)); rect(x + cs / 2 - d / 2, y + cs / 2 - d / 2, d, d, '#5a5a66'); }
   if (k === 2 && c.pit && c.pit[0] && c.pit[1]) { const d = Math.max(2, Math.round(cs / 12)); rect(x + cs / 2 - d / 2, y + cs / 2 - d / 2, d, d, '#8a4a4a'); }
   if (k === 4) breakMarks(c, x, y);
@@ -765,6 +767,7 @@ function drawBar() {
   add('|#VISION');
   ['FOG', 'EXPLORED', 'ALL'].forEach((n, i) => add(n, vision === i, () => { vision = i; refreshAll(); }, !visionAllowed(i)));
   if (vision === 2) add('^TINT', tint, () => tint = !tint);
+  add('^WALKED', walked, () => walked = !walked);
   add('|#SPOILERS');
   [['SEEN', 2], ['LEARNED', 1], ['ALL', 0]].forEach(([n, v]) => add(n, spoil === v, () => { spoil = v; refreshAll(); }, !spoilAllowed(v)));
   const hidden = Object.values(SHOW).filter(v => !v).length;
@@ -775,7 +778,7 @@ function drawBar() {
   const rects = packBar(items, tbar.width, false);
   const h = 26; barRect(0, 0, tbar.width, h, barFill());
   if (barLook === 'stone') { barRect(0, 0, tbar.width, 1, 0x949194); barRect(0, h - 2, tbar.width, 1, 0x4a484a); barRect(0, h - 1, tbar.width, 1, 0x000000); }
-  else barRect(0, h - 1, tbar.width, 1, barLook === 'cyan' ? 0x006d6f : 0x3a362f);
+  else barRect(0, h - 1, tbar.width, 1, 0x3a362f);
   // The groups' frames first: they show between the cells as their dividers
   for (let i = 0; i < rects.length;) { let e = i + 1; while (e < rects.length && !rects[e].starts) e++; const a = rects[i], b = rects[e - 1]; drawGroupBack({ x: a.x, y: a.y, w: b.x + b.w - a.x, h: a.h }); i = e; }
   for (const r of rects) {

@@ -34,6 +34,8 @@ static const SDL_Color WALL_EDGE = {0xa3, 0x9c, 0x8d, 0xff};
 static const SDL_Color FLOOR = {0x2e, 0x2b, 0x27, 0xff};
 static const SDL_Color FLOOR_EDGE = {0x3f, 0x3b, 0x35, 0xff};
 static const SDL_Color EXPLORED_HIGHLIGHT = {0x4c, 0xd0, 0x6a, 56};
+// The cells the party stood on: warm, apart from the green of the explored tint, drawn instead of it
+static const SDL_Color WALKED_HIGHLIGHT = {0xff, 0x9a, 0x2e, 72};
 static const SDL_Color DOOR = {0x8b, 0x5a, 0x2b, 0xff};
 // A sealed door works like a wall, so it wears wall grey instead of door brown:
 // quiet, but unmistakable next to a real door. The leaf shapes (and their gap)
@@ -2688,7 +2690,8 @@ static void DrawCellBase(const AutoMapView &view, const AutoMapShownCell &shown,
     DrawHiddenPitMark(cell);
   }
   DrawClouds(cell, shown, drawList);
-  if (shown.isHighlighted) Fill(cell, EXPLORED_HIGHLIGHT);
+  if (shown.isWalked) Fill(cell, WALKED_HIGHLIGHT);
+  else if (shown.isHighlighted) Fill(cell, EXPLORED_HIGHLIGHT);
   DrawFloorActuators(cell, shown, drawList);
   DrawItems(cell, shown);
   if (record.kind == AutoMapCellDormantTeleporter) DrawDormantTeleporterDot(cell);

@@ -71,6 +71,7 @@ static const int VISION_LIVE_SETTING = 1;
 static const int VISION_WHOLE_LEVEL_SETTING = 2;
 static int visionSetting = VISION_FOG_SETTING;
 static bool exploredIsHighlighted = false;
+static bool walkedIsHighlighted = false;
 // map_spoilers of csb.cfg: 0 seen, 1 learned, 2 all
 static const int SPOILERS_SEEN_SETTING = 0;
 static const int SPOILERS_LEARNED_SETTING = 1;
@@ -112,6 +113,12 @@ static int ValidSpoilerSetting(int setting)
   return setting;
 }
 
+// The cells the party stood on, when the map highlights them
+static const std::set<std::tuple<int, int, int> > *WalkedCells(void)
+{
+  return walkedIsHighlighted ? &HeroStats_Store().TilesWalked() : NULL;
+}
+
 static void ShowLastSnapshot(void)
 {
   // VisibleNow only ever describes the party's level: on any other level no monster
@@ -127,7 +134,7 @@ static void ShowLastSnapshot(void)
                     exploredIsHighlighted,
                     SpoilersOfSetting(), &recorder.Knowledge(), &recorder.Items(), monstersSeenNow,
                     &recorder.Cells(), &recorder.Notes(), &recorder.Damage(),
-                    visionSetting == VISION_LIVE_SETTING};
+                    visionSetting == VISION_LIVE_SETTING, WalkedCells()};
   // A cell explored outside a frame has no look yet: it keeps the one it has now
   AutoMapScene_RememberExploredLooks(lastSnapshot, recorder.Explored(), &recorder.Cells());
   AutoMapWindow_ShowDrawList(AutoMapScene_BuildDrawList(lastSnapshot, fog));
@@ -1931,6 +1938,17 @@ void AutoMap_SetExploredHighlight(bool isOn)
   FilterLastSnapshotAnew();
 }
 
+bool AutoMap_WalkedIsHighlighted(void)
+{
+  return walkedIsHighlighted;
+}
+
+void AutoMap_SetWalkedHighlight(bool isOn)
+{
+  walkedIsHighlighted = isOn;
+  FilterLastSnapshotAnew();
+}
+
 bool AutoMap_FollowsParty(void)
 {
   return followParty;
@@ -1975,7 +1993,7 @@ std::vector<AutoMapSearchHit> AutoMap_SearchDungeon(const std::string &query)
                       exploredIsHighlighted,
                       SpoilersOfSetting(), &recorder.Knowledge(), &recorder.Items(), monstersSeenNow,
                       &recorder.Cells(), &recorder.Notes(), &recorder.Damage(),
-                      visionSetting == VISION_LIVE_SETTING};
+                      visionSetting == VISION_LIVE_SETTING, WalkedCells()};
     AutoMapScene_RememberExploredLooks(snapshot, recorder.Explored(), &recorder.Cells());
     AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, fog);
     std::vector<AutoMapSearchHit> hits =
@@ -2029,6 +2047,7 @@ void AutoMap_ReadSettings(void)
   }
   visionSetting = ValidVisionSetting(vision);
   exploredIsHighlighted = csb_get_config_int("settings", "map_highlight", 0) != 0;
+  walkedIsHighlighted = csb_get_config_int("settings", "map_walked", 0) != 0;
   spoilerSetting = ValidSpoilerSetting(
       csb_get_config_int("settings", "map_spoilers", SPOILERS_LEARNED_SETTING));
   followParty = csb_get_config_int("settings", "map_follow", 1) != 0;
@@ -2042,6 +2061,7 @@ void AutoMap_WriteSettings(void)
   // Kept for an older build, which then opens with the nearest mode
   csb_set_config_int("settings", "map_fog", visionSetting != VISION_WHOLE_LEVEL_SETTING ? 1 : 0);
   csb_set_config_int("settings", "map_highlight", exploredIsHighlighted ? 1 : 0);
+  csb_set_config_int("settings", "map_walked", walkedIsHighlighted ? 1 : 0);
   csb_set_config_int("settings", "map_spoilers", spoilerSetting);
   csb_set_config_int("settings", "map_follow", followParty ? 1 : 0);
   csb_set_config_int("settings", "map_level", lockedLevel);

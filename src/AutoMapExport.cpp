@@ -18,6 +18,7 @@
 #include "AutoMapLayout.h"
 #include "AutoMapBar.h"
 #include "AutoMapExport.h"
+#include "HeroStatsHooks.h"
 #include "AutoMapExportDialog.h"
 #include "AutoMapHtml.h"
 #include "AutoMapLevelReader.h"
@@ -46,7 +47,8 @@ static AutoMapDrawList DrawListOf(AutoMapRecorder &recorder, int partyLevel, con
   const AutoMapVisibleCells *visibleNow = s.level == partyLevel ? &recorder.VisibleNow() : &nothingVisibleNow;
   const std::vector<AutoMapRecordId> *seenNow = s.level == partyLevel ? &recorder.MonstersSeenNow() : &noMonstersSeenNow;
   AutoMapFog fog = {vision != 2, &recorder.Explored(), visibleNow, vision == 2, (AutoMapSpoilerLevel)spoil, &recorder.Knowledge(),
-                    &recorder.Items(), seenNow, &recorder.Cells(), &recorder.Notes(), &recorder.Damage(), vision == 1};
+                    &recorder.Items(), seenNow, &recorder.Cells(), &recorder.Notes(), &recorder.Damage(), vision == 1,
+                    &HeroStats_Store().TilesWalked()};   // the page's WALKED switches the tint
   return AutoMapScene_BuildDrawList(s, fog);
 }
 
@@ -216,6 +218,7 @@ static void WriteDrawList(std::string &f, ExportPictures &sp, const AutoMapDrawL
     if (c.kind == AutoMapCellSpinner || c.kind == AutoMapCellDormantSpinner) o << ",\"spin\":[" << c.spinnerFacing << "," << c.spinnerRotation << "]";
     if (linked) o << ",\"linked\":1";
     if (sc.isHighlighted) o << ",\"hl\":1";
+    if (sc.isWalked) o << ",\"wk\":1";
     if (sc.playerPit >= 0) o << ",\"ppit\":" << sc.playerPit;
     bool anySide = false;
     for (int s = 0; s < 4; s++) { const AutoMapWallSide &w = c.wallSides[s]; if (w.picture != AUTOMAP_NO_PICTURE || w.hasWriting || w.hidden || w.portrait != AUTOMAP_NO_PICTURE || w.functional || w.isAlcove) anySide = true; }

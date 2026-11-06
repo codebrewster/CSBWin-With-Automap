@@ -147,6 +147,10 @@ void AutoMap_SetVision(int vision);
 // With the whole level shown: tells the cells already seen from the rest of the level
 bool AutoMap_ExploredIsHighlighted(void);
 void AutoMap_SetExploredHighlight(bool isOn);
+// The cells the party stood on (HeroStats::TilesWalked) tinted, at every vision; kept in csb.cfg
+// as map_walked, off at first
+bool AutoMap_WalkedIsHighlighted(void);
+void AutoMap_SetWalkedHighlight(bool isOn);
 // 0 seen, 1 learned, 2 all, as map_spoilers in csb.cfg
 int AutoMap_SpoilerLevel(void);
 void AutoMap_SetSpoilerLevel(int level);

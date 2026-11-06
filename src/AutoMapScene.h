@@ -3,6 +3,7 @@
 
 #include <map>
 #include <set>
+#include <tuple>
 #include <string>
 #include <vector>
 
@@ -684,6 +685,8 @@ struct AutoMapShownCell
   // itself survived the fog filter, so an absent cell still means "show nothing".
   std::vector<AutoMapItem> allItemPictures;
   bool isHighlighted;
+  // The party stood on this cell (AutoMapFog::walked)
+  bool isWalked;
   // The teleporter target may be shown from here: same-level targets sit on a filtered
   // cell, cross-level ones are explored (or the fog is off). Showing it otherwise would
   // leak the dungeon, invisibly-teleporting victims included.
@@ -900,6 +903,9 @@ struct AutoMapFog
   // moves on them shows on every explored cell, as if the party still saw it there. Ignored
   // with the fog off. Last, like damage.
   bool isLive;
+  // The cells the party stood on, as (level, x, y) in level coordinates, highlighted under any
+  // fog. NULL highlights none. Last, like isLive.
+  const std::set<std::tuple<int, int, int> > *walked;
 };
 
 // Every live floor item on an explored cell goes into the memory, the rule of version-2 map

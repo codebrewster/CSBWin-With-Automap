@@ -67,6 +67,7 @@ function drawBar() {
   add('|#VISION');
   ['FOG', 'EXPLORED', 'ALL'].forEach((n, i) => add(n, vision === i, () => { vision = i; refreshAll(); }, !visionAllowed(i)));
   if (vision === 2) add('^TINT', tint, () => tint = !tint);
+  add('^WALKED', walked, () => walked = !walked);
   add('|#SPOILERS');
   [['SEEN', 2], ['LEARNED', 1], ['ALL', 0]].forEach(([n, v]) => add(n, spoil === v, () => { spoil = v; refreshAll(); }, !spoilAllowed(v)));
   const hidden = Object.values(SHOW).filter(v => !v).length;

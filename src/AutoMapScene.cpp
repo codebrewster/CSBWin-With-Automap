@@ -255,6 +255,7 @@ static AutoMapShownCell ShowCell(const AutoMapCell &position, const AutoMapCellR
   shown.allItemPictures = record.itemPictures;
   shown.hasMoreItems = (int)record.itemPictures.size() > AUTOMAP_MOST_ITEMS_SHOWN;
   shown.isHighlighted = false;
+  shown.isWalked = false;
   shown.teleporterTargetVisible = false;
   shown.playerPit = -1;
   if (shown.hasMoreItems) shown.cell.itemPictures.resize(AUTOMAP_MOST_ITEMS_SHOWN);
@@ -706,6 +707,8 @@ static void AddCells(const AutoMapLevelSnapshot &snapshot, const AutoMapFog &fog
       }
       if (fog.spoilers != AutoMapSpoilersAll) HideCellSecrets(levelCell, fog, &shown.cell);
       shown.isHighlighted = IsHighlighted(levelCell, shown.cell, fog);
+      shown.isWalked = fog.walked != NULL
+                       && fog.walked->count(std::make_tuple(levelCell.level, levelCell.x, levelCell.y)) != 0;
       if (fog.notes != NULL) shown.playerPit = fog.notes->PitAt(levelCell);
       drawList->cells.push_back(shown);
     }

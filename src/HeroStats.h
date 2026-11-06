@@ -198,6 +198,8 @@ public:
   void CountBump(int level);
   // The party stands on the cell (any number of times: it counts once)
   void MarkTileWalked(int level, int x, int y);
+  // Every cell stood on, as (level, x, y): the automap highlights them
+  const std::set<std::tuple<int, int, int> > &TilesWalked(void) const { return m_tilesWalked; }
   // The automap's count of explored tiles per level. Not stored: the automap keeps its cells in
   // the .map file itself, and the owner refreshes this before the numbers are shown.
   void SetExploredTiles(const std::map<int, int> &perLevel);

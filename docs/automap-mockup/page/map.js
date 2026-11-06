@@ -5,7 +5,7 @@
 const SAVE_NAMES = Object.keys(MAPDATA.saves);
 const SAVES = {};            // unpacked saves
 let DATA = null;             // the shown save: {index, views}
-let saveNo = 0, lvl = 0, vision = 0, spoil = 1 /* 0 All, 1 Learned, 2 Seen */, tint = true;
+let saveNo = 0, lvl = 0, vision = 0, spoil = 1 /* 0 All, 1 Learned, 2 Seen */, tint = true, walked = false;
 let follow = true, cs = 36, panX = 0, panY = 0, hover = null, shiftHeld = false, debugOn = true;
 let V = null, grid = {}, actsAt = {}, monAt = {}, W = 0, H = 0, OX = 0, OY = 0;
 let tipScroll = 0;
@@ -152,7 +152,9 @@ function drawCellBase(c) {
 }
 function drawCellOverlay(c) {
   const x = px(c.x), y = py(c.y), k = c.k;
-  if (vision === 2 && tint && c.hl) { g.fillStyle = 'rgba(76,208,106,.22)'; g.fillRect(x, y, cs, cs); }
+  // The cells the party stood on take their own tint instead of the explored one, as in the game
+  if (walked && c.wk) { g.fillStyle = 'rgba(255,154,46,.28)'; g.fillRect(x, y, cs, cs); }
+  else if (vision === 2 && tint && c.hl) { g.fillStyle = 'rgba(76,208,106,.22)'; g.fillRect(x, y, cs, cs); }
   if (k === 9) { const d = Math.max(2, Math.round(cs / 12)); rect(x + cs / 2 - d / 2, y + cs / 2 - d / 2, d, d, '#5a5a66'); }
   if (k === 2 && c.pit && c.pit[0] && c.pit[1]) { const d = Math.max(2, Math.round(cs / 12)); rect(x + cs / 2 - d / 2, y + cs / 2 - d / 2, d, d, '#8a4a4a'); }
   if (k === 4) breakMarks(c, x, y);

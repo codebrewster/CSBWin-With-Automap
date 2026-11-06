@@ -39,6 +39,7 @@ enum BarAction
   ActionVisionLive,
   ActionVisionWhole,
   ActionTint,
+  ActionWalked,
   ActionSeen,
   ActionLearned,
   ActionAll,
@@ -97,6 +98,8 @@ static std::vector<BarItem> ItemsNow(void)
   };
   list.assign(entries, entries + sizeof(entries) / sizeof(entries[0]));
   if (vision == 2) list.push_back(BarItem{"^TINT", ActionTint, AutoMap_ExploredIsHighlighted()});
+  // The cells the party stood on, at every vision
+  list.push_back(BarItem{"^WALKED", ActionWalked, AutoMap_WalkedIsHighlighted()});
   BarItem rest[] = {
       {"|#SPOILERS", ActionNone, false},
       {"SEEN", ActionSeen, spoilers == 0},
@@ -628,6 +631,7 @@ static void Carry(BarAction action)
   case ActionVisionLive: AutoMap_SetVision(1); break;
   case ActionVisionWhole: AutoMap_SetVision(2); break;
   case ActionTint: if (vision == 2) AutoMap_SetExploredHighlight(!AutoMap_ExploredIsHighlighted()); break;
+  case ActionWalked: AutoMap_SetWalkedHighlight(!AutoMap_WalkedIsHighlighted()); break;
   case ActionSeen: AutoMap_SetSpoilerLevel(0); break;
   case ActionLearned: AutoMap_SetSpoilerLevel(1); break;
   case ActionAll: AutoMap_SetSpoilerLevel(2); break;
