@@ -54,7 +54,7 @@ $env:PATH = "$MinGW;$env:PATH"
 # target builds CSBlinux.cpp on every platform).
 $CppSources = @(
     'DSA', 'data', 'Code11f52', 'Graphics', 'Magic', 'CSBCode', 'Timer', 'Character',
-    'system', 'SmartDiscard', 'VBL', 'Mouse', 'Recording', 'LinCSBUI', 'CSBlinux',
+    'system', 'SmartDiscard', 'SmartDiscardLegacy', 'VBL', 'Mouse', 'Recording', 'LinCSBUI', 'CSBlinux',
     'Code51a4', 'CSBUI', 'MoveObject', 'Hint', 'Monster', 'Code17818', 'Viewport',
     'AsciiDump', 'Menu', 'Chaos', 'SaveGame', 'Translation', 'Bitmaps', 'md5C',
     'utility', 'WinScreen', 'Code13ea4', 'Codea59a', 'RC4', 'Attack', 'Sound',

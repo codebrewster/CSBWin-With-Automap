@@ -32,6 +32,7 @@ extern i32 numGlobalVariables;
 extern ui32 *globalVariables;
 bool dsaActive = false;
 extern bool SupressDSAWarningOption;
+extern bool legacyQuietParamFetch;
 extern i32 xGraphicJitter;
 extern i32 yGraphicJitter;
 extern i32 xOverlayJitter;
@@ -2967,10 +2968,11 @@ static void EX_AMPERSAND(EXECUTIONPACKET& exPkt, int cmdOffset)
         //memcpy(pdsaDbank->stack.tempVar+i, pDSAparameters, 4*n);
         if (n > pDSAparameters[0])
         {
-          message("DSA &PARAM@ non-existent parameter");
+          // Replays from before 11.049 stay silent here, as those versions did.
+          if (!legacyQuietParamFetch) message("DSA &PARAM@ non-existent parameter");
           for (j=pDSAparameters[0]; j<n; j++)
           {
-            pdsaDbank->Var(j);
+            if (!legacyQuietParamFetch) pdsaDbank->Var(j);
             pdsaDbank->SetVarState(i+j, DVT_NonParameter);
           };
           n = pDSAparameters[0];

@@ -19,6 +19,8 @@ int MissileEncounterFilter(int type, LOCATIONREL locr, RN missile, RN projectile
 
 
 extern i32 deleteDuplicateTimers;
+extern bool legacyUnsequencedTimers;
+extern bool legacyDoubleShooter;
 extern i32 timerTypeModifier[3];
 
 #ifdef _MSVC_INTEL
@@ -802,8 +804,11 @@ bool TIMER::operator < (const TIMER& timer2) const // TAG00fd9e
     if (m_timerUByte5 > timer2.m_timerUByte5) return false;
     // Identical entries.  The smaller pointer comes first
 #ifdef SEQUENCED_TIMERS
-    if (m_timerSequence < timer2.m_timerSequence) return true;
-    if (m_timerSequence > timer2.m_timerSequence) return false;
+    if (!legacyUnsequencedTimers)
+    {
+      if (m_timerSequence < timer2.m_timerSequence) return true;
+      if (m_timerSequence > timer2.m_timerSequence) return false;
+    };
 #endif
     if (&timer2 >= this) return true;
     return false;
@@ -819,8 +824,11 @@ bool TIMER::operator < (const TIMER& timer2) const // TAG00fd9e
   if (m_timerUByte5 < timer2.m_timerUByte5) return false;
   // Identical entries.  The smaller pointer comes first
 #ifdef SEQUENCED_TIMERS
-    if (m_timerSequence < timer2.m_timerSequence) return true;
-    if (m_timerSequence > timer2.m_timerSequence) return false;
+    if (!legacyUnsequencedTimers)
+    {
+      if (m_timerSequence < timer2.m_timerSequence) return true;
+      if (m_timerSequence > timer2.m_timerSequence) return false;
+    };
 #endif
   if (&timer2 >= this) return true;
   return 0;
@@ -2018,10 +2026,12 @@ void TriggerMissileLauncher(DB3 *pDB3, const TIMER *pTimer)
                 true);
   if (!T7or8or14)
   {
+    // CSBwin before 9.9 launched the second missile from the shooter's
+    // own cell (fixed in 9.9: "Repair two problems with double shooters").
     LaunchMissile(
                   secondObject,
-                  launchX,
-                  launchY,
+                  legacyDoubleShooter ? timerMapX : launchX,
+                  legacyDoubleShooter ? timerMapY : launchY,
                   (initialPosition + 1) & 3, //position
                   pTimer->timerUByte8(),       //direction
                   energyRemaining, //range

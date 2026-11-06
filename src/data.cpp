@@ -53,6 +53,9 @@ ui32 EDBT_GraphicsSignature_data = 0xffffffff;
 ui32 EDBT_CSBversion_data = 0xffffffff;
 ui32 EDBT_Debuging_data = 0xffffffff;
 ui32 dungeonSignature1=0, dungeonSignature2=0;
+// The same files' checksums the way CSBwin 9.7 and earlier computed them, so
+// replays recorded with those versions don't warn about different files.
+ui32 legacyGraphicSignature = 0, legacyDungeonSignature = 0;
 ui32 versionSignature = 0;
 ui32 spellFilterLocation = 0;
 ui32 cellflagArraySize;
@@ -254,6 +257,42 @@ bool DM_rules = false;
 bool indirectText = false;
 i32  totalMoveCount;
 bool version90Compatible = false;
+// Set while replaying a playfile recorded by CSBwin 9.8 up to 12.5.  Those
+// versions ignored Vitality, Anti-Magic and Anti-Fire when reducing poison,
+// spell and fire damage (see TAG016426).  9.7 and earlier used them.
+bool legacyAttributeDefense = false;
+// Set while replaying a playfile recorded by CSBwin before 11.049, which had
+// no "&PARAM@ non-existent parameter" warning.
+bool legacyQuietParamFetch = false;
+// Set while replaying a playfile recorded by CSBwin before 14.4, which based
+// a monster's missile range on its dexterity instead of its attack.
+bool legacyMissileRange = false;
+// Set while replaying a playfile recorded by CSBwin before 11.052, which had
+// the older SmartDiscard (SmartDiscardLegacy.cpp).
+bool legacySmartDiscard = false;
+// Set while replaying a playfile recorded by CSBwin before 11.0.  Those
+// versions had no timer sequence numbers: timers due at the same time were
+// ordered by their slot in the timer array (TIMER::operator <).
+bool legacyUnsequencedTimers = false;
+// Set while replaying a playfile recorded by CSBwin before 10.078.  Those
+// versions read the level's graphics and redrew the viewport at every level
+// the party fell through (MoveObject).  Drawing clouds and explosions uses
+// random numbers, so the redraw is needed to replay those games.  (The call
+// was removed between 10.056 and 10.078; the exact version is not known.)
+bool legacyPitViewportRedraw = false;
+// Set while replaying a playfile recorded by CSBwin before 9.9.  Those
+// versions drew the missile type and range only for a monster that launches
+// a missile, and chose the hero to hit only for one that does not
+// (MonsterAttacks).  The change came between 9.8 and 9.95.
+bool legacyMonsterAttackOrder = false;
+// Set while replaying a playfile recorded by CSBwin before 9.9.  A shooter
+// that fires two missiles launched the second one from its own cell
+// (TriggerMissileLauncher).  Changed between 9.8 and 9.95.
+bool legacyDoubleShooter = false;
+// Set while replaying a playfile recorded by CSBwin before 9.9.  A floor pad
+// "operated by anything" reacted to every object, clouds and missiles too
+// (PressurePadOrAlcove).  Changed between 9.8 and 9.95.
+bool legacyPadAnyObject = false;
 i32 RememberToPutObjectInHand = -1;
 i32 segSize[5]   = {0x02,0x02,0x02,0x02,0x00};
 i32 segSrcX[5]   = {0x00,0x00,0xe0,0x00,0x00};
@@ -1948,8 +1987,11 @@ void CHARDESC::IncrMaxMana(i32 inc)
   ASSERT((unsigned)m_wMaxMana <= MAXMANA,"maxmana");
 }
 
-void Signature(int fileHandle, ui32 *signature1, ui32 *signature2)
+void Signature(int fileHandle, ui32 *signature1, ui32 *signature2,
+               ui32 *legacySignature)
 {//result will be 8 bytes (6-bytes MD5 + 2 zeroes)
+ // legacySignature (optional) gets the shift-and-add checksum that CSBwin
+ // 9.7 and earlier recorded in playfiles instead of the MD5.
   FILE *f;
   ui32 sum;
   i32 len;
@@ -1957,6 +1999,22 @@ void Signature(int fileHandle, ui32 *signature1, ui32 *signature2)
   ui8 result[16];
   f = GETFILE(fileHandle);
   if (f == NULL) return;
+  if (legacySignature != NULL)
+  { // Over the whole file, as 9.7 read it, whatever has been read already.
+    long pos = ftell(f);
+    fseek(f,0,SEEK_SET);
+    sum = 0;
+    while ( (len = (i32)fread(buf,1,1000,f)) > 0)
+    {
+      for (i32 i=0; i<len; i++)
+      {
+        sum = (sum & 0x80000000) ? (sum<<1)^0x8d : sum<<1;
+        sum += buf[i];
+      };
+    };
+    *legacySignature = (sum == 0) ? 1 : sum;
+    fseek(f,pos,SEEK_SET);
+  };
   sum = 0;
   MD5Init();
   //while ( (len=fread(buf,1,1000,f)) > 0)

@@ -731,6 +731,11 @@ static void DiscardObject(void)
 
 }
 
+// The algorithm of CSBwin before 11.052, for replaying their playfiles.
+void SmartDiscardLegacy(bool Initialize);
+void SmartDiscardLegacyTrace(FILE *f);
+extern bool legacySmartDiscard;
+
 void SmartDiscard(bool Initialize)
 {
   i32 i;
@@ -740,6 +745,15 @@ void SmartDiscard(bool Initialize)
 #ifdef _DEBUG
   i32 objIndex;
 #endif
+  if (Initialize)
+  {
+    SmartDiscardLegacy(true);
+  }
+  else if (legacySmartDiscard)
+  {
+    SmartDiscardLegacy(false);
+    return;
+  };
   if (m_trace!=NULL)
   {
     fprintf(GETFILE(TraceFile),"SmartDiscard ");
@@ -1002,4 +1016,5 @@ void BuildSmartDiscardTable(void)
 void SmartDiscardTrace(FILE *f)
 {
   m_trace = f;
+  SmartDiscardLegacyTrace(f);
 }

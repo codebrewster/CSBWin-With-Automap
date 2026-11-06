@@ -67,6 +67,7 @@ endif
 
 OBJS=	DSA.o       data.o         Code11f52.o  Graphics.o  Magic.o          \
         CSBCode.o   Timer.o        Character.o  system.o    SmartDiscard.o   \
+        SmartDiscardLegacy.o \
         VBL.o       Mouse.o        Recording.o  LinCSBUI.o  CSBlinux.o       \
         Code51a4.o  CSBUI.o        MoveObject.o Hint.o      Monster.o        \
         Code17818.o Viewport.o     AsciiDump.o  Menu.o      Chaos.o          \

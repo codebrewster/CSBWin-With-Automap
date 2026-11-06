@@ -26,6 +26,8 @@ bool IsPlayFileOpen(void);
 const char *TranslateLanguage(const char *text);
 
 extern bool version90Compatible;
+extern bool legacyPitViewportRedraw;
+extern bool legacyPadAnyObject;
 extern bool drawAsSize4Monsters;
 extern TIMER missileFilterTimer;
 
@@ -3098,6 +3100,11 @@ i16 MoveObject(const RN        object,
               && (d.SupressPitDamage == 0))
           {
             LOCAL_20 = 1;//d.BigMemory;
+            if (legacyPitViewportRedraw)
+            { // As CSBwin did before 10.078; see legacyPitViewportRedraw.
+              ReadGraphicsForLevel();
+              DrawViewport(d.partyFacing, newX, newY);
+            };
             //conflux movie - ReadGraphicsForLevel();
             //  The game can crash if we don't read the graphics for
             //  this new level.  This was an Atari bug, IMHO.
@@ -3884,7 +3891,8 @@ void PressurePadOrAlcove (
         if (unchangedRoom) return; // No change in location
         //Check if pad was already pressed by objects
         if (objectDB5To13Present) return; //no action
-        if (object != RNnul)
+        // Before 9.9 every object pressed these pads, clouds and missiles too.
+        if ((object != RNnul) && !legacyPadAnyObject)
         {
           if (movedDBType < 4) return;
           if (movedDBType > 13) return;

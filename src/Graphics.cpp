@@ -19,6 +19,7 @@ void info(char *, unsigned int);
 void CleanupAltMonCache(void);
 void CleanupWallDecorations(void);
 //void CleanupFloorDecorations(void);
+extern ui32 legacyGraphicSignature;
 extern FILETABLE fileTable[maxFilesOpen];
 extern char *helpMessage;
 extern bool overlayActive;
@@ -1857,7 +1858,8 @@ void openGraphicsFile(void) // TAG021d36
   m = expectedGraphicSignature1 | expectedGraphicSignature2;
   if (n==0)
   {
-    Signature(d.GraphicHandle, &graphicSignature1, &graphicSignature2);
+    Signature(d.GraphicHandle, &graphicSignature1, &graphicSignature2,
+              &legacyGraphicSignature);
     n = graphicSignature1 | graphicSignature2;
     o = (n | (n>>16)) & 0xffff;
     if (m!=0)

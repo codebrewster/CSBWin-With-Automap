@@ -305,6 +305,7 @@
     </ClCompile>
     <ClCompile Include="SaveGame.cpp" />
     <ClCompile Include="SmartDiscard.cpp" />
+    <ClCompile Include="SmartDiscardLegacy.cpp" />
     <ClCompile Include="Sound.cpp" />
     <ClCompile Include="Statistics.cpp" />
     <ClCompile Include="StdAfx.cpp">

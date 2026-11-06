@@ -13,6 +13,7 @@
 
 extern ui32 *pDSAparameters;
 extern bool neophyteSkills;
+extern bool legacyAttributeDefense;
 ui8 reincarnateAttributePenalty, reincarnateStatPenalty, randomPoints;
 pnt GetExternalPortraitAddress(i32 index);
 void GetText(char *result, i32 index);
@@ -2041,6 +2042,9 @@ i16 TAG016426(CHARDESC *pChar,i16 attrNum,i16 damage)
   // *************************************************************
 
   D7W = sw(170 - w_10); //They stored a word and fetch a byte!  See discussion below.
+  // CSBwin 9.8 up to 12.5 kept the Atari behaviour (w_10/256, always 0), so
+  // replays recorded with those versions need it to stay in step.
+  if (legacyAttributeDefense) D7W = 170;
 /*
  *              Forum discussion.  Christophe Fontanel wrote the following:
  *But I did some additional research, and now I still think you should fix CSBwin as proposed,

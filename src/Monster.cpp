@@ -14,6 +14,8 @@
 
 extern ui8         monsterMoveInhibit[4];
 extern bool neophyteSkills;
+extern bool legacyMissileRange;
+extern bool legacyMonsterAttackOrder;
 
 const char *MonsterName(MONSTERTYPE mt);
 bool IsPlayFileOpen(void);
@@ -1039,6 +1041,88 @@ bool MonsterAttacks(RN  monster,
   attackParameters.directionToParty =  d.PrimaryDirectionToParty;
 
 
+  if (legacyMonsterAttackOrder)
+  { // CSBwin before 9.9 (TAG00c9c0 in 9.7): the missile type and range
+    // were drawn only for a monster that launches a missile, and the hero
+    // to hit only for one that does not.  Replays need the same random
+    // numbers in the same order.
+    attackParameters.monsterShouldLaunchMissile =
+            (pmtDesc->word14_12_15() > 1) // ie: 3, 4, or 6
+         && ((d.OrthogonalDistance2Party > 1) || (STRandomBool() != 0));
+    attackParameters.monsterShouldSteal = (mtD7 == mon_Giggler);
+    attackParameters.attackSoundOrdinal = pmtDesc->attackSound;
+    missile = RNnul;
+    if (attackParameters.monsterShouldLaunchMissile)
+    {
+      if ( (mtD7 == mon_Vexirk) || (mtD7 == mon_LordChaos) )
+      {
+        if (STRandomBool() != 0)
+        {
+          missile = RNFireball;
+        }
+        else
+        {
+          switch (STRandom0_3())
+          {
+          case 0: missile = RNDispellMissile; break;
+          case 1: missile = RNLightning; break;
+          case 2: missile = RNPoisonCloud; break;
+          case 3: missile = RNZoSpell; break;
+          }; //switch()
+        };
+      }
+      else
+      {
+        switch (mtD7)
+        {
+        case mon_SlimeDevil:
+            missile = RNPoison; break;
+        case mon_FlyingEye:
+            if (STRandom(8) != 0) missile = RNLightning;
+            else missile = RNZoSpell;
+            break;
+        case mon_Zytaz:
+            if (STRandomBool() != 0) missile = RNPoisonCloud;
+            else missile = RNFireball;
+            break;
+        case mon_Demon:
+        case mon_Dragon:
+            missile = RNFireball;
+            break;
+        default: break;
+        }; // switch
+      };
+      attackParameters.heroToDamage = -1;
+      attackParameters.missileRange = sw(pmtDesc->dexterity12 / 4 + 1);
+      attackParameters.missileRange
+              += STRandom(attackParameters.missileRange);
+      attackParameters.missileRange
+              += STRandom(attackParameters.missileRange);
+    }
+    else
+    {
+      attackParameters.missileRange = 0;
+      if (pmtDesc->word2Bit4())
+      {
+        // 9.7 did not step to the next hero here, so a dead hero
+        // means no attack.
+        attackParameters.heroToDamage = STRandom0_3();
+        if (d.hero[attackParameters.heroToDamage].HP() == 0) return false;
+      }
+      else
+      {
+        attackParameters.heroToDamage
+            = GetCharacterToDamage(
+                  attackParameters.monsterX,
+                  attackParameters.monsterY,
+                  attackParameters.missileOriginPosition);
+        if (attackParameters.heroToDamage < 0) return false;
+      };
+    };
+    attackParameters.missileType = missile.ConvertToInteger();
+  }
+  else
+  {
 //================================== monsterShouldLaunchMissile
   attackParameters.monsterShouldLaunchMissile =
           (pmtDesc->word14_12_15() > 1) // ie: 3, 4, or 6
@@ -1116,11 +1200,16 @@ bool MonsterAttacks(RN  monster,
 
 //========================================= missileRange
     attackParameters.missileRange
-      = sw(pmtDesc->attack10 / 4 + 1); // uByte8[4] / 4 + 1);
+      = sw(pmtDesc->attack10 / 4 + 1);
+    // CSBwin before 14.4 used uByte8[4], the dexterity; replays from those
+    // versions need it.
+    if (legacyMissileRange)
+      attackParameters.missileRange = sw(pmtDesc->dexterity12 / 4 + 1);
     attackParameters.missileRange
             += STRandom(attackParameters.missileRange);
     attackParameters.missileRange
             += STRandom(attackParameters.missileRange);
+  }; // if (legacyMonsterAttackOrder)
 
 
 //========================================= missileDamage

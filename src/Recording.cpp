@@ -3,6 +3,8 @@
 
 #include <stdio.h>
 #include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
 
 
 
@@ -23,6 +25,16 @@ void UnlinkFile(const char *name);
 extern char *PlayfileName;
 //extern TCHAR szCSBVersion[MAX_LOADSTRING];
 extern bool version90Compatible;
+extern bool legacyAttributeDefense;
+extern bool legacyQuietParamFetch;
+extern bool legacyMissileRange;
+extern bool legacySmartDiscard;
+extern bool legacyUnsequencedTimers;
+extern bool legacyPitViewportRedraw;
+extern bool legacyMonsterAttackOrder;
+extern bool legacyDoubleShooter;
+extern bool legacyPadAnyObject;
+extern ui32 legacyGraphicSignature, legacyDungeonSignature;
 extern bool TimerTraceActive;
 extern i16 TraceFile;
 extern bool RepeatGame;
@@ -151,6 +163,18 @@ TABLE tableTXYFR(2);
 
 
 
+// True when the playfile header ("CSB for Windows/Linux Version 11.022")
+// names a version older than 'version'.  A header without a version number
+// counts as current.
+static bool PlayfileVersionBefore(const char *header, double version)
+{
+  const char *p = strstr(header, "Version ");
+  if (p == NULL) return false;
+  p += 8;
+  if ((*p < '0') || (*p > '9')) return false;
+  return atof(p) < version;
+}
+
 void PLAYFILE::Open(void)
 {
   char versionLine[200];
@@ -171,6 +195,18 @@ void PLAYFILE::Open(void)
       versionLine[n] = 0;
     };
   };
+  // 9.7 and earlier used the attributes like 12.6 and later do; only
+  // 9.8 up to 12.5 ignored them.
+  legacyAttributeDefense =    PlayfileVersionBefore(versionLine+1, 12.6)
+                          && !PlayfileVersionBefore(versionLine+1, 9.8);
+  legacyQuietParamFetch  = PlayfileVersionBefore(versionLine+1, 11.049);
+  legacyMissileRange     = PlayfileVersionBefore(versionLine+1, 14.4);
+  legacySmartDiscard     = PlayfileVersionBefore(versionLine+1, 11.052);
+  legacyUnsequencedTimers = PlayfileVersionBefore(versionLine+1, 11.0);
+  legacyPitViewportRedraw = PlayfileVersionBefore(versionLine+1, 10.078);
+  legacyMonsterAttackOrder = PlayfileVersionBefore(versionLine+1, 9.9);
+  legacyDoubleShooter     = PlayfileVersionBefore(versionLine+1, 9.9);
+  legacyPadAnyObject      = PlayfileVersionBefore(versionLine+1, 9.9);
   if (strcmp(versionLine+1, szCSBVersion) != 0)
   {
     char msg[200];
@@ -681,7 +717,8 @@ bool PLAYFILE::Play(MouseQueueEnt *ent)
   };
   if (m_num == 0x6666)
   {
-    if ( (((unsigned)m_x << 16) | m_y) != graphicSignature1)
+    if (   ((((unsigned)m_x << 16) | m_y) != graphicSignature1)
+        && ((((unsigned)m_x << 16) | m_y) != legacyGraphicSignature))
     {
       if (firstGraphicsWarning)
       {
@@ -709,7 +746,8 @@ bool PLAYFILE::Play(MouseQueueEnt *ent)
   {
     if (checkDungeonSignature)
     {
-      if ( (((unsigned)m_x << 16) | m_y) != dungeonSignature1)
+      if (   ((((unsigned)m_x << 16) | m_y) != dungeonSignature1)
+          && ((((unsigned)m_x << 16) | m_y) != legacyDungeonSignature))
       {
         if (firstDungeonWarning)
         {

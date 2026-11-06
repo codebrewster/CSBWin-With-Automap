@@ -16,6 +16,7 @@
 extern bool hidingMenu;
 #endif
 
+extern ui32 legacyDungeonSignature;
 extern unsigned char *encipheredDataFile;
 extern bool simpleEncipher;
 extern bool RecordDesignOption;
@@ -1629,7 +1630,8 @@ RESTARTABLE _ReadEntireGame(void)
     UI_free(msg);
   };
 tag01eb82:
-  Signature(d.datafileHandle, &dungeonSignature1, &dungeonSignature2);
+  Signature(d.datafileHandle, &dungeonSignature1, &dungeonSignature2,
+            &legacyDungeonSignature);
   if (encipheredDataFile != NULL)
   {
     SETENCIPHERED(d.datafileHandle, encipheredDataFile, 64);
@@ -1758,7 +1760,8 @@ tag01ecde:
   A3 = (aReg)TranslateLanguage(d.Pointer22824);
   d.Word22972 = 3;
 tag01ece8:
-  Signature(d.datafileHandle, &dungeonSignature1, &dungeonSignature2);
+  Signature(d.datafileHandle, &dungeonSignature1, &dungeonSignature2,
+            &legacyDungeonSignature);
   RecordFile_Record((dungeonSignature1 >> 16) & 0xffff,
                      dungeonSignature1 & 0xffff,
                      0x6669);

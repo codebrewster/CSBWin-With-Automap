@@ -3182,7 +3182,8 @@ void BLT2Screen(ui8 *P1, RectPos *P2, i16 P3, i16 P4);//TAG000f7e
 void SwapGraphic0x231(void);
 void SetButtonPointers(void);
 ui32 Signature(char *text);
-void Signature(int fileHandle, ui32 *signature1, ui32 *signature2);
+void Signature(int fileHandle, ui32 *signature1, ui32 *signature2,
+               ui32 *legacySignature = NULL);
 #define VBLDelay(n,a) CALL1(n,VBLDelay,a);
 RESTARTABLE _VBLDelay(const i32 P1);//TAG000fb2 (void)
 //i16  Abs(i32 x);//TAG00fd2
