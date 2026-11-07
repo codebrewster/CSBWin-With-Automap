@@ -761,8 +761,16 @@ static std::vector<HeroStatsRecordLine> RecordLines(const HeroStats &stats, cons
 {
   bool isParty = who == HERO_STATS_PARTY;
   std::vector<HeroStatsRecordLine> lines;
+  // Shown in the order of the enum, except that the poison records come before the wound records
+  // (the enum is the order of the save file, so it stays as it is)
+  std::vector<int> order;
   for (int k = 0; k < HERO_RECORD_COUNT; k++)
+    if (k != HeroRecTotalPoisonings && k != HeroRecTotalWounds) order.push_back(k);
+  order.insert(std::find(order.begin(), order.end(), (int)HeroRecMostWoundsAtOnce), (int)HeroRecTotalPoisonings);
+  order.push_back(HeroRecTotalWounds);
+  for (size_t o = 0; o < order.size(); o++)
   {
+    int k = order[o];
     HeroRecordKind kind = (HeroRecordKind)k;
     if (!isParty && HeroRecord_PartyOnly(kind)) continue;
     HeroStatsRecordLine line;
