@@ -18,7 +18,8 @@ ifeq ($(target), Raspberry)
 endif
 ifeq ($(target), SDL20)
 # "make RELEASE=1" gives the optimized build, a plain "make" the debug one.
-# Run "make clean" when switching between them, they share the obj directory.
+# They use separate object directories (obj-release and obj), so they do not disturb each
+# other, and neither does "make test", which shares the debug objects.
 ifdef RELEASE
 	options =   -O2 -D _LINUX -D RGB655 -D SDL20 -c
 else
@@ -103,7 +104,13 @@ ifdef MACOS
 	OBJS += MacAppSupport.o
 endif
 
+ifdef RELEASE
+OBJDIR = obj-release
+else ifdef WIN
+OBJDIR = obj-$(target)
+else
 OBJDIR = obj
+endif
 OBJDIRS = $(OBJDIR) \
 		  $(OBJDIR)/sdl_sound \
 		  $(OBJDIR)/imgui \
@@ -126,7 +133,7 @@ IMGUI := $(IMGUI:%=$(OBJDIR)/imgui/%)
 OBJS += $(IMGUI)
 
 ifdef WIN
-	OBJS += obj/fnmatch/fnmatch.o
+	OBJS += $(OBJDIR)/fnmatch/fnmatch.o
 endif
 
 all: maketree message csb
@@ -174,7 +181,7 @@ visibility-test: maketree csb
 maketree: $(OBJDIRS)
 
 message:
-	@rm -f obj/CSBlinux.o # force recompilation for every build!
+	@rm -f $(OBJDIR)/CSBlinux.o # force recompilation for every build!
 	@echo -n "Building csb, "
 ifneq "$(findstring -O, $(options))" ""
 	@echo -n optimized
@@ -184,7 +191,7 @@ endif
 	@echo " version"
 
 clean:
-	rm -rf obj csb
+	rm -rf obj obj-release obj-x86_64-w64-mingw32 obj-i686-w64-mingw32 csb
 
 # This tricky rule generates dependancies information in .P files while compiling files
 # it avoids to maintain a list of include files in the makefile

@@ -8,3 +8,4 @@ csb
 csb.exe
 .vimrc
 obj
+obj-*
