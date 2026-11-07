@@ -38,7 +38,7 @@ enum HeroStatsNumber {
   HeroNumRecBiggestHeal, HeroNumRecMostManaOnSpell, HeroNumRecBiggestXpGain, HeroNumRecHeaviestLoad,
   HeroNumRecLongestFall, HeroNumRecLongestTeleportChain, HeroNumRecLongestSleep,
   HeroNumRecMostPoison, HeroNumRecLongestPoisoned, HeroNumRecMostPoisonings,
-  HeroNumRecMostWoundsAtOnce, HeroNumRecMostWoundsInOneBlow,
+  HeroNumRecMostWoundsAtOnce, HeroNumRecMostWoundsInOneBlow, HeroNumRecTotalPoisonings, HeroNumRecTotalWounds,
   HERO_NUMBER_COUNT };
 const HeroStatsNumber HeroNumRecFirst = HeroNumRecBiggestHit;
 

@@ -326,6 +326,8 @@ the earlier one stays.
 | **Most poisonings in a row** | the most new doses of poison taken within one stretch of being poisoned |
 | **Most wounds at once** | the most wounded parts of the body of one champion at the same time |
 | **Most wounds from one blow** | the most parts of the body one blow, missile or explosion newly wounded |
+| **Poison doses suffered** | all the doses of poison a champion took, added up over the levels asked for; each new dose counts once |
+| **Wounds suffered** | all the parts of the body wounded that were whole before, added up over the levels asked for |
 
 **Kills without a scratch.** The kills are the ones credited to a champion; monsters crushed by
 doors, killed by falls or by other causes do not count. Any damage a champion takes ends the streak:

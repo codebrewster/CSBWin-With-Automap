@@ -19,6 +19,11 @@ bool HeroRecord_PartyHasItsOwn(HeroRecordKind kind)
   return HeroRecord_PartyOnly(kind) || kind == HeroRecKillStreak;
 }
 
+bool HeroRecord_IsTotal(HeroRecordKind kind)
+{
+  return kind == HeroRecTotalPoisonings || kind == HeroRecTotalWounds;
+}
+
 HeroRecordEntry HeroRecordEntry_Empty(void)
 {
   HeroRecordEntry entry;
@@ -97,6 +102,25 @@ bool HeroStatsRecords::Best(HeroRecordKind kind, HeroStatsChampion who, int leve
     if (!found || Beats(kind, entry, best)) best = entry;
     found = true;
   };
+  if (HeroRecord_IsTotal(kind))
+  {
+    // Each level keeps its champion's running total: add up the levels asked for
+    std::map<HeroStatsChampion, HeroRecordEntry> sums;
+    for (std::map<Key, HeroRecordEntry>::const_iterator it = m_best.begin(); it != m_best.end(); ++it)
+    {
+      const HeroRecordEntry &entry = it->second;
+      if (std::get<0>(it->first) != (int)kind || !HeroStats::LevelMatches(level, entry.level)) continue;
+      std::map<HeroStatsChampion, HeroRecordEntry>::iterator sum = sums.find(entry.who);
+      if (sum == sums.end()) sums[entry.who] = entry;
+      else
+      {
+        sum->second.value += entry.value;
+        if (entry.time >= sum->second.time) { sum->second.time = entry.time; sum->second.level = entry.level; }
+      }
+    }
+    for (std::map<HeroStatsChampion, HeroRecordEntry>::const_iterator it = sums.begin(); it != sums.end(); ++it) consider(it->second);
+  }
+  else
   for (std::map<Key, HeroRecordEntry>::const_iterator it = m_best.begin(); it != m_best.end(); ++it)
     if (std::get<0>(it->first) == (int)kind) consider(it->second);
   // What is still running is a record too
@@ -217,6 +241,7 @@ void HeroStatsRecords::CountPoison(HeroStatsChampion who, int level, uint32_t ti
   entry.level = level;
   entry.time = time;
   Offer(HeroRecMostPoison, entry);
+  if (newDose) CountTotal(HeroRecTotalPoisonings, who, level, time, 1);
 }
 
 void HeroStatsRecords::CountPoisonDamage(HeroStatsChampion who, int damage)
@@ -246,6 +271,19 @@ void HeroStatsRecords::CountWounds(HeroStatsChampion who, int level, uint32_t ti
   Offer(HeroRecMostWoundsAtOnce, entry);
   entry.value = newWounds;
   Offer(HeroRecMostWoundsInOneBlow, entry);
+  if (newWounds > 0) CountTotal(HeroRecTotalWounds, who, level, time, newWounds);
+}
+
+// Adds to the champion's total on the level: the entry of the kind, champion and level is the total there
+void HeroStatsRecords::CountTotal(HeroRecordKind kind, HeroStatsChampion who, int level, uint32_t time, int add)
+{
+  std::map<Key, HeroRecordEntry>::iterator at = m_best.find(Key((int)kind, who, level));
+  HeroRecordEntry entry = at == m_best.end() ? HeroRecordEntry_Empty() : at->second;
+  entry.value += add;
+  entry.who = who;
+  entry.level = level;
+  entry.time = time;
+  m_best[Key((int)kind, who, level)] = entry;
 }
 
 // ---------------------------------------------------------------------------------------------

@@ -100,6 +100,8 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Most poisonings in a row", "The most new doses of poison taken within one stretch of being poisoned.", false, false, true, false, false, true},
     {"Most wounds at once", "The most wounded parts of the body of one champion at the same time.", false, false, true, false, false, true},
     {"Most wounds from one blow", "The most parts of the body one blow, missile or explosion newly wounded.", false, false, true, false, false, true},
+    {"Poison doses suffered", "All the doses of poison a champion took in the run (or on the level): each new dose counts once.", false, false, true, false, false, true},
+    {"Wounds suffered", "All the parts of the body wounded that were whole before, added up over the run (or the level).", false, false, true, false, false, true},
 };
 
 // The names csb.cfg knows the numbers by, in the order of HeroStatsNumber
@@ -123,7 +125,8 @@ static const char *const KEYS[] = {
     "biggest_hit", "biggest_spell_hit", "biggest_spell_total", "most_kills_at_once", "kill_streak",
     "biggest_hit_taken", "biggest_spell_hit_taken", "closest_call", "biggest_heal", "most_mana_on_spell",
     "biggest_experience_gain", "heaviest_load", "longest_fall", "longest_teleport_chain", "longest_sleep",
-    "most_poison", "longest_poisoned", "most_poisonings", "most_wounds", "most_wounds_one_blow"};
+    "most_poison", "longest_poisoned", "most_poisonings", "most_wounds", "most_wounds_one_blow",
+    "poison_doses_suffered", "wounds_suffered"};
 static_assert(sizeof KEYS / sizeof KEYS[0] == HERO_NUMBER_COUNT, "a name for every number");
 
 const HeroStatsNumberInfo &HeroStatsCatalogue_Info(HeroStatsNumber number)

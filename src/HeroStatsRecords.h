@@ -19,7 +19,9 @@ enum HeroRecordKind { HeroRecBiggestHit, HeroRecBiggestSpellHit, HeroRecBiggestS
                       HeroRecBiggestHeal, HeroRecMostManaOnSpell, HeroRecBiggestXpGain, HeroRecHeaviestLoad,
                       HeroRecLongestFall, HeroRecLongestTeleportChain, HeroRecLongestSleep,
                       HeroRecMostPoison, HeroRecLongestPoisoned, HeroRecMostPoisonings,
-                      HeroRecMostWoundsAtOnce, HeroRecMostWoundsInOneBlow, HERO_RECORD_COUNT };
+                      HeroRecMostWoundsAtOnce, HeroRecMostWoundsInOneBlow,
+                      HeroRecTotalPoisonings, HeroRecTotalWounds, HERO_RECORD_COUNT };
+bool HeroRecord_IsTotal(HeroRecordKind kind);        // a sum over the levels, not a best of them
 bool HeroRecord_LowerIsBetter(HeroRecordKind kind);  // the closest call
 bool HeroRecord_PartyOnly(HeroRecordKind kind);      // falls, teleport chains, sleep
 // Kept for the party as its own (not the best champion's): the party-only ones and the kill streak
@@ -78,6 +80,8 @@ public:
   void EndPoison(HeroStatsChampion who, int level, uint32_t time);
   // Wounds: the wounded parts of a champion now (offered as the most at once), and the parts one
   // blow wounded that were whole before
+  // Adds to a champion's total on a level (HeroRecord_IsTotal)
+  void CountTotal(HeroRecordKind kind, HeroStatsChampion who, int level, uint32_t time, int add);
   void CountWounds(HeroStatsChampion who, int level, uint32_t time, int woundedNow, int newWounds);
 
   // For the .map file (HeroStats::FIRST_LAYOUT_WITH_EXPERIENCE), with the streaks, chains and
