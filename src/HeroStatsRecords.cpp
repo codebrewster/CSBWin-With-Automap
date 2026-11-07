@@ -224,7 +224,7 @@ void HeroStatsRecords::CountSleepTick(int level, uint32_t time, bool asleep)
   m_sleep = Running();
 }
 
-void HeroStatsRecords::CountPoison(HeroStatsChampion who, int level, uint32_t time, int combined, bool newDose)
+void HeroStatsRecords::CountPoison(HeroStatsChampion who, int level, uint32_t time, int combined, bool newDose, int doses, int perRound)
 {
   std::map<HeroStatsChampion, Stretch>::iterator at = m_poisoned.find(who);
   if (at == m_poisoned.end())
@@ -241,6 +241,10 @@ void HeroStatsRecords::CountPoison(HeroStatsChampion who, int level, uint32_t ti
   entry.level = level;
   entry.time = time;
   Offer(HeroRecMostPoison, entry);
+  entry.value = doses;
+  Offer(HeroRecMostPoisonDoses, entry);
+  entry.value = perRound;
+  Offer(HeroRecMostPoisonPerTurn, entry);
   if (newDose) CountTotal(HeroRecTotalPoisonings, who, level, time, 1);
 }
 

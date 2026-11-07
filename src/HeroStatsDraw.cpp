@@ -629,10 +629,10 @@ static void SectionGap(void)
 static const ImGuiTableFlags TABLE_FLAGS = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_BordersInnerH;
 
 // A table as wide as the page, or as wide as its columns need when the page is narrower
-static bool BeginPageTable(const char *id, int columnCount, float fixedWidth, bool sortable)
+static bool BeginPageTable(const char *id, int columnCount, float fixedWidth, bool sortable, float labelWidth = LABEL_SMALLEST)
 {
   // Each column has its cell padding on both sides besides its width
-  float needed = LABEL_SMALLEST + fixedWidth + ImGui::GetStyle().CellPadding.x * 2 * columnCount;
+  float needed = labelWidth + fixedWidth + ImGui::GetStyle().CellPadding.x * 2 * columnCount;
   float width = std::max(ImGui::GetContentRegionAvail().x, needed);
   ImGuiTableFlags flags = TABLE_FLAGS | (sortable ? ImGuiTableFlags_Sortable : 0);
   return ImGui::BeginTable(id, columnCount, flags, ImVec2(width, 0));
@@ -1697,12 +1697,12 @@ static void DrawRecords(HeroStatsDrawState *state, const std::vector<HeroStatsRe
   if (!SectionHeader(state, HeroDetailRecords, "Records", summary)) return;
   size_t champion = ColumnOf(columns, state->who);
   int count = 6;
-  if (BeginPageTable("##records", count, NUMBER_WIDTH * 2 + WHO_WIDTH * 2 + NUMBER_WIDTH * 2, false))
+  if (BeginPageTable("##records", count, NUMBER_WIDTH * 2 + WHO_WIDTH * 2 + NUMBER_WIDTH * 2 + 110, false, 250))
   {
     LabelColumn("Record");
     BarColumn(isParty ? "Value" : (champion < columns.size() ? columns[champion].name.c_str() : "Value"), NUMBER_WIDTH * 2);
     if (isParty) BarColumn("Who", NUMBER_WIDTH);
-    BarColumn("How", WHO_WIDTH + 20);
+    BarColumn("How", WHO_WIDTH + 80);
     BarColumn("On / from", WHO_WIDTH);
     NumberColumn("Lv", 40);
     if (!isParty) BarColumn("Party best", NUMBER_WIDTH + 30);
@@ -2220,17 +2220,30 @@ static void LiveVitals(const HeroStatsLiveChampion &live, ImU32 rgb)
     // The game hurts max(1, v / 64) at each of a dose's v ticks; the doses work side by side
     int perTick = 0;
     for (size_t i = 0; i < live.poisonDoses.size(); i++) perTick += std::max(1, live.poisonDoses[i] / 64);
-    ImGui::TextColored(Colour(BAD_RGB), "%d (%d %s, %d HP per tick)", live.poison, live.poisonCount,
+    ImGui::TextColored(Colour(BAD_RGB), "%d (%d %s, %d HP per 36 ticks)", live.poison, live.poisonCount,
                        live.poisonCount == 1 ? "dose" : "doses", perTick);
     if (ImGui::IsItemHovered())
       ImGui::SetTooltip("The poison still to tick, all doses added up. A dose of strength v hurts max(1, v / 64) HP\n"
                         "every 36 ticks and gets weaker by 1 each time; a Cure Poison removes every dose.");
-    for (size_t i = 0; i < live.poisonDoses.size(); i++)
+    // The doses fold away (30 and more can work on one champion); the fold is kept per champion
+    if (!live.poisonDoses.empty())
     {
-      int dose = live.poisonDoses[i];
-      ImGui::Indent(LIVE_LABEL_WIDTH + 14.0f);
-      ImGui::TextColored(Colour(PART_RGB), "%d  (%d HP per tick, %d ticks left)", dose, std::max(1, dose / 64), dose * 36);
-      ImGui::Unindent(LIVE_LABEL_WIDTH + 14.0f);
+      ImGui::PushID((int)live.who);
+      ImGui::Indent(LIVE_LABEL_WIDTH);
+      char title[64];
+      snprintf(title, sizeof title, "Show the %d %s###doses", (int)live.poisonDoses.size(), live.poisonDoses.size() == 1 ? "dose" : "doses");
+      bool open = ImGui::TreeNodeEx(title, ImGuiTreeNodeFlags_SpanLabelWidth);
+      if (open)
+      {
+        for (size_t i = 0; i < live.poisonDoses.size(); i++)
+        {
+          int dose = live.poisonDoses[i];
+          ImGui::TextColored(Colour(PART_RGB), "%d  (%d HP per 36 ticks, %d ticks left)", dose, std::max(1, dose / 64), dose * 36);
+        }
+        ImGui::TreePop();
+      }
+      ImGui::Unindent(LIVE_LABEL_WIDTH);
+      ImGui::PopID();
     }
   }
   else ImGui::TextColored(Colour(DIM_RGB), "none");

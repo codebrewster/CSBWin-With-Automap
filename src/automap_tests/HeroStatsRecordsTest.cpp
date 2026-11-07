@@ -138,10 +138,12 @@ static void PoisonStretchesAreRecords(void)
 {
   HeroStats stats;
   HeroStatsRecords &records = stats.Records();
-  records.CountPoison(7, 1, 100, 40, true);
+  records.CountPoison(7, 1, 100, 40, true, 1, 1);
   records.CountPoisonDamage(7, 2);
-  records.CountPoison(7, 1, 130, 90, true);       // a second dose: 40 + 50
-  records.CountPoison(7, 1, 166, 80, false);      // the next tick of a dose
+  records.CountPoison(7, 1, 130, 90, true, 2, 2);       // a second dose: 40 + 50
+  records.CountPoison(7, 1, 166, 80, false, 2, 2);      // the next tick of a dose
+  CHECK(Value(records, HeroRecMostPoisonDoses, 7, HERO_STATS_WHOLE_RUN) == 2);
+  CHECK(Value(records, HeroRecMostPoisonPerTurn, 7, HERO_STATS_WHOLE_RUN) == 2);
   records.CountPoisonDamage(7, 3);
   HeroRecordEntry entry;
   // Running: 66 ticks long, two doses, 5 damage
@@ -158,7 +160,7 @@ static void PoisonStretchesAreRecords(void)
   // Cured or dead: the stretch is over and a shorter one later does not beat it
   records.EndPoison(7, 1, 200);
   CHECK(Value(records, HeroRecLongestPoisoned, 7, HERO_STATS_WHOLE_RUN) == 100);
-  records.CountPoison(7, 2, 300, 10, true);
+  records.CountPoison(7, 2, 300, 10, true, 1, 1);
   records.EndPoison(7, 2, 320);
   CHECK(Value(records, HeroRecLongestPoisoned, 7, HERO_STATS_WHOLE_RUN) == 100);
   CHECK(Value(records, HeroRecMostPoisonings, 7, HERO_STATS_WHOLE_RUN) == 2);

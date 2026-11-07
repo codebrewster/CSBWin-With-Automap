@@ -20,7 +20,8 @@ enum HeroRecordKind { HeroRecBiggestHit, HeroRecBiggestSpellHit, HeroRecBiggestS
                       HeroRecLongestFall, HeroRecLongestTeleportChain, HeroRecLongestSleep,
                       HeroRecMostPoison, HeroRecLongestPoisoned, HeroRecMostPoisonings,
                       HeroRecMostWoundsAtOnce, HeroRecMostWoundsInOneBlow,
-                      HeroRecTotalPoisonings, HeroRecTotalWounds, HERO_RECORD_COUNT };
+                      HeroRecTotalPoisonings, HeroRecTotalWounds,
+                      HeroRecMostPoisonDoses, HeroRecMostPoisonPerTurn, HERO_RECORD_COUNT };
 bool HeroRecord_IsTotal(HeroRecordKind kind);        // a sum over the levels, not a best of them
 bool HeroRecord_LowerIsBetter(HeroRecordKind kind);  // the closest call
 bool HeroRecord_PartyOnly(HeroRecordKind kind);      // falls, teleport chains, sleep
@@ -74,7 +75,7 @@ public:
   // first dose and ends when the last one runs out, is cured, or the champion dies.
   // combined: the poison working on the champion now (the sum over all doses); newDose: a new
   // poisoning, not the next tick of a dose already working. Offers the most poison at once.
-  void CountPoison(HeroStatsChampion who, int level, uint32_t time, int combined, bool newDose);
+  void CountPoison(HeroStatsChampion who, int level, uint32_t time, int combined, bool newDose, int doses, int perRound);
   void CountPoisonDamage(HeroStatsChampion who, int damage);
   // Ends the stretch (if one runs): offers its length, and the doses that began in it
   void EndPoison(HeroStatsChampion who, int level, uint32_t time);

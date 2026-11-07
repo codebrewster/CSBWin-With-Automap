@@ -1110,9 +1110,11 @@ void HeroStats_OnPoisoned(int slot, int dose, bool fromTimer)
   int combined = dose;
   std::vector<int> others = PoisonDosesOf(slot);
   for (size_t i = 0; i < others.size(); i++) combined += others[i];
+  int perRound = std::max(1, dose / 64);
+  for (size_t i = 0; i < others.size(); i++) perRound += std::max(1, others[i] / 64);
   int level = PartyLevel();
   if (!fromTimer) store.CountEvent(who, level, HeroEventPoisoned);
-  store.Records().CountPoison(who, level, (uint32_t)d.Time, combined, !fromTimer);
+  store.Records().CountPoison(who, level, (uint32_t)d.Time, combined, !fromTimer, (int)others.size() + 1, perRound);
 }
 
 void HeroStats_OnPoisonTicked(int slot)

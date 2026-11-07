@@ -322,6 +322,8 @@ the earlier one stays.
 | **Longest teleport chain** | teleporters one after the other (the party) |
 | **Longest sleep** | the ticks of one sleep (the party) |
 | **Most poison at once** | the most poison working on a champion at one time, all doses added up |
+| **Most poison doses at once** | the most doses of poison working on a champion at the same time |
+| **Most poison per 36 ticks** | the most HP the poison of a champion could take at one poison tick (every 36 ticks), all doses added up |
 | **Longest poisoned** | the ticks a champion stayed poisoned without a break, with the poison damage taken in that time |
 | **Most poisonings in a row** | the most new doses of poison taken within one stretch of being poisoned |
 | **Most wounds at once** | the most wounded parts of the body of one champion at the same time |
@@ -356,7 +358,7 @@ gold with a ★. The party's own records (falls, teleports, sleep) are not on a 
 
 The last tab shows the champions as they are **now**, what the game's own inventory screen shows
 of each: health, stamina and mana (bars in the champion's colour), food and water, the load
-against what the champion can carry, wounds, poison (the sum of all doses and the damage per tick,
+against what the champion can carry, wounds, poison (the sum of all doses and the damage per 36 ticks,
 with each dose listed under it; the doses add up to the sum), the six attributes (current and max; drained
 in red, raised above the max in gold), the rank in each class with the way to the next rank, and
 every item carried, slot by slot, with a chest's contents under it. The **Party** shows every

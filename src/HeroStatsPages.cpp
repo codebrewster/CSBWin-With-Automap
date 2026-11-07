@@ -765,7 +765,9 @@ static std::vector<HeroStatsRecordLine> RecordLines(const HeroStats &stats, cons
   // (the enum is the order of the save file, so it stays as it is)
   std::vector<int> order;
   for (int k = 0; k < HERO_RECORD_COUNT; k++)
-    if (k != HeroRecTotalPoisonings && k != HeroRecTotalWounds) order.push_back(k);
+    if (k != HeroRecTotalPoisonings && k != HeroRecTotalWounds && k != HeroRecMostPoisonDoses && k != HeroRecMostPoisonPerTurn) order.push_back(k);
+  order.insert(std::find(order.begin(), order.end(), (int)HeroRecLongestPoisoned), (int)HeroRecMostPoisonDoses);
+  order.insert(std::find(order.begin(), order.end(), (int)HeroRecLongestPoisoned), (int)HeroRecMostPoisonPerTurn);
   order.insert(std::find(order.begin(), order.end(), (int)HeroRecMostWoundsAtOnce), (int)HeroRecTotalPoisonings);
   order.push_back(HeroRecTotalWounds);
   for (size_t o = 0; o < order.size(); o++)
