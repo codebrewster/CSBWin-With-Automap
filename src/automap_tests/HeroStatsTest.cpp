@@ -2,10 +2,11 @@
 #include "../HeroStats.h"
 #include "../HeroStatsRunes.h"
 
-// What layout 23 added at the end of an empty store: the experience and records tables
+// What layout 23 added at the end of an empty store: the experience and records tables, and the
+// events table (layout 25) after them
 static size_t Layout23Tail(void)
 {
-  return HeroStatsExperience().SerializedSize() + HeroStatsRecords().SerializedSize();
+  return HeroStatsExperience().SerializedSize() + HeroStatsRecords().SerializedSize() + 4;
 }
 
 static const int AXE = 13;
@@ -358,7 +359,9 @@ static void ItemsFromChestsAreCounted(void)
   // The eight tables after the items are empty (32 bytes) and the experience and records follow
   size_t tail = 32 + Layout23Tail();
   bytes.erase(bytes.end() - (std::ptrdiff_t)(tail + 4), bytes.end() - (std::ptrdiff_t)tail);
-  CHECK(read.Deserialize(bytes.data(), bytes.size(), 23));
+  // Layout 23 has no stretches of poison in the records and no events table: 4 + 4 bytes
+  std::vector<uint8_t> v23(bytes.begin(), bytes.end() - 8);
+  CHECK(read.Deserialize(v23.data(), v23.size(), 23));
   CHECK(read.Items(1).size() == 1 && read.Items(1)[0].pickedUp == 1 && read.Items(1)[0].fromChest == 0);
   CHECK(!read.Deserialize(bytes.data(), bytes.size()));
 }

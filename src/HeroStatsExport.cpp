@@ -314,7 +314,10 @@ static std::string LiveJson(const HeroStatsLiveParty &live, const std::vector<He
     for (int cls = 0; cls < 4; cls++)
       out += std::string(cls > 0 ? "," : "") + "[" + HeroStatsExport_JsonString(HeroXp_ClassName(cls)) + "," +
              HeroStatsExport_JsonString(HeroXp_RankName(c.rank[cls])) + "," + Number(c.percentToNext[cls]) + "]";
-    out += "],\"poison\":" + Number(c.poisonCount) + ",\"wounds\":" + HeroStatsExport_JsonString(HeroStatsLive_Wounds(c.wounds)) +
+    std::string doses;
+    for (size_t k = 0; k < c.poisonDoses.size(); k++) doses += (k > 0 ? "," : "") + Number(c.poisonDoses[k]);
+    out += "],\"poison\":" + Number(c.poisonCount) + ",\"poisonSum\":" + Number(c.poison) + ",\"poisonDoses\":[" + doses +
+           "],\"wounds\":" + HeroStatsExport_JsonString(HeroStatsLive_Wounds(c.wounds)) +
            ",\"items\":[";
     for (size_t k = 0; k < c.items.size(); k++)
       out += std::string(k > 0 ? "," : "") + "[" + HeroStatsExport_JsonString(HeroStatsLive_SlotName(c.items[k].slot)) + "," +
@@ -924,7 +927,9 @@ function liveChampion(c, i) {
     nourished('Food', c.food, 'starving') + nourished('Water', c.water, 'parched') +
     `<span class="l">Load</span><span class="${c.load[0] > c.load[1] ? 'bad' : ''}" style="grid-column:span 2">${tenths(c.load[0])} / ${tenths(c.load[1])} kg</span>` +
     `<span class="l">Wounds</span><span class="${c.wounds ? 'bad' : 'none'}" style="grid-column:span 2">${c.wounds ? esc(c.wounds) : 'none'}</span>` +
-    `<span class="l">Poison</span><span class="${c.poison ? 'bad' : 'none'}" style="grid-column:span 2">${c.poison ? `poisoned (${c.poison} ${c.poison === 1 ? 'dose' : 'doses'})` : 'none'}</span>`;
+    `<span class="l">Poison</span><span class="${c.poison ? 'bad' : 'none'}" style="grid-column:span 2">${c.poison ?
+      `${c.poisonSum} (${c.poison} ${c.poison === 1 ? 'dose' : 'doses'}, ${c.poisonDoses.reduce((t, v) => t + Math.max(1, Math.floor(v / 64)), 0)} HP per tick)` : 'none'}</span>` +
+    c.poisonDoses.map(v => `<span></span><span class="none" style="grid-column:span 2">${v} (${Math.max(1, Math.floor(v / 64))} HP per tick, ${v * 36} ticks left)</span>`).join('');
   const attrs = '<table><tr><th>Attribute</th><th>Current</th><th>Max</th></tr>' + c.attrs.map(a =>
     `<tr><td>${esc(a[0])}</td><td class="${a[1] < a[2] ? 'bad' : a[1] > a[2] ? 'raised' : ''}">${a[1]}</td><td>${a[2]}</td></tr>`).join('') + '</table>';
   const ranks = '<table><tr><th>Class</th><th>Rank</th><th class="l">To next rank</th></tr>' + c.ranks.map(r =>

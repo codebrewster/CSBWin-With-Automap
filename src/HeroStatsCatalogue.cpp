@@ -35,6 +35,8 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Potions", "", false, false, false, false, false},
     {"Heal action", "", false, false, false, false, false},
     {"Healing given", "HP healed by potions this champion brewed, whoever drank them.", false, false, false, false, false},
+    {"Poisoned", "Times poisoned: each new dose of poison counts once, not each tick of it.", false, false, true, false, false},
+    {"Wounds", "Parts of the body wounded that were whole before; a part wounded again does not count.", false, false, true, false, false},
     {"Deaths", "", false, false, true, false, false},
     {"Resurrected", "", false, false, false, false, false},
     {"Party wiped out", "", true, true, true, false, false},
@@ -93,6 +95,11 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Longest fall", "Pits fallen through one after the other.", true, false, false, false, false, true},
     {"Longest teleport chain", "Teleporters one after the other.", true, false, false, false, false, true},
     {"Longest sleep", "Ticks of one sleep.", true, false, false, false, true, true},
+    {"Most poison at once", "The most poison working on a champion at one time, all doses added up; it is the number of poison ticks still to come.", false, false, true, false, false, true},
+    {"Longest poisoned", "Ticks of the longest time a champion stayed poisoned without a break, with the poison damage taken in it. Death or a cure ends it.", false, false, true, false, true, true},
+    {"Most poisonings in a row", "The most new doses of poison taken within one stretch of being poisoned.", false, false, true, false, false, true},
+    {"Most wounds at once", "The most wounded parts of the body of one champion at the same time.", false, false, true, false, false, true},
+    {"Most wounds from one blow", "The most parts of the body one blow, missile or explosion newly wounded.", false, false, true, false, false, true},
 };
 
 // The names csb.cfg knows the numbers by, in the order of HeroStatsNumber
@@ -102,7 +109,7 @@ static const char *const KEYS[] = {
     "mana_generated", "mana_regeneration", "mana_potions", "mana_spent", "mana_on_spells", "mana_successful", "mana_wasted",
     "runes_cleared", "runes_not_cast",
     "casts", "casts_successful", "casts_failed",
-    "taken", "healed", "heal_regeneration", "heal_potions", "heal_action", "healing_given",
+    "taken", "healed", "heal_regeneration", "heal_potions", "heal_action", "healing_given", "poisoned", "wounds",
     "deaths", "resurrected", "wipes", "reloads",
     "eaten", "drunk", "food_gained", "food_wasted", "water_gained", "water_wasted",
     "picked_up", "used_in_walls",
@@ -115,7 +122,8 @@ static const char *const KEYS[] = {
     "experience", "fighter", "ninja", "priest", "wizard", "ranks_gained",
     "biggest_hit", "biggest_spell_hit", "biggest_spell_total", "most_kills_at_once", "kill_streak",
     "biggest_hit_taken", "biggest_spell_hit_taken", "closest_call", "biggest_heal", "most_mana_on_spell",
-    "biggest_experience_gain", "heaviest_load", "longest_fall", "longest_teleport_chain", "longest_sleep"};
+    "biggest_experience_gain", "heaviest_load", "longest_fall", "longest_teleport_chain", "longest_sleep",
+    "most_poison", "longest_poisoned", "most_poisonings", "most_wounds", "most_wounds_one_blow"};
 static_assert(sizeof KEYS / sizeof KEYS[0] == HERO_NUMBER_COUNT, "a name for every number");
 
 const HeroStatsNumberInfo &HeroStatsCatalogue_Info(HeroStatsNumber number)
@@ -144,7 +152,7 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
                             {HeroNumManaGenerated, HeroNumManaSpent, HeroNumCasts, HeroNumManaWasted}};
   topics[HeroTopicSurvival] = {"Survival",
                                {{HeroNumTaken, 0}, {HeroNumHealed, 0}, {HeroNumHealRegeneration, 1}, {HeroNumHealPotions, 1},
-                                {HeroNumHealAction, 1}, {HeroNumHealingGiven, 0}, {HeroNumDeaths, 0}, {HeroNumResurrected, 0},
+                                {HeroNumHealAction, 1}, {HeroNumHealingGiven, 0}, {HeroNumPoisonings, 0}, {HeroNumWounds, 0}, {HeroNumDeaths, 0}, {HeroNumResurrected, 0},
                                 {HeroNumWipes, 0}, {HeroNumReloads, 0}},
                                {HeroNumTaken, HeroNumHealed, HeroNumDeaths, HeroNumResurrected}};
   topics[HeroTopicSupplies] = {"Food & items",
@@ -474,6 +482,12 @@ static void FillExperience(const HeroStats &stats, HeroStatsChampion who, int le
   v[HeroNumRanksGained] = xp.RanksGained(who, level, -1);
 }
 
+static void FillEvents(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
+{
+  v[HeroNumPoisonings] = stats.Events(who, level, HeroEventPoisoned);
+  v[HeroNumWounds] = stats.Events(who, level, HeroEventWounded);
+}
+
 static void FillRecords(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
 {
   for (int k = 0; k < HERO_RECORD_COUNT; k++)
@@ -485,7 +499,7 @@ static void FillRecords(const HeroStats &stats, HeroStatsChampion who, int level
 
 static const FillGroup CHAMPION_GROUPS[] = {FillDamage, FillKills, FillAttacks, FillFriendlyFire, FillMana, FillCasts,
                                             FillTaken, FillHealing, FillDeaths, FillFood, FillDoors, FillExperience,
-                                            FillRecords};
+                                            FillEvents, FillRecords};
 static const FillGroup PARTY_GROUPS[] = {FillHardship, FillItems, FillMovement, FillDungeon, FillKillCauses};
 
 static FillGroup GroupOf(HeroStatsNumber number)
@@ -505,6 +519,7 @@ static FillGroup GroupOf(HeroStatsNumber number)
   case HeroNumHealed: case HeroNumHealRegeneration: case HeroNumHealPotions: case HeroNumHealAction:
   case HeroNumHealingGiven: return FillHealing;
   case HeroNumDeaths: case HeroNumResurrected: return FillDeaths;
+  case HeroNumPoisonings: case HeroNumWounds: return FillEvents;
   case HeroNumWipes: case HeroNumReloads: return FillHardship;
   case HeroNumEaten: case HeroNumDrunk: case HeroNumFoodGained: case HeroNumFoodWasted: case HeroNumWaterGained:
   case HeroNumWaterWasted: return FillFood;

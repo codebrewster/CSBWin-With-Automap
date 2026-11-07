@@ -207,6 +207,19 @@ void HeroStats_OnHarmApplied(void);
 // The game is lost: every champion is dead
 void HeroStats_OnPartyWiped(void);
 
+// Poison. PoisonCharacter is about to hurt the slot with a dose of strength dose (fromTimer: the
+// next tick of a dose already working, else a new poisoning). The poison working on a champion
+// is the sum over the doses still to tick (the timers of the champion) plus this one.
+void HeroStats_OnPoisoned(int slot, int dose, bool fromTimer);
+// PoisonCharacter has hurt the slot and set the dose's next tick: the stretch of poison ends when
+// no dose is left
+void HeroStats_OnPoisonTicked(int slot);
+// CurePoison removed every dose of the slot
+void HeroStats_OnPoisonCured(int slot);
+// Wounds. DisplayCharacterDamage is about to add the pending wound bits added to the wounds the
+// slot has (before): each part that was whole counts as a wound
+void HeroStats_OnWounded(int slot, int before, int added);
+
 // Mana and spells. Each rune's mana is taken as it is clicked (TAG01b990): it is spent then, on
 // the party's level, and the store keeps the rune for its champion until the incantation
 // resolves or the engine throws it away (mana thrown away is "Runes cleared"). The incantation

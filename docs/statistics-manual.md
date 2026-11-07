@@ -321,6 +321,11 @@ the earlier one stays.
 | **Longest fall** | pits fallen through one after the other (the party) |
 | **Longest teleport chain** | teleporters one after the other (the party) |
 | **Longest sleep** | the ticks of one sleep (the party) |
+| **Most poison at once** | the most poison working on a champion at one time, all doses added up |
+| **Longest poisoned** | the ticks a champion stayed poisoned without a break, with the poison damage taken in that time |
+| **Most poisonings in a row** | the most new doses of poison taken within one stretch of being poisoned |
+| **Most wounds at once** | the most wounded parts of the body of one champion at the same time |
+| **Most wounds from one blow** | the most parts of the body one blow, missile or explosion newly wounded |
 
 **Kills without a scratch.** The kills are the ones credited to a champion; monsters crushed by
 doors, killed by falls or by other causes do not count. Any damage a champion takes ends the streak:
@@ -330,6 +335,14 @@ are hurt. A streak goes on across levels; its level is the level of its last kil
 names the monsters it killed most.
 
 A step or a turn ends a fall or a teleport chain.
+
+**Poison.** Every poisoning is a dose of its own with a strength v. It hurts max(1, v / 64) HP,
+gets weaker by 1 and ticks again 36 ticks later, until it is spent, so a dose lasts about v × 36
+ticks. Doses taken while another works go on side by side. The poison on a champion is the sum of
+the strengths still to tick. A *stretch* of poison begins with the first dose and ends when the last
+one is spent, a cure removes them all, or the champion dies. The **Poisoned** number in Survival
+counts the doses taken (each once, not each tick), **Wounds** the parts of the body wounded that
+were whole before.
 
 For the **Party**, the table shows the best of the run and who holds it. For a **champion**, it
 shows their own best, and the party's best beside it; a record the champion holds for the party is
@@ -341,7 +354,8 @@ gold with a ★. The party's own records (falls, teleports, sleep) are not on a 
 
 The last tab shows the champions as they are **now**, what the game's own inventory screen shows
 of each: health, stamina and mana (bars in the champion's colour), food and water, the load
-against what the champion can carry, wounds, poison, the six attributes (current and max; drained
+against what the champion can carry, wounds, poison (the sum of all doses and the damage per tick,
+with each dose listed under it; the doses add up to the sum), the six attributes (current and max; drained
 in red, raised above the max in gold), the rank in each class with the way to the next rank, and
 every item carried, slot by slot, with a chest's contents under it. The **Party** shows every
 champion one under the other and the item on the cursor; a champion shows only them.

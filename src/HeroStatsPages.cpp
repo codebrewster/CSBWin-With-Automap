@@ -683,6 +683,7 @@ static const char *RecordGroup(HeroRecordKind kind)
   if (kind <= HeroRecKillStreak) return "Dealt";
   if (kind <= HeroRecClosestCall) return "Taken";
   if (kind <= HeroRecBiggestXpGain) return "Magic & healing";
+  if (kind >= HeroRecMostPoison) return "Poison & wounds";
   return "Carrying & moving";
 }
 
@@ -743,6 +744,11 @@ static void DescribeRecord(HeroRecordKind kind, const HeroRecordEntry &entry, co
     line->how = SourceText(entry.how, names);
     line->whom = SkillNote(entry.extra);
     break;
+  case HeroRecMostPoison: break;
+  case HeroRecLongestPoisoned: case HeroRecMostPoisonings:
+    line->how = std::to_string(entry.count) + (entry.count == 1 ? " poisoning, " : " poisonings, ") +
+                HeroStatsView_Number(entry.extra) + " damage";
+    break;
   case HeroRecLongestFall: case HeroRecLongestTeleportChain:
     if (entry.firstLevel != entry.level) line->how = "Lv " + std::to_string(entry.firstLevel) + " \xe2\x86\x92 " + std::to_string(entry.level);
     break;
@@ -775,7 +781,8 @@ static std::vector<HeroStatsRecordLine> RecordLines(const HeroStats &stats, cons
       line.level = entry.level;
       line.when = "tick " + HeroStatsView_Number((int)entry.time);
       // A streak or chain: where and when it began and ended
-      if (kind == HeroRecKillStreak || kind == HeroRecLongestFall || kind == HeroRecLongestTeleportChain || kind == HeroRecLongestSleep)
+      if (kind == HeroRecKillStreak || kind == HeroRecLongestFall || kind == HeroRecLongestTeleportChain || kind == HeroRecLongestSleep ||
+          kind == HeroRecLongestPoisoned || kind == HeroRecMostPoisonings)
         line.when = "Lv " + std::to_string(entry.firstLevel) + ", tick " + HeroStatsView_Number((int)entry.firstTime) + " \xe2\x86\x92 Lv " +
                     std::to_string(entry.level) + ", tick " + HeroStatsView_Number((int)entry.time);
       DescribeRecord(kind, entry, names, &line);

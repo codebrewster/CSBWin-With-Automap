@@ -43,6 +43,7 @@ void HeroStatsRecords::Forget(void)
   m_best.clear();
   m_streaks.clear();
   m_fall = m_teleports = m_sleep = Running();
+  m_poisoned.clear();
 }
 
 // a beats b: bigger (smaller for the closest call), or as good and earlier
@@ -103,12 +104,31 @@ bool HeroStatsRecords::Best(HeroRecordKind kind, HeroStatsChampion who, int leve
     for (std::map<HeroStatsChampion, Running>::const_iterator it = m_streaks.begin(); it != m_streaks.end(); ++it)
       consider(EntryOf(it->first, it->second.count, it->second.firstLevel, it->second.level, it->second.firstTime,
                        it->second.time, it->second.kinds));
+  if (kind == HeroRecLongestPoisoned || kind == HeroRecMostPoisonings)
+    for (std::map<HeroStatsChampion, Stretch>::const_iterator it = m_poisoned.begin(); it != m_poisoned.end(); ++it)
+      consider(StretchEntry(it->first, it->second, kind == HeroRecLongestPoisoned));
   const Running *chain = kind == HeroRecLongestFall ? &m_fall : kind == HeroRecLongestTeleportChain ? &m_teleports
                          : kind == HeroRecLongestSleep ? &m_sleep : NULL;
   if (chain != NULL)
     consider(EntryOf(HERO_STATS_PARTY, chain->count, chain->firstLevel, chain->level, chain->firstTime, chain->time, chain->kinds));
   if (found && out != NULL) *out = best;
   return found;
+}
+
+// value: the ticks of the stretch (byLength) or the doses that began in it; extra: its poison
+// damage, count: its doses
+HeroRecordEntry HeroStatsRecords::StretchEntry(HeroStatsChampion who, const Stretch &stretch, bool byLength)
+{
+  HeroRecordEntry entry = HeroRecordEntry_Empty();
+  entry.value = byLength ? (int)(stretch.time - stretch.firstTime) : stretch.doses;
+  entry.who = who;
+  entry.level = stretch.level;
+  entry.time = stretch.time;
+  entry.firstLevel = stretch.firstLevel;
+  entry.firstTime = stretch.firstTime;
+  entry.extra = stretch.damage;
+  entry.count = stretch.doses;
+  return entry;
 }
 
 void HeroStatsRecords::Extend(Running *running, int level, uint32_t time)
@@ -178,6 +198,54 @@ void HeroStatsRecords::CountSleepTick(int level, uint32_t time, bool asleep)
   }
   OfferRunning(HeroRecLongestSleep, HERO_STATS_PARTY, m_sleep);
   m_sleep = Running();
+}
+
+void HeroStatsRecords::CountPoison(HeroStatsChampion who, int level, uint32_t time, int combined, bool newDose)
+{
+  std::map<HeroStatsChampion, Stretch>::iterator at = m_poisoned.find(who);
+  if (at == m_poisoned.end())
+  {
+    Stretch stretch = {level, level, time, time, 0, 0};
+    at = m_poisoned.insert(std::make_pair(who, stretch)).first;
+  }
+  at->second.level = level;
+  at->second.time = time;
+  if (newDose) at->second.doses++;
+  HeroRecordEntry entry = HeroRecordEntry_Empty();
+  entry.value = combined;
+  entry.who = who;
+  entry.level = level;
+  entry.time = time;
+  Offer(HeroRecMostPoison, entry);
+}
+
+void HeroStatsRecords::CountPoisonDamage(HeroStatsChampion who, int damage)
+{
+  std::map<HeroStatsChampion, Stretch>::iterator at = m_poisoned.find(who);
+  if (at != m_poisoned.end()) at->second.damage += damage;
+}
+
+void HeroStatsRecords::EndPoison(HeroStatsChampion who, int level, uint32_t time)
+{
+  std::map<HeroStatsChampion, Stretch>::iterator at = m_poisoned.find(who);
+  if (at == m_poisoned.end()) return;
+  at->second.level = level;
+  at->second.time = time;
+  Offer(HeroRecLongestPoisoned, StretchEntry(who, at->second, true));
+  Offer(HeroRecMostPoisonings, StretchEntry(who, at->second, false));
+  m_poisoned.erase(at);
+}
+
+void HeroStatsRecords::CountWounds(HeroStatsChampion who, int level, uint32_t time, int woundedNow, int newWounds)
+{
+  HeroRecordEntry entry = HeroRecordEntry_Empty();
+  entry.who = who;
+  entry.level = level;
+  entry.time = time;
+  entry.value = woundedNow;
+  Offer(HeroRecMostWoundsAtOnce, entry);
+  entry.value = newWounds;
+  Offer(HeroRecMostWoundsInOneBlow, entry);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -282,6 +350,17 @@ void HeroStatsRecords::Serialize(std::vector<uint8_t> *out) const
   const Running *chains[3] = {&m_fall, &m_teleports, &m_sleep};
   for (int i = 0; i < 3; i++)
     PutRunning(out, chains[i]->count, chains[i]->firstLevel, chains[i]->level, chains[i]->firstTime, chains[i]->time, chains[i]->kinds);
+  HeroBytes_Put(out, (uint32_t)m_poisoned.size(), 4);
+  for (std::map<HeroStatsChampion, Stretch>::const_iterator it = m_poisoned.begin(); it != m_poisoned.end(); ++it)
+  {
+    HeroBytes_Put(out, it->first, 2);
+    HeroBytes_PutInt(out, it->second.firstLevel);
+    HeroBytes_PutInt(out, it->second.level);
+    HeroBytes_Put(out, it->second.firstTime, 4);
+    HeroBytes_Put(out, it->second.time, 4);
+    HeroBytes_PutInt(out, it->second.damage);
+    HeroBytes_PutInt(out, it->second.doses);
+  }
 }
 
 static bool GetRunning(HeroBytesReader &in, int *count, int *firstLevel, int *level, uint32_t *firstTime, uint32_t *time,
@@ -308,7 +387,7 @@ size_t HeroStatsRecords::SerializedSize(void) const
   return bytes.size();
 }
 
-bool HeroStatsRecords::Deserialize(HeroBytesReader &in)
+bool HeroStatsRecords::Deserialize(HeroBytesReader &in, bool withPoison)
 {
   HeroStatsRecords read;
   uint32_t count = in.GetCount(1 + ENTRY_BYTES);
@@ -333,6 +412,20 @@ bool HeroStatsRecords::Deserialize(HeroBytesReader &in)
     if (!GetRunning(in, &chains[i]->count, &chains[i]->firstLevel, &chains[i]->level, &chains[i]->firstTime, &chains[i]->time,
                     &chains[i]->kinds))
       return false;
+  count = withPoison ? in.GetCount(2 + 4 + 4 + 4 + 4 + 4 + 4) : 0;
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    HeroStatsChampion who = (HeroStatsChampion)in.Get(2);
+    Stretch stretch;
+    stretch.firstLevel = in.GetInt();
+    stretch.level = in.GetInt();
+    stretch.firstTime = in.Get(4);
+    stretch.time = in.Get(4);
+    stretch.damage = in.GetInt();
+    stretch.doses = in.GetInt();
+    if (stretch.damage < 0 || stretch.doses < 0 || stretch.time < stretch.firstTime) return false;
+    read.m_poisoned[who] = stretch;
+  }
   if (!in.ok) return false;
   *this = read;
   return true;

@@ -21,7 +21,7 @@ enum HeroStatsNumber {
   HeroNumManaGenerated, HeroNumManaRegeneration, HeroNumManaPotions, HeroNumManaSpent, HeroNumManaOnSpells, HeroNumManaSuccessful, HeroNumManaWasted,
   HeroNumRunesCleared, HeroNumRunesNotCast,
   HeroNumCasts, HeroNumCastsSuccessful, HeroNumCastsFailed,
-  HeroNumTaken, HeroNumHealed, HeroNumHealRegeneration, HeroNumHealPotions, HeroNumHealAction, HeroNumHealingGiven,
+  HeroNumTaken, HeroNumHealed, HeroNumHealRegeneration, HeroNumHealPotions, HeroNumHealAction, HeroNumHealingGiven, HeroNumPoisonings, HeroNumWounds,
   HeroNumDeaths, HeroNumResurrected, HeroNumWipes, HeroNumReloads,
   HeroNumEaten, HeroNumDrunk, HeroNumFoodGained, HeroNumFoodWasted, HeroNumWaterGained, HeroNumWaterWasted,
   HeroNumPickedUp, HeroNumUsedInWalls,
@@ -37,6 +37,8 @@ enum HeroStatsNumber {
   HeroNumRecKillStreak, HeroNumRecBiggestHitTaken, HeroNumRecBiggestSpellHitTaken, HeroNumRecClosestCall,
   HeroNumRecBiggestHeal, HeroNumRecMostManaOnSpell, HeroNumRecBiggestXpGain, HeroNumRecHeaviestLoad,
   HeroNumRecLongestFall, HeroNumRecLongestTeleportChain, HeroNumRecLongestSleep,
+  HeroNumRecMostPoison, HeroNumRecLongestPoisoned, HeroNumRecMostPoisonings,
+  HeroNumRecMostWoundsAtOnce, HeroNumRecMostWoundsInOneBlow,
   HERO_NUMBER_COUNT };
 const HeroStatsNumber HeroNumRecFirst = HeroNumRecBiggestHit;
 

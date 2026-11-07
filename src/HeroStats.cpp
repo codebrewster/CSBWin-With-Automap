@@ -75,6 +75,7 @@ void HeroStats::Forget(void)
   m_pendingRunes.clear();
   m_deaths.clear();
   m_resurrections.clear();
+  m_events.clear();
   m_movement.clear();
   m_tilesWalked.clear();
   m_tilesExplored.clear();
@@ -914,6 +915,21 @@ void HeroStats::CountResurrection(HeroStatsChampion who, int level)
   m_resurrections[std::make_pair(who, level)]++;
 }
 
+void HeroStats::CountEvent(HeroStatsChampion who, int level, HeroEventKind kind, int times)
+{
+  if (kind < 0 || kind >= HERO_EVENT_KIND_COUNT || times <= 0) return;
+  m_events[EventKey(who, level, (int)kind)] += times;
+}
+
+int HeroStats::Events(HeroStatsChampion who, int level, HeroEventKind kind) const
+{
+  int sum = 0;
+  for (std::map<EventKey, int>::const_iterator at = m_events.begin(); at != m_events.end(); ++at)
+    if (std::get<2>(at->first) == (int)kind && Matches(who, std::get<0>(at->first)) && LevelMatches(level, std::get<1>(at->first)))
+      sum += at->second;
+  return sum;
+}
+
 void HeroStats::CountPartyWipe(void)
 {
   m_partyWipes++;
@@ -1180,6 +1196,14 @@ void HeroStats::Serialize(std::vector<uint8_t> *out) const
   }
   m_experience.Serialize(out);
   m_records.Serialize(out);
+  HeroBytes_Put(out, (uint32_t)m_events.size(), 4);
+  for (std::map<EventKey, int>::const_iterator it = m_events.begin(); it != m_events.end(); ++it)
+  {
+    HeroBytes_Put(out, std::get<0>(it->first), 2);
+    HeroBytes_PutInt(out, std::get<1>(it->first));
+    HeroBytes_PutInt(out, std::get<2>(it->first));
+    HeroBytes_PutInt(out, it->second);
+  }
 }
 
 bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
@@ -1467,8 +1491,19 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
     }
     read.m_spells = spells;
   }
-  if (layout >= FIRST_LAYOUT_WITH_EXPERIENCE && (!read.m_experience.Deserialize(in) || !read.m_records.Deserialize(in)))
+  if (layout >= FIRST_LAYOUT_WITH_EXPERIENCE &&
+      (!read.m_experience.Deserialize(in) || !read.m_records.Deserialize(in, layout >= FIRST_LAYOUT_WITH_POISON)))
     return false;
+  count = layout >= FIRST_LAYOUT_WITH_POISON ? in.GetCount(2 + 4 + 4 + 4) : 0;
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    HeroStatsChampion who = (HeroStatsChampion)in.Get(2);
+    int level = in.GetInt();
+    int kind = in.GetInt();
+    int times = in.GetInt();
+    if (kind < 0 || kind >= HERO_EVENT_KIND_COUNT || times < 0) return false;
+    read.m_events[EventKey(who, level, kind)] = times;
+  }
   if (!in.ok || in.left != 0) return false;
   *this = read;
   return true;

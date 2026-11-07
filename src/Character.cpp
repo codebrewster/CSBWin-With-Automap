@@ -3029,6 +3029,7 @@ void CurePoison(i32 chIdx)
 //
   };
   d.hero[chIdx].poisonCount = 0;
+  HeroStats_OnPoisonCured(chIdx);
 }
 
 // *********************************************************

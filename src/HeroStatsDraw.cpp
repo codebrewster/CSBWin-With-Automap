@@ -2199,8 +2199,24 @@ static void LiveVitals(const HeroStatsLiveChampion &live, ImU32 rgb)
   ImGui::TextColored(Colour(wounds.empty() ? DIM_RGB : BAD_RGB), "%s", wounds.empty() ? "none" : wounds.c_str());
   ImGui::TextColored(Colour(DIM_RGB), "Poison");
   ImGui::SameLine(LIVE_LABEL_WIDTH);
-  if (live.poisonCount > 0)
-    ImGui::TextColored(Colour(BAD_RGB), "poisoned (%d %s)", live.poisonCount, live.poisonCount == 1 ? "dose" : "doses");
+  if (live.poisonCount > 0 || live.poison > 0)
+  {
+    // The game hurts max(1, v / 64) at each of a dose's v ticks; the doses work side by side
+    int perTick = 0;
+    for (size_t i = 0; i < live.poisonDoses.size(); i++) perTick += std::max(1, live.poisonDoses[i] / 64);
+    ImGui::TextColored(Colour(BAD_RGB), "%d (%d %s, %d HP per tick)", live.poison, live.poisonCount,
+                       live.poisonCount == 1 ? "dose" : "doses", perTick);
+    if (ImGui::IsItemHovered())
+      ImGui::SetTooltip("The poison still to tick, all doses added up. A dose of strength v hurts max(1, v / 64) HP\n"
+                        "every 36 ticks and gets weaker by 1 each time; a Cure Poison removes every dose.");
+    for (size_t i = 0; i < live.poisonDoses.size(); i++)
+    {
+      int dose = live.poisonDoses[i];
+      ImGui::Indent(LIVE_LABEL_WIDTH + 14.0f);
+      ImGui::TextColored(Colour(PART_RGB), "%d  (%d HP per tick, %d ticks left)", dose, std::max(1, dose / 64), dose * 36);
+      ImGui::Unindent(LIVE_LABEL_WIDTH + 14.0f);
+    }
+  }
   else ImGui::TextColored(Colour(DIM_RGB), "none");
 }
 

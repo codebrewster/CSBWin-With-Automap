@@ -132,6 +132,58 @@ static void RecordsGoBackWithTakeFromFile(void)
   CHECK(Value(memory.Records(), HeroRecBiggestHit, 7, HERO_STATS_WHOLE_RUN) == -1);
 }
 
+// A stretch of poison runs from the first dose to the end of the last, with its damage and doses;
+// what still runs counts, and a cure or a death ends it
+static void PoisonStretchesAreRecords(void)
+{
+  HeroStats stats;
+  HeroStatsRecords &records = stats.Records();
+  records.CountPoison(7, 1, 100, 40, true);
+  records.CountPoisonDamage(7, 2);
+  records.CountPoison(7, 1, 130, 90, true);       // a second dose: 40 + 50
+  records.CountPoison(7, 1, 166, 80, false);      // the next tick of a dose
+  records.CountPoisonDamage(7, 3);
+  HeroRecordEntry entry;
+  // Running: 66 ticks long, two doses, 5 damage
+  CHECK(records.Best(HeroRecLongestPoisoned, 7, HERO_STATS_WHOLE_RUN, &entry));
+  CHECK(entry.value == 66 && entry.extra == 5 && entry.count == 2 && entry.firstTime == 100);
+  CHECK(Value(records, HeroRecMostPoisonings, 7, HERO_STATS_WHOLE_RUN) == 2);
+  CHECK(Value(records, HeroRecMostPoison, 7, HERO_STATS_WHOLE_RUN) == 90);
+  // The file keeps what runs
+  std::vector<uint8_t> bytes;
+  stats.Serialize(&bytes);
+  HeroStats read;
+  CHECK(read.Deserialize(bytes.data(), bytes.size()));
+  CHECK(Value(read.Records(), HeroRecLongestPoisoned, 7, HERO_STATS_WHOLE_RUN) == 66);
+  // Cured or dead: the stretch is over and a shorter one later does not beat it
+  records.EndPoison(7, 1, 200);
+  CHECK(Value(records, HeroRecLongestPoisoned, 7, HERO_STATS_WHOLE_RUN) == 100);
+  records.CountPoison(7, 2, 300, 10, true);
+  records.EndPoison(7, 2, 320);
+  CHECK(Value(records, HeroRecLongestPoisoned, 7, HERO_STATS_WHOLE_RUN) == 100);
+  CHECK(Value(records, HeroRecMostPoisonings, 7, HERO_STATS_WHOLE_RUN) == 2);
+  records.EndPoison(7, 2, 330);   // nothing runs: nothing happens
+  CHECK(Value(records, HeroRecLongestPoisoned, 9, HERO_STATS_WHOLE_RUN) == -1);
+}
+
+static void WoundRecordsAndCounts(void)
+{
+  HeroStats stats;
+  stats.Records().CountWounds(7, 1, 50, 2, 2);
+  stats.Records().CountWounds(7, 1, 60, 3, 1);
+  CHECK(Value(stats.Records(), HeroRecMostWoundsAtOnce, 7, HERO_STATS_WHOLE_RUN) == 3);
+  CHECK(Value(stats.Records(), HeroRecMostWoundsInOneBlow, 7, HERO_STATS_WHOLE_RUN) == 2);
+  stats.CountEvent(7, 1, HeroEventWounded, 3);
+  stats.CountEvent(7, 2, HeroEventPoisoned);
+  stats.CountEvent(9, 2, HeroEventPoisoned);
+  std::vector<uint8_t> bytes;
+  stats.Serialize(&bytes);
+  HeroStats read;
+  CHECK(read.Deserialize(bytes.data(), bytes.size()));
+  CHECK(read.Events(7, HERO_STATS_WHOLE_RUN, HeroEventWounded) == 3 && read.Events(7, 1, HeroEventPoisoned) == 0);
+  CHECK(read.Events(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroEventPoisoned) == 2 && read.Events(9, 2, HeroEventPoisoned) == 1);
+}
+
 void TestHeroStatsRecords(void)
 {
   BiggerReplaces();
@@ -142,4 +194,6 @@ void TestHeroStatsRecords(void)
   ChainsEndWithAMove();
   RunningStreakSurvivesTheFile();
   RecordsGoBackWithTakeFromFile();
+  PoisonStretchesAreRecords();
+  WoundRecordsAndCounts();
 }

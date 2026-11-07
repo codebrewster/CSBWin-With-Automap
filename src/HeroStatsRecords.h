@@ -17,7 +17,9 @@
 enum HeroRecordKind { HeroRecBiggestHit, HeroRecBiggestSpellHit, HeroRecBiggestSpellTotal, HeroRecMostKillsAtOnce,
                       HeroRecKillStreak, HeroRecBiggestHitTaken, HeroRecBiggestSpellHitTaken, HeroRecClosestCall,
                       HeroRecBiggestHeal, HeroRecMostManaOnSpell, HeroRecBiggestXpGain, HeroRecHeaviestLoad,
-                      HeroRecLongestFall, HeroRecLongestTeleportChain, HeroRecLongestSleep, HERO_RECORD_COUNT };
+                      HeroRecLongestFall, HeroRecLongestTeleportChain, HeroRecLongestSleep,
+                      HeroRecMostPoison, HeroRecLongestPoisoned, HeroRecMostPoisonings,
+                      HeroRecMostWoundsAtOnce, HeroRecMostWoundsInOneBlow, HERO_RECORD_COUNT };
 bool HeroRecord_LowerIsBetter(HeroRecordKind kind);  // the closest call
 bool HeroRecord_PartyOnly(HeroRecordKind kind);      // falls, teleport chains, sleep
 // Kept for the party as its own (not the best champion's): the party-only ones and the kill streak
@@ -66,10 +68,23 @@ public:
   // A tick: asleep it adds to the sleep, awake it ends it
   void CountSleepTick(int level, uint32_t time, bool asleep);
 
+  // Poison. A stretch is the time a champion is poisoned without a break: it begins with the
+  // first dose and ends when the last one runs out, is cured, or the champion dies.
+  // combined: the poison working on the champion now (the sum over all doses); newDose: a new
+  // poisoning, not the next tick of a dose already working. Offers the most poison at once.
+  void CountPoison(HeroStatsChampion who, int level, uint32_t time, int combined, bool newDose);
+  void CountPoisonDamage(HeroStatsChampion who, int damage);
+  // Ends the stretch (if one runs): offers its length, and the doses that began in it
+  void EndPoison(HeroStatsChampion who, int level, uint32_t time);
+  // Wounds: the wounded parts of a champion now (offered as the most at once), and the parts one
+  // blow wounded that were whole before
+  void CountWounds(HeroStatsChampion who, int level, uint32_t time, int woundedNow, int newWounds);
+
   // For the .map file (HeroStats::FIRST_LAYOUT_WITH_EXPERIENCE), with the streaks, chains and
   // sleep still running
   void Serialize(std::vector<uint8_t> *out) const;
-  bool Deserialize(HeroBytesReader &in);
+  // withPoison: the stretches of poison still running follow (HeroStats::FIRST_LAYOUT_WITH_POISON)
+  bool Deserialize(HeroBytesReader &in, bool withPoison = true);
   size_t SerializedSize(void) const;
 
 private:
@@ -89,6 +104,11 @@ private:
   std::map<Key, HeroRecordEntry> m_best;
   std::map<HeroStatsChampion, Running> m_streaks;  // HERO_STATS_PARTY: the party's
   Running m_fall = {}, m_teleports = {}, m_sleep = {};
+  // A stretch of poison still running: where and when it began and was last seen, the poison
+  // damage taken in it and the doses that began in it
+  struct Stretch { int firstLevel, level; uint32_t firstTime, time; int damage, doses; };
+  std::map<HeroStatsChampion, Stretch> m_poisoned;
+  static HeroRecordEntry StretchEntry(HeroStatsChampion who, const Stretch &stretch, bool byLength);
 };
 
 #pragma pack(pop)

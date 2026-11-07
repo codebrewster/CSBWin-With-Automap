@@ -118,6 +118,10 @@ enum HeroDoorMethod { HeroDoorSmashed, HeroDoorShot, HeroDoorBySpell, HeroDoorUn
                       HeroDoorButtonOpened, HeroDoorButtonClosed, HERO_DOOR_METHOD_COUNT };
 const int HERO_DOOR_ANY_METHOD = -1;
 
+// Things that happen to a champion and are only counted: poisonings (a new dose of poison, not
+// each tick of it) and wounds (a part of the body wounded that was whole before)
+enum HeroEventKind { HeroEventPoisoned, HeroEventWounded, HERO_EVENT_KIND_COUNT };
+
 // A champion's death: where, from what, and the blow that did it (monster type, causing champion)
 struct HeroStatsDeath { HeroStatsChampion who; int level; HeroHarmSource cause; HeroStatsBlow by; };
 
@@ -245,6 +249,8 @@ public:
   // Hardship. Deaths are kept for the whole run, each with its level.
   void CountDeath(const HeroStatsDeath &death);
   void CountResurrection(HeroStatsChampion who, int level);
+  void CountEvent(HeroStatsChampion who, int level, HeroEventKind kind, int times = 1);
+  int Events(HeroStatsChampion who, int level, HeroEventKind kind) const;
   void CountPartyWipe(void);
   void CountReload(void);
   std::vector<HeroStatsDeath> Deaths(HeroStatsChampion who) const;   // in the order they happened
@@ -267,8 +273,8 @@ public:
   // 18 no tiles walked, 19 no scrolls read, 20 and 21 no rune outcomes and no runes kept (the
   // outcomes are taken from the rune spells' rows, on the level of the cast; 21 has a table of
   // rune mana per level, which is skipped), 22 no experience and no records, 23 no items taken
-  // from chests (none counted).
-  static const int LAYOUT = 24;
+  // from chests (none counted), 24 no poisonings, wounds or stretches of poison.
+  static const int LAYOUT = 25;
   static const int FIRST_LAYOUT_WITH_MOVEMENT = 14;
   static const int FIRST_LAYOUT_WITH_PITS_AND_SLEEP = 15;
   static const int FIRST_LAYOUT_WITH_ITEMS = 16;
@@ -280,6 +286,7 @@ public:
   static const int FIRST_LAYOUT_WITH_RUNE_OUTCOMES = 22;
   static const int FIRST_LAYOUT_WITH_EXPERIENCE = 23;
   static const int FIRST_LAYOUT_WITH_CHEST_ITEMS = 24;
+  static const int FIRST_LAYOUT_WITH_POISON = 25;
   void Serialize(std::vector<uint8_t> *out) const;
   bool Deserialize(const uint8_t *data, size_t size, int layout = LAYOUT);
   // Experience and ranks (HeroStatsExperience.h): no hardship, they go with the file
@@ -329,6 +336,9 @@ private:
   int SpecialRowsMana(HeroStatsChampion who, int level) const;
   std::vector<HeroStatsDeath> m_deaths;
   std::map<std::pair<HeroStatsChampion, int>, int> m_resurrections;
+  // (champion, level, kind)
+  typedef std::tuple<HeroStatsChampion, int, int> EventKey;
+  std::map<EventKey, int> m_events;
   std::map<int, HeroStatsMovement> m_movement;
   std::set<std::tuple<int, int, int> > m_tilesWalked;   // (level, x, y)
   std::map<int, int> m_tilesExplored;                   // per level, not stored

@@ -50,6 +50,10 @@ struct HeroStatsLiveChampion
   int rank[4];
   int percentToNext[4];
   int poisonCount;          // poison doses working on the champion; 0 not poisoned
+  // The strength still to tick of each dose, strongest first (a dose of strength v hurts
+  // max(1, v / 64) at each of its v ticks), and their sum: the poison on the champion
+  std::vector<int> poisonDoses;
+  int poison;
   int wounds;               // the wound bits
   std::vector<HeroStatsLiveItem> items;  // slot order
 };

@@ -2,7 +2,9 @@
 #include "stdafx.h"
 
 // Before CSB.h, which leaves #pragma pack(1) switched on
+#include <algorithm>
 #include <cstdio>
+#include <functional>
 #include <cstring>
 #include <map>
 #include <set>
@@ -138,6 +140,9 @@ static void AddLiveItem(std::vector<HeroStatsLiveItem> *items, int slot, RN rn)
   }
 }
 
+static std::vector<int> PoisonDosesOf(int slot);
+static HeroStatsChampion MetChampion(int slot);
+
 HeroStatsLiveParty HeroStats_LiveParty(void)
 {
   HeroStatsLiveParty party;
@@ -167,6 +172,9 @@ HeroStatsLiveParty HeroStats_LiveParty(void)
     }
     for (int cls = 0; cls < 4; cls++) live.rank[cls] = ClassMastery(slot, cls, &live.percentToNext[cls]);
     live.poisonCount = hero.poisonCount;
+    live.poisonDoses = PoisonDosesOf(slot);
+    live.poison = 0;
+    for (size_t i = 0; i < live.poisonDoses.size(); i++) live.poison += live.poisonDoses[i];
     live.wounds = hero.ouches;
     for (int place = 0; place < HERO_LIVE_SLOT_COUNT; place++)
     {
@@ -1018,6 +1026,7 @@ void HeroStats_OnHeroHarmed(int slot, int finalDamage)
   store.CreditHarm(who, PartyLevel(), source, blow, finalDamage);
   pending.Add(slot, source, blow, finalDamage);
   store.Records().CountHarm(who);
+  if (source == HeroHarmPoison) store.Records().CountPoisonDamage(who, finalDamage);
   if (source == HeroHarmMonster)
     OfferRecord(HeroRecBiggestHitTaken, who, finalDamage, HowOf(blow), blow.monsterType, 1);
   else if (source == HeroHarmMonsterMissile)
@@ -1027,6 +1036,8 @@ void HeroStats_OnHeroHarmed(int slot, int finalDamage)
 static void CountDeath(int slot, HeroHarmSource cause, const HeroStatsBlow &blow)
 {
   MeetHero(slot);
+  // A dead champion is no longer poisoned
+  store.Records().EndPoison(d.hero[slot].fingerPrint, PartyLevel(), (uint32_t)d.Time);
   HeroStatsDeath death;
   death.who = d.hero[slot].fingerPrint;
   death.level = PartyLevel();
@@ -1076,6 +1087,62 @@ void HeroStats_OnHarmApplied(void)
     store.Records().Offer(HeroRecClosestCall, entry);
   }
   pending.ClearAll();
+}
+
+// The strength still to tick of each dose working on the slot: the TT_75 timers of the champion
+static std::vector<int> PoisonDosesOf(int slot)
+{
+  std::vector<int> doses;
+  TIMER_SEARCH search;
+  while (search.FindNextTimer())
+  {
+    TIMER *timer = search.TimerAddr();
+    if (timer->Function() == TT_75 && timer->timerUByte5() == slot) doses.push_back(timer->timerWord6());
+  }
+  std::sort(doses.begin(), doses.end(), std::greater<int>());
+  return doses;
+}
+
+void HeroStats_OnPoisoned(int slot, int dose, bool fromTimer)
+{
+  if (!IsHero(slot)) return;
+  HeroStatsChampion who = MetChampion(slot);
+  int combined = dose;
+  std::vector<int> others = PoisonDosesOf(slot);
+  for (size_t i = 0; i < others.size(); i++) combined += others[i];
+  int level = PartyLevel();
+  if (!fromTimer) store.CountEvent(who, level, HeroEventPoisoned);
+  store.Records().CountPoison(who, level, (uint32_t)d.Time, combined, !fromTimer);
+}
+
+void HeroStats_OnPoisonTicked(int slot)
+{
+  if (!IsHero(slot) || !PoisonDosesOf(slot).empty()) return;
+  store.Records().EndPoison(MetChampion(slot), PartyLevel(), (uint32_t)d.Time);
+}
+
+void HeroStats_OnPoisonCured(int slot)
+{
+  if (!IsHero(slot)) return;
+  store.Records().EndPoison(MetChampion(slot), PartyLevel(), (uint32_t)d.Time);
+}
+
+void HeroStats_OnWounded(int slot, int before, int added)
+{
+  if (!IsHero(slot)) return;
+  int mask = (1 << HERO_LIVE_WOUND_COUNT) - 1;
+  int fresh = added & ~before & mask;
+  if (fresh == 0) return;
+  int newWounds = 0, now = 0;
+  for (int bit = 0; bit < HERO_LIVE_WOUND_COUNT; bit++)
+  {
+    if (fresh & (1 << bit)) newWounds++;
+    if (((before | added) & mask) & (1 << bit)) now++;
+  }
+  HeroStatsChampion who = MetChampion(slot);
+  int level = PartyLevel();
+  store.CountEvent(who, level, HeroEventWounded, newWounds);
+  store.Records().CountWounds(who, level, (uint32_t)d.Time, now, newWounds);
 }
 
 void HeroStats_OnPartyWiped(void)

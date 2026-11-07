@@ -3793,7 +3793,7 @@ void DropAllPossessions(i32 chIdx);//TAG016be8//(void)
 void KillCharacter(i32 chIdx);//TAG016c5a (void)
 void DisplayCharacterDamage(void);//TAG016e54(void)
 i32  DamageCharacter(i32 chIdx, i32 overdraw, i16, i16);//TAG017068
-void PoisonCharacter(i32 P1, i32 P2);//TAG017274(void)
+void PoisonCharacter(i32 P1, i32 P2, bool fromTimer = false);//TAG017274(void)
 void CurePoison(i32 chIdx);//TAG017344
 i16  DamageAllCharacters(i32,i16,i16);//TAG0173ae
 void AdjustStamina(i32 chIdx, i32 decrement);//TAG01742a

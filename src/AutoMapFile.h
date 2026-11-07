@@ -109,7 +109,10 @@ const char *AutoMapFile_Describe(AutoMapFileResult result);
 //              4 bytes game time, source, monster type, variant, count, extra, first level, 4
 //              bytes first time, two (monster type, kills)); the kill streaks running (2 bytes
 //              champion, then as the chains); the fall, teleport and sleep chains running (count,
-//              first level, level, 4 bytes first time, 4 bytes time, (monster type, kills) list)
+//              first level, level, 4 bytes first time, 4 bytes time, (monster type, kills) list);
+//              then (version 25) the stretches of poison running (2 bytes champion, first level,
+//              level, 4 bytes first time, 4 bytes time, poison damage, doses)
+//     events (version 25): 2 bytes champion, level, kind (0 poisoned, 1 wounded), count
 //     origins: missiles and clouds (4 byte index, the blow), brewers (4 byte index, 2 bytes
 //              champion), then (version 16) the held items, (version 17) the opened chests and
 //              (version 20) the read scrolls (4 byte record key each)
@@ -126,7 +129,7 @@ const char *AutoMapFile_Describe(AutoMapFileResult result);
 // version 17 files no door methods and no food and water, version 18 files no tiles walked,
 // version 19 files no scrolls read, version 20 and 21 files no rune outcomes (taken from the rune
 // spells' rows), version 22 files no experience and no records, version 23 files no items taken
-// from chests; they are still read.
+// from chests, version 24 files no poisonings, wounds or stretches of poison; they are still read.
 class AutoMapFile
 {
 public:

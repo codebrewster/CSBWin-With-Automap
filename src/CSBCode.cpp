@@ -6613,7 +6613,7 @@ bool ProcessTimers(void) // Parameter ignored, I think.
                //(*A0)--;
                pcA0 = &d.hero[param];
                pcA0->poisonCount--;
-               PoisonCharacter(param,timeEnt.timerWord6());
+               PoisonCharacter(param,timeEnt.timerWord6(),true);
                break;
       case TT_77:
                d.SpellShield = sw(d.SpellShield-timeEnt.timerWord6());
@@ -7152,6 +7152,8 @@ void DisplayCharacterDamage(void)
   for (D7W=0; D7W < d.NumCharacter; D7W++, pcA3++)
   {
     D4W = d.PendingOuches[D7W];
+    if (D4W != 0 && d.PotentialCharacterOrdinal != D7W+1 && pcA3->HP() > 0)
+      HeroStats_OnWounded(D7W, pcA3->ouches, D4W);
     pcA3->ouches |= D4W;
     d.PendingOuches[D7W] = 0;
     D6W = d.PendingDamage[D7W];
@@ -7266,7 +7268,7 @@ void DisplayCharacterDamage(void)
 }
 
 //   TAG017274
-void PoisonCharacter(i32 chIdx,i32 P2)
+void PoisonCharacter(i32 chIdx,i32 P2,bool fromTimer)
 {//(void)
   CHARDESC  *pch_14;
   TIMER    timer;
@@ -7274,6 +7276,7 @@ void PoisonCharacter(i32 chIdx,i32 P2)
   if (chIdx == -1) return;
   if (chIdx+1 == d.PotentialCharacterOrdinal) return;
   pch_14 = &d.hero[chIdx];
+  HeroStats_OnPoisoned(chIdx, P2, fromTimer);
   HeroStats_BeginHarm(HeroHarmPoison);
   DamageCharacter(chIdx, Larger(1, P2/64), 0, 0);
   HeroStats_EndHarm();
@@ -7295,6 +7298,7 @@ void PoisonCharacter(i32 chIdx,i32 P2)
     timer.timerWord6() = sw(P2);
     gameTimers.SetTimer(&timer);
   };
+  HeroStats_OnPoisonTicked(chIdx);
   DrawCharacterState(chIdx);
 }
 
