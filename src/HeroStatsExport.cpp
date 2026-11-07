@@ -914,9 +914,11 @@ function vitalBar(label, now, most, colour, txt) {
   const w = most > 0 ? Math.max(0, Math.min(100, now * 100 / most)) : 0;
   return `<span class="l">${label}</span><div class="vbar"><i style="width:${w}%;background:${colour}"></i></div><span>${txt}</span>`;
 }
-function nourished(label, v, empty) {
-  const full = 2048, colour = v < full / 4 ? 'var(--bad)' : v < full / 2 ? '#e0b54a' : 'var(--c0)';
-  return vitalBar(label, v, full, colour, Math.floor(Math.max(0, v) * 100 / full) + '%' + (v < 0 ? ` (${empty})` : ''));
+function nourished(label, v, colour, empty) {
+  const low = -1024, full = 2048, tone = v < -512 ? 'var(--bad)' : v < 0 ? '#e8d44a' : 'var(--text)';
+  const w = Math.max(0, Math.min(100, (v - low) * 100 / (full - low)));
+  return `<span class="l">${label}</span><div class="vbar"><i style="width:${w}%;background:${colour}"></i></div>` +
+    `<span style="color:${tone}">${v}${v < 0 ? ` (${empty})` : ''}</span>`;
 }
 const tenths = t => (t < 0 ? '-' : '') + Math.floor(Math.abs(t) / 10) + '.' + (Math.abs(t) % 10);
 function liveChampion(c, i) {
@@ -924,7 +926,7 @@ function liveChampion(c, i) {
   let vit = vitalBar('Health', c.hp[0], c.hp[1], colour, `${c.hp[0]} / ${c.hp[1]}`) +
     vitalBar('Stamina', c.stamina[0], c.stamina[1], colour, `${Math.floor(c.stamina[0] / 10)} / ${Math.floor(c.stamina[1] / 10)}`) +
     vitalBar('Mana', c.mana[0], c.mana[1], colour, `${c.mana[0]} / ${c.mana[1]}`) +
-    nourished('Food', c.food, 'starving') + nourished('Water', c.water, 'parched') +
+    nourished('Food', c.food, '#9b6a3c', 'starving') + nourished('Water', c.water, '#4a8fe0', 'parched') +
     `<span class="l">Load</span><span class="${c.load[0] > c.load[1] ? 'bad' : ''}" style="grid-column:span 2">${tenths(c.load[0])} / ${tenths(c.load[1])} kg</span>` +
     `<span class="l">Wounds</span><span class="${c.wounds ? 'bad' : 'none'}" style="grid-column:span 2">${c.wounds ? esc(c.wounds) : 'none'}</span>` +
     `<span class="l">Poison</span><span class="${c.poison ? 'bad' : 'none'}" style="grid-column:span 2">${c.poison ?

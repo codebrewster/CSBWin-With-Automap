@@ -33,6 +33,9 @@ static const ImU32 LINE_RGB = 0x31343d;
 static const ImU32 ROW_LINE_RGB = 0x292b32;
 static const ImU32 TRACK_RGB = 0x2f323a;      // the empty part of a bar
 static const ImU32 BAD_RGB = 0xe5735f;
+static const ImU32 YELLOW_RGB = 0xe8d44a;     // food and water below 0
+static const ImU32 FOOD_RGB = 0x9b6a3c;       // the food bar, brown as in the game
+static const ImU32 WATER_RGB = 0x4a8fe0;      // the water bar
 static const ImU32 GOLD_RGB = 0xe0b54a;       // a champion's record that is the party's
 // The game's own champion colours, by party slot, softened for the dark background
 static const ImU32 CHAMPION_RGB[4] = {0x5fbf5f, 0xd8c447, 0xd9604f, 0x5b8fd9};
@@ -2171,14 +2174,24 @@ static std::string OutOf(int now, int most)
   return std::to_string(now) + " / " + std::to_string(most);
 }
 
-// Food and water: the game's bar, full at HERO_LIVE_FOOD_FULL, and a word when it runs low
-static void LiveNourishment(const char *label, int value, const char *empty)
+// Food and water: the game's bar, from HERO_LIVE_FOOD_EMPTY to HERO_LIVE_FOOD_FULL, in brown for food
+// and blue for water; the number turns yellow below 0 and red below -512 as the game's bar does
+static void LiveNourishment(const char *label, int value, ImU32 rgb, const char *empty)
 {
-  int percent = std::max(0, value) * 100 / HERO_LIVE_FOOD_FULL;
-  std::string text = std::to_string(percent) + "%";
-  ImU32 rgb = value < HERO_LIVE_FOOD_FULL / 4 ? BAD_RGB : (value < HERO_LIVE_FOOD_FULL / 2 ? GOLD_RGB : 0x5fbf5f);
-  if (value < 0) text += std::string(" (") + empty + ")";
-  LiveBar(label, value, HERO_LIVE_FOOD_FULL, rgb, text);
+  ImU32 text = value < -512 ? BAD_RGB : value < 0 ? YELLOW_RGB : TEXT_RGB;
+  const int span = HERO_LIVE_FOOD_FULL - HERO_LIVE_FOOD_EMPTY;
+  ImGui::TextColored(Colour(DIM_RGB), "%s", label);
+  ImGui::SameLine(LIVE_LABEL_WIDTH);
+  ImVec2 at = ImGui::GetCursorScreenPos();
+  float lineHeight = ImGui::GetTextLineHeight();
+  ImDrawList *drawList = ImGui::GetWindowDrawList();
+  ImVec2 top(at.x, at.y + lineHeight / 2 - 5), bottom(at.x + LIVE_BAR_WIDTH, at.y + lineHeight / 2 + 5);
+  drawList->AddRectFilled(top, bottom, Packed(TRACK_RGB), 2.0f);
+  float part = std::max(0.0f, std::min(1.0f, (float)(value - HERO_LIVE_FOOD_EMPTY) / (float)span));
+  if (part > 0) drawList->AddRectFilled(top, ImVec2(top.x + LIVE_BAR_WIDTH * part, bottom.y), Packed(rgb), 2.0f);
+  ImGui::Dummy(ImVec2(LIVE_BAR_WIDTH, lineHeight));
+  ImGui::SameLine(0, 10);
+  ImGui::TextColored(Colour(text), "%d%s%s%s", value, value < 0 ? " (" : "", value < 0 ? empty : "", value < 0 ? ")" : "");
 }
 
 static void LiveVitals(const HeroStatsLiveChampion &live, ImU32 rgb)
@@ -2186,8 +2199,8 @@ static void LiveVitals(const HeroStatsLiveChampion &live, ImU32 rgb)
   LiveBar("Health", live.health, live.maxHealth, rgb, OutOf(live.health, live.maxHealth));
   LiveBar("Stamina", live.stamina, live.maxStamina, rgb, OutOf(live.stamina / 10, live.maxStamina / 10));
   LiveBar("Mana", live.mana, live.maxMana, rgb, OutOf(live.mana, live.maxMana));
-  LiveNourishment("Food", live.food, "starving");
-  LiveNourishment("Water", live.water, "parched");
+  LiveNourishment("Food", live.food, FOOD_RGB, "starving");
+  LiveNourishment("Water", live.water, WATER_RGB, "parched");
   bool heavy = live.load > live.maxLoad;
   ImGui::TextColored(Colour(DIM_RGB), "Load");
   ImGui::SameLine(LIVE_LABEL_WIDTH);

@@ -24,6 +24,7 @@ const int HERO_LIVE_ATTRIBUTE_COUNT = 6;
 const int HERO_LIVE_WOUND_COUNT = 6;
 // Food and water as the game counts them: full at this, starving or parched below 0
 const int HERO_LIVE_FOOD_FULL = 2048;
+const int HERO_LIVE_FOOD_EMPTY = -1024;  // the lowest the game lets food and water fall
 
 // One item a champion carries; a chest's contents follow the chest, with inChest set
 struct HeroStatsLiveItem
