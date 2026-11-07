@@ -291,8 +291,11 @@ static void DrawTitle(const HeroStatsDrawState &state, const std::vector<HeroSta
   drawList->AddText(ImVec2(origin.x + GUTTER, origin.y + 4), Packed(WHITE_RGB), "Statistics");
   const char *exportLabel = "Export as HTML...";
   float exportX = origin.x + width - ButtonWidth(exportLabel) - 4;
-  std::string crumb = WhoLabel(columns, state.who) + " \xc2\xb7 " + HeroStatsCatalogue_Topic(state.topic).label +
-                      " \xc2\xb7 " + (state.perLevel ? std::string("Per level") : LevelLabel(state.level));
+  std::string crumb = WhoLabel(columns, state.who) + " \xc2\xb7 ";
+  if (state.topic == HERO_STATS_CHAMPIONS_TAB) crumb += "Champions";  // the party now: no level
+  else
+    crumb += std::string(HeroStatsCatalogue_Topic(state.topic).label) + " \xc2\xb7 " +
+             (state.perLevel ? std::string("Per level") : LevelLabel(state.level));
   float crumbX = exportX - 12 - ImGui::CalcTextSize(crumb.c_str()).x;
   if (crumbX > origin.x + 120) drawList->AddText(ImVec2(crumbX, origin.y + 4), Packed(CRUMB_RGB), crumb.c_str());
   ImGui::SetCursorScreenPos(ImVec2(exportX, origin.y + 2));
@@ -2328,7 +2331,9 @@ static void LiveItems(const HeroStatsLiveChampion &live)
   ImGui::EndTable();
 }
 
-static void DrawLiveChampion(HeroStatsDrawState *state, const HeroStatsLiveChampion &live, ImU32 rgb)
+// brief: the Party's page, vitals and class ranks only; a champion of their own also gets the
+// attributes and the items
+static void DrawLiveChampion(HeroStatsDrawState *state, const HeroStatsLiveChampion &live, ImU32 rgb, bool brief)
 {
   ImGui::PushID((int)live.who);
   std::string heading = live.name + (live.title.empty() ? "" : " " + live.title);
@@ -2347,12 +2352,20 @@ static void DrawLiveChampion(HeroStatsDrawState *state, const HeroStatsLiveChamp
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
     LiveVitals(live, rgb);
-    ImGui::Dummy(ImVec2(0, 6));
-    LiveAttributes(live);
-    ImGui::Dummy(ImVec2(0, 6));
-    LiveRanks(live, rgb);
-    ImGui::TableSetColumnIndex(1);
-    LiveItems(live);
+    if (brief)
+    {
+      ImGui::TableSetColumnIndex(1);
+      LiveRanks(live, rgb);
+    }
+    else
+    {
+      ImGui::Dummy(ImVec2(0, 6));
+      LiveAttributes(live);
+      ImGui::Dummy(ImVec2(0, 6));
+      LiveRanks(live, rgb);
+      ImGui::TableSetColumnIndex(1);
+      LiveItems(live);
+    }
     ImGui::EndTable();
   }
   (void)state;
@@ -2390,7 +2403,7 @@ static void DrawChampionsPage(HeroStatsDrawState *state, const HeroStatsLivePart
         ImGui::Dummy(ImVec2(0, 6));
       }
       first = false;
-      DrawLiveChampion(state, champion, ChampionRgb(ColumnOf(columns, champion.who)));
+      DrawLiveChampion(state, champion, ChampionRgb(ColumnOf(columns, champion.who)), isParty);
     }
   }
   ImGui::EndChild();
