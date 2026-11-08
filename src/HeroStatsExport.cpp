@@ -921,7 +921,7 @@ function nourished(label, v, colour, empty) {
     `<span style="color:${tone}">${v}${v < 0 ? ` (${empty})` : ''}</span>`;
 }
 const tenths = t => (t < 0 ? '-' : '') + Math.floor(Math.abs(t) / 10) + '.' + (Math.abs(t) % 10);
-function liveChampion(c, i) {
+function liveChampion(c, i, brief) {
   const colour = c.hero >= 0 ? COLOUR(c.hero) : 'var(--text)';
   let vit = vitalBar('Health', c.hp[0], c.hp[1], colour, `${c.hp[0]} / ${c.hp[1]}`) +
     vitalBar('Stamina', c.stamina[0], c.stamina[1], colour, `${Math.floor(c.stamina[0] / 10)} / ${Math.floor(c.stamina[1] / 10)}`) +
@@ -941,7 +941,9 @@ function liveChampion(c, i) {
     `<tr class="${it[2] ? 'in' : ''}"><td class="${it[2] ? '' : 'nt'}">${it[2] ? '' : esc(it[0])}</td><td class="l">${esc(it[1])}</td></tr>`).join('') + '</table>'
     : '<div class="note">Carries nothing.</div>';
   const status = c.hp[0] <= 0 ? 'dead' : c.poison ? 'poisoned' : '';
-  const body = `<div class="live"><div><div class="vit">${vit}</div>${attrs}${ranks}</div><div>${items}</div></div>`;
+  // As in the window: the Party's page has the vitals and class ranks only; a champion's own page also the attributes and items
+  const body = brief ? `<div class="live"><div class="vit">${vit}</div><div>${ranks}</div></div>`
+    : `<div class="live"><div><div class="vit">${vit}</div>${attrs}${ranks}</div><div>${items}</div></div>`;
   return section('live' + i, c.name + (c.title ? ' ' + c.title : ''), status ? `<span class="pill">${status}</span>` : '', body);
 }
 function championsPage() {
@@ -951,7 +953,7 @@ function championsPage() {
   if (!shown.length) return `<div class="note">${esc(whoName(st.who))} was not in the party when the page was written.</div>`;
   let html = '<div class="note">The champions as they were when the page was written.</div>';
   if (isParty() && LIVE.inHand) html += `<div class="note">In the hand: <span style="color:var(--text)">${esc(LIVE.inHand)}</span></div>`;
-  return html + shown.map(([c, i]) => liveChampion(c, i)).join('');
+  return html + shown.map(([c, i]) => liveChampion(c, i, isParty())).join('');
 }
 
 function draw() {
