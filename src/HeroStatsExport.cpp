@@ -963,7 +963,43 @@ function draw() {
   if (N === 0 && D.levels.length === 0) html = '<div class="note">No statistics yet.</div>';
   else html = st.topic === CHAMPIONS ? championsPage() : st.per ? perLevel() : topicPage();
   document.getElementById('view').innerHTML = html;
+  writeLink();
 }
+
+// The view as a link: #who=Party&topic=Records&level=run (level: run, a number or per; side=1 for
+// the champions side by side). Read when the page opens, from the hash or the query string, and
+// written back after every change, so the address bar can be copied.
+const same = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+function readLink() {
+  const q = new URLSearchParams(location.search), h = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const get = k => h.has(k) ? h.get(k) : q.get(k);
+  const who = get('who'), topic = get('topic'), level = get('level'), side = get('side');
+  if (who !== null) {
+    const i = same(who, 'party') ? N : H.findIndex(c => same(c.name, who));
+    if (i >= 0) st.who = i; else if (/^\d+$/.test(who) && +who <= N) st.who = +who;
+  }
+  if (topic !== null) {
+    const i = same(topic, 'champions') ? CHAMPIONS : TOP.findIndex(t => same(t.label, topic));
+    if (i >= 0) st.topic = i;
+  }
+  if (level !== null) {
+    if (same(level, 'per')) st.per = true;
+    else if (same(level, 'run') || same(level, 'whole') || same(level, 'whole run')) { st.per = false; st.level = -1; }
+    else if (/^\d+$/.test(level) && D.views[level]) { st.per = false; st.level = +level; }
+  }
+  if (side !== null) st.side = side === '1';
+}
+function writeLink() {
+  const h = new URLSearchParams();
+  h.set('who', whoName(st.who));
+  h.set('topic', st.topic === CHAMPIONS ? 'Champions' : TOP[st.topic].label);
+  if (st.topic !== CHAMPIONS) {
+    h.set('level', st.per ? 'per' : st.level === -1 ? 'run' : st.level);
+    if (st.per && st.side) h.set('side', '1');
+  }
+  try { history.replaceState(null, '', '#' + h.toString().replace(/\+/g, '%20')); } catch (e) {}
+}
+readLink();
 draw();
 </script>
 </body></html>

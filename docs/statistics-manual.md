@@ -424,6 +424,13 @@ The file is a copy of the Statistics window as a web page:
 
 It holds the numbers as they were when you clicked; export again for newer numbers.
 
+**Linking to a view.** The address bar always shows the current view, for example
+`stats.html#who=Party&topic=Records&level=run`. Copy it to point someone at that spot (the file
+must be at the same place for them, e.g. on a web server). `who` is `Party` or a champion's name,
+`topic` a tab's name (or `Champions`), `level` is `run` (Whole run), a level number or `per`
+(Per level; add `side=1` for the champions side by side). Parts left out keep their defaults.
+The same words after a `?` instead of the `#` work too.
+
 ## What is counted, and how
 
 - **Damage is the number the game shows**: the attack panel, PROJECTILE DAMAGE, SPELL DAMAGE. A hit
