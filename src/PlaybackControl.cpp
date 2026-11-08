@@ -3,6 +3,10 @@
 #include <map>
 #include <set>
 #include <tuple>
+#include <vector>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 namespace
 {
@@ -23,6 +27,13 @@ int soundGapMs = PLAYBACK_SOUND_GAP_MS;
 std::map<uint64_t, uint64_t> soundStarted;
 Cell lastCell;
 
+int totalTicks = -1;
+int skipTarget = -1;
+int skipSpeed = PLAYBACK_SPEED_NORMAL;
+bool skipWasPaused = false;
+int pauseTarget = -1;
+bool speedSyncDue = false;
+
 int Clamped(int index)
 {
   if (index < 0) return 0;
@@ -32,7 +43,8 @@ int Clamped(int index)
 }
 
 int PlaybackControl_SpeedIndex(void) { return speedIndex; }
-void PlaybackControl_SetSpeedIndex(int index) { speedIndex = Clamped(index); }
+// Choosing a speed by hand ends a skip
+void PlaybackControl_SetSpeedIndex(int index) { speedIndex = Clamped(index); skipTarget = -1; }
 void PlaybackControl_Faster(void) { PlaybackControl_SetSpeedIndex(speedIndex + 1); }
 void PlaybackControl_Slower(void) { PlaybackControl_SetSpeedIndex(speedIndex - 1); }
 bool PlaybackControl_IsMax(void) { return speedIndex == PLAYBACK_SPEED_MAX; }
@@ -51,6 +63,127 @@ void PlaybackControl_Reset(void)
   breakpoints.clear();
   hasLastCell = false;
   pauseIsDue = false;
+  totalTicks = -1;
+  skipTarget = -1;
+  pauseTarget = -1;
+  speedSyncDue = false;
+}
+
+void PlaybackControl_SetTotalTicks(int ticks) { totalTicks = ticks; }
+int PlaybackControl_TotalTicks(void) { return totalTicks; }
+
+void PlaybackControl_FormatTime(double seconds, char *buf, int size)
+{
+  long s = seconds < 0 ? 0 : (long)(seconds + 0.5);
+  snprintf(buf, size, "%ld:%02ld:%02ld", s / 3600, (s / 60) % 60, s % 60);
+}
+
+// The same reading of the lines as PLAYFILE::Play (Recording.cpp), for the times only
+int PlaybackControl_ScanTotalTicks(const char *path)
+{
+  FILE *f = fopen(path, "r");
+  if (f == NULL) return -1;
+  char line[256];
+  long oldTime = 0, time = -1;
+  std::vector<long> txyf;                     // delta, xyf index
+  std::vector<std::pair<long, long> > txyfr;  // txyf index, random
+  bool first = true;
+  while (fgets(line, sizeof line, f) != NULL)
+  {
+    if (first) { first = false; continue; } // the version line
+    if (line[0] == '#' || line[0] == '\n' || line[0] == '\r' || line[0] == 0) continue;
+    long delta = -1;
+    if (line[0] == '+')
+    {
+      unsigned d, a, b, c, r;
+      int n = sscanf(line + 1, "%x %x %x %x %x", &d, &a, &b, &c, &r);
+      if (n != 5 && n != 3) continue;
+      delta = d;
+    }
+    else
+    {
+      unsigned f1, f2, f3, f4, f5;
+      int n = sscanf(line, "%08x %04x %04x %04x %08x", &f1, &f2, &f3, &f4, &f5);
+      if (n == 5) { time = f1; oldTime = time; continue; }
+      if (n == 3)
+      {
+        delta = f1;
+        txyf.push_back(delta);
+        txyf.push_back(f2);
+      }
+      else if (n == 2)
+      {
+        if ((size_t)f1 * 2 >= txyf.size()) continue;
+        delta = txyf[(size_t)f1 * 2];
+        txyfr.push_back(std::make_pair((long)f1, (long)f2));
+      }
+      else if (n == 1)
+      {
+        if ((size_t)f1 >= txyfr.size()) continue;
+        long t = txyfr[f1].first;
+        if ((size_t)t * 2 >= txyf.size()) continue;
+        delta = txyf[(size_t)t * 2];
+      }
+      else continue;
+    }
+    time = oldTime + delta;
+    oldTime = time;
+  }
+  fclose(f);
+  return (int)time;
+}
+
+void PlaybackControl_SkipAhead(int now, int n, int speedBefore)
+{
+  if (n <= 0) return;
+  if (skipTarget < 0)
+  {
+    skipTarget = now + n;
+    skipSpeed = Clamped(speedBefore);
+    skipWasPaused = paused;
+  }
+  else skipTarget += n;
+  if (totalTicks > 0 && skipTarget > totalTicks) skipTarget = totalTicks;
+  // At max, and running (the pause after it is the one it came from)
+  speedIndex = PLAYBACK_SPEED_MAX;
+  paused = false;
+  speedSyncDue = true;
+}
+
+bool PlaybackControl_IsSkipping(void) { return skipTarget >= 0; }
+int PlaybackControl_SkipTarget(void) { return skipTarget; }
+
+bool PlaybackControl_SetPauseTarget(int now, int tick)
+{
+  if (tick <= 0) { pauseTarget = -1; return true; }
+  if (tick <= now) return false;
+  pauseTarget = tick;
+  return true;
+}
+
+int PlaybackControl_PauseTarget(void) { return pauseTarget; }
+
+void PlaybackControl_AtTick(int tickAfter)
+{
+  if (skipTarget >= 0 && tickAfter >= skipTarget)
+  {
+    skipTarget = -1;
+    speedIndex = skipSpeed;
+    speedSyncDue = true;
+    if (skipWasPaused) pauseIsDue = true;
+  }
+  if (pauseTarget >= 0 && tickAfter >= pauseTarget)
+  {
+    pauseTarget = -1;
+    pauseIsDue = true;
+  }
+}
+
+bool PlaybackControl_TakeSpeedSync(void)
+{
+  bool due = speedSyncDue;
+  speedSyncDue = false;
+  return due;
 }
 
 void PlaybackControl_ToggleBreakpoint(int level, int x, int y)

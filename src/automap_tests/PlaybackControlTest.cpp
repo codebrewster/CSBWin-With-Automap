@@ -2,6 +2,9 @@
 #include "../PlaybackControl.h"
 
 #include <cstring>
+#include <cstdio>
+#include <cstdlib>
+#include <unistd.h>
 
 // Blanks a clock gives in ms milliseconds, asked every step milliseconds (several asks per step,
 // as the platform layer asks several times per timer message)
@@ -167,8 +170,78 @@ static void ABreakpointPausesOnceWhenSteppedOnto(void)
   CHECK(PlaybackControl_BreakpointCount() == 0 && !PlaybackControl_IsPaused());
 }
 
+// A fast forward runs at max, then goes back to the speed and the pause it came from
+static void ASkipRunsAtMaxAndGoesBack(void)
+{
+  PlaybackControl_Reset();
+  PlaybackControl_SetSpeedIndex(2);
+  PlaybackControl_SkipAhead(100, 250, 2);
+  CHECK(PlaybackControl_IsMax() && PlaybackControl_IsSkipping() && PlaybackControl_SkipTarget() == 350);
+  CHECK(PlaybackControl_TakeSpeedSync() && !PlaybackControl_TakeSpeedSync());
+  PlaybackControl_SkipAhead(200, 2500, 2);           // adds on
+  CHECK(PlaybackControl_SkipTarget() == 2850);
+  PlaybackControl_AtTick(2849);
+  CHECK(PlaybackControl_IsMax());
+  PlaybackControl_AtTick(2850);
+  CHECK(!PlaybackControl_IsSkipping() && PlaybackControl_SpeedIndex() == 2 && PlaybackControl_TakeSpeedSync());
+  PlaybackControl_ApplyDuePause();
+  CHECK(!PlaybackControl_IsPaused());
+  // From a pause: back to it
+  PlaybackControl_SetPaused(true);
+  PlaybackControl_SkipAhead(10, 5, 3);
+  CHECK(!PlaybackControl_IsPaused());
+  PlaybackControl_AtTick(15);
+  PlaybackControl_ApplyDuePause();
+  CHECK(PlaybackControl_IsPaused() && PlaybackControl_SpeedIndex() == 3);
+  // A speed chosen by hand ends it
+  PlaybackControl_SetPaused(false);
+  PlaybackControl_SkipAhead(0, 100, 1);
+  PlaybackControl_SetSpeedIndex(4);
+  CHECK(!PlaybackControl_IsSkipping());
+}
+
+static void APauseTargetPausesWhenReached(void)
+{
+  PlaybackControl_Reset();
+  CHECK(!PlaybackControl_SetPauseTarget(500, 400));  // not ahead
+  CHECK(PlaybackControl_SetPauseTarget(500, 20000) && PlaybackControl_PauseTarget() == 20000);
+  PlaybackControl_AtTick(19999);
+  PlaybackControl_ApplyDuePause();
+  CHECK(!PlaybackControl_IsPaused());
+  PlaybackControl_AtTick(20000);
+  PlaybackControl_ApplyDuePause();
+  CHECK(PlaybackControl_IsPaused() && PlaybackControl_PauseTarget() == -1);
+  CHECK(PlaybackControl_SetPauseTarget(0, 50) && PlaybackControl_SetPauseTarget(0, 0));
+  CHECK(PlaybackControl_PauseTarget() == -1);
+}
+
+static void TheLengthIsTheTimeOfTheLastRecord(void)
+{
+  char path[] = "/tmp/playbackcontroltest-XXXXXX";
+  int fd = mkstemp(path);
+  CHECK(fd >= 0);
+  FILE *f = fdopen(fd, "w");
+  fputs("#CSB for Windows Version 11.022\n#NoSpeedLimit\n"
+        "00000010 0001 0002 0003 00000000\n"   // absolute: 16
+        "+0a 0 0 5 0\n"                        // +10 = 26
+        "+ff 7 1\n"                            // +255, three fields = 281
+        "00000005 0000 1234\n"                // delta 5, xyf 0, random: 286
+        "00000000 1234\n"                          // txyf 0 (delta 5), random: 291
+        "00000000\n", f);                             // txyfr 0 -> txyf 0 (delta 5): 296
+  fclose(f);
+  CHECK(PlaybackControl_ScanTotalTicks(path) == 296);
+  remove(path);
+  CHECK(PlaybackControl_ScanTotalTicks("/nonexistent/x") == -1);
+  char buf[32];
+  PlaybackControl_FormatTime(3725.4, buf, sizeof buf);
+  CHECK(std::strcmp(buf, "1:02:05") == 0);
+}
+
 void TestPlaybackControl(void)
 {
+  ASkipRunsAtMaxAndGoesBack();
+  APauseTargetPausesWhenReached();
+  TheLengthIsTheTimeOfTheLastRecord();
   ABreakpointPausesOnceWhenSteppedOnto();
   TheSpeedsGoFromHalfTo64AndMax();
   SoundsThinOutFrom4x();

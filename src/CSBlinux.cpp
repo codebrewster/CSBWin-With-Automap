@@ -20,6 +20,7 @@
 #include "AutoMapWindow.h"
 #include "HeroStatsWindow.h"
 #include "PlaybackControl.h"
+#include "AutoMapTickRate.h"
 
 #include "Dispatch.h"
 #include "Objects.h"
@@ -2421,6 +2422,15 @@ static int ReplaySpeedIndex(void)
   return NoSpeedLimit != 0 ? PLAYBACK_SPEED_MAX : PlaybackControl_SpeedIndex();
 }
 
+// Fast forward n ticks at max, then on at the speed it had (PlaybackControl.h)
+static void ReplaySkip(int n)
+{
+  PlaybackControl_SkipAhead((int)d.Time, n, ReplaySpeedIndex());
+  PlaybackControl_TakeSpeedSync();
+  NoSpeedLimit = 0x20000000;
+  VBLMultiplier = 1;
+}
+
 // The player takes over where the replay stands
 static void StopReplay(void)
 {
@@ -2451,6 +2461,12 @@ static bool HandleReplayKey(const SDL_Event &event)
   case SDLK_MINUS:
   case SDLK_KP_MINUS:
     SetReplaySpeed(ReplaySpeedIndex() - 1);
+    return true;
+  case SDLK_UP:
+    ReplaySkip(PLAYBACK_SKIP_SMALL);
+    return true;
+  case SDLK_PAGEUP:
+    ReplaySkip(PLAYBACK_SKIP_LARGE);
     return true;
   default:
     return false;
@@ -2486,10 +2502,44 @@ static void DrawReplayControls(bool &was_active)
   if (ImGui::SmallButton("-")) SetReplaySpeed(ReplaySpeedIndex() - 1);
   ImGui::Text("%4s", ReplaySpeedLabel());
   if (ImGui::SmallButton("+")) SetReplaySpeed(ReplaySpeedIndex() + 1);
-  if (PlaybackControl_IsPaused())
-    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), _("Paused at tick %d"), (int)d.Time);
-  else
-    ImGui::TextDisabled(_("tick %d"), (int)d.Time);
+  if (ImGui::SmallButton(">>")) ReplaySkip(PLAYBACK_SKIP_SMALL);
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip(_("Fast forward %d ticks (Up)"), PLAYBACK_SKIP_SMALL);
+  if (ImGui::SmallButton(">>>")) ReplaySkip(PLAYBACK_SKIP_LARGE);
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip(_("Fast forward %d ticks (Page Up)"), PLAYBACK_SKIP_LARGE);
+  {
+    // Elapsed and total time at the speed setting's rate. The speed setting, not d.Speed (the
+    // engine changes that one while it runs)
+    int tick = (int)d.Time;
+    double rate = AutoMapTickRate_OfSpeed(speedTable[gameSpeed].vblPerTick);
+    double seconds = tick / rate;
+    int total = PlaybackControl_TotalTicks();
+    char elapsed[32], length[32];
+    PlaybackControl_FormatTime(seconds, elapsed, sizeof elapsed);
+    PlaybackControl_FormatTime(total / rate, length, sizeof length);
+    char text[160];
+    if (total > 0) snprintf(text, sizeof text, "%s  %s / %s  (%d / %d)", PlaybackControl_IsPaused() ? _("Paused") : _("tick"), elapsed, length, (int)d.Time, total);
+    else snprintf(text, sizeof text, "%s  %s  (%d)", PlaybackControl_IsPaused() ? _("Paused") : _("tick"), elapsed, (int)d.Time);
+    if (PlaybackControl_IsPaused()) ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "%s", text);
+    else ImGui::TextDisabled("%s", text);
+  }
+  {
+    // Pause when the tick counter reaches the number typed (Enter); empty or 0 takes it away
+    static char target[16] = "";
+    ImGui::SetNextItemWidth(70);
+    if (ImGui::InputTextWithHint("##pauseAt", _("pause at"), target, sizeof target, ImGuiInputTextFlags_EnterReturnsTrue))
+    {
+      int tick = 0;
+      for (const char *c = target; *c; c++)
+        if (*c >= '0' && *c <= '9' && tick < 100000000) tick = tick * 10 + (*c - '0');
+      if (PlaybackControl_SetPauseTarget((int)d.Time, tick)) target[0] = 0;
+    }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", _("Pause at this tick (type a number, Enter). 0 or empty clears it."));
+    if (PlaybackControl_PauseTarget() >= 0)
+    {
+      ImGui::TextDisabled(_("pause at %d"), PlaybackControl_PauseTarget());
+      if (ImGui::SmallButton("x")) PlaybackControl_SetPauseTarget((int)d.Time, 0);
+    }
+  }
   if (PlaybackControl_IsFastForSound() || NoSpeedLimit != 0)
     ImGui::TextDisabled("%s", PlaybackControl_SoundsWhenFast() ? _("(fewer sounds)") : _("(no sounds)"));
 }

@@ -346,6 +346,9 @@ void HeroStats_OnPartyOnLevel(void)
 {
   MarkPartyLevelVisited();
   MeetNewChampions();
+  // The first tick counted, with the game's own counter already past 0 (a replay or a game that
+  // starts from a saved state): those ticks happened before the statistics began, on this level
+  if (d.Time > 0 && store.Movement(HERO_STATS_WHOLE_RUN).ticks == 0) store.CountTicksBefore(d.partyLevel, (int)d.Time);
   store.CountTick(d.partyLevel, d.PartySleeping != 0);
   store.MarkTileWalked(d.partyLevel, d.partyX, d.partyY);
   store.Records().CountSleepTick(d.partyLevel, (uint32_t)d.Time, d.PartySleeping != 0);

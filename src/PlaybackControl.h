@@ -34,6 +34,31 @@ bool PlaybackControl_IsPaused(void);
 void PlaybackControl_SetPaused(bool paused);
 void PlaybackControl_TogglePause(void);
 
+// Where the replay stands and how long it is, in game ticks. The length is read off the file when
+// it is opened (the time of its last record); -1 when unknown.
+int PlaybackControl_ScanTotalTicks(const char *path);
+void PlaybackControl_SetTotalTicks(int ticks);
+int PlaybackControl_TotalTicks(void);
+// h:mm:ss for a number of seconds (hours without limit)
+void PlaybackControl_FormatTime(double seconds, char *buf, int size);
+
+// Fast forward: run n ticks at max from tick now, then go back to the speed index it ran at
+// (speedBefore) and to paused if it was paused. Pressing again while it runs adds to the target.
+const int PLAYBACK_SKIP_SMALL = 250;
+const int PLAYBACK_SKIP_LARGE = 2500;
+void PlaybackControl_SkipAhead(int now, int n, int speedBefore);
+bool PlaybackControl_IsSkipping(void);
+int PlaybackControl_SkipTarget(void); // -1 when none
+// A pause when the tick counter reaches the tick (0 or less: none). False when it is not ahead.
+bool PlaybackControl_SetPauseTarget(int now, int tick);
+int PlaybackControl_PauseTarget(void); // -1 when none
+// Every tick of a replay with the counter's value after the tick: a skip that has arrived goes
+// back to its speed, a pause target that has arrived makes a pause due
+void PlaybackControl_AtTick(int tickAfter);
+// True once after the speed changed by itself (the end of a skip): the platform layer sets
+// the engine's quick play (NoSpeedLimit) to match PlaybackControl_IsMax()
+bool PlaybackControl_TakeSpeedSync(void);
+
 // A new replay starts at 1x and running, without breakpoints; a stopped one loses them too
 void PlaybackControl_Reset(void);
 

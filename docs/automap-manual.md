@@ -454,6 +454,16 @@ the replay's Resume button. **REMOVE REPLAY PAUSE** takes one off again. A pause
 set on the cell the party stands on waits until it leaves and comes back. The
 pauses are forgotten when the replay ends.
 
+## Fast forward, time and a pause at a tick
+
+The replay bar shows the elapsed and the total time of the replay (at the game's speed
+setting) and the tick counter, `0:12:34 / 1:02:03 (35000 / 180000)`. The **>>** button or **Up**
+runs 250 ticks at max speed, **>>>** or **Page Up** 2500, then the replay goes on at the speed
+it had (or stays paused, if it was). Pressing again while it runs adds to the target. In the
+box beside them, type a tick number and press **Enter**: the replay pauses when the counter
+reaches it. **x** or an empty box takes the target away. From the automap window, Page Up
+still changes the level.
+
 ## Exporting the map as a web page
 
 Click **EXPORT** on the bar to write the map into one `.html` file. It opens in any browser,

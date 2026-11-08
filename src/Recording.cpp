@@ -258,6 +258,7 @@ void PLAYFILE::Open(void)
   };
   STHideCursor(HC35);
   PlaybackControl_Reset();
+  PlaybackControl_SetTotalTicks(PlaybackControl_ScanTotalTicks(PlayfileName));
   m_eofEncountered = m_forceClose = false;
   tableXYF.Clear();
   tableTXYF.Clear();

@@ -627,6 +627,11 @@ void HeroStats::CountTick(int level, bool asleep)
   if (asleep) movement.sleepTicks++;
 }
 
+void HeroStats::CountTicksBefore(int level, int ticks)
+{
+  m_movement.insert(std::make_pair(level, NoMovement())).first->second.ticks += ticks;
+}
+
 void HeroStats::CountPitFall(int level)
 {
   m_movement.insert(std::make_pair(level, NoMovement())).first->second.pitFalls++;

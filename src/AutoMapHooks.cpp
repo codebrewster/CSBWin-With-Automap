@@ -1032,6 +1032,8 @@ static void FilterLastSnapshotAnew(void);
 void AutoMap_OnEngineTick(void)
 {
   MeasureTheTick();
+  // The tick about to be counted: a replay's skip or pause target may be reached with it
+  if (PlayfileIsOpen()) PlaybackControl_AtTick((int)d.Time + 1);
   // The game's own Freeze Life, kept from running out: the main loop counts it down after
   // this hook, so it never reaches zero while the debug switch is on
   if (monstersFrozen) d.freezeLifeTimer = LONGEST_FREEZE;

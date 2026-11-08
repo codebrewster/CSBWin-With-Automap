@@ -197,6 +197,8 @@ public:
   void CountTurn(int level);
   void CountTeleport(int level);
   void CountTick(int level, bool asleep);
+  // Ticks the game had counted before the statistics began (a replay or a game that starts at tick n)
+  void CountTicksBefore(int level, int ticks);
   void CountPitFall(int level);
   void CountPitClimb(int level);
   void CountBump(int level);

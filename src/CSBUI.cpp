@@ -1120,6 +1120,12 @@ i32 CSBUI(CSB_UI_MESSAGE *msg)
       {
         // Between ticks: a replay breakpoint's pause starts here (PlaybackControl.h)
         PlaybackControl_ApplyDuePause();
+        // A fast-forward that has arrived goes back to its speed (and quick play with it)
+        if (PlayfileIsOpen() && PlaybackControl_TakeSpeedSync())
+        {
+          NoSpeedLimit = PlaybackControl_IsMax() ? 0x20000000 : 0;
+          VBLMultiplier = 1;
+        }
         checkVBL();
         CallCheckVBL--;
         if (maxSpeedUntil != 0 && UI_GetSystemTime() >= maxSpeedUntil)
