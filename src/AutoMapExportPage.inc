@@ -978,6 +978,24 @@ function draw() {
   drawNotes(); drawGlimpses(); drawMissiles(); drawMonsters(); drawParty();
   const L = drawHover(); if (!L.lit) drawSearchMarks(); drawLinkMode();
   g.restore(); rulers(); drawTooltip(L); drawSearchPanel(); drawShowPanel(); drawHelp(); drawLevels(); drawDebugPanel(); drawMenu(); drawBar();
+  writeLink();
+}
+// The settings as a link in the address bar (read again in init): #L=3&v=all&s=seen&tint=0&walked=1&hide=MONSTERS,KEYS
+// Following the party writes follow=1 instead of the level. Only a change is written.
+const VISION_WORDS = ['fog', 'explored', 'all'], SPOIL_WORDS = ['all', 'learned', 'seen'];
+let lastLink = null;
+function writeLink() {
+  const h = new URLSearchParams();
+  if (follow && hasLevel(DATA.index.partyLevel)) h.set('follow', '1'); else h.set('L', lvl);
+  h.set('v', VISION_WORDS[vision]); h.set('s', SPOIL_WORDS[spoil]);
+  if (vision === 2 && !tint) h.set('tint', '0');
+  if (walked) h.set('walked', '1');
+  const hidden = Object.keys(SHOW).filter(k => !SHOW[k]);
+  if (hidden.length) h.set('hide', hidden.length === Object.keys(SHOW).length ? 'ALL' : hidden.join(','));
+  if (barLook !== 'stone') h.set('bar', barLook);
+  const link = '#' + h.toString().replace(/\+/g, '%20').replace(/%2C/g, ',');
+  if (link === lastLink) return; lastLink = link;
+  try { history.replaceState(null, '', link); } catch (e) { }
 }
 // ============================================================================================
 // View
@@ -1059,11 +1077,22 @@ setInterval(() => { if (searchOpen) draw(); }, 500);
 
 (async function init() {
   resize();
+  // A link names the settings: after the ? or the # (the # wins), e.g. #L=3&v=all&s=seen&walked=1
   const q = new URLSearchParams(location.search);
+  new URLSearchParams(location.hash.replace(/^#/, '')).forEach((v, k) => q.set(k, v));
   const sv = +(q.get('save') || 0); document.querySelectorAll('#g-save button').forEach(b => b.classList.toggle('on', +b.dataset.v === sv));
-  if (q.get('v')) vision = +q.get('v'); if (q.get('s')) spoil = +q.get('s'); if (q.get('bar') && BAR_LOOKS.includes(q.get('bar'))) barLook = q.get('bar'); if (q.get('debug') && debugBox) { debugOn = q.get('debug') !== '0'; debugBox.checked = debugOn; }
+  if (q.get('bar') && BAR_LOOKS.includes(q.get('bar'))) barLook = q.get('bar'); if (q.get('debug') && debugBox) { debugOn = q.get('debug') !== '0'; debugBox.checked = debugOn; }
   await loadSave(sv);
-  if (q.get('L') && hasLevel(+q.get('L'))) { setLevel(+q.get('L')); follow = false; fitLevel(); }
+  // Settings the exported page limits (vision, spoilers) are ignored when not allowed
+  const word = (s, names) => { if (s === null) return -1; const i = names.indexOf(s.toLowerCase()); return i >= 0 ? i : /^[0-2]$/.test(s) ? +s : -1; };
+  const flag = k => q.get(k) === '1' || q.get(k) === 'true' ? true : q.get(k) === '0' || q.get(k) === 'false' ? false : null;
+  const v = word(q.get('v'), VISION_WORDS), s = word(q.get('s'), SPOIL_WORDS);
+  if (v >= 0 && visionAllowed(v)) vision = v; if (s >= 0 && spoilAllowed(s)) spoil = s;
+  if (flag('tint') !== null) tint = flag('tint'); if (flag('walked') !== null) walked = flag('walked');
+  if (q.get('hide') !== null) { const names = q.get('hide').split(',').map(n => n.trim().toUpperCase()); Object.keys(SHOW).forEach(k => SHOW[k] = !(names.includes(k) || names.includes('ALL'))); }
+  refreshAll();
+  if (flag('follow') === true && followParty()) { /* the party's level */ }
+  else if (q.get('L') && hasLevel(+q.get('L'))) { setLevel(+q.get('L')); follow = false; fitLevel(); }
   if (q.get('cs')) { cs = Math.round(Math.min(maxCs(), Math.max(minCs(), +q.get('cs')))); if (cs <= minCs()) fitLevel(); }
   if (q.get('hh')) { const [a, b] = q.get('hh').split(',').map(Number); hover = { x: a, y: b }; centreOn(a, b); }
   if (q.get('find')) { openSearch(); query = q.get('find').toUpperCase(); rebuild(false); }

@@ -19,3 +19,4 @@ automap-things-L*.csv
 
 # Release archives
 dist/
+.gstack/
