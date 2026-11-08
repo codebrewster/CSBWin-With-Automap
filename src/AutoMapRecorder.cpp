@@ -419,6 +419,22 @@ AutoMapExplored &AutoMapRecorder::Explored(void)
   return m_explored;
 }
 
+unsigned long long AutoMapRecorder::FrameFingerprint(void) const
+{
+  unsigned long long hash = 1469598103934665603ULL;
+  unsigned long long parts[3] = {(unsigned long long)(unsigned)m_frameLevel, (unsigned long long)m_frameFacing,
+                                 m_viewIsHidden ? 1ULL : 0ULL};
+  for (int i = 0; i < 3; i++) hash = (hash ^ parts[i]) * 1099511628211ULL;
+  for (int i = 0; i < AUTOMAP_SIGHT_CELL_COUNT; i++)
+  {
+    const FrameCell &cell = m_frame[i];
+    unsigned long long bits = (unsigned long long)(unsigned)cell.x * 1000003ULL + (unsigned long long)(unsigned)cell.y;
+    bits = bits * 16 + (cell.isOnLevel ? 1 : 0) + (cell.isOnRim ? 2 : 0) + (cell.isWall ? 4 : 0) + (cell.isExplored ? 8 : 0);
+    hash = (hash ^ bits) * 1099511628211ULL;
+  }
+  return hash;
+}
+
 const std::vector<AutoMapRecordId> &AutoMapRecorder::MonstersSeenNow(void) const
 {
   return m_monstersSeenNow;

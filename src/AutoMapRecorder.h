@@ -87,6 +87,9 @@ public:
   void SeeMonster(AutoMapRecordId group);
   AutoMapLinkWatch &LinkWatch(void);
   AutoMapFalseWallWatch &FalseWallWatch(void);
+  // A hash of what RecordViewport stored of the last frame: the cells, the level, the facing and
+  // whether the view is hidden. What the learning from a finished frame reads besides the picture.
+  unsigned long long FrameFingerprint(void) const;
 
 private:
   // The 3D view's last frame, kept for the decorations it draws after summarising its cells

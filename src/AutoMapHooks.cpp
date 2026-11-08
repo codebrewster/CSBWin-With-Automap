@@ -61,6 +61,18 @@ static const char *MAP_FILE_SUFFIX = ".map";
 static AutoMapRecorder recorder;
 // csb --visibility-test: the run takes over on the first tick the party's level is loaded
 static bool visibilityTestIsPending = false;
+
+// The last frame LearnFromViewportDraws learned from, for the next one to skip when nothing
+// differs: a replay at max redraws an unchanged view again and again. Whatever else changes
+// what the map remembers (a forget, a load, an item moved by hand) drops it.
+static bool learnedFrameIsKnown = false;
+static unsigned long long learnedFrameHash = 0;
+static std::vector<AutoMapRecordId> learnedFrameMonsters;
+
+static void ForgetLearnedFrame(void)
+{
+  learnedFrameIsKnown = false;
+}
 static void RunVisibilityTest(void);
 static AutoMapLevelSnapshot lastSnapshot;
 // A rebuild walks every cell of the level: live enough at a few hertz, immediate when
@@ -517,6 +529,7 @@ std::map<int, AutoMapWallCounts> AutoMap_WallCountsPerLevel(void)
 void AutoMap_OnItemPickedUp(int item)
 {
   if (!PartyLevelIsLoaded()) return;
+  ForgetLearnedFrame();
   AutoMapRecordId record = AutoMapLevelReader_RecordId(item);
   if (record != AUTOMAP_NO_RECORD) recorder.Items().ForgetItem(record);
 }
@@ -525,6 +538,7 @@ void AutoMap_OnItemPickedUp(int item)
 // pit, into an alcove, whose items follow the face) is not there to remember.
 void AutoMap_OnItemDropped(int item, int x, int y)
 {
+  ForgetLearnedFrame();
   if (!PartyLevelIsLoaded()) return;
   AutoMapRecordId record = AutoMapLevelReader_RecordId(item);
   if (record == AUTOMAP_NO_RECORD) return;
@@ -542,6 +556,7 @@ void AutoMap_OnItemDropped(int item, int x, int y)
 // The party knows what it put into an alcove, seen or not, as it knows what it dropped
 void AutoMap_OnItemPutIntoAlcove(int item, int x, int y)
 {
+  ForgetLearnedFrame();
   if (!PartyLevelIsLoaded()) return;
   AutoMapFloorItemTag tag = AutoMapLevelReader_FloorItemTag(item);
   if (tag.record == AUTOMAP_NO_RECORD) return;
@@ -572,6 +587,47 @@ static void KeepMeasurement(const AutoMapDrawKey &key, int counted, int drawn, i
   measurementsOfFrame.push_back(measurement);
 }
 
+static unsigned long long Mixed(unsigned long long hash, unsigned long long value)
+{
+  return (hash ^ value) * 1099511628211ULL;
+}
+
+// Everything LearnFromViewportDraws reads: the picture, each draw's key and kept pixels, the
+// palette shown, the party's place and the frame the recorder holds
+static unsigned long long FingerprintOfFrame(const std::vector<AutoMapDrawOnScreen> &draws, int shown)
+{
+  unsigned long long hash = recorder.FrameFingerprint();
+  const unsigned char *pixels = (const unsigned char *)d.pViewportBMP;
+  for (int i = 0; i < (112 * 136) / 8; i++)
+  {
+    unsigned long long word;
+    std::memcpy(&word, pixels + 8 * i, sizeof(word));
+    hash = Mixed(hash, word);
+  }
+  hash = Mixed(hash, (unsigned long long)(unsigned)shown);
+  hash = Mixed(hash, (unsigned long long)(unsigned)d.partyLevel);
+  hash = Mixed(hash, (unsigned long long)(unsigned)d.partyX * 4096 + (unsigned)d.partyY);
+  hash = Mixed(hash, (unsigned long long)(unsigned)d.partyFacing);
+  hash = Mixed(hash, draws.size());
+  for (size_t i = 0; i < draws.size(); i++)
+  {
+    const AutoMapDrawKey &key = draws[i].key;
+    hash = Mixed(hash, (unsigned long long)key.kind);
+    hash = Mixed(hash, (unsigned long long)(unsigned)key.drawLocation);
+    hash = Mixed(hash, (unsigned long long)key.record);
+    hash = Mixed(hash, (unsigned long long)(unsigned)key.descIndex);
+    hash = Mixed(hash, (unsigned long long)(unsigned)key.x * 4096 + (unsigned)key.y);
+    hash = Mixed(hash, draws[i].kept.size());
+    for (size_t k = 0; k < draws[i].kept.size(); k++)
+    {
+      const AutoMapPixelPair &pair = draws[i].kept[k];
+      hash = Mixed(hash, ((unsigned long long)(unsigned)pair.behind << 40) ^ ((unsigned long long)(unsigned)pair.drawn << 20)
+                             ^ (unsigned long long)(unsigned)pair.count);
+    }
+  }
+  return hash;
+}
+
 // A decoration counts as seen when the frame shows enough of it in the light on screen, the
 // debug light included; a floor item likewise is remembered where it lies
 static void LearnFromViewportDraws(void)
@@ -583,6 +639,19 @@ static void LearnFromViewportDraws(void)
   if (shown < 0 || shown > 5) return;
   const short *palette = d.Palette552[shown].color;
   const std::vector<AutoMapDrawOnScreen> &draws = AutoMapMeasure_DrawsOfFrame();
+  // The same picture, draws, light and cells as the frame learned from last: it would teach
+  // the map nothing new. Not while a visibility test or the timing reports want every frame.
+  bool mayReuse = !visibilityTestIsPending && !AutoMapWindow_TimingReportsOn();
+  unsigned long long frameHash = 0;
+  if (mayReuse)
+  {
+    frameHash = FingerprintOfFrame(draws, shown);
+    if (learnedFrameIsKnown && frameHash == learnedFrameHash)
+    {
+      for (size_t i = 0; i < learnedFrameMonsters.size(); i++) recorder.SeeMonster(learnedFrameMonsters[i]);
+      return;
+    }
+  }
   measurementsOfFrame.clear();
   // The trace gives global coordinates, as the map's rulers do
   int offsetX = 0;
@@ -681,6 +750,16 @@ static void LearnFromViewportDraws(void)
       KeepMeasurement(key, shape.visible, shape.drawn, shape.largestPatch);
       if (AutoMapSight_DoorIsSeen(shape)) recorder.SeeDoor(key.x, key.y);
     }
+  }
+  if (mayReuse)
+  {
+    learnedFrameIsKnown = true;
+    learnedFrameHash = frameHash;
+    learnedFrameMonsters = recorder.MonstersSeenNow();
+  }
+  else
+  {
+    ForgetLearnedFrame();
   }
   // With map_timing set: each new view's decorations as drawLocation:contrasting pixels "of" the
   // pixels on screen; on lines of their own, so they can be watched alone, its items as
@@ -1597,6 +1676,7 @@ static std::string MeasurementsOf(const AutoMapVisibilityCheck &check, int offse
 // nothing under it fires, so every case sees the dungeon as saved.
 static void DrawVisibilityCase(const AutoMapVisibilityCase &visibilityCase, int offsetX, int offsetY)
 {
+  ForgetLearnedFrame();
   recorder.ForgetDungeon(AutoMapLevelReader_DungeonLevelSizes());
   if (d.partyLevel != visibilityCase.level) LoadPartyLevel(visibilityCase.level);
   d.partyX = sw(visibilityCase.x - offsetX);
@@ -1821,6 +1901,7 @@ static void ShowForgottenMap(void)
 // the three forgets here touches the player's notes (see AutoMap_ForgetPlayerNotes).
 void AutoMap_ForgetExploredLevel(int level)
 {
+  ForgetLearnedFrame();
   recorder.Explored().ForgetLevel(level);
   recorder.Items().ForgetLevel(level);
   recorder.Cells().ForgetLevel(level);
@@ -1829,6 +1910,7 @@ void AutoMap_ForgetExploredLevel(int level)
 
 void AutoMap_ForgetExploredDungeon(void)
 {
+  ForgetLearnedFrame();
   for (int level = 0; level < recorder.Explored().LevelCount(); level++)
   {
     recorder.Explored().ForgetLevel(level);
@@ -1841,6 +1923,7 @@ void AutoMap_ForgetExploredDungeon(void)
 // The watches go too: a watch started before would teach a link again right away
 void AutoMap_ForgetLearned(void)
 {
+  ForgetLearnedFrame();
   recorder.Knowledge().Forget();
   recorder.Damage().Forget();
   recorder.LinkWatch().Clear();
@@ -2217,6 +2300,7 @@ static void RememberLooksOfExploredCells(void)
 // False when no map file was read, so that the hero statistics know it
 static bool ReadMapFile(const SavedGameFile &save)
 {
+  ForgetLearnedFrame();
   if (save.path.empty()) return false;
   std::string mapPath = MapFileOf(save.path);
   std::ifstream file(mapPath.c_str(), std::ios::binary);
@@ -2285,6 +2369,7 @@ void AutoMap_OnGameReset(void)
   // The old dungeon's levels stay, empty, until the next one is loaded: nothing explored, but
   // every level a hook may still name exists
   cachedLevel = -1;
+  ForgetLearnedFrame();
   recorder.ForgetDungeon(AutoMapLevelReader_DungeonLevelSizes());
   AutoMapLevelReader_ForgetDungeon();
   ShowNoLevel();
@@ -2295,6 +2380,7 @@ void AutoMap_OnDungeonLoaded(void)
   // A new dungeon can reuse a level number with other wall pictures
   cachedLevel = -1;
   AutoMapLevelReader_ForgetDungeon();
+  ForgetLearnedFrame();
   recorder.ForgetDungeon(AutoMapLevelReader_DungeonLevelSizes());
   ReportDoorLocksOfDungeon();
   ShowNoLevel();
