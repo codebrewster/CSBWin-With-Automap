@@ -77,6 +77,10 @@ int PlaybackControl_ChecksPerTimer(int base);
 // Due for every check with its millisecond clock; each true is one blank. Time runs at factor
 // times real time; a paused clock gathers none, and a stall of a second or more is not made up.
 // What it cannot catch up (a slow machine at 64x) it lets go, so it never comes in a burst.
+// The same layout whatever was included before: CSB.h leaves #pragma pack(1) switched on, and
+// system.cpp includes this header after it, so the class was 17 bytes there and 24 in
+// PlaybackControl.cpp: Due wrote its budget past the end of the object
+#pragma pack(push, 8)
 class PlaybackClock
 {
 public:
@@ -94,5 +98,6 @@ private:
   bool m_started;
   double m_budget;
 };
+#pragma pack(pop)
 
 #endif

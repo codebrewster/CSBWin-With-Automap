@@ -737,6 +737,8 @@ i32 CSBUI(CSB_UI_MESSAGE *msg)
 {
   static bool crash = false;
   i32 CallCheckVBL= 0;
+  // A replay at max: when the ticks of this timer message stop (0: no limit by time)
+  i64 maxSpeedUntil = 0;
   if (messageMask == 0) return UI_STATUS_NORMAL;
 //  {
 //    FILE *f;
@@ -1026,6 +1028,15 @@ i32 CSBUI(CSB_UI_MESSAGE *msg)
         //Then dispatch until nothing is left to do.  Then
         //call CheckVBL again.  Repeat entire process 10 times
         CallCheckVBL = VBLperTimer*VBLMultiplier; // do it 10 times
+        // A fast replay needs more chances for its blanks (PlaybackControl.h)
+        if (PlayfileIsOpen()) CallCheckVBL = PlaybackControl_ChecksPerTimer(VBLperTimer)*VBLMultiplier;
+        // A replay at max runs ticks until its time is up, then lets the window draw and
+        // take keys (PlaybackControl.h). --quick and #NoSpeedLimit keep their fixed count.
+        if (PlayfileIsOpen() && PlaybackControl_IsMax() && NoSpeedLimit != 0 && !PlaybackControl_IsPaused())
+        {
+          maxSpeedUntil = UI_GetSystemTime() + PLAYBACK_MAX_MS_PER_TIMER;
+          CallCheckVBL = 1000000;
+        }
         if (trace >= 0)
         {
           fprintf(GETFILE(trace),"UIM_TIMER\n");
@@ -1111,6 +1122,8 @@ i32 CSBUI(CSB_UI_MESSAGE *msg)
         PlaybackControl_ApplyDuePause();
         checkVBL();
         CallCheckVBL--;
+        if (maxSpeedUntil != 0 && (CallCheckVBL % 16) == 0 && UI_GetSystemTime() >= maxSpeedUntil)
+          CallCheckVBL = 0;
       };
       while (msgStackLen != 0)
       {
