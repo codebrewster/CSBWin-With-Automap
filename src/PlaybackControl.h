@@ -16,7 +16,7 @@ const int PLAYBACK_SPEED_MAX = 8;    // the index of max
 
 // At max a timer message runs ticks for this long, then the window gets its turn to draw and
 // to take keys (pause, slower), so the replay stays answerable however fast it runs
-const int PLAYBACK_MAX_MS_PER_TIMER = 30;
+const int PLAYBACK_MAX_MS_PER_TIMER = 8;
 // and draws the game's window no more often than this
 const int PLAYBACK_MAX_FRAMES_PER_SECOND = 30;
 

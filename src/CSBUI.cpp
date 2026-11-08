@@ -1122,7 +1122,7 @@ i32 CSBUI(CSB_UI_MESSAGE *msg)
         PlaybackControl_ApplyDuePause();
         checkVBL();
         CallCheckVBL--;
-        if (maxSpeedUntil != 0 && (CallCheckVBL % 16) == 0 && UI_GetSystemTime() >= maxSpeedUntil)
+        if (maxSpeedUntil != 0 && UI_GetSystemTime() >= maxSpeedUntil)
           CallCheckVBL = 0;
       };
       while (msgStackLen != 0)
