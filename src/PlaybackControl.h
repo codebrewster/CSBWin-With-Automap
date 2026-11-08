@@ -76,6 +76,10 @@ bool PlaybackControl_PartyAt(int level, int x, int y);
 // The platform layer's loop calls this before each of its own checks for a vertical blank,
 // between ticks, where a pause from the menu or Space takes effect too
 void PlaybackControl_ApplyDuePause(void);
+// True while a pause is due or in effect: the main loop starts no tick then. Without this, a tick
+// could start between the one that made the pause due and ApplyDuePause (a replayed click sets
+// the tick flag again), and a pause at a tick would stop one tick late.
+bool PlaybackControl_HoldsTicks(void);
 
 // From 4x on (max included) a replay is fast: the same sound would start again and again, many
 // at once on Linux and in a long backlog on Windows. The sounds go through SoundMayPlay then.

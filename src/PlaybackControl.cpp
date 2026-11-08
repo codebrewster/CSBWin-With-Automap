@@ -217,6 +217,8 @@ void PlaybackControl_ApplyDuePause(void)
   paused = true;
 }
 
+bool PlaybackControl_HoldsTicks(void) { return pauseIsDue || paused; }
+
 bool PlaybackControl_IsFastForSound(void) { return PlaybackControl_Factor() >= PLAYBACK_FAST_FOR_SOUND; }
 
 void PlaybackControl_SetSoundsWhenFast(bool on, int gapMs)

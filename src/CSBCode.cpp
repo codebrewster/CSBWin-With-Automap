@@ -15,6 +15,7 @@ ui32 time(void *);
 #include "CSB.h"
 #include "Data.h"
 #include "AutoMapHooks.h"
+#include "PlaybackControl.h"
 
 
 extern i32 VBLperTimer;
@@ -790,6 +791,7 @@ tag0007c8:
     if (d.ClockRunning == 0) AutoMap_OnClockStopped(); // Game frozen
     if (d.clockTick    == 0) WaitForButtonFlash(); // If any active
     if (d.clockTick    == 0) goto tag0007b4; // Usually 0
+    if (IsPlayFileOpen() && PlaybackControl_HoldsTicks()) goto tag0007b4; // A replay's pause is due
     if (d.ClockRunning == 0) goto tag0007b4; // Usually 1
     if ((d.Time&63)    == 0) // about every 10 seconds
     {
