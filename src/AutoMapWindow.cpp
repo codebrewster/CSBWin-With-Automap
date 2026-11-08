@@ -5610,12 +5610,31 @@ void AutoMapWindow_PaintIfDirty(void)
   }
 }
 
+// The list a TooltipScope holds in shownDrawList, and what it replaced
+static const AutoMapDrawList *tooltipScopeList = NULL;
+static AutoMapDrawList tooltipScopeSaved;
+
+void AutoMapWindow_TooltipScope(const AutoMapDrawList *list)
+{
+  if (tooltipScopeList != NULL) std::swap(shownDrawList, tooltipScopeSaved);
+  tooltipScopeList = list;
+  if (list == NULL) return;
+  tooltipScopeSaved = *list;
+  std::swap(shownDrawList, tooltipScopeSaved);
+}
+
 // The tooltip of a cell as DrawTileTooltip builds it, for the export (AutoMapWindowTooltip.h)
 void AutoMapWindow_TooltipFor(const AutoMapDrawList &list, int x, int y, bool fullChain,
                                 std::vector<AutoMapTipLine> *lines, std::vector<AutoMapTooltipEntry> *out)
 {
-  AutoMapDrawList saved = shownDrawList;
-  shownDrawList = list;
+  // Inside a scope for this very list the copy is already in place; otherwise copy it for this call
+  bool inScope = tooltipScopeList == &list;
+  AutoMapDrawList saved;
+  if (!inScope)
+  {
+    saved = shownDrawList;
+    shownDrawList = list;
+  }
   std::vector<TooltipCell> cells = FlattenTooltipSlots(BuildTooltipSlots(x, y));
   std::vector<std::string> hpLines = BuildTooltipHealthLines(x, y);
   std::vector<std::string> scrolls = AutoMapScene_ScrollTexts(shownDrawList, x, y);
@@ -5649,7 +5668,7 @@ void AutoMapWindow_TooltipFor(const AutoMapDrawList &list, int x, int y, bool fu
       out->push_back(c);
     }
   }
-  shownDrawList = saved;
+  if (!inScope) shownDrawList = saved;
 }
 
 // The map window as it would look, drawn off screen into a picture: no window needed, so the

@@ -19,6 +19,10 @@ struct AutoMapTooltipEntry
   int side;
 };
 
+// While a scope for list is open, TooltipFor(list, ...) does not copy the list for each call:
+// open it around the calls for every cell of one list, close it with NULL
+void AutoMapWindow_TooltipScope(const AutoMapDrawList *list);
+
 // The lines (POS first, each with its style and inline pictures) and the icon grid of the
 // tooltip of cell (x, y) of list; both stay empty when the cell has nothing to tell.
 // fullChain: as with Shift held.

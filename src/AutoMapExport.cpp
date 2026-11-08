@@ -291,6 +291,7 @@ static void WriteDrawList(std::string &f, ExportPictures &sp, const AutoMapDrawL
   // what hovering a cell shows: the tooltip as the window builds it, and the lines it draws
   Append(f, "],\n\"hover\":{");
   bool firstHover = true;
+  AutoMapWindow_TooltipScope(&l);
   for (size_t i = 0; i < l.cells.size(); i++)
   {
     int x = l.cells[i].x, y = l.cells[i].y;
@@ -354,6 +355,7 @@ static void WriteDrawList(std::string &f, ExportPictures &sp, const AutoMapDrawL
     Append(f, "%s\"%d,%d\":{%s}\n", firstHover ? "" : ",", x, y, o.str().c_str());
     firstHover = false;
   }
+  AutoMapWindow_TooltipScope(NULL);
   Append(f, "}}\n");
 }
 
