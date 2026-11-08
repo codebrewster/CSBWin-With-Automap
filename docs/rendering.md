@@ -54,10 +54,10 @@ transformations. A `GRAPHICT...` trace (`OpenGraphicTraceFile`,
 
 The UI dialogs (options, file browser, message boxes) use Dear ImGui, vendored in
 `src/imgui/`. The context and SDL renderer backend are set up in the platform
-main — for Linux, `CSBlinux.cpp:1513-1514` — and the fonts are loaded at
-`CSBlinux.cpp:1517-1523` (`Vera.ttf`, plus `diogenes.ttf` and `OldeEnglish.ttf`
+main — for Linux, `CSBlinux.cpp:1544` — and the fonts are loaded at
+`CSBlinux.cpp:1556-1563` (`Vera.ttf`, plus `diogenes.ttf` and `OldeEnglish.ttf`
 for scrolls and wall writing). `LinCSBUI.cpp` deliberately keeps the ImGui
-includes above `CSB.h` (`LinCSBUI.cpp:1`) because `CSB.h` turns on
+includes above `CSB.h` (`LinCSBUI.cpp:3`) because `CSB.h` turns on
 `#pragma pack(1)`.
 
 ## Sound
@@ -68,7 +68,7 @@ includes above `CSB.h` (`LinCSBUI.cpp:1`) because `CSB.h` turns on
 (`Sound.cpp:1010`). `SoundMixer.cpp` provides the mixing channels
 (`Mix_OpenAudio`, `SoundMixer.cpp:555`, and the rest of the `Mix_*` API), and the
 vendored `src/sdl_sound/` decodes MP3/WAV. `UI_Initialize_sounds`
-(`LinCSBUI.cpp:448`) wires the platform audio in; `UI_PlaySound`/`UI_StopSound`
+(`LinCSBUI.cpp:156`) wires the platform audio in; `UI_PlaySound`/`UI_StopSound`
 in `UI.h` are the engine-facing calls.
 
 Sound files are optional — see [../README.md](../README.md) and

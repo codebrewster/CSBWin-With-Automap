@@ -7,12 +7,12 @@ Everything above that — the engine and the UI dispatcher — is shared.
 
 The engine never calls SDL or a platform API directly. It sends `CSB_UI_MESSAGE`
 values (`UI.h:97`, codes `UIM_*` at `UI.h:41`) through the single entry point
-`CSBUI()` (`CSBUI.cpp:735`). `CSBUI.cpp` is cross-platform: it is a large `switch`
+`CSBUI()` (`CSBUI.cpp:736`). `CSBUI.cpp` is cross-platform: it is a large `switch`
 over the message types that either handles the message or drives the ported state
 machine through `Dispatch()`. The platform files supply only the primitives
 declared in `UI.h` — `UI_MessageBox`, `UI_ScreenPresent`, `UI_PlaySound`,
 `UI_Initialize_sounds`, `UI_Invalidate`, and so on. For example the Linux
-`UI_MessageBox` is `LinCSBUI.cpp:416`.
+`UI_MessageBox` is `LinCSBUI.cpp:116`.
 
 This split is why the same engine builds everywhere:
 `LinCSBUI.cpp` (Unix/Linux), plus per-target screen and audio files, implement the

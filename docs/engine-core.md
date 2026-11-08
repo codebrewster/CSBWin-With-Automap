@@ -134,7 +134,7 @@ The pace of a replay (pause, 0.5x to 64x, max) lives in `PlaybackControl.cpp` /
 `PlaybackControl.h`, which need neither the engine nor SDL and are tested by
 `make test`. `checkVBL` (`system.cpp:549`) takes its vertical blanks from a
 `PlaybackClock` while a replay is paused or not at 1x. Max is the engine's quick play
-(`NoSpeedLimit`): every blank is a tick, `CSBUI` (`LinCSBUI.cpp`) runs them for
+(`NoSpeedLimit`): every blank is a tick, `CSBUI` (`CSBUI.cpp:1037`) runs them for
 `PLAYBACK_MAX_MS_PER_TIMER` per timer message and `UI_ScreenPresent` draws at most
 `PLAYBACK_MAX_FRAMES_PER_SECOND` frames. From 4x on, `PlaybackControl_SoundMayPlay` thins out
 the sounds: `StartSound`, `PlayCustomSound` (`Sound.cpp`) and `LIN_PlayDirect` (`LinCSBUI.cpp`)
