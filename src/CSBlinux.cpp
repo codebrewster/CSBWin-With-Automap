@@ -1322,6 +1322,8 @@ static ImFont* add_font(char *font) {
 
 static ImFont *wall_font,*scroll_font;
 
+static bool ReplayRunsAtMax(void);
+
 int main(int argc, char* argv[])
 {
 #ifdef MAEMO_NOKIA_770
@@ -1634,7 +1636,16 @@ int main(int argc, char* argv[])
 	SDL_SemWait(sem);
 	timerInQueue=false;
 	SDL_SemPost(sem);
-      if(SDL_WaitEvent(&evert) == 0) {
+      if (ReplayRunsAtMax())
+      {
+	  // A replay at max has no clock to wait for: the next run of ticks starts at once,
+	  // instead of after the timer's next 10 ms
+	  SDL_UserEvent *ue = (SDL_UserEvent *)&evert;
+	  memset(&evert, 0, sizeof(evert));
+	  ue->type = SDL_USEREVENT;
+	  ue->code = IDC_Timer;
+      }
+      else if(SDL_WaitEvent(&evert) == 0) {
 	  printf("SDL_WaitEvent error %s\n",SDL_GetError());
 	  continue;
       }
@@ -2396,6 +2407,12 @@ static void SetReplaySpeed(int index)
   // quick play (#NoSpeedLimit, or --quick)
   NoSpeedLimit = PlaybackControl_IsMax() ? 0x20000000 : 0;
   VBLMultiplier = 1;
+}
+
+// A replay at max runs ticks without a clock (UI_ScreenPresent, CSBUI's UIM_TIMER)
+static bool ReplayRunsAtMax(void)
+{
+  return PlayfileIsOpen() && PlaybackControl_IsMax() && NoSpeedLimit != 0 && !PlaybackControl_IsPaused();
 }
 
 // The speed the replay runs at: quick play from the file or --quick counts as max

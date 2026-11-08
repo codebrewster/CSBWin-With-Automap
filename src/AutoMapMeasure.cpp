@@ -20,7 +20,6 @@
 #include "CSB.h"
 #include "Data.h"
 
-i32 GetPixel(pnt, i16, i16, i16); // Chaos.cpp
 void DrawViewport(i32 facing, i32 x, i32 y);
 
 // d.pViewportBMP: 224 x 136 pixels, 112 bytes per line
@@ -28,6 +27,24 @@ static const int VIEWPORT_BYTE_WIDTH = 112;
 static const int VIEWPORT_WIDTH = 2 * VIEWPORT_BYTE_WIDTH;
 static const int VIEWPORT_HEIGHT = 136;
 static const int VIEWPORT_BYTES = VIEWPORT_BYTE_WIDTH * VIEWPORT_HEIGHT;
+
+// The same pixel as Chaos.cpp's GetPixel (4 planes of big-endian words, 16 pixels to a group of
+// 8 bytes), without the register emulation: the measuring reads it hundreds of millions of times
+// in a replay
+static inline int PlanarPixel(const ui8 *base, int x, int y, int byteWidth)
+{
+  // (x / 2) & 0xf8 as GetPixel has it: a pixel left of the viewport reads the first group
+  // and its offset is a signed 16 bit sum, which a big source bitmap wraps
+  const ui8 *group = base + (short)(y * byteWidth + (((unsigned short)x / 2) & 0xf8));
+  int shift = 15 - (x & 15);
+  int pixel = 0;
+  for (int plane = 0; plane < 4; plane++)
+  {
+    int word = (group[plane * 2] << 8) | group[plane * 2 + 1];
+    pixel |= ((word >> shift) & 1) << plane;
+  }
+  return pixel;
+}
 
 struct DecorationDraw
 {
@@ -133,8 +150,8 @@ void AutoMapMeasure_AfterBlit(const AutoMapDrawKey &key, int x1, int x2, int y1,
   {
     for (int x = pendingX1; x <= pendingX2; x++)
     {
-      int behind = GetPixel((pnt)viewportBefore, sw(x), sw(y), VIEWPORT_BYTE_WIDTH);
-      int drawn = GetPixel((pnt)d.pViewportBMP, sw(x), sw(y), VIEWPORT_BYTE_WIDTH);
+      int behind = PlanarPixel((const ui8 *)viewportBefore, x, y, VIEWPORT_BYTE_WIDTH);
+      int drawn = PlanarPixel((const ui8 *)d.pViewportBMP, x, y, VIEWPORT_BYTE_WIDTH);
       if (behind == drawn) continue;
       AutoMapDrawnPixel pixel = {x, y, behind, drawn, writeStamps[y * VIEWPORT_WIDTH + x]};
       changed.push_back(pixel);
@@ -155,7 +172,7 @@ void AutoMapMeasure_OnViewportBlit(const unsigned char *src, int x1, int x2, int
     {
       if (transparentColor >= 0)
       {
-        int source = GetPixel((pnt)src, sw(srcOffsetX + x - x1), sw(srcOffsetY + y - y1), sw(srcByteWidth));
+        int source = PlanarPixel((const ui8 *)src, srcOffsetX + x - x1, srcOffsetY + y - y1, srcByteWidth);
         if (source == transparentColor) continue;
       }
       writeStamps[y * VIEWPORT_WIDTH + x] = blitCount;
@@ -165,7 +182,7 @@ void AutoMapMeasure_OnViewportBlit(const unsigned char *src, int x1, int x2, int
 
 static int ViewportPixel(int x, int y)
 {
-  return GetPixel((pnt)d.pViewportBMP, sw(x), sw(y), VIEWPORT_BYTE_WIDTH);
+  return PlanarPixel((const ui8 *)d.pViewportBMP, x, y, VIEWPORT_BYTE_WIDTH);
 }
 
 static int WriteStamp(int x, int y)
