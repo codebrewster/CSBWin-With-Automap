@@ -886,3 +886,28 @@ at L9 (15,34) facing S light 0
   tile (15,35) seen
   tile (16,34) seen
   tile (14,34) seen
+
+at L9 (14,34) facing S light 0
+  monster (15,37) seen                     # 590 standing out of 590, patch 590
+  monster (15,36) seen                     # 414 standing out of 463, patch 414
+  monster (15,35) seen                     # 301 standing out of 308, patch 293
+  tile (16,38) not seen
+  tile (12,38) not seen
+  tile (16,37) seen
+  tile (12,37) not seen
+  tile (15,38) not seen
+  tile (13,38) not seen
+  tile (14,38) not seen
+  tile (15,37) seen
+  tile (13,37) seen
+  tile (14,37) seen
+  tile (16,36) not seen
+  tile (12,36) not seen
+  tile (15,36) seen
+  tile (13,36) seen
+  tile (14,36) seen
+  tile (15,35) seen
+  tile (13,35) seen
+  tile (14,35) seen
+  tile (15,34) seen
+  tile (13,34) seen
