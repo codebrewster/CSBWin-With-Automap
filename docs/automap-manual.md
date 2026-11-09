@@ -88,11 +88,20 @@ click outside closes the list.
 | Mouse wheel | Zooms towards the pointer, from the whole level down to about three cells across |
 | Middle-click | Centres the view on the party again and follows it |
 | Mouse side buttons | Back goes down a level, forward goes up, centred on the tile under the pointer |
+| Ctrl+click on a stair | Comes out of the stair on the level it leads to: that level, centred on the stair you would arrive on, which gets a light frame while the rest of the level dims |
 | Page Down / Page Up | Goes down / up a level over the middle of the view |
 | Ctrl+Page Down / Ctrl+Page Up | The same from the game window, where the plain keys pick up items in the default `csb.cfg` |
 
 Zoomed out to the whole level, the view follows the party again. The side buttons are the quickest
 way to follow stairs and pits between levels.
+
+### Following stairs
+
+**Ctrl+click** a stair, or right-click it and choose **ASCEND** or **DESCEND**, to see where you
+would come out. The map switches to the level the stair leads to and centres on the stair there. The
+frame and the dimming go away with the next click, turn of the wheel or change of level. The stair you
+land on leads back, so Ctrl+click it to return to where you came from. If the map does not
+show that stair yet, the view still jumps there, without a frame.
 
 ## Vision and spoilers
 

@@ -20,6 +20,7 @@ const ITEM_KINDS = ['WEAPONS', 'ARMOUR', 'POTIONS', 'SCROLLS', 'CHESTS', 'FOOD',
 let showOpen = false, helpOpen = false, levelOpen = false, searchOpen = false, debugOpen = false;
 let menu = null;             // right-click menu: {x, y, title, rows:[{label, act, grey}], cell}
 let linkMode = null;         // {x, y, side}
+let stairMark = null;        // the stair a Ctrl+click or ASCEND / DESCEND came out on: {l, x, y} in dungeon coordinates
 const notes = {};            // per save/level: {pits:{key:0|1}, links:[[sx,sy,dx,dy,wall,side]]}
 let barHits = [], panelRects = {};
 let partyOverride = null;
@@ -61,6 +62,7 @@ function spoilAllowed(s) { const X = DATA.index.export; return !X || s >= X.minS
 function followParty() { if (!hasLevel(DATA.index.partyLevel)) return false; follow = true; setLevel(DATA.index.partyLevel); centreOnParty(); return true; }
 function viewOf(l) { return DATA.views[`L${l}_v${vision}_s${spoil}`]; }
 function setLevel(l) {
+  if (stairMark && stairMark.l !== l) stairMark = null;
   lvl = l; const L = DATA.index.levels[l]; W = L.w; H = L.h; OX = L.offsetX; OY = L.offsetY;
   refreshView(); hover = null; tipScroll = 0;
   if (cv.width && cs < minCs()) fitLevel();

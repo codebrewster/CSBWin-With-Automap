@@ -475,7 +475,8 @@ static const char *const HELP[][2] = {
     {"SHIFT", "THE WHOLE PRESS CHAIN (SPOILERS ALL)"},
     {"SHIFT+WHEEL", "SCROLL A LONG TOOLTIP"},
     {"CTRL+WHEEL", "SIZE OF THE TOOLTIP"},
-    {"RIGHT-CLICK", "YOUR OWN MARKS AND LINKS"},
+    {"CTRL+CLICK", "ON A STAIR: COME OUT ON THE OTHER LEVEL"},
+    {"RIGHT-CLICK", "MARKS, LINKS, ASCEND / DESCEND"},
     {"", ""},
     {"", "CLICK ANYWHERE TO CLOSE"}};
 static const int HELP_ROWS = sizeof(HELP) / sizeof(HELP[0]);
