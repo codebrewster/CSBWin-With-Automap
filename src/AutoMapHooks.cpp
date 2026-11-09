@@ -1029,6 +1029,13 @@ static void MeasureTheTick(void)
 
 static void FilterLastSnapshotAnew(void);
 
+void AutoMap_CheckBreakpoint(void)
+{
+  if (!PlayfileIsOpen() || !PartyLevelIsLoaded() || d.newPartyLevel != -1) return;
+  // A breakpoint the party stepped onto pauses the replay at once and is gone from the map
+  if (PlaybackControl_PartyAt(d.partyLevel, d.partyX, d.partyY)) FilterLastSnapshotAnew();
+}
+
 void AutoMap_OnEngineTick(void)
 {
   MeasureTheTick();
@@ -1043,8 +1050,7 @@ void AutoMap_OnEngineTick(void)
   // while partyLevel still names the old one: wait for the main loop to finish the move
   if (d.newPartyLevel != -1 || !PartyLevelIsLoaded()) return;
   HeroStats_OnPartyOnLevel();
-  // A breakpoint the party stepped onto pauses the replay at once and is gone from the map
-  if (PlayfileIsOpen() && PlaybackControl_PartyAt(d.partyLevel, d.partyX, d.partyY)) FilterLastSnapshotAnew();
+  AutoMap_CheckBreakpoint();
   if (visibilityTestIsPending) RunVisibilityTest();
   recorder.MarkPartyCell();
   if (ViewOfThePartyIsHidden()) recorder.SeeOnlyThePartyCell();

@@ -106,6 +106,9 @@ void AutoMap_OnPortraitViewed(int x, int y, int side);
 void AutoMap_OnScrollRead(int scroll);
 // Once per tick of the main game loop, whether or not the 3D view was drawn
 void AutoMap_OnEngineTick(void);
+// Just before a tick starts (the party may have stepped since the last one, up to a tile a tick):
+// a replay breakpoint is seen here, so the pause holds the next tick before it moves the party on
+void AutoMap_CheckBreakpoint(void);
 // The main loop while the game is frozen (no tick runs): the map shows the changes of its own
 // controls, such as another level, at once
 void AutoMap_OnClockStopped(void);
