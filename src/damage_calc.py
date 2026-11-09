@@ -488,11 +488,15 @@ def stamina_adjust(ch, base):
     return base
 
 
-def quickness(ch, ml):
-    q = ch["dexterity"] + random.randrange(8)
+def quickness(ch, ml, rolls=None):
+    """rolls=(a, b, c) replaces the three randrange(8) calls (in call
+    order) so damage_exact.py can enumerate them; None = random."""
+    a, b, c = rolls if rolls else (random.randrange(8),
+                                   random.randrange(8), random.randrange(8))
+    q = ch["dexterity"] + a
     q = q - ((q // 2) * ch["load"]) // ml
     q = q // 2
-    return min(max(q, random.randrange(8) + 1), 100 - random.randrange(8))
+    return min(max(q, b + 1), 100 - c)
 
 
 def is_lucky(ch, need):
@@ -503,8 +507,9 @@ def is_lucky(ch, need):
     return roll > need
 
 
-def throwing_distance(ch, wpn, ml):
-    d7 = ch["strength"] + random.randrange(16)
+def throwing_distance(ch, wpn, ml, roll=None):
+    """roll replaces the randrange(16) call (damage_exact.py)."""
+    d7 = ch["strength"] + (random.randrange(16) if roll is None else roll)
     w = wpn["weight"]
     d5 = ml // 16
     if w <= d5:

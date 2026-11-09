@@ -15,7 +15,8 @@ Lets the user:
     every fight starts at the pane's current stamina and TRIALS is
     rounded up to whole fights, so TRIALS can stay large for stable
     averages while modelling single fights),
-  * run the Monte-Carlo simulation from ``damage_calc`` and inspect
+  * compute the exact damage distribution (damage_exact; default) or
+    run the Monte-Carlo simulation from ``damage_calc`` and inspect
     the result table (click a column heading to sort), including the
     weapon weight limits for the current character.
 
@@ -30,6 +31,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 import damage_calc as engine
+import damage_exact
 import savefile
 import adf
 import dps_graph
@@ -237,6 +239,7 @@ class DamageCalcGUI(tk.Tk):
         self.v_trials = tk.IntVar(value=20000)
         self.v_seed = tk.IntVar(value=engine.SEED)
         self.v_drain = tk.BooleanVar(value=engine.STAMINA_DRAIN)
+        self.v_exact = tk.BooleanVar(value=True)
         # swings modelled per fight before stamina is restored; only
         # used when stamina drain is on (0 = never restore)
         self.v_fight_len = tk.IntVar(value=50)
@@ -307,6 +310,9 @@ class DamageCalcGUI(tk.Tk):
         # ===== top bar: sim settings + run =====
         top = ttk.Frame(root)
         top.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        ttk.Checkbutton(top, text="Exact (no Monte Carlo)",
+                        variable=self.v_exact).pack(side="left",
+                                                    padx=(0, 10))
         ttk.Label(top, text="Trials:").pack(side="left")
         ttk.Spinbox(top, from_=1, to=1000000, textvariable=self.v_trials,
                     width=9).pack(side="left", padx=(2, 10))
@@ -952,7 +958,9 @@ class DamageCalcGUI(tk.Tk):
         self.config(cursor="watch")
         try:
             rows = dps_graph.compute(wn, an, monster, 10, 120, trials,
-                                     seed, base, step=2)
+                                     seed, base,
+                                     step=1 if self.v_exact.get() else 2,
+                                     exact=self.v_exact.get())
         finally:
             self.config(cursor="")
         win = tk.Toplevel(self)
@@ -997,8 +1005,12 @@ class DamageCalcGUI(tk.Tk):
         self.v_status.set("Running %d combos x %d trials ..."
                           % (len(combos), trials))
         self.update_idletasks()
-        rows, ml = simulate(character, combos, monster,
-                            trials, seed, drain, fight_len)
+        if self.v_exact.get():
+            rows, ml = damage_exact.exact_rows(
+                character, combos, monster, trials, drain, fight_len)
+        else:
+            rows, ml = simulate(character, combos, monster,
+                                trials, seed, drain, fight_len)
         self._rows = rows
         self._sort_col = "dps"
         self._sort_rev = True

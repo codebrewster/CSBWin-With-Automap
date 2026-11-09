@@ -53,11 +53,23 @@ def dps_at(weapon, attack, monster, base_char, strength, trials, seed,
 
 
 def compute(weapon, attack, monster, lo, hi, trials, seed,
-            base_char=None, step=1):
+            base_char=None, step=1, exact=False):
     if base_char is None:
         base_char = engine.CHARACTER
     rows = []
     for s in range(lo, hi + 1, step):
+        if exact:
+            import damage_exact
+            vals = []
+            for boots in (False, True):
+                ch = copy.deepcopy(base_char)
+                ch["strength"] = s
+                ch["elven_boots"] = boots
+                ch["stamina"] = ch["max_stamina"]
+                vals.append(damage_exact.dps_exact(ch, weapon, attack,
+                                                   monster))
+            rows.append((s, vals[0], vals[1]))
+            continue
         rows.append((s,
                      dps_at(weapon, attack, monster, base_char, s,
                             trials, seed, False),
