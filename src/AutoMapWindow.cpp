@@ -50,6 +50,7 @@ static const SDL_Color STAIRS_UP_PLATE = {0xff, 0xf6, 0xdc, 0xff};
 static const SDL_Color STAIRS_DOWN_PLATE = {0xc9, 0xc0, 0xad, 0xff};
 static const SDL_Color TELEPORTER_HAZE = {80, 200, 255, 115};
 static const SDL_Color TELEPORTER_EDGE = {150, 225, 255, 204};
+static const SDL_Color PIT_FILL = {0x2e, 0x2b, 0x27, 0xff};
 static const SDL_Color PIT_MARKER = {0x00, 0x00, 0x00, 0xff};
 static const SDL_Color PIT_MARKER_EDGE = {0x8a, 0x4a, 0x4a, 0xff};
 static const SDL_Color PARTY = {0xff, 0x4d, 0x4d, 0xff};
@@ -182,8 +183,13 @@ static int barPointerX = 0;
 static int barPointerY = 0;
 static int pointerStateOfTheGame = SDL_ENABLE;
 static int zoomSteps = 0;
+// Set by a zoom towards the pointer: a level that still fits an axis is then placed by the
+// view centre, not centred, so that the cell under the pointer does not jump
+static bool zoomPlacesFreely = false;
 // One bit per AutoMapShown; everything by default
 static unsigned shownThings = (1u << AUTOMAP_SHOWN_COUNT) - 1;
+// How a pit is drawn: by the game's picture, by stripes, or by the cell size (map_pit_style)
+static AutoMapPitStyle pitStyle = AutoMapPitStyleAuto;
 // Wall decorations in a square by their face (true) or as big tiles across the wall (false)
 
 // Set map_timing = 1 in the settings and the map reports its renderer, paint times,
@@ -401,6 +407,8 @@ void AutoMapWindow_ReadSettings(void)
   char stone[] = "stone";
   AutoMapBar_SetStyle(csb_get_config_string(SETTINGS_SECTION, "map_bar_style", stone));
   tooltipScale = std::max(1, std::min(TOOLTIP_SCALE_MOST, csb_get_config_int(SETTINGS_SECTION, "map_tip_scale", 1)));
+  int style = csb_get_config_int(SETTINGS_SECTION, "map_pit_style", AutoMapPitStyleAuto);
+  pitStyle = style >= 0 && style < AUTOMAP_PIT_STYLE_COUNT ? (AutoMapPitStyle)style : AutoMapPitStyleAuto;
 }
 
 static void RememberPlacement(void)
@@ -424,6 +432,7 @@ void AutoMapWindow_WriteSettings(void)
   std::string style = AutoMapBar_StyleName();
   csb_set_config_string(SETTINGS_SECTION, "map_bar_style", &style[0]);
   csb_set_config_int(SETTINGS_SECTION, "map_tip_scale", tooltipScale);
+  csb_set_config_int(SETTINGS_SECTION, "map_pit_style", (int)pitStyle);
 }
 
 static bool Shows(AutoMapShown what)
@@ -468,6 +477,18 @@ void AutoMapWindow_SetShows(AutoMapShown what, bool isShown)
   if (isShown) shownThings |= 1u << what;
   else shownThings &= ~(1u << what);
   // The static layer is cached per draw list: a new serial paints it again
+  drawListSerial++;
+  isDirty = true;
+}
+
+AutoMapPitStyle AutoMapWindow_PitStyle(void)
+{
+  return pitStyle;
+}
+
+void AutoMapWindow_SetPitStyle(AutoMapPitStyle style)
+{
+  pitStyle = style;
   drawListSerial++;
   isDirty = true;
 }
@@ -599,6 +620,7 @@ void AutoMapWindow_ShowDrawList(const AutoMapDrawList &drawList)
 {
   if (drawList.level != shownDrawList.level)
   {
+    zoomPlacesFreely = false;
     sprites.ForgetAll();
     ShowLevelInTitle(drawList.level);
     ClearHover();
@@ -976,6 +998,7 @@ static bool IsPointerEventOfMapWindow(const SDL_Event &event)
 
 static void RecenterViewOnParty(void)
 {
+  zoomPlacesFreely = false;
   pendingCentre = AutoMapScene_NoPendingCentre();
   pendingCentreIsSearchHit = false;
   if (shownDrawList.partyIsOnShownLevel || AutoMap_PartyLevel() == shownDrawList.level)
@@ -1104,6 +1127,7 @@ static void ZoomTowardsPointer(int notches)
   isDirty = true;
   if (AutoMapScene_ShowsWholeLevel(RequestOfShownLevel()))
   {
+    zoomPlacesFreely = false;
     if (notches < 0 && !viewFollowsParty)
     {
       RecenterViewOnParty();
@@ -1124,6 +1148,7 @@ static void ZoomTowardsPointer(int notches)
   FreezeExactViewCenter(before);
   float pointX = (float)(pointerPixelX - before.originX) / before.cellSize;
   float pointY = (float)(pointerPixelY - before.originY) / before.cellSize;
+  zoomPlacesFreely = true;
   viewCenterX = AutoMapScene_CentreKeepingPointStill(viewCenterX, pointX, before.cellSize,
                                                      after.cellSize);
   viewCenterY = AutoMapScene_CentreKeepingPointStill(viewCenterY, pointY, before.cellSize,
@@ -1696,6 +1721,38 @@ static void DrawLevelPlate(const SDL_Rect &cell, int level)
   AutoMapRect plate = {cell.x + (cell.w - width) / 2, cell.y + (cell.h - height) / 2, width, height};
   AutoMapPaint_Plate(plate, SPINNER);
   AutoMapPaint_Text(plate.x + 2 * pixel, plate.y + 2 * pixel, label, SPINNER, pixel);
+}
+
+// Stripes in place of the picture: a pit reads as a hazard where the picture is a speck. In
+// AUTO the stripes take over below PIT_STRIPES_BELOW pixels per cell.
+static const int PIT_STRIPES_BELOW = 24;
+static const int PIT_STRIPES_SMALLEST = 6;
+
+static bool PitIsStriped(int cellSize)
+{
+  if (pitStyle == AutoMapPitStyleStripes) return true;
+  return pitStyle == AutoMapPitStyleAuto && cellSize < PIT_STRIPES_BELOW;
+}
+
+static void DrawPitStripes(const SDL_Rect &cell)
+{
+  Fill(cell, PIT_FILL);
+  if (cell.w < PIT_STRIPES_SMALLEST) return;
+  SDL_Rect oldClip;
+  bool wasClipped = SDL_RenderIsClipEnabled(mapRenderer) == SDL_TRUE;
+  SDL_RenderGetClipRect(mapRenderer, &oldClip);
+  SDL_Rect clip = cell;
+  if (wasClipped && !SDL_IntersectRect(&cell, &oldClip, &clip)) return;
+  SDL_RenderSetClipRect(mapRenderer, &clip);
+  UseColour(PIT_MARKER_EDGE);
+  int step = std::max(4, cell.w / 3);
+  int thickness = cell.w >= 16 ? 2 : 1;
+  for (int k = -cell.h + step / 2; k < cell.w; k += step)
+  {
+    for (int t = 0; t < thickness; t++)
+      SDL_RenderDrawLine(mapRenderer, cell.x + k + t, cell.y + cell.h, cell.x + k + cell.h + t, cell.y);
+  }
+  SDL_RenderSetClipRect(mapRenderer, wasClipped ? &oldClip : NULL);
 }
 
 static void DrawPitMarker(const SDL_Rect &cell)
@@ -2743,6 +2800,9 @@ static void DrawCellBase(const AutoMapView &view, const AutoMapShownCell &shown,
       DrawLevelPlate(cell, record.teleporterDestLevel);
     }
   }
+  // The stripes are the background; the game's picture still stands on them
+  // A concealed pit, open or closed, reads as floor in the 3D view: no stripes on it
+  if (record.kind == AutoMapCellPit && !record.pitIsHidden && PitIsStriped(cell.w)) DrawPitStripes(cell);
   if (hasFloorPicture && (record.kind == AutoMapCellPit || Shows(AutoMapShowFloorDecorations)
                           || !AutoMapScene_FloorPictureIsFlavour(record.floorPicture)))
   {
@@ -3033,6 +3093,7 @@ static AutoMapViewRequest RequestOfShownLevel(void)
   request.levelSize.height = shownDrawList.height;
   MapAreaSize(&request.windowWidth, &request.windowHeight);
   request.zoomSteps = zoomSteps;
+  request.placeFreely = zoomPlacesFreely && !viewFollowsParty;
   if (viewFollowsParty)
   {
     if (shownDrawList.partyIsOnShownLevel)

@@ -536,6 +536,7 @@ most of them for you; only `map_debug` needs editing by hand.
 | `map_hide` | What **Show** leaves out, one bit each: 1 scrolls, 2 chests, 4 potions, 8 weapons, 16 armour, 32 other items, 64 monsters, 128 wall decorations, 256 wall writing, 512 floor decorations, 1024 food, 2048 keys | `0` |
 | `map_bar_style` | The bar's look: `stone`, `segmented`, `cyan`, `brass` or `classic` | `stone` |
 | `map_tip_scale` | The tooltip's size, `1` to `4` (Ctrl+wheel) | `1` |
+| `map_pit_style` | How a pit is drawn (**Show**, PITS): `0` automatic (red stripes while the cells are under 24 pixels, the game's picture above), `1` the picture, `2` stripes | `0` |
 | `map_debug` | `1` turns on the testing aids below | `0` |
 
 ## Testing aids (debug mode)

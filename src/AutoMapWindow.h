@@ -46,6 +46,16 @@ enum AutoMapShown
   AutoMapShowKeys,
   AUTOMAP_SHOWN_COUNT
 };
+// How a pit is drawn: by the game's picture, by red stripes, or by the size of the cells
+enum AutoMapPitStyle
+{
+  AutoMapPitStyleAuto,
+  AutoMapPitStylePicture,
+  AutoMapPitStyleStripes,
+  AUTOMAP_PIT_STYLE_COUNT
+};
+AutoMapPitStyle AutoMapWindow_PitStyle(void);
+void AutoMapWindow_SetPitStyle(AutoMapPitStyle style);
 bool AutoMapWindow_Shows(AutoMapShown what);
 void AutoMapWindow_SetShows(AutoMapShown what, bool isShown);
 

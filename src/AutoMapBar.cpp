@@ -386,6 +386,19 @@ struct ShowRow
   int what;
 };
 
+// The row that cycles how a pit is drawn; it has no box
+static const int PITS_ROW = -3;
+
+static const char *PitStyleName(void)
+{
+  switch (AutoMapWindow_PitStyle())
+  {
+  case AutoMapPitStylePicture: return "PICTURE";
+  case AutoMapPitStyleStripes: return "STRIPES";
+  default: return "AUTO";
+  }
+}
+
 static const ShowRow SHOW_ROWS[] = {
     {"SHOW ALL", -1}, {"HIDE ALL", -2}, {NULL, 0},
     {"WEAPONS", AutoMapShowWeapons}, {"ARMOUR", AutoMapShowArmour}, {"POTIONS", AutoMapShowPotions},
@@ -393,7 +406,7 @@ static const ShowRow SHOW_ROWS[] = {
     {"KEYS", AutoMapShowKeys}, {"OTHER ITEMS", AutoMapShowOtherItems}, {NULL, 0},
     {"MONSTERS", AutoMapShowMonsters}, {NULL, 0},
     {"WALL DECORATIONS", AutoMapShowWallDecorations}, {"WALL WRITING", AutoMapShowWallWriting},
-    {"FLOOR DECORATIONS", AutoMapShowFloorDecorations}};
+    {"FLOOR DECORATIONS", AutoMapShowFloorDecorations}, {NULL, 0}, {"PITS", PITS_ROW}};
 static const int SHOW_ROW_COUNT = sizeof(SHOW_ROWS) / sizeof(SHOW_ROWS[0]);
 static const int ROW = 16;
 static const int DIVIDER_ROW = 6;
@@ -431,7 +444,9 @@ static void DrawShowPanel(int width)
       AutoMapRect tick = {panel.x + 10, y + 4, 6, 6};
       if (on) AutoMapPaint_Fill(tick, GOLD);
     }
-    AutoMapPaint_Text(panel.x + 24, y + 3, SHOW_ROWS[i].label, box && !on ? GREY : WHITE, PIXEL);
+    std::string label = SHOW_ROWS[i].label;
+    if (SHOW_ROWS[i].what == PITS_ROW) label = "PITS: " + std::string(PitStyleName());
+    AutoMapPaint_Text(panel.x + (SHOW_ROWS[i].what == PITS_ROW ? 8 : 24), y + 3, label, box && !on ? GREY : WHITE, PIXEL);
     y += ROW;
   }
 }
@@ -451,6 +466,8 @@ static bool ShowPanelPress(int x, int y, int width)
     if (SHOW_ROWS[i].label && y >= rowY && y < rowY + h)
     {
       int what = SHOW_ROWS[i].what;
+      if (what == PITS_ROW)
+        AutoMapWindow_SetPitStyle((AutoMapPitStyle)((AutoMapWindow_PitStyle() + 1) % AUTOMAP_PIT_STYLE_COUNT));
       for (int k = 0; k < AUTOMAP_SHOWN_COUNT; k++)
       {
         if (what == -1) AutoMapWindow_SetShows((AutoMapShown)k, true);

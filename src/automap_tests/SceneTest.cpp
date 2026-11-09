@@ -793,6 +793,7 @@ static AutoMapViewRequest RequestFor(int windowWidth, int windowHeight)
   request.zoomSteps = 0;
   request.centerX = 0;
   request.centerY = 0;
+  request.placeFreely = false;
   return request;
 }
 
@@ -838,6 +839,7 @@ static void ZoomReachesAThirdOfTheView(void)
   request.windowHeight = 900;
   request.centerX = 16;
   request.centerY = 16;
+  request.placeFreely = false;
   int most = AutoMapScene_MostZoomSteps(request);
   request.zoomSteps = most;
   CHECK(AutoMapScene_PlaceLevel(request).cellSize >= 300);
@@ -964,6 +966,32 @@ static void ZoomKeepsThePointUnderThePointerStill(void)
   // A pointer in the middle of the view zooms around the centre as before
   CHECK(AutoMapScene_CentreKeepingPointStill(16, 16.5f, 40, 60) == 16.0f);
   CHECK(AutoMapScene_CentreKeepingPointStill(16, 3.0f, 0, 60) == 16.0f);
+}
+
+// Zoomed out all the way in a window taller than the level, the first zoom steps leave black space
+// above and below: the cell under the pointer must stay under it, not slide towards the centre
+static void ZoomFromTheWholeLevelKeepsThePointerCell(void)
+{
+  AutoMapViewRequest request = RequestFor(640, 800);
+  AutoMapView before = AutoMapScene_PlaceLevel(request);
+  CHECK(before.cellSize == 20 && before.originY == 200);
+  int pointerX = 320, pointerY = 300;
+  float pointX = (float)(pointerX - before.originX) / before.cellSize;
+  float pointY = (float)(pointerY - before.originY) / before.cellSize;
+  float centreX = (640 / 2.0f - before.originX) / before.cellSize - 0.5f;
+  float centreY = (800 / 2.0f - before.originY) / before.cellSize - 0.5f;
+  request.zoomSteps = 1;
+  int newCellSize = AutoMapScene_PlaceLevel(request).cellSize;
+  request.centerX = AutoMapScene_CentreKeepingPointStill(centreX, pointX, before.cellSize, newCellSize);
+  request.centerY = AutoMapScene_CentreKeepingPointStill(centreY, pointY, before.cellSize, newCellSize);
+  // Centred, as before the change: the level moves under the pointer
+  AutoMapView centred = AutoMapScene_PlaceLevel(request);
+  CHECK(centred.originY == (800 - 20 * newCellSize) / 2);
+  request.placeFreely = true;
+  AutoMapView after = AutoMapScene_PlaceLevel(request);
+  CHECK(std::fabs(after.originY + pointY * after.cellSize - pointerY) <= 1.0f);
+  // The level may sit off-centre then, but never off the window
+  CHECK(after.originY + 20 * after.cellSize > 0 && after.originY < 800);
 }
 
 static void OnlyTheFittingZoomShowsTheWholeLevel(void)
@@ -7031,6 +7059,7 @@ void TestAutoMapScene(void)
   WindowWithoutRoomShowsNothing();
   ZoomStepsStayWithinTheirRange();
   ZoomReachesAThirdOfTheView();
+  ZoomFromTheWholeLevelKeepsThePointerCell();
   ZoomStepZeroIsTheWholeLevel();
   ZoomedInTheViewIsCentredOnTheParty();
   ZoomedInTheViewStopsAtTheEdgesOfTheLevel();

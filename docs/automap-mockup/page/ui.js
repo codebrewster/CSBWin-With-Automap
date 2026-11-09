@@ -56,6 +56,9 @@ function drawButton(r) {
   if (r.grey) { tg.fillStyle = 'rgba(17,17,17,.62)'; tg.fillRect(r.x, r.y, r.w, r.h); }
 }
 let levelBtnX = 0, showBtnX = 0, searchBtnX = 0, debugBtnX = 0;
+// A bar wider than the window scrolls: arrows at the clipped ends, the wheel over the bar, as in the game
+let barScroll = 0, barLeft = false, barRight = false;
+const barArrowW = () => 9 * BAR_P;
 function drawBar() {
   barHits = [];
   const items = [];
@@ -76,6 +79,9 @@ function drawBar() {
   add('?', helpOpen, () => { const o = !helpOpen; closePanels(); helpOpen = o; });
   if (debugOn) add('+', debugOpen, () => { const o = !debugOpen; closePanels(); debugOpen = o; });
   const rects = packBar(items, tbar.width, false);
+  const reach = rects.length ? rects[rects.length - 1].x + rects[rects.length - 1].w + barSpacing().frame + 3 * BAR_P : 0;
+  barScroll = Math.max(0, Math.min(barScroll, reach - tbar.width)); barLeft = barScroll > 0; barRight = reach - barScroll > tbar.width;
+  rects.forEach(r => { r.x -= barScroll; });
   const h = 26; barRect(0, 0, tbar.width, h, barFill());
   if (barLook === 'stone') { barRect(0, 0, tbar.width, 1, 0x949194); barRect(0, h - 2, tbar.width, 1, 0x4a484a); barRect(0, h - 1, tbar.width, 1, 0x000000); }
   else barRect(0, h - 1, tbar.width, 1, 0x3a362f);
@@ -90,6 +96,10 @@ function drawBar() {
     if (r.label === '|/') searchBtnX = r.x;
     if (r.label === '+') debugBtnX = r.x;
   }
+  // The arrows at the clipped ends
+  const aw = barArrowW();
+  if (barLeft) { barRect(0, 1, aw, h - 3, barFill()); text(tg, 3 * BAR_P, 4 * BAR_P, '<', '#e0b64a', BAR_P); }
+  if (barRight) { barRect(tbar.width - aw, 1, aw, h - 3, barFill()); text(tg, tbar.width - aw + 3 * BAR_P, 4 * BAR_P, '>', '#e0b64a', BAR_P); }
 }
 function closePanels() { showOpen = helpOpen = levelOpen = debugOpen = false; menu = null; }
 function refreshAll() { refreshView(); buildIndex(); if (query) rebuild(true); }
@@ -97,19 +107,19 @@ function stepLevel(d) { let l = lvl + d; while (l >= 0 && l < DATA.index.levels.
 
 // ---------------- SHOW ----------------
 function drawShowPanel() {
-  panelRects.show = null; if (!showOpen) return; const p = 2, rows = ['SHOW ALL', 'HIDE ALL', null, ...ITEM_KINDS, null, 'MONSTERS', null, 'WALL DECORATIONS', 'WALL WRITING', 'FLOOR DECORATIONS'];
+  panelRects.show = null; if (!showOpen) return; const p = 2, rows = ['SHOW ALL', 'HIDE ALL', null, ...ITEM_KINDS, null, 'MONSTERS', null, 'WALL DECORATIONS', 'WALL WRITING', 'FLOOR DECORATIONS', null, 'PITS'];
   const w = textW('X FLOOR DECORATIONS', p) + 24, h = rows.reduce((n, r) => n + (r ? 16 : 6), 0) + 8; const x = Math.min(showBtnX, cv.width - w - 4), y = 2;
   plate(x, y, w, h); let yy = y + 5; const hits = [];
   for (const r of rows) { if (!r) { rect(x + 6, yy + 2, w - 12, 1, '#3a362f'); yy += 6; continue; }
-    const box = r === 'SHOW ALL' || r === 'HIDE ALL' ? null : SHOW[r]; if (box !== null) { frame(x + 8, yy + 2, 10, 10, '#8f8676'); if (box) rect(x + 10, yy + 4, 6, 6, '#ffcc33'); }
-    text(g, x + 24, yy + 3, r, box === false ? '#8f8676' : '#fff', p); hits.push([x, yy, w, 16, r]); yy += 16; }
+    const box = r === 'SHOW ALL' || r === 'HIDE ALL' || r === 'PITS' ? null : SHOW[r]; if (box !== null) { frame(x + 8, yy + 2, 10, 10, '#8f8676'); if (box) rect(x + 10, yy + 4, 6, 6, '#ffcc33'); }
+    text(g, x + (r === 'PITS' ? 8 : 24), yy + 3, r === 'PITS' ? 'PITS: ' + PIT_STYLES[pitStyle] : r, box === false ? '#8f8676' : '#fff', p); hits.push([x, yy, w, 16, r]); yy += 16; }
   panelRects.show = [x, y, w, h, hits];
 }
-function showClick(mx, my) { const P = panelRects.show; if (!P) return false; if (!inRect(mx, my, P)) { showOpen = false; return true; } for (const [x, y, w, h, r] of P[4]) if (inRect(mx, my, [x, y, w, h])) { if (r === 'SHOW ALL') Object.keys(SHOW).forEach(k => SHOW[k] = true); else if (r === 'HIDE ALL') Object.keys(SHOW).forEach(k => SHOW[k] = false); else SHOW[r] = !SHOW[r]; } return true; }
+function showClick(mx, my) { const P = panelRects.show; if (!P) return false; if (!inRect(mx, my, P)) { showOpen = false; return true; } for (const [x, y, w, h, r] of P[4]) if (inRect(mx, my, [x, y, w, h])) { if (r === 'SHOW ALL') Object.keys(SHOW).forEach(k => SHOW[k] = true); else if (r === 'HIDE ALL') Object.keys(SHOW).forEach(k => SHOW[k] = false); else if (r === 'PITS') { pitStyle = (pitStyle + 1) % 3; try { localStorage.setItem('csb-map-pit-style', String(pitStyle)); } catch (e) { } } else SHOW[r] = !SHOW[r]; } return true; }
 
 // ---------------- controls help ----------------
 const HELP = [['LEFT-DRAG', 'PAN THE MAP'], ['WHEEL', 'ZOOM TOWARDS THE POINTER'], ['MIDDLE-CLICK', 'CENTRE ON THE PARTY AND FOLLOW'], ['SIDE BUTTONS', 'LEVEL DOWN / UP UNDER THE POINTER'], ['PAGE DOWN / UP', 'LEVEL DOWN / UP (CTRL IN THE GAME)'], ['/ OR CTRL+F', 'SEARCH ALL LEVELS'], ['HOVER', 'WHAT IS THERE, AND ITS LINKS'], ['SHIFT', 'THE WHOLE PRESS CHAIN (SPOILERS ALL)'], ['SHIFT+WHEEL', 'SCROLL A LONG TOOLTIP'], ['CTRL+WHEEL', 'SIZE OF THE TOOLTIP'], ['CTRL+CLICK', 'ON A STAIR: COME OUT ON THE OTHER LEVEL'], ['RIGHT-CLICK', 'MARKS, LINKS, ASCEND / DESCEND'], ['', ''], ['', 'CLICK ANYWHERE TO CLOSE']];
-function drawHelp() { if (!helpOpen) return; const p = 2, c1 = textW('PAGE DOWN / UP', p) + 20, w = c1 + textW('ON A STAIR: COME OUT ON THE OTHER LEVEL', p) + 20, h = HELP.length * 16 + 30; const x = Math.round((cv.width - w) / 2), y = 40; plate(x, y, w, h); text(g, x + 10, y + 8, 'CONTROLS', '#ffcc33', p); HELP.forEach((r, i) => { text(g, x + 10, y + 26 + i * 16, r[0], '#ffcc33', p); text(g, x + 10 + c1, y + 26 + i * 16, r[1], '#fff', p); }); }
+function drawHelp() { if (!helpOpen) return; const widest = (i, q) => Math.max(...HELP.map(r => textW(r[i], q))); const fit = q => widest(0, q) + widest(1, q) + 40; const p = fit(2) <= cv.width - 8 ? 2 : 1, c1 = widest(0, p) + 20, w = Math.min(c1 + widest(1, p) + 20, cv.width - 4), h = HELP.length * 16 + 30; const x = Math.max(2, Math.round((cv.width - w) / 2)), y = 40; plate(x, y, w, h); text(g, x + 10, y + 8, 'CONTROLS', '#ffcc33', p); HELP.forEach((r, i) => { text(g, x + 10, y + 26 + i * 16, r[0], '#ffcc33', p); text(g, x + 10 + c1, y + 26 + i * 16, r[1], '#fff', p); }); }
 
 // ---------------- level list ----------------
 let levelScroll = 0, typed = '', levelRows = [], levelHover = -1; const ROWS_SHOWN = 12;
@@ -319,10 +329,13 @@ function resize() { const top = document.getElementById('wrap').offsetTop; cv.wi
 // cells are always a whole number of pixels: fractional sizes leave gaps and push patterns past their frames
 function maxCs() { return Math.floor(Math.max(96, Math.min(cv.width - 2 * RUL, cv.height - 2 * RUL) / 3)); }
 function minCs() { return Math.max(1, Math.floor(Math.min((cv.width - 2 * RUL) / W, (cv.height - 2 * RUL) / H))); }
-function fitLevel() { cs = minCs(); panX = Math.round(((cv.width - 2 * RUL) - W * cs) / 2); panY = Math.round(((cv.height - 2 * RUL) - H * cs) / 2); }
+var zoomFree = false; // set by a wheel zoom: a level that still fits an axis is placed by the pan, not centred, so the cell under the pointer stays
+function fitLevel() { zoomFree = false; cs = minCs(); panX = Math.round(((cv.width - 2 * RUL) - W * cs) / 2); panY = Math.round(((cv.height - 2 * RUL) - H * cs) / 2); }
 function centreOn(x, y) { let top = RUL; if (panelRects.search) top = panelRects.search[1] + panelRects.search[3]; panX = Math.round((cv.width - 2 * RUL) / 2 - (x + .5) * cs); panY = Math.round(((top + cv.height - RUL) / 2 - RUL) - (y + .5) * cs); }
 // as in the game: a level smaller than the map stays centred, a larger one never leaves a gap at an edge
-function clampAxis(pan, room, cells) { const size = cells * cs; return size <= room ? Math.round((room - size) / 2) : Math.max(room - size, Math.min(pan, 0)); }
+// the black margin a zoomed level may leave at either end (as AllowedMargin in AutoMapScene.cpp)
+function allowedMargin(room, size) { return size <= room ? room - size / 2 : Math.floor(room / 2); }
+function clampAxis(pan, room, cells) { const size = cells * cs; if (zoomFree) { const m = allowedMargin(room, size); return Math.max(room - size - m, Math.min(pan, m)); } return size <= room ? Math.round((room - size) / 2) : Math.max(room - size, Math.min(pan, 0)); }
 function clampPan() { panX = clampAxis(panX, cv.width - 2 * RUL, W); panY = clampAxis(panY, cv.height - 2 * RUL, H); }
 function centreOnParty() { const p = party(); if (p && cs > minCs() + .01) centreOn(p.x, p.y); }
 function cellAt(mx, my) { const x = Math.floor((mx - RUL - panX) / cs), y = Math.floor((my - RUL - panY) / cs); return (x >= 0 && x < W && y >= 0 && y < H && mx > RUL && my > RUL && mx < cv.width - RUL && my < cv.height - RUL) ? { x, y } : null; }
@@ -368,9 +381,10 @@ cv.addEventListener('wheel', e => {
   if (e.ctrlKey) { tipScale = Math.max(1, Math.min(TIP_SCALE_MOST, tipScale - d)); try { localStorage.setItem('csb-map-tip-scale', String(tipScale)); } catch (err) { } draw(); return; }
   if (e.shiftKey) { tipScroll = Math.max(0, tipScroll + d); draw(); return; }
   const old = cs; let next = Math.round(cs * (d < 0 ? 1.15 : 1 / 1.15)); if (next === cs) next += d < 0 ? 1 : -1; cs = Math.min(maxCs(), next); if (cs <= minCs()) { fitLevel(); draw(); return; }
-  const ax = mx - RUL, ay = my - RUL; panX = Math.round(ax - (ax - panX) * cs / old); panY = Math.round(ay - (ay - panY) * cs / old); draw();
+  const ax = mx - RUL, ay = my - RUL; zoomFree = true; panX = Math.round(ax - (ax - panX) * cs / old); panY = Math.round(ay - (ay - panY) * cs / old); draw();
 }, { passive: false });
-tbar.addEventListener('mousedown', e => { for (const [x, w, act] of barHits) if (e.offsetX >= x && e.offsetX < x + w && e.offsetY >= 4 && e.offsetY < 22) { act(); draw(); return; } });
+tbar.addEventListener('wheel', e => { e.preventDefault(); barScroll = Math.max(0, barScroll + (e.deltaY > 0 ? 24 : -24)); draw(); }, { passive: false });
+tbar.addEventListener('mousedown', e => { if (barLeft && e.offsetX < barArrowW()) { barScroll = Math.max(0, barScroll - tbar.width / 2); draw(); return; } if (barRight && e.offsetX >= tbar.width - barArrowW()) { barScroll += tbar.width / 2; draw(); return; } for (const [x, w, act] of barHits) if (e.offsetX >= x && e.offsetX < x + w && e.offsetY >= 4 && e.offsetY < 22) { act(); draw(); return; } });
 window.addEventListener('keydown', e => {
   // The page has no text field: Backspace is never the browser's Back (Firefox can be set to that)
   if (e.key === 'Backspace') e.preventDefault();

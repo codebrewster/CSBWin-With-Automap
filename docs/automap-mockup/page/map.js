@@ -13,6 +13,17 @@ let tipScroll = 0;
 const TIP_SCALE_MOST = 4;
 let tipScale = 1;
 try { tipScale = Math.max(1, Math.min(TIP_SCALE_MOST, +localStorage.getItem('csb-map-tip-scale') || 1)); } catch (e) { }
+// How a pit is drawn: 0 = by the cell size, 1 = the game's picture, 2 = red stripes (as map_pit_style)
+const PIT_STYLES = ['AUTO', 'PICTURE', 'STRIPES'], PIT_STRIPES_BELOW = 24;
+let pitStyle = 0;
+try { pitStyle = Math.max(0, Math.min(2, +localStorage.getItem('csb-map-pit-style') || 0)); } catch (e) { }
+const pitStriped = () => pitStyle === 2 || (pitStyle === 0 && cs < PIT_STRIPES_BELOW);
+function drawPitStripes(x, y) {
+  rect(x, y, cs, cs, '#2e2b27'); if (cs < 6) return;
+  g.save(); g.beginPath(); g.rect(x, y, cs, cs); g.clip(); g.strokeStyle = '#8a4a4a'; g.lineWidth = cs >= 16 ? 2 : 1; const step = Math.max(4, Math.floor(cs / 3));
+  for (let k = -cs + Math.floor(step / 2); k < cs; k += step) { g.beginPath(); g.moveTo(x + k, y + cs); g.lineTo(x + k + cs, y); g.stroke(); }
+  g.restore();
+}
 const SHOW = {};
 const ITEM_KINDS = ['WEAPONS', 'ARMOUR', 'POTIONS', 'SCROLLS', 'CHESTS', 'FOOD', 'KEYS', 'OTHER ITEMS'];
 [...ITEM_KINDS, 'MONSTERS', 'WALL DECORATIONS', 'WALL WRITING', 'FLOOR DECORATIONS'].forEach(k => SHOW[k] = true);
@@ -63,7 +74,7 @@ function followParty() { if (!hasLevel(DATA.index.partyLevel)) return false; fol
 function viewOf(l) { return DATA.views[`L${l}_v${vision}_s${spoil}`]; }
 function setLevel(l) {
   if (stairMark && stairMark.l !== l) stairMark = null;
-  lvl = l; const L = DATA.index.levels[l]; W = L.w; H = L.h; OX = L.offsetX; OY = L.offsetY;
+  lvl = l; zoomFree = false; const L = DATA.index.levels[l]; W = L.w; H = L.h; OX = L.offsetX; OY = L.offsetY;
   refreshView(); hover = null; tipScroll = 0;
   if (cv.width && cs < minCs()) fitLevel();
 }
@@ -90,7 +101,7 @@ function party() {
 // ============================================================================================
 const LET = [[2,5,7,5,5],[6,5,6,5,6],[3,4,4,4,3],[6,5,5,5,6],[7,4,6,4,7],[7,4,6,4,4],[3,4,5,5,3],[5,5,7,5,5],[7,2,2,2,7],[1,1,1,5,2],[5,5,6,5,5],[4,4,4,4,7],[5,7,5,5,5],[6,5,5,5,5],[2,5,5,5,2],[6,5,6,4,4],[2,5,5,6,3],[6,5,6,5,5],[3,4,2,1,6],[7,2,2,2,2],[5,5,5,5,7],[5,5,5,5,2],[5,5,5,7,5],[5,5,2,5,5],[5,5,2,2,2],[7,1,2,4,7]];
 const DIG = [[7,5,5,5,7],[2,6,2,2,7],[7,1,7,4,7],[7,1,7,1,7],[5,5,7,1,1],[7,4,7,1,7],[7,4,7,5,7],[7,1,2,2,2],[7,5,7,5,7],[7,5,7,1,7]];
-const PUN = {' ':[0,0,0,0,0],'+':[0,2,7,2,0],'-':[0,0,7,0,0],'.':[0,0,0,0,2],',':[0,0,0,2,4],':':[0,2,0,2,0],'?':[6,1,2,0,2],'!':[2,2,2,0,2],'/':[1,1,2,4,4],'(':[2,4,4,4,2],')':[2,1,1,1,2],'=':[0,7,0,7,0],'>':[4,2,1,2,4],'<':[1,2,4,2,1],'~':[0,0,7,2,0],"'":[2,2,0,0,0],'%':[5,1,2,4,5],'_':[0,0,0,0,7]};
+const PUN = {' ':[0,0,0,0,0],'+':[0,2,7,2,0],'-':[0,0,7,0,0],'.':[0,0,0,0,2],',':[0,0,0,2,4],':':[0,2,0,2,0],'?':[6,1,2,0,2],'!':[2,2,2,0,2],'/':[1,1,2,4,4],'\\':[4,4,2,1,1],'(':[2,4,4,4,2],')':[2,1,1,1,2],'=':[0,7,0,7,0],'>':[4,2,1,2,4],'<':[1,2,4,2,1],'~':[0,0,7,2,0],"'":[2,2,0,0,0],'%':[5,1,2,4,5],'_':[0,0,0,0,7]};
 function glyph(ch) { ch = ch.toUpperCase(); if (ch >= 'A' && ch <= 'Z') return LET[ch.charCodeAt(0) - 65]; if (ch >= '0' && ch <= '9') return DIG[+ch]; return PUN[ch] || PUN[' ']; }
 function text(c2, x, y, s, col, p) { x = Math.round(x); y = Math.round(y); c2.fillStyle = col; for (let i = 0; i < s.length; i++) { const r = glyph(s[i]); for (let row = 0; row < 5; row++) for (let c = 0; c < 3; c++) if (r[row] & (1 << (2 - c))) c2.fillRect(x + (i * 4 + c) * p, y + row * p, p, p); } }
 const textW = (s, p) => s.length ? (s.length * 4 - 1) * p : 0;
@@ -147,7 +158,7 @@ function drawCellBase(c) {
   if (k === 9) dashed(x + i, y + i, cs - 2 * i, cs - 2 * i, '#5a5a66');
   if (k === 10 || k === 11) spinner(c, x, y, k === 10 ? COL.cyan : '#406e76');
   // floor picture: pits always, functional pictures always, dressing when shown
-  if (k === 2 || (c.fp && (!c.flav || SHOW['FLOOR DECORATIONS']))) { if (!spr(c.fp, x + cs * .05, y + cs * .05, cs * .9, cs * .9)) { if (k === 2) { rect(x + cs * .15, y + cs * .15, cs * .7, cs * .7, '#000'); frame(x + cs * .15, y + cs * .15, cs * .7, cs * .7, '#8a4a4a'); } } }
+  if (k === 2 && !(c.pit && c.pit[0]) && pitStriped()) drawPitStripes(x, y); if (k === 2 || (c.fp && (!c.flav || SHOW['FLOOR DECORATIONS']))) { if (!spr(c.fp, x + cs * .05, y + cs * .05, cs * .9, cs * .9)) { if (k === 2) { rect(x + cs * .15, y + cs * .15, cs * .7, cs * .7, '#000'); frame(x + cs * .15, y + cs * .15, cs * .7, cs * .7, '#8a4a4a'); } } }
   if (c.pit && ((k === 2 && c.pit[0]) || c.pit[2])) dashed(x, y, cs, cs, '#8a4a4a');
   if ((k === 5 || k === 8) && c.tele[6]) { const sc = c.tele[3]; const who = sc === 2 ? [['party', 0], ['box']] : sc === 1 ? [['claw']] : sc === 0 ? [['box']] : null; if (who) chip(x, y, who, '#3f7d88'); }
   if ((k === 5 || k === 8) && c.tele[7] && c.tele[0] !== lvl) levelPlate(x, y, 'L' + c.tele[0], COL.cyan);

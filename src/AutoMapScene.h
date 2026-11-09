@@ -1574,6 +1574,10 @@ struct AutoMapViewRequest
   // across zoom steps, where integer cells plus pixels would jump.
   float centerX;
   float centerY;
+  // Set after a zoom towards the pointer: the centre places the level even where a black margin
+  // remains, so that the cell under the pointer stays where it is; the margin shrinks with the
+  // zoom steps by itself. Unset, an axis on which the level fits is centred.
+  bool placeFreely;
 };
 
 // Cell (x, y) covers the square of cellSize pixels at (originX + x * cellSize, originY + y * cellSize)

@@ -2582,6 +2582,7 @@ struct ViewAxis
   int windowPixels;
   int levelCells;
   float centerCell;
+  bool placeFreely;
 };
 
 static int RoundToPixels(float position)
@@ -2589,12 +2590,31 @@ static int RoundToPixels(float position)
   return (int)floor(position + 0.5f);
 }
 
+// The black margin a zoomed level may leave at either end of an axis. A margin shrinks by itself
+// while the pointer zooms: the zoom pushes the level's edge away from it. Taking the margin away at
+// once instead moves the cell under the pointer, so it stays, up to half of the window; only
+// recentring, another level or zooming out to the whole level places the level in the middle again.
+static int AllowedMargin(int windowPixels, int levelPixels)
+{
+  if (levelPixels <= windowPixels) return windowPixels - levelPixels / 2;
+  return windowPixels / 2;
+}
+
 static int OriginAlong(const ViewAxis &axis, int cellSize)
 {
   int levelPixels = axis.levelCells * cellSize;
-  if (levelPixels <= axis.windowPixels) return (axis.windowPixels - levelPixels) / 2;
   float center = axis.centerCell * cellSize + cellSize / 2.0f;
   int originCentred = axis.windowPixels / 2 - RoundToPixels(center);
+  if (axis.placeFreely)
+  {
+    // After a zoom towards the pointer a black margin may remain: the zoom itself pushes the
+    // level's edge away from the pointer and the margin shrinks with each step, where removing
+    // it at once would move the cell under the pointer. Half of the level stays on screen at
+    // least, and a level that is much larger than the window has no room for a margin.
+    int margin = AllowedMargin(axis.windowPixels, levelPixels);
+    return std::max(axis.windowPixels - levelPixels - margin, std::min(originCentred, margin));
+  }
+  if (levelPixels <= axis.windowPixels) return (axis.windowPixels - levelPixels) / 2;
   int originShowingLastCell = axis.windowPixels - levelPixels;
   return std::max(originShowingLastCell, std::min(originCentred, 0));
 }
@@ -2626,8 +2646,8 @@ AutoMapView AutoMapScene_PlaceLevel(const AutoMapViewRequest &request)
 {
   int zoomSteps = AutoMapScene_ClampZoomSteps(request.zoomSteps, request);
   int fittingCellSize = LargestCellSizeShowingTheWholeLevel(request);
-  ViewAxis horizontal = {request.windowWidth, request.levelSize.width, request.centerX};
-  ViewAxis vertical = {request.windowHeight, request.levelSize.height, request.centerY};
+  ViewAxis horizontal = {request.windowWidth, request.levelSize.width, request.centerX, request.placeFreely};
+  ViewAxis vertical = {request.windowHeight, request.levelSize.height, request.centerY, request.placeFreely};
   AutoMapView view;
   view.cellSize = fittingCellSize > 0 ? CellSizeAtStep(fittingCellSize, zoomSteps) : 0;
   view.originX = OriginAlong(horizontal, view.cellSize);
@@ -2749,6 +2769,7 @@ static bool PunctuationPixel(char mark, int row, int col)
   case '?': rows[0] = 0x6; rows[1] = 0x1; rows[2] = 0x2; rows[3] = 0x0; rows[4] = 0x2; break;
   case '!': rows[0] = 0x2; rows[1] = 0x2; rows[2] = 0x2; rows[3] = 0x0; rows[4] = 0x2; break;
   case '/': rows[0] = 0x1; rows[1] = 0x1; rows[2] = 0x2; rows[3] = 0x4; rows[4] = 0x4; break;
+  case '\\': rows[0] = 0x4; rows[1] = 0x4; rows[2] = 0x2; rows[3] = 0x1; rows[4] = 0x1; break;
   case '(': rows[0] = 0x2; rows[1] = 0x4; rows[2] = 0x4; rows[3] = 0x4; rows[4] = 0x2; break;
   case ')': rows[0] = 0x2; rows[1] = 0x1; rows[2] = 0x1; rows[3] = 0x1; rows[4] = 0x2; break;
   case '=': rows[0] = 0x0; rows[1] = 0x7; rows[2] = 0x0; rows[3] = 0x7; rows[4] = 0x0; break;
