@@ -1178,12 +1178,13 @@ static bool SideHasWallLock(int x, int y, int side)
   return false;
 }
 
-// Whether a local-action type-5 gate on this side rotates the actuator list when
+// Whether a local-action type-5 gate or type-1 wall switch on this side rotates the actuator list when
 // it fires (localActionType 1 or 2 -> RotateActuatorList, Code11f52.cpp). DM L5's
 // four-alcove gate at (18,24) uses this to move a disabled graphic actuator
 // behind itself and expose the Iron Key on the same side; that face is neither
-// an alcove nor a lock, but the goods are still meant to be found. Keeping this
-// to type 5 avoids exposing wall goods on every unrelated local actuator (torch
+// an alcove nor a lock, but the goods are still meant to be found. DM L1's (6,18)
+// is the same with a switch (type 1): pressing it moves the cover aside and shows the Falchion.
+// Keeping this to those two types avoids exposing wall goods on every unrelated local actuator (torch
 // holders, plaques, counters) whose word6 happens to read like a rotate action.
 static bool SideRotatesActuatorList(int x, int y, int side)
 {
@@ -1193,7 +1194,7 @@ static bool SideRotatesActuatorList(int x, int y, int side)
     if (object.pos() != side) continue;
     DB3 *actuator = GetRecordAddressDB3(object);
     if (actuator == NULL) continue;
-    if (actuator->actuatorType() != 5) continue;
+    if (actuator->actuatorType() != 5 && actuator->actuatorType() != 1) continue;
     if (actuator->localActionOnly() == 0) continue;
     int localAction = actuator->localActionType();
     if (localAction == 1 || localAction == 2) return true;
