@@ -658,6 +658,16 @@ at L2 (35,40) facing E light 5
   alcove (36,40) W "BREAD" not seen        # 0 standing out of 71
   alcove (36,40) W seen                    # something in it is
 
+# OH EW RA: the hole in the wall ahead shows the floor behind it and the text on the wall beyond
+at L9 (15,22) facing W light 0 OhEwRa
+  decoration (12,22) E seen                # through the hole: 0 contrasting of 0, the pixel test cannot judge it
+  monster (13,21) seen                     # 433 standing out of 513, patch 414
+  item (13,22) "KEY OF B" not seen          # 0 standing out of 0: not visible in the 3D view either
+  tile (13,22) seen                        # the floor behind the wall ahead
+  tile (12,22) seen                        # the wall beyond it
+  tile (14,22) seen
+  tile (11,22) not seen
+  tile (13,24) not seen
 save csb-Visibility-test-02
 
 at L0 (4,15) facing S light 0

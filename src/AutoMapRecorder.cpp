@@ -4,6 +4,7 @@
 // Before CSB.h, which leaves #pragma pack(1) switched on
 #include "AutoMapRecorder.h"
 
+#include <algorithm>
 #include <map>
 
 #include "AutoMapLevelReader.h"
@@ -110,6 +111,45 @@ AutoMapRecorder::AutoMapRecorder(void)
 {
 }
 
+// OH EW RA: the 3D view cuts a round hole in the wall (or a window in the shut door) straight
+// ahead and shows through it the floor two ahead and the wall three ahead, painted before the
+// wall was. Those two cells are seen as if the cell in front of the party did not block.
+static void AddWhatTheHoleShows(const SUMMARIZEROOMDATA *cellsInView, const bool *canSeeThrough,
+                                const bool *isShutDoor, bool *isVisible, bool *isExplored,
+                                std::vector<std::pair<int, int> > *holeCells, std::vector<int> *holeCellNumbers)
+{
+  static const int CELL_AHEAD = 17;
+  static const int CELLS_IN_HOLE[2] = {14, 9};
+  if (d.SeeThruWalls == 0 || canSeeThrough[CELL_AHEAD]) return;
+  const SUMMARIZEROOMDATA &ahead = cellsInView[CELL_AHEAD];
+  bool isWall = ahead.roomType == roomSTONE || IsOnRim(ahead);
+  if (!isWall && !isShutDoor[CELL_AHEAD]) return;
+  bool throughHole[AUTOMAP_SIGHT_CELL_COUNT];
+  bool noShutDoor[AUTOMAP_SIGHT_CELL_COUNT];
+  for (int i = 0; i < AUTOMAP_SIGHT_CELL_COUNT; i++)
+  {
+    throughHole[i] = canSeeThrough[i];
+    noShutDoor[i] = isShutDoor[i];
+  }
+  throughHole[CELL_AHEAD] = true;
+  noShutDoor[CELL_AHEAD] = false;
+  bool holeVisible[AUTOMAP_SIGHT_CELL_COUNT];
+  bool holeExplored[AUTOMAP_SIGHT_CELL_COUNT];
+  AutoMapSight_FindVisibleCells(throughHole, noShutDoor, holeVisible);
+  AutoMapSight_FindExploredCells(throughHole, noShutDoor, holeExplored);
+  for (int i = 0; i < 2; i++)
+  {
+    int cell = CELLS_IN_HOLE[i];
+    if (holeExplored[cell] && !isExplored[cell]) holeCellNumbers->push_back(cell);
+    if (holeVisible[cell] && !isVisible[cell] && IsOnLevel(cellsInView[cell]) && cellsInView[cell].roomType != roomSTONE)
+    {
+      holeCells->push_back(std::make_pair((int)cellsInView[cell].x, (int)cellsInView[cell].y));
+    }
+    isVisible[cell] = isVisible[cell] || holeVisible[cell];
+    isExplored[cell] = isExplored[cell] || holeExplored[cell];
+  }
+}
+
 void AutoMapRecorder::RecordViewport(const SUMMARIZEROOMDATA *cellsInView, int lightReach)
 {
   bool canSeeThrough[AUTOMAP_SIGHT_CELL_COUNT];
@@ -130,6 +170,9 @@ void AutoMapRecorder::RecordViewport(const SUMMARIZEROOMDATA *cellsInView, int l
   }
   AutoMapSight_FindVisibleCells(canSeeThrough, isShutDoor, isVisible);
   AutoMapSight_FindExploredCells(canSeeThrough, isShutDoor, isExplored);
+  m_holeCells.clear();
+  m_holeCellNumbers.clear();
+  AddWhatTheHoleShows(cellsInView, canSeeThrough, isShutDoor, isVisible, isExplored, &m_holeCells, &m_holeCellNumbers);
   bool isInSight[AUTOMAP_SIGHT_CELL_COUNT];
   for (int i = 0; i < AUTOMAP_SIGHT_CELL_COUNT; i++) isInSight[i] = isExplored[i];
   // What the light does not reach is drawn black: it is not seen, whatever the ray says
@@ -438,6 +481,19 @@ unsigned long long AutoMapRecorder::FrameFingerprint(void) const
 const std::vector<AutoMapRecordId> &AutoMapRecorder::MonstersSeenNow(void) const
 {
   return m_monstersSeenNow;
+}
+
+bool AutoMapRecorder::IsShownByHole(int x, int y) const
+{
+  return std::find(m_holeCells.begin(), m_holeCells.end(), std::make_pair(x, y)) != m_holeCells.end();
+}
+
+bool AutoMapRecorder::DrawLocationIsShownByHole(int drawLocation) const
+{
+  int cellNumber = 0;
+  int summaryIndex = 0;
+  if (!AutoMapSight_DecorationPlacement(drawLocation, &cellNumber, &summaryIndex)) return false;
+  return std::find(m_holeCellNumbers.begin(), m_holeCellNumbers.end(), cellNumber) != m_holeCellNumbers.end();
 }
 
 void AutoMapRecorder::SeeMonster(AutoMapRecordId group)

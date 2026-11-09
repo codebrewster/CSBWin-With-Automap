@@ -91,7 +91,16 @@ public:
   // whether the view is hidden. What the learning from a finished frame reads besides the picture.
   unsigned long long FrameFingerprint(void) const;
 
+  // Whether (x, y) is a cell the hole of OH EW RA shows in the last frame, and was not seen
+  // without it. The hole shows a shrunken copy of the view, which the pixel measurement of the
+  // draws cannot tell from the wall painted over it.
+  bool IsShownByHole(int x, int y) const;
+  // Likewise for the wall decoration the 3D view draws at drawLocation (Viewport.cpp)
+  bool DrawLocationIsShownByHole(int drawLocation) const;
+
 private:
+  std::vector<std::pair<int, int> > m_holeCells;
+  std::vector<int> m_holeCellNumbers;
   // The 3D view's last frame, kept for the decorations it draws after summarising its cells
   struct FrameCell
   {

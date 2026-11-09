@@ -10,6 +10,7 @@
 //
 //   save csb-Visibility-test
 //   at L0 (12,7) facing N light 4
+//   at L9 (15,22) facing W light 0 OhEwRa   # with the see-through-walls spell active
 //     decoration (12,5) S   seen        # a comment
 //     item (12,6)           glimpsed    # the tile's items together: any of them
 //     item (12,6) "Dagger"  seen        # one item, by the name the game shows
@@ -67,6 +68,8 @@ struct AutoMapVisibilityCase
   int facing;
   // The palette index, as the map's debug light: 0 full light .. 5 darkest
   int light;
+  // The spell OH EW RA is in effect, as if cast just before: the 3D view cuts a hole in the wall ahead
+  bool seeThroughWalls = false;
   std::vector<AutoMapVisibilityCheck> checks;
 };
 

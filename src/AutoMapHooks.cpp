@@ -628,6 +628,18 @@ static unsigned long long FingerprintOfFrame(const std::vector<AutoMapDrawOnScre
   return hash;
 }
 
+static bool MonsterStandsInHole(AutoMapRecordId group)
+{
+  if (lastSnapshot.level != d.partyLevel) return false;
+  for (size_t i = 0; i < lastSnapshot.monsters.size(); i++)
+  {
+    const AutoMapMonsterRecord &monster = lastSnapshot.monsters[i];
+    if (monster.record != group) continue;
+    return recorder.IsShownByHole(monster.x - lastSnapshot.boundaryMarginX, monster.y - lastSnapshot.boundaryMarginY);
+  }
+  return false;
+}
+
 // A decoration counts as seen when the frame shows enough of it in the light on screen, the
 // debug light included; a floor item likewise is remembered where it lies
 static void LearnFromViewportDraws(void)
@@ -680,6 +692,8 @@ static void LearnFromViewportDraws(void)
       hasDecorations = true;
       bool isSeen = key.descIndex == AUTOMAP_SCRIBBLES_DRAWN ? AutoMapSight_ScribblesAreSeen(view)
                                                              : AutoMapSight_DecorationIsSeen(view);
+      // Through the hole of OH EW RA a shrunken copy of the view shows: the pixels drawn no longer match
+      if (!isSeen && d.SeeThruWalls != 0) isSeen = recorder.DrawLocationIsShownByHole(key.drawLocation);
       if (!isSeen) continue;
       recorder.MarkDrawnDecoration(key.drawLocation);
     }
@@ -720,7 +734,10 @@ static void LearnFromViewportDraws(void)
                     shape.largestPatch);
       monsterTrace += entry;
       KeepMeasurement(key, shape.visible, shape.drawn, shape.largestPatch);
-      if (shape.visible >= AUTOMAP_SEEN_MONSTER_PIXELS) recorder.SeeMonster(key.record);
+      bool isSeen = shape.visible >= AUTOMAP_SEEN_MONSTER_PIXELS;
+      // Through the hole of OH EW RA the monster is drawn shrunken, not as measured
+      if (!isSeen && d.SeeThruWalls != 0) isSeen = MonsterStandsInHole(key.record);
+      if (isSeen) recorder.SeeMonster(key.record);
     }
     else if (key.kind == AutoMapDrawFloorDecoration)
     {
@@ -1691,6 +1708,7 @@ static void DrawVisibilityCase(const AutoMapVisibilityCase &visibilityCase, int 
   d.partyY = sw(visibilityCase.y - offsetY);
   d.partyFacing = sw(visibilityCase.facing);
   AutoMap_SetLightOverride(visibilityCase.light);
+  d.SeeThruWalls = visibilityCase.seeThroughWalls ? 1 : 0;
   DrawViewport(d.partyFacing, d.partyX, d.partyY);
 }
 
@@ -1758,9 +1776,10 @@ static void RunVisibilityTest(void)
     if (visibilityCase.checks.empty())
     {
       // A survey: every thing the frame drew, once, as a check line to paste
-      printf("visibility: line %d: survey of at L%d (%d,%d) facing %s light %d\n",
+      printf("visibility: line %d: survey of at L%d (%d,%d) facing %s light %d%s\n",
              visibilityCase.lineNumber, visibilityCase.level, visibilityCase.x, visibilityCase.y,
-             AutoMapVisibilityCases_SideName(visibilityCase.facing), visibilityCase.light);
+             AutoMapVisibilityCases_SideName(visibilityCase.facing), visibilityCase.light,
+             visibilityCase.seeThroughWalls ? " OhEwRa" : "");
       std::vector<AutoMapVisibilityCheck> things;
       const std::vector<AutoMapDrawOnScreen> &draws = AutoMapMeasure_DrawsOfFrame();
       for (size_t i = 0; i < draws.size(); i++)

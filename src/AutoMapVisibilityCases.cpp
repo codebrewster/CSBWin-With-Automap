@@ -145,7 +145,7 @@ static bool IsAtEnd(std::istringstream &words)
   return !(words >> word);
 }
 
-// at L0 (12,7) facing N light 4
+// at L0 (12,7) facing N light 4 [OhEwRa]
 static bool ReadCase(std::istringstream &words, AutoMapVisibilityCase *visibilityCase)
 {
   std::string word;
@@ -161,7 +161,10 @@ static bool ReadCase(std::istringstream &words, AutoMapVisibilityCase *visibilit
   {
     return false;
   }
-  return IsAtEnd(words);
+  visibilityCase->seeThroughWalls = false;
+  if (!(words >> word)) return true;
+  visibilityCase->seeThroughWalls = true;
+  return word == "OhEwRa" && IsAtEnd(words);
 }
 
 static bool ReadCheck(const std::string &thingName, std::istringstream &words,
@@ -242,7 +245,7 @@ bool AutoMapVisibilityCases_Parse(const std::string &text, AutoMapVisibilityCase
       }
       if (!ReadCase(words, &visibilityCase))
       {
-        *error = LineError(lineNumber, "expected at L<level> (<x>,<y>) facing <N|E|S|W> light <0..5>");
+        *error = LineError(lineNumber, "expected at L<level> (<x>,<y>) facing <N|E|S|W> light <0..5> [OhEwRa]");
         return false;
       }
       cases->sections.back().cases.push_back(visibilityCase);
