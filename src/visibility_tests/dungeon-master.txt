@@ -660,14 +660,34 @@ at L2 (35,40) facing E light 5
 
 # OH EW RA: the hole in the wall ahead shows the floor behind it and the text on the wall beyond
 at L9 (15,22) facing W light 0 OhEwRa
-  decoration (12,22) E seen                # through the hole: 0 contrasting of 0, the pixel test cannot judge it
+  decoration (12,23) E seen                # 33 contrasting of 99, patch 99, tint patch 47, blot 195
+  decoration (12,21) E seen                # 24 contrasting of 66, patch 66, tint patch 38, blot 194
+  decoration (12,22) E seen                # 0 contrasting of 0, patch 0, tint patch 0, blot 0
   monster (13,21) seen                     # 433 standing out of 513, patch 414
-  item (13,22) "KEY OF B" not seen          # 0 standing out of 0: not visible in the 3D view either
-  tile (13,22) seen                        # the floor behind the wall ahead
-  tile (12,22) seen                        # the wall beyond it
-  tile (14,22) seen
+  item (13,22) "KEY OF B" not seen         # 0 standing out of 0, patch 0
+  tile (11,24) not seen
+  tile (11,20) not seen
+  tile (12,24) not seen
+  tile (12,20) not seen
+  tile (11,23) not seen
+  tile (11,21) not seen
   tile (11,22) not seen
+  tile (12,23) seen
+  tile (12,21) seen
+  tile (12,22) seen
   tile (13,24) not seen
+  tile (13,20) not seen
+  tile (13,23) seen
+  tile (13,21) seen
+  tile (13,22) seen
+  tile (14,23) seen
+  tile (14,21) seen
+  tile (14,22) seen
+  tile (15,23) seen
+  tile (15,21) seen
+
+
+
 save csb-Visibility-test-02
 
 at L0 (4,15) facing S light 0
@@ -751,3 +771,118 @@ at L0 (4,15) facing S light 4
   tile (4,16) seen
   tile (5,15) seen
   tile (3,15) seen
+
+# Should see the skeleton
+at L9 (15,22) facing W light 0 OhEwRa
+  decoration (12,23) E seen                # 33 contrasting of 99, patch 99, tint patch 47, blot 195
+  decoration (12,21) E seen                # 24 contrasting of 66, patch 66, tint patch 38, blot 194
+  decoration (12,22) E seen                # 0 contrasting of 0, patch 0, tint patch 0, blot 0
+  monster (13,21) seen                     # 432 standing out of 507, patch 414
+  item (13,22) "SAMURAI SWORD" not seen    # 0 standing out of 0, patch 0
+  item (13,22) "CHEST" seen                # 0 standing out of 0, patch 0
+  item (13,22) "KEY OF B" not seen         # 0 standing out of 0, patch 0
+  monster (13,22) seen                     # 0 standing out of 0, patch 0
+  tile (11,24) not seen
+  tile (11,20) not seen
+  tile (12,24) not seen
+  tile (12,20) not seen
+  tile (11,23) not seen
+  tile (11,21) not seen
+  tile (11,22) not seen
+  tile (12,23) seen
+  tile (12,21) seen
+  tile (12,22) seen
+  tile (13,24) not seen
+  tile (13,20) not seen
+  tile (13,23) seen
+  tile (13,21) seen
+  tile (13,22) seen
+  tile (14,23) seen
+  tile (14,21) seen
+  tile (14,22) seen
+  tile (15,23) seen
+  tile (15,21) seen
+
+
+# Should see the skeleton
+at L9 (13,41) facing N light 0 OhEwRa
+  monster (14,38) not seen                 # 0 standing out of 0, patch 0
+  monster (14,39) not seen                 # 0 standing out of 0, patch 0
+  monster (13,39) seen                     # 0 standing out of 0, patch 0
+  tile (11,37) not seen
+  tile (15,37) not seen
+  tile (11,38) not seen
+  tile (15,38) not seen
+  tile (12,37) not seen
+  tile (14,37) not seen
+  tile (13,37) not seen
+  tile (12,38) not seen
+  tile (14,38) not seen
+  tile (13,38) seen
+  tile (11,39) not seen
+  tile (15,39) not seen
+  tile (12,39) not seen
+  tile (14,39) not seen
+  tile (13,39) seen
+  tile (12,40) seen
+  tile (14,40) seen
+  tile (13,40) seen
+  tile (12,41) seen
+  tile (14,41) seen
+
+
+# Should only see the first Flying Eye
+at L9 (14,41) facing N light 0 OhEwRa
+  monster (14,38) not seen                 # 0 standing out of 0, patch 0
+  monster (13,39) not seen                 # 0 standing out of 0, patch 0
+  monster (14,39) seen                     # 0 standing out of 0, patch 0
+  tile (12,37) not seen
+  tile (16,37) not seen
+  tile (12,38) not seen
+  tile (16,38) not seen
+  tile (13,37) not seen
+  tile (15,37) not seen
+  tile (14,37) not seen
+  tile (13,38) not seen
+  tile (15,38) not seen
+  tile (14,38) seen
+  tile (12,39) not seen
+  tile (16,39) not seen
+  tile (13,39) not seen
+  tile (15,39) not seen
+  tile (14,39) seen
+  tile (13,40) seen
+  tile (15,40) seen
+  tile (14,40) seen
+  tile (13,41) seen
+  tile (15,41) seen
+
+
+# Should see the first flying eye and barely the foot of the skeleton, but not the second flying eye
+at L9 (15,34) facing S light 0
+  decoration (16,37) W not seen            # 0 contrasting of 3, patch 0, tint patch 0, blot 100
+  monster (15,37) not seen                 # 9 standing out of 26, patch 4, blocked by eye before it
+  item (16,36) "ARMET" not seen            # 0 standing out of 0, patch 0
+  monster (15,36) seen                     # 11 standing out of 14, patch 8
+  floor (16,35) not seen                   # 0 contrasting of 0, patch 0, tint patch 0, blot 0
+  monster (15,35) seen                     # 1911 standing out of 2420, patch 1719
+  tile (17,38) not seen
+  tile (13,38) not seen
+  tile (17,37) not seen
+  tile (13,37) not seen
+  tile (16,38) not seen
+  tile (14,38) not seen
+  tile (15,38) not seen
+  tile (16,37) seen
+  tile (14,37) seen
+  tile (15,37) seen
+  tile (17,36) not seen
+  tile (13,36) not seen
+  tile (16,36) seen
+  tile (14,36) seen
+  tile (15,36) seen
+  tile (16,35) seen
+  tile (14,35) seen
+  tile (15,35) seen
+  tile (16,34) seen
+  tile (14,34) seen

@@ -265,11 +265,84 @@ static DrawOnScreen DrawOnScreenOf(const std::vector<AutoMapDrawnPixel> &pixels,
   return item;
 }
 
+// What of a draw counts for being seen: for a monster, not what shows through the holes of a
+// nearer monster drawn after it. Inside that one's outline (its leftmost to rightmost pixel in the
+// row) the eye sees the nearer body, whatever the sprite's transparent pixels let through.
+static std::vector<AutoMapDrawnPixel> PixelsToJudge(const AutoMapDrawKey &key,
+                                                    const std::vector<AutoMapDrawnPixel> &pixels)
+{
+  if (key.kind != AutoMapDrawMonster) return pixels;
+  size_t self = 0;
+  while (self < drawsOfFrame.size() && !(drawsOfFrame[self].key == key)) self++;
+  std::vector<int> left(VIEWPORT_HEIGHT, VIEWPORT_WIDTH);
+  std::vector<int> right(VIEWPORT_HEIGHT, -1);
+  for (size_t later = self + 1; later < drawsOfFrame.size(); later++)
+  {
+    if (drawsOfFrame[later].key.kind != AutoMapDrawMonster) continue;
+    const std::vector<AutoMapDrawnPixel> *nearer = tally.PixelsOf(drawsOfFrame[later].key);
+    if (nearer == NULL) continue;
+    for (size_t p = 0; p < nearer->size(); p++)
+    {
+      const AutoMapDrawnPixel &pixel = (*nearer)[p];
+      left[pixel.y] = std::min(left[pixel.y], pixel.x);
+      right[pixel.y] = std::max(right[pixel.y], pixel.x);
+    }
+  }
+  std::vector<AutoMapDrawnPixel> judged;
+  for (size_t p = 0; p < pixels.size(); p++)
+  {
+    const AutoMapDrawnPixel &pixel = pixels[p];
+    if (pixel.x >= left[pixel.y] && pixel.x <= right[pixel.y]) continue;
+    judged.push_back(pixel);
+  }
+  return judged;
+}
+
 AutoMapDrawView AutoMapMeasure_ViewOf(const AutoMapDrawKey &key, const short *palette)
 {
   const std::vector<AutoMapDrawnPixel> *pixels = tally.PixelsOf(key);
   if (pixels == NULL) return DrawOnScreenOf(std::vector<AutoMapDrawnPixel>(), palette, false).view;
-  return DrawOnScreenOf(*pixels, palette, key.kind == AutoMapDrawItem).view;
+  if (key.kind != AutoMapDrawMonster) return DrawOnScreenOf(*pixels, palette, key.kind == AutoMapDrawItem).view;
+  return DrawOnScreenOf(PixelsToJudge(key, *pixels), palette, false).view;
+}
+
+// An item seen through the hole of OH EW RA is shown shrunken, so none of its pixels sits where it
+// was drawn. Judged as drawn: every pixel of the draw against what lay behind it when it was drawn.
+AutoMapDrawView AutoMapMeasure_HoleViewOf(const AutoMapDrawKey &key, const short *palette)
+{
+  AutoMapDrawView view;
+  view.width = 0;
+  view.height = 0;
+  const std::vector<AutoMapDrawnPixel> *pixels = tally.PixelsOf(key);
+  if (pixels == NULL || pixels->empty()) return view;
+  int x1 = VIEWPORT_WIDTH;
+  int x2 = -1;
+  int y1 = VIEWPORT_HEIGHT;
+  int y2 = -1;
+  for (size_t p = 0; p < pixels->size(); p++)
+  {
+    x1 = std::min(x1, (*pixels)[p].x);
+    x2 = std::max(x2, (*pixels)[p].x);
+    y1 = std::min(y1, (*pixels)[p].y);
+    y2 = std::max(y2, (*pixels)[p].y);
+  }
+  int originX = x1 - AUTOMAP_CAMOUFLAGE_RADIUS;
+  int originY = y1 - AUTOMAP_CAMOUFLAGE_RADIUS;
+  view.width = x2 + AUTOMAP_CAMOUFLAGE_RADIUS - originX + 1;
+  view.height = y2 + AUTOMAP_CAMOUFLAGE_RADIUS - originY + 1;
+  size_t count = (size_t)view.width * view.height;
+  view.screen.assign(count, palette[0]);
+  view.background.assign(count, palette[0]);
+  view.isDrawn.assign(count, false);
+  for (size_t p = 0; p < pixels->size(); p++)
+  {
+    const AutoMapDrawnPixel &pixel = (*pixels)[p];
+    size_t at = (size_t)((pixel.y - originY) * view.width + pixel.x - originX);
+    view.screen[at] = palette[pixel.drawn & 15];
+    view.background[at] = palette[pixel.behind & 15];
+    view.isDrawn[at] = true;
+  }
+  return view;
 }
 
 // The picture's colours: the 16 of the palette shown, then the marks
@@ -363,7 +436,8 @@ static bool WritePng(const char *path, int width, int height, const std::vector<
   return !failed;
 }
 
-bool AutoMapMeasure_WritePicture(const char *path, const short *palette, AutoMapDrawKind kind)
+bool AutoMapMeasure_WritePicture(const char *path, const short *palette, AutoMapDrawKind kind,
+                                 const std::vector<AutoMapDrawKey> *only, int scale)
 {
   int width = 3 * VIEWPORT_WIDTH;
   std::vector<unsigned char> pixels((size_t)(width * VIEWPORT_HEIGHT));
@@ -386,6 +460,7 @@ bool AutoMapMeasure_WritePicture(const char *path, const short *palette, AutoMap
     bool isAlcoveItem = kind == AutoMapDrawItem
                         && (drawKind == AutoMapDrawAlcoveItem || drawKind == AutoMapDrawDoor);
     if (drawKind != kind && !isAlcoveItem) continue;
+    if (only != NULL && std::find(only->begin(), only->end(), drawsOfFrame[i].key) == only->end()) continue;
     const std::vector<AutoMapDrawnPixel> *drawn = tally.PixelsOf(drawsOfFrame[i].key);
     if (drawn == NULL) continue;
     for (size_t p = 0; p < drawn->size(); p++)
@@ -399,7 +474,9 @@ bool AutoMapMeasure_WritePicture(const char *path, const short *palette, AutoMap
       }
       if (drawKind != AutoMapDrawItem) pixels[row + pixel.x + 2 * VIEWPORT_WIDTH] = (unsigned char)(pixel.behind & 15);
     }
-    DrawOnScreen draw = DrawOnScreenOf(*drawn, palette, drawKind == AutoMapDrawItem);
+    DrawOnScreen draw = drawKind == AutoMapDrawMonster
+        ? DrawOnScreenOf(PixelsToJudge(drawsOfFrame[i].key, *drawn), palette, false)
+        : DrawOnScreenOf(*drawn, palette, drawKind == AutoMapDrawItem);
     std::vector<bool> counts;
     AutoMapSight_ShapeOfItem(draw.view, &counts);
     if (kind == AutoMapDrawDecoration)
@@ -419,6 +496,17 @@ bool AutoMapMeasure_WritePicture(const char *path, const short *palette, AutoMap
             (unsigned char)(counts[at] ? MARK_COUNTS : MARK_DOES_NOT_COUNT);
       }
     }
+  }
+  if (scale > 1)
+  {
+    int bigWidth = width * scale;
+    int bigHeight = VIEWPORT_HEIGHT * scale;
+    std::vector<unsigned char> big((size_t)bigWidth * bigHeight);
+    for (int y = 0; y < bigHeight; y++)
+    {
+      for (int x = 0; x < bigWidth; x++) big[(size_t)y * bigWidth + x] = pixels[(size_t)(y / scale) * width + x / scale];
+    }
+    return WritePng(path, bigWidth, bigHeight, big, palette);
   }
   return WritePng(path, width, VIEWPORT_HEIGHT, pixels, palette);
 }

@@ -578,6 +578,8 @@ struct DrawMeasurement
   int tintPatch;
 };
 static std::vector<DrawMeasurement> measurementsOfFrame;
+// The palette the last frame was judged in, for the pictures of failed checks
+static short paletteOfFrame[16];
 
 static void KeepMeasurement(const AutoMapDrawKey &key, int counted, int drawn, int largestPatch,
                             int darkening = -1, int tintPatch = -1)
@@ -628,14 +630,30 @@ static unsigned long long FingerprintOfFrame(const std::vector<AutoMapDrawOnScre
   return hash;
 }
 
+static AutoMapRecordId MonsterGroupAt(int x, int y);
+static const int AUTOMAP_HOLE_AREA_DIVISOR = 24;
+
+// The two cells the hole of OH EW RA shows, as the engine numbers them (not the map window's
+// snapshot, which a headless run never reads and a running game reads only a few times a second)
 static bool MonsterStandsInHole(AutoMapRecordId group)
 {
-  if (lastSnapshot.level != d.partyLevel) return false;
-  for (size_t i = 0; i < lastSnapshot.monsters.size(); i++)
+  static const int CELLS_IN_HOLE[2] = {14, 9};
+  for (int i = 0; i < 2; i++)
   {
-    const AutoMapMonsterRecord &monster = lastSnapshot.monsters[i];
-    if (monster.record != group) continue;
-    return recorder.IsShownByHole(monster.x - lastSnapshot.boundaryMarginX, monster.y - lastSnapshot.boundaryMarginY);
+    int x = 0;
+    int y = 0;
+    PositionOfViewCell(CELLS_IN_HOLE[i], &x, &y);
+    if (MonsterGroupAt(x, y) != group) continue;
+    if (!recorder.IsShownByHole(x, y)) return false;
+    // Straight behind a monster in the nearer cell the view shows only that one
+    if (i == 1)
+    {
+      int nearX = 0;
+      int nearY = 0;
+      PositionOfViewCell(CELLS_IN_HOLE[0], &nearX, &nearY);
+      if (MonsterGroupAt(nearX, nearY) != AUTOMAP_NO_RECORD) return false;
+    }
+    return true;
   }
   return false;
 }
@@ -665,6 +683,7 @@ static void LearnFromViewportDraws(void)
     }
   }
   measurementsOfFrame.clear();
+  if (visibilityTestIsPending) std::memcpy(paletteOfFrame, palette, sizeof(paletteOfFrame));
   // The trace gives global coordinates, as the map's rulers do
   int offsetX = 0;
   int offsetY = 0;
@@ -699,7 +718,18 @@ static void LearnFromViewportDraws(void)
     }
     else if (key.kind == AutoMapDrawItem)
     {
-      AutoMapItemShape shape = AutoMapSight_ShapeOfItem(AutoMapMeasure_ViewOf(key, palette), NULL);
+      bool isInHole = d.SeeThruWalls != 0 && recorder.IsShownByHole(key.x, key.y);
+      AutoMapItemShape shape = AutoMapSight_ShapeOfItem(
+          isInHole ? AutoMapMeasure_HoleViewOf(key, palette) : AutoMapMeasure_ViewOf(key, palette), NULL);
+      if (isInHole)
+      {
+        // The hole shows its two cells at about half the width, a quarter of the pixels, and
+        // small and dark: a thin sword is no more than specks there, a chest still shows (a
+        // divisor of 12 to 48 keeps both right)
+        shape.visible /= AUTOMAP_HOLE_AREA_DIVISOR;
+        shape.drawn /= AUTOMAP_HOLE_AREA_DIVISOR;
+        shape.largestPatch /= AUTOMAP_HOLE_AREA_DIVISOR;
+      }
       std::snprintf(entry, sizeof(entry), " %u@%d,%d:%d of %d patch %d", (unsigned)key.record,
                     key.x + offsetX, key.y + offsetY, shape.visible, shape.drawn, shape.largestPatch);
       itemTrace += entry;
@@ -1697,6 +1727,32 @@ static std::string MeasurementsOf(const AutoMapVisibilityCheck &check, int offse
   return text.empty() ? "not measured" : text;
 }
 
+// The draws of the last frame the check is about
+static std::vector<AutoMapDrawKey> KeysOfCheck(const AutoMapVisibilityCheck &check, int offsetX, int offsetY)
+{
+  std::vector<AutoMapDrawKey> keys;
+  std::vector<AutoMapRecordId> itemRecords;
+  if (check.thing == AutoMapVisibilityItem) itemRecords = ItemRecordsOf(check, offsetX, offsetY);
+  for (size_t i = 0; i < measurementsOfFrame.size(); i++)
+  {
+    const AutoMapDrawKey &key = measurementsOfFrame[i].key;
+    AutoMapVisibilityCheck thing;
+    if (!ThingOfDraw(key, offsetX, offsetY, &thing)) continue;
+    if (check.thing == AutoMapVisibilityItem)
+    {
+      bool isNamed = std::find(itemRecords.begin(), itemRecords.end(), key.record) != itemRecords.end();
+      if (thing.thing != AutoMapVisibilityItem || thing.x != check.x || thing.y != check.y || !isNamed) continue;
+    }
+    else if (check.thing == AutoMapVisibilityAlcove && check.itemName.empty())
+    {
+      if (thing.thing != check.thing || thing.x != check.x || thing.y != check.y || thing.side != check.side) continue;
+    }
+    else if (!IsSameThing(thing, check)) continue;
+    keys.push_back(key);
+  }
+  return keys;
+}
+
 // Puts the party where the case says and draws its frame. The party is set down, not moved:
 // nothing under it fires, so every case sees the dungeon as saved.
 static void DrawVisibilityCase(const AutoMapVisibilityCase &visibilityCase, int offsetX, int offsetY)
@@ -1834,9 +1890,25 @@ static void RunVisibilityTest(void)
       }
       std::string measurements = MeasurementsOf(check, offsetX, offsetY);
       if (!measurements.empty()) measurements = " (" + measurements + ")";
-      printf("visibility: line %d: expected %s, got %s%s\n", check.lineNumber,
+      // The frame as the map judged it, to talk over what is wrong: shown, the pixels that count
+      // (magenta) and the background they are judged against, side by side
+      char picture[64] = "";
+      if (check.thing == AutoMapVisibilityDecoration || check.thing == AutoMapVisibilityFloor
+          || check.thing == AutoMapVisibilityItem || check.thing == AutoMapVisibilityAlcove
+          || check.thing == AutoMapVisibilityMonster)
+      {
+        AutoMapDrawKind kind = check.thing == AutoMapVisibilityDecoration ? AutoMapDrawDecoration
+                               : check.thing == AutoMapVisibilityFloor    ? AutoMapDrawFloorDecoration
+                               : check.thing == AutoMapVisibilityMonster  ? AutoMapDrawMonster
+                                                                          : AutoMapDrawItem;
+        std::snprintf(picture, sizeof(picture), "visibility-failed-line-%d.png", check.lineNumber);
+        std::vector<AutoMapDrawKey> keys = KeysOfCheck(check, offsetX, offsetY);
+        if (!AutoMapMeasure_WritePicture(picture, paletteOfFrame, kind, &keys, 4)) picture[0] = 0;
+      }
+      printf("visibility: line %d: expected %s, got %s%s%s%s\n", check.lineNumber,
              AutoMapVisibilityCases_CheckLine(check, check.expected).c_str(),
-             AutoMapVisibilityCases_VerdictName(verdict), measurements.c_str());
+             AutoMapVisibilityCases_VerdictName(verdict), measurements.c_str(),
+             picture[0] ? " -> " : "", picture);
     }
   }
   printf("visibility: %s: %d of %d checks passed\n", visibilitySection.save.c_str(), passed, total);

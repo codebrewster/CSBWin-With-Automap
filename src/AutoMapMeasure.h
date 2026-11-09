@@ -48,12 +48,16 @@ void AutoMapMeasure_OnViewportFinished(void);
 // A floor item or a decoration drawn in the frame DrawViewport finished last, as it shows on
 // screen: a floor item against the frame without the floor items, a decoration against the wall
 AutoMapDrawView AutoMapMeasure_ViewOf(const AutoMapDrawKey &key, const short *palette);
+// The draw as it was drawn, kept or not: for what the hole of OH EW RA shows shrunken
+AutoMapDrawView AutoMapMeasure_HoleViewOf(const AutoMapDrawKey &key, const short *palette);
 
 // Debug: the finished frame as an indexed PNG in the light's colours, three times side by side: as
 // shown, with the pixels of the draws of kind marked (magenta: they count for being seen), and the background they are judged
 // against: for items the frame without the floor items, for decorations the wall without them. Magenta: on screen and standing out; cyan: on
 // screen but camouflaged; yellow: drawn over by a later blit. Returns false
 // when the file could not be written.
-bool AutoMapMeasure_WritePicture(const char *path, const short *palette, AutoMapDrawKind kind);
+// Only the draws in only, when given, are marked; scale: every pixel written scale times as wide and high.
+bool AutoMapMeasure_WritePicture(const char *path, const short *palette, AutoMapDrawKind kind,
+                                 const std::vector<AutoMapDrawKey> *only = NULL, int scale = 1);
 
 #endif
