@@ -112,6 +112,15 @@ static std::string RecordText(const char *chars, size_t size)
   return text;
 }
 
+// A reference the engine's own readers accept. They show an error box for any other, so nothing
+// here reads an item before asking: a slot can hold a value that is no object (before a game is
+// loaded, or a special value), and the window draws from the first frame on.
+static bool IsReadable(RN rn)
+{
+  int index = rn.ConvertToInteger();
+  return index > 0 && index < dataMapLength;
+}
+
 // One item as the inventory shows it now. The look is the game's own choice (RN::NameIndex): a
 // torch by its flame, a waterskin full or empty, Fury, Flamitt and the like charged or spent. The
 // icon, the name and the charges all come from this one read, so they cannot disagree.
@@ -160,6 +169,7 @@ static HeroStatsLiveItem LiveItemOf(int slot, RN rn, bool inChest)
 // weighed once either way.
 static void AddLiveItem(std::vector<HeroStatsLiveItem> *items, int slot, RN rn)
 {
+  if (!IsReadable(rn)) return;
   items->push_back(LiveItemOf(slot, rn, false));
   if (rn.dbType() != dbCHEST) return;
   size_t chest = items->size() - 1;
@@ -167,20 +177,20 @@ static void AddLiveItem(std::vector<HeroStatsLiveItem> *items, int slot, RN rn)
   if (rn == d.objOpenChest)
   {
     int listed = 0;
-    for (RN held = GetRecordAddressDB9(rn)->contents(); held != RNeof && held != RNnul && guard < 32;
+    for (RN held = GetRecordAddressDB9(rn)->contents(); IsReadable(held) && guard < 32;
          held = GetDBRecordLink(held), guard++)
       listed += GetObjectWeight(held);
     int now = 0;
     for (int i = 0; i < 8; i++)
     {
-      if (d.rnChestContents[i] == RNnul) continue;
+      if (!IsReadable(d.rnChestContents[i])) continue;
       items->push_back(LiveItemOf(slot, d.rnChestContents[i], true));
       now += items->back().weight;
     }
     (*items)[chest].weight += now - listed;
     return;
   }
-  for (RN held = GetRecordAddressDB9(rn)->contents(); held != RNeof && held != RNnul && guard < 32;
+  for (RN held = GetRecordAddressDB9(rn)->contents(); IsReadable(held) && guard < 32;
        held = GetDBRecordLink(held), guard++)
     items->push_back(LiveItemOf(slot, held, true));
 }
@@ -246,7 +256,7 @@ HeroStatsLiveParty HeroStats_LiveParty(void)
     for (size_t i = 0; i < live.items.size(); i++)
       if (!live.items[i].inChest) carried += live.items[i].weight;
     // The item on the cursor weighs on the champion who holds it
-    int onCursor = d.objectInHand != RNnul ? (int)GetObjectWeight(d.objectInHand) : 0;
+    int onCursor = IsReadable(d.objectInHand) ? (int)GetObjectWeight(d.objectInHand) : 0;
     if (!loadChecked && carried != hero.load && carried + onCursor != hero.load)
     {
       loadChecked = true;
@@ -255,7 +265,7 @@ HeroStatsLiveParty HeroStats_LiveParty(void)
 #endif
     party.champions.push_back(live);
   }
-  if (d.objectInHand != RNnul) party.cursor = LiveItemOf(-1, d.objectInHand, false);
+  if (IsReadable(d.objectInHand)) party.cursor = LiveItemOf(-1, d.objectInHand, false);
   return party;
 }
 
