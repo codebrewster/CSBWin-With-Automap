@@ -1,6 +1,7 @@
 // HeroStatsExport.cpp : the statistics as one HTML file to share.
 #include "HeroStatsExport.h"
 
+#include <algorithm>
 #include <cstdio>
 
 // The JSON the page script reads:
@@ -27,10 +28,14 @@
 //       "records": [[kind, group, label, value, who, how, whom, when, level, has, held, party value, party's hero], ...] },
 //     "monsters": [[name, [kills per hero], door, pit, other, total], ...] most killed first,
 //     "items": [[name, picked up, used in walls, from chests], ...] } } },
-//   "live": the party when the page was written (the Champions tab): {"inHand", "champions": [{"hero" (its
-//     index in heroes, -1 none), "name", "title", "hp", "stamina" (in tenths), "mana": [now, max], "food",
-//     "water", "load": [tenths, max tenths], "attrs": [[name, current, max], ...], "ranks": [[class, rank,
-//     % to next], ...], "poison", "wounds", "items": [[slot, name, in a chest], ...]}, ...]}
+//   "live": the party when the page was written (the Champions tab): {"cursor": the item on the cursor
+//     (an item as below) or null, "list": the inventory starts as a list, "icons": [PNG data URI, ...],
+//     "champions": [{"hero" (its index in heroes, -1 none), "name", "title", "portrait" (a PNG data URI or
+//     null), "hp", "stamina" (in tenths), "mana": [now, max], "food", "water", "load": [tenths, max tenths],
+//     "attrs": [[name, current, max], ...], "ranks": [[class, rank, % to next], ...], "poison", "wounds"
+//     (as words), "woundBits" (bit n: slot n is wounded), "items": [[slot (the game's number, -1 the
+//     cursor), name, in a chest, icon (a place in "icons" or null), weight (tenths of a kilogram),
+//     charges (-1 holds none), charges are gulps], ...]}, ...]}
 // [by hero] is empty except on the party's page.
 
 // ---------------------------------------------------------------------------------------------
@@ -293,17 +298,40 @@ static std::string Pair(int a, int b)
   return "[" + Number(a) + "," + Number(b) + "]";
 }
 
-static std::string LiveJson(const HeroStatsLiveParty &live, const std::vector<HeroStatsColumn> &columns)
+// One item of the Champions tab: [slot, name, in a chest, icon, weight, charges, gulps]. icon: its
+// place in the icons written so far, added on first use; null without a picture.
+static std::string LiveItemJson(const HeroStatsLiveItem &item, const std::map<int, std::string> &pictures,
+                                std::vector<int> *iconKeys)
 {
-  std::string out = "{\"inHand\":" + HeroStatsExport_JsonString(live.cursor.name) + ",\"champions\":[";
+  std::string icon = "null";
+  int key = HeroStatsLive_IconKey(item);
+  if (key >= 0 && pictures.find(key) != pictures.end())
+  {
+    size_t at = std::find(iconKeys->begin(), iconKeys->end(), key) - iconKeys->begin();
+    if (at == iconKeys->size()) iconKeys->push_back(key);
+    icon = Number((int)at);
+  }
+  return "[" + Number(item.slot) + "," + HeroStatsExport_JsonString(item.name) + "," + Bool(item.inChest) + "," + icon + "," +
+         Number(item.weight) + "," + Number(item.charges) + "," + Bool(item.gulps) + "]";
+}
+
+static std::string LiveJson(const HeroStatsExportInfo &info, const std::vector<HeroStatsColumn> &columns)
+{
+  const HeroStatsLiveParty &live = info.live;
+  std::vector<int> iconKeys;
+  std::string champions;
   for (size_t i = 0; i < live.champions.size(); i++)
   {
     const HeroStatsLiveChampion &c = live.champions[i];
     int hero = -1;
     for (size_t k = 0; k < columns.size(); k++)
       if (columns[k].id == c.who) hero = (int)k;
+    std::map<HeroStatsChampion, std::string>::const_iterator portrait = info.portraits.find(c.who);
+    std::string &out = champions;
     out += std::string(i > 0 ? "," : "") + "{\"hero\":" + Number(hero) + ",\"name\":" + HeroStatsExport_JsonString(c.name) +
-           ",\"title\":" + HeroStatsExport_JsonString(c.title) + ",\"hp\":" + Pair(c.health, c.maxHealth) +
+           ",\"title\":" + HeroStatsExport_JsonString(c.title) +
+           ",\"portrait\":" + (portrait == info.portraits.end() ? "null" : HeroStatsExport_JsonString(portrait->second)) +
+           ",\"hp\":" + Pair(c.health, c.maxHealth) +
            ",\"stamina\":" + Pair(c.stamina, c.maxStamina) + ",\"mana\":" + Pair(c.mana, c.maxMana) +
            ",\"food\":" + Number(c.food) + ",\"water\":" + Number(c.water) + ",\"load\":" + Pair(c.load, c.maxLoad) +
            ",\"attrs\":[";
@@ -317,14 +345,18 @@ static std::string LiveJson(const HeroStatsLiveParty &live, const std::vector<He
     std::string doses;
     for (size_t k = 0; k < c.poisonDoses.size(); k++) doses += (k > 0 ? "," : "") + Number(c.poisonDoses[k]);
     out += "],\"poison\":" + Number(c.poisonCount) + ",\"poisonSum\":" + Number(c.poison) + ",\"poisonDoses\":[" + doses +
-           "],\"wounds\":" + HeroStatsExport_JsonString(HeroStatsLive_Wounds(c.wounds)) +
+           "],\"wounds\":" + HeroStatsExport_JsonString(HeroStatsLive_Wounds(c.wounds)) + ",\"woundBits\":" + Number(c.wounds) +
            ",\"items\":[";
     for (size_t k = 0; k < c.items.size(); k++)
-      out += std::string(k > 0 ? "," : "") + "[" + HeroStatsExport_JsonString(HeroStatsLive_SlotName(c.items[k].slot)) + "," +
-             HeroStatsExport_JsonString(c.items[k].name) + "," + Bool(c.items[k].inChest) + "]";
+      out += std::string(k > 0 ? "," : "") + LiveItemJson(c.items[k], info.icons, &iconKeys);
     out += "]}";
   }
-  return out + "]}";
+  std::string cursor = live.cursor.name.empty() ? "null" : LiveItemJson(live.cursor, info.icons, &iconKeys);
+  std::string icons;
+  for (size_t i = 0; i < iconKeys.size(); i++)
+    icons += std::string(i > 0 ? "," : "") + HeroStatsExport_JsonString(info.icons.find(iconKeys[i])->second);
+  return "{\"cursor\":" + cursor + ",\"list\":" + Bool(info.inventoryList) + ",\"icons\":[" + icons + "],\"champions\":[" +
+         champions + "]}";
 }
 
 std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
@@ -369,7 +401,7 @@ std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroS
   out += ",\"views\":{\"-1\":" + ViewJson(stats, columns, names, HERO_STATS_WHOLE_RUN);
   for (size_t i = 0; i < levels.size(); i++)
     out += ",\"" + Number(levels[i]) + "\":" + ViewJson(stats, columns, names, levels[i]);
-  return out + "},\"live\":" + LiveJson(info.live, columns) + "}";
+  return out + "},\"live\":" + LiveJson(info, columns) + "}";
 }
 
 // ---------------------------------------------------------------------------------------------

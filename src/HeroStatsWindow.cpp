@@ -20,6 +20,7 @@
 #include "HeroStatsView.h"
 #include "HeroStatsWindow.h"
 #include "AutoMapSprites.h"
+#include "AutoMapHtml.h"
 
 #include "confile.h"
 
@@ -551,6 +552,42 @@ static std::string FileUrl(std::string path)
 }
 
 // statistics-2026-10-31-153000.html in the game folder, beside csb.cfg and the saved games
+// A picture as the page embeds it; "" when it cannot be made
+static std::string PngDataUri(const std::vector<unsigned char> &rgba, int width, int height)
+{
+  if (width <= 0 || height <= 0 || rgba.size() < (size_t)width * height * 4) return "";
+  std::string png = AutoMapHtml_Png(rgba.data(), width, height);
+  return png.empty() ? "" : "data:image/png;base64," + AutoMapHtml_Base64(png);
+}
+
+static void AddExportIcon(HeroStatsExportInfo *info, const HeroStatsLiveItem &item)
+{
+  int key = HeroStatsLive_IconKey(item);
+  if (key < 0 || info->icons.find(key) != info->icons.end()) return;
+  AutoMapSpriteRequest request = {item.iconGraphic, -1, true, (item.iconTile & 15) * 16, (item.iconTile >> 4) * 16, 16, 16, true, 0, 0};
+  std::vector<Uint8> rgba;
+  int width = 0, height = 0;
+  if (!AutoMapSprites_Pixels(request, &rgba, &width, &height)) return;
+  std::string uri = PngDataUri(rgba, width, height);
+  if (!uri.empty()) info->icons[key] = uri;
+}
+
+// The icon of every item the party carries, each once, and the champions' portraits
+static void FillExportPictures(HeroStatsExportInfo *info)
+{
+  if (!info->live.cursor.name.empty()) AddExportIcon(info, info->live.cursor);
+  for (size_t c = 0; c < info->live.champions.size(); c++)
+  {
+    const HeroStatsLiveChampion &champion = info->live.champions[c];
+    for (size_t i = 0; i < champion.items.size(); i++) AddExportIcon(info, champion.items[i]);
+    std::vector<unsigned char> rgba;
+    int width = 0, height = 0;
+    if (!HeroStats_PortraitPixels(champion.who, &rgba, &width, &height)) continue;
+    std::string uri = PngDataUri(rgba, width, height);
+    if (!uri.empty()) info->portraits[champion.who] = uri;
+  }
+}
+
 static void ExportStatistics(void)
 {
   time_t now = time(NULL);
@@ -566,6 +603,8 @@ static void ExportStatistics(void)
   HeroStats_RefreshMapCounts(true);
   const HeroStats &stats = HeroStats_Store();
   HeroStatsExportInfo info = {HeroStats_DungeonInPlay(), date, HeroStats_LiveParty()};
+  info.inventoryList = drawState.inventoryList;
+  FillExportPictures(&info);
   std::string html = HeroStatsExport_Html(stats, HeroStatsView_Columns(stats, HeroStats_PartyNow()),
                                           HeroStats_NamesOfTheGame(), info);
   FILE *file = fopen(path.c_str(), "wb");

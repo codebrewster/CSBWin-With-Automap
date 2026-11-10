@@ -1,6 +1,7 @@
 #ifndef HEROSTATSEXPORT_H
 #define HEROSTATSEXPORT_H
 
+#include <map>
 #include <string>
 #include <vector>
 #include "HeroStatsPages.h"
@@ -18,6 +19,12 @@ struct HeroStatsExportInfo
   std::string dungeon;  // the dungeon's file name, shown under the title
   std::string date;     // when it was written, as the player reads it
   HeroStatsLiveParty live;  // the party when it was written, for the Champions tab; may be empty
+  // The pictures of the Champions tab, each a PNG as a data: URI: the items' icons by
+  // HeroStatsLive_IconKey and the champions' portraits. An item or champion without one is
+  // written without a picture.
+  std::map<int, std::string> icons;
+  std::map<HeroStatsChampion, std::string> portraits;
+  bool inventoryList;       // the page starts with the inventory as a list, not as the picture
 };
 
 // A JSON string, quotes included. Bytes that are not UTF-8 are taken as Latin-1, and "<" is

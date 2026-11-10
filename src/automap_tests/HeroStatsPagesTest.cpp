@@ -263,7 +263,7 @@ static void ExportHoldsTheChampionsAsTheyWere(void)
   stats.MeetChampion(7, "HALK");
   HeroStatsExportInfo info = {"dungeon.dat", "2026-11-06 12:00"};
   std::string json = HeroStatsExport_Json(stats, Columns(stats), NAMES, info);
-  CHECK(json.find("\"live\":{\"inHand\":\"\",\"champions\":[]}") != std::string::npos);
+  CHECK(json.find("\"live\":{\"cursor\":null,\"list\":false,\"icons\":[],\"champions\":[]}") != std::string::npos);
   HeroStatsLiveChampion halk = {};
   halk.who = 7;
   halk.name = "HALK";
@@ -271,17 +271,89 @@ static void ExportHoldsTheChampionsAsTheyWere(void)
   halk.maxHealth = 120;
   halk.wounds = 0x04;
   halk.rank[0] = 2;
-  HeroStatsLiveItem dagger = {0, "DAGGER", false};
+  HeroStatsLiveItem dagger = HeroStatsLive_Item(0, "DAGGER", false);
   halk.items.push_back(dagger);
   info.live.champions.push_back(halk);
   info.live.cursor.name = "TORCH";
   json = HeroStatsExport_Json(stats, Columns(stats), NAMES, info);
-  CHECK(json.find("\"inHand\":\"TORCH\"") != std::string::npos);
+  CHECK(json.find("\"cursor\":[-1,\"TORCH\",false,null,0,-1,false]") != std::string::npos);
   CHECK(json.find("{\"hero\":0,\"name\":\"HALK\"") != std::string::npos);
   CHECK(json.find("\"hp\":[80,120]") != std::string::npos);
   CHECK(json.find("\"wounds\":\"Head\"") != std::string::npos);
   CHECK(json.find("[\"Fighter\",\"Neophyte\",0]") != std::string::npos);
-  CHECK(json.find("\"items\":[[\"Ready hand\",\"DAGGER\",false]]") != std::string::npos);
+  CHECK(json.find("\"woundBits\":4") != std::string::npos && json.find("\"portrait\":null") != std::string::npos);
+  CHECK(json.find("\"items\":[[0,\"DAGGER\",false,null,0,-1,false]]") != std::string::npos);
+}
+
+// An item of the Champions tab: its slot, name, whether it is in a chest, its icon (a place in the
+// icons, each written once in the order first used), its weight and its charges
+static void TheExportCarriesIconsWeightAndCharges(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  HeroStatsExportInfo info = {"dungeon.dat", "2026-11-10 12:00"};
+  HeroStatsLiveChampion halk = {};
+  halk.who = 7;
+  halk.name = "HALK";
+  HeroStatsLiveItem staff = HeroStatsLive_Item(1, "STAFF OF CLAWS", false);
+  staff.iconGraphic = 1;
+  staff.iconTile = 44;  // key 300
+  staff.weight = 9;
+  staff.charges = 9;
+  HeroStatsLiveItem chest = HeroStatsLive_Item(13, "CHEST", false);
+  chest.weight = 51;
+  HeroStatsLiveItem apple = HeroStatsLive_Item(13, "APPLE", true);
+  apple.iconGraphic = 1;
+  apple.iconTile = 45;  // key 301
+  apple.weight = 4;
+  HeroStatsLiveItem second = apple;
+  second.slot = 14;
+  second.inChest = false;
+  HeroStatsLiveItem skin = HeroStatsLive_Item(15, "WATERSKIN", false);
+  skin.charges = 3;
+  skin.gulps = true;
+  halk.items.push_back(staff);
+  halk.items.push_back(chest);
+  halk.items.push_back(apple);
+  halk.items.push_back(second);
+  halk.items.push_back(skin);
+  info.live.champions.push_back(halk);
+  info.icons[301] = "data:image/png;base64,BBB";
+  info.icons[300] = "data:image/png;base64,AAA";
+  info.portraits[7] = "data:image/png;base64,PPP";
+  info.inventoryList = true;
+  std::string json = HeroStatsExport_Json(stats, Columns(stats), NAMES, info);
+  CHECK(json.find("\"icons\":[\"data:image/png;base64,AAA\",\"data:image/png;base64,BBB\"]") != std::string::npos);
+  CHECK(json.find("[1,\"STAFF OF CLAWS\",false,0,9,9,false]") != std::string::npos);
+  CHECK(json.find("[13,\"CHEST\",false,null,51,-1,false],[13,\"APPLE\",true,1,4,-1,false],[14,\"APPLE\",false,1,4,-1,false]") != std::string::npos);
+  CHECK(json.find("[15,\"WATERSKIN\",false,null,0,3,true]") != std::string::npos);
+  CHECK(json.find("\"list\":true") != std::string::npos);
+  CHECK(json.find("\"portrait\":\"data:image/png;base64,PPP\"") != std::string::npos);
+}
+
+// An item whose icon has no picture (the dungeon gives none, or it could not be decoded) is
+// written without one and the page still holds everything else
+static void AnItemWithoutAPictureStillExports(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  HeroStatsExportInfo info = {"dungeon.dat", "2026-11-10 12:00"};
+  HeroStatsLiveChampion halk = {};
+  halk.who = 7;
+  halk.name = "HALK";
+  HeroStatsLiveItem odd = HeroStatsLive_Item(13, "ODD THING", false);
+  odd.weight = 5;
+  HeroStatsLiveItem lost = HeroStatsLive_Item(14, "LOST PICTURE", false);
+  lost.iconGraphic = 2;
+  lost.iconTile = 3;  // no picture for this key in info.icons
+  halk.items.push_back(odd);
+  halk.items.push_back(lost);
+  info.live.champions.push_back(halk);
+  std::string json = HeroStatsExport_Json(stats, Columns(stats), NAMES, info);
+  CHECK(json.find("[13,\"ODD THING\",false,null,5,-1,false]") != std::string::npos);
+  CHECK(json.find("[14,\"LOST PICTURE\",false,null,0,-1,false]") != std::string::npos);
+  CHECK(json.find("\"icons\":[]") != std::string::npos);
+  CHECK(json.find("\"portrait\":null") != std::string::npos && json.find("\"cursor\":null") != std::string::npos);
 }
 
 static void ExportHoldsEveryLevel(void)
@@ -763,4 +835,6 @@ void TestHeroStatsPages(void)
   JsonStringsAreSafeInAScript();
   ExportHoldsEveryLevel();
   ExportHoldsTheChampionsAsTheyWere();
+  TheExportCarriesIconsWeightAndCharges();
+  AnItemWithoutAPictureStillExports();
 }
