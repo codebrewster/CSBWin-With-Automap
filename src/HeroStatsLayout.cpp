@@ -3,21 +3,27 @@
 
 #include <algorithm>
 
+// The narrowest the table's bar may be: the smallest bar, or its header when that is wider
+static float SmallestBar(const HeroStatsTableNeeds &needs)
+{
+  return std::max(HERO_LAYOUT_BAR_SMALLEST, needs.barHeader);
+}
+
 float HeroStatsLayout_FullWidth(const HeroStatsTableNeeds &needs)
 {
-  return needs.label + needs.numbers + needs.derived + (needs.hasBar ? HERO_LAYOUT_BAR_SMALLEST : 0);
+  return needs.label + needs.numbers + needs.derived + (needs.hasBar ? SmallestBar(needs) : 0);
 }
 
 HeroStatsTableFit HeroStatsLayout_FitTable(const HeroStatsTableNeeds &needs, float available)
 {
   HeroStatsTableFit fit = {false, false, false, false, needs.label, 0, available};
   float withDerived = needs.label + needs.numbers + needs.derived;
-  if (needs.hasBar && withDerived + HERO_LAYOUT_BAR_SMALLEST <= available)
+  if (needs.hasBar && withDerived + SmallestBar(needs) <= available)
   {
     // The bar's share, but never at the cost of the label's single line
     fit.bar = true;
     fit.derived = needs.derived > 0;
-    fit.barWidth = std::min(std::max(HERO_LAYOUT_BAR_SMALLEST, HERO_LAYOUT_BAR_SHARE * available), available - withDerived);
+    fit.barWidth = std::min(std::max(SmallestBar(needs), HERO_LAYOUT_BAR_SHARE * available), available - withDerived);
     fit.labelWidth = available - needs.numbers - needs.derived - fit.barWidth;
     return fit;
   }

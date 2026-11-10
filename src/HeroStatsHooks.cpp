@@ -155,8 +155,9 @@ static HeroStatsLiveItem LiveItemOf(int slot, RN rn, bool inChest)
 }
 
 // The item in a slot, then a chest's contents. The chest open in the action hand shows them from
-// d.rnChestContents, while its own record still lists what it held when it was opened: what is in
-// it now, and its weight now, are worked out from the open list.
+// d.rnChestContents; whatever its own record lists meanwhile (this port unlinks it on opening, so
+// nothing) is taken out of its weight and the open list put in, so each item is listed once and
+// weighed once either way.
 static void AddLiveItem(std::vector<HeroStatsLiveItem> *items, int slot, RN rn)
 {
   items->push_back(LiveItemOf(slot, rn, false));

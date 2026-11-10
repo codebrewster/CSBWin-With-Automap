@@ -732,7 +732,7 @@ static bool BeginPageTable(const char *id, int columnCount, bool sortable)
   measure.fit = everything;
   if (measure.known)
   {
-    HeroStatsTableNeeds needs = {0, 0, 0, false};
+    HeroStatsTableNeeds needs = {0, 0, 0, false, 0};
     for (int i = 0; i < columnCount; i++)
     {
       float width = measure.width[i];
@@ -742,7 +742,11 @@ static bool BeginPageTable(const char *id, int columnCount, bool sortable)
       {
       case ColumnLabel: needs.label += width + padding; break;
       case ColumnDerived: needs.derived += width + padding; break;
-      case ColumnBar: needs.hasBar = true; break;
+      case ColumnBar:
+        // A bar is never narrower than its header ("Share of party", "Who: Experience")
+        needs.hasBar = true;
+        needs.barHeader = width + padding;
+        break;
       default: needs.numbers += width + padding; break;
       }
     }
@@ -870,7 +874,8 @@ static void HeaderRow(const std::vector<int> &columnOfHeader, const std::vector<
     bool isText = measuring != NULL && i < (int)measuring->kinds.size() && measuring->kinds[i] == ColumnText;
     bool guided = i > 0 && InMeasuredTable() && ImGui::TableGetHoveredColumn() == i;
     if (!isText) NoteWidth(ImGui::CalcTextSize(name).x + (champion >= 0 ? spaceWidth * 2 : 0) + 14);
-    if (i > 0 && !isText)
+    bool isLabel = measuring != NULL && i < (int)measuring->kinds.size() && measuring->kinds[i] == ColumnLabel;
+    if (i > 0 && !isText && !isLabel)
     {
       float textWidth = ImGui::CalcTextSize(name).x + (champion >= 0 ? spaceWidth * 2 : 0);
       int spaces = (int)((ImGui::GetContentRegionAvail().x - textWidth - 14) / spaceWidth);
@@ -936,6 +941,28 @@ static void SortRows(std::vector<Row> *rows, const TableSort &sort, Key key)
     int c = key(a, b, sort.column);
     return sort.descending ? c > 0 : c < 0;
   });
+}
+
+// A row's name with the arrow that folds what is under it (a weapon's actions, a class's skills).
+// In a table too narrow for its names the name goes on under itself, as LabelCell's does: the
+// arrow alone is the tree node then, and the name wrapped text after it.
+static bool FoldingLabel(const std::string &text, ImGuiTreeNodeFlags flags, ImU32 rgb)
+{
+  bool wraps = InMeasuredTable() && measuring->fit.wrap;
+  ImGui::PushStyleColor(ImGuiCol_Text, Colour(Hot(rgb)));
+  bool open;
+  if (!wraps) open = ImGui::TreeNodeEx(text.c_str(), flags);
+  else
+  {
+    // The same id as the unwrapped node, so the fold stays as it was
+    open = ImGui::TreeNodeEx(text.c_str(), flags & ~ImGuiTreeNodeFlags_SpanLabelWidth, "%s", "");
+    ImGui::SameLine(0, 0);
+    ImGui::PushTextWrapPos(0.0f);
+    ImGui::TextUnformatted(text.c_str());
+    ImGui::PopTextWrapPos();
+  }
+  ImGui::PopStyleColor();
+  return open;
 }
 
 static void LabelCell(const std::string &text, int depth, ImU32 rgb, const char *help = "")
@@ -1297,7 +1324,7 @@ static void DrawWeapons(HeroStatsDrawState *state, const HeroStatsHeroPage &page
       ImGui::PushID((int)state->who);
       ImGui::PushID(weapon.id);
       NoteWidth(ImGui::CalcTextSize(weapon.name.c_str()).x + ImGui::GetTreeNodeToLabelSpacing());
-      bool open = ImGui::TreeNodeEx(weapon.name.c_str(), ImGuiTreeNodeFlags_SpanLabelWidth);
+      bool open = FoldingLabel(weapon.name, ImGuiTreeNodeFlags_SpanLabelWidth, TEXT_RGB);
       AttackCells(weapon, TEXT_RGB);
       if (isParty)
       {
@@ -1703,7 +1730,7 @@ static void DrawSkills(HeroStatsDrawState *state, const std::vector<HeroStatsCla
       std::string upper = line.name;
       for (size_t i = 0; i < upper.size(); i++) upper[i] = (char)toupper((unsigned char)upper[i]);
       NoteWidth(ImGui::CalcTextSize(upper.c_str()).x + ImGui::GetTreeNodeToLabelSpacing());
-      bool open = ImGui::TreeNodeEx(upper.c_str(), ImGuiTreeNodeFlags_SpanLabelWidth);
+      bool open = FoldingLabel(upper, ImGuiTreeNodeFlags_SpanLabelWidth, TEXT_RGB);
       if (isParty)
       {
         ImGui::TableSetColumnIndex(1);
@@ -1797,9 +1824,7 @@ static void DrawXpSources(HeroStatsDrawState *state, const std::vector<HeroStats
         ImGui::PushID(line.id);
         ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_SpanLabelWidth | ImGuiTreeNodeFlags_NoTreePushOnOpen;
         if (openAtFirst) flags |= ImGuiTreeNodeFlags_DefaultOpen;
-        ImGui::PushStyleColor(ImGuiCol_Text, Colour(line.depth > 0 ? DIM_RGB : TEXT_RGB));
-        bool open = ImGui::TreeNodeEx(line.name.c_str(), flags);
-        ImGui::PopStyleColor();
+        bool open = FoldingLabel(line.name, flags, line.depth > 0 ? DIM_RGB : TEXT_RGB);
         ImGui::PopID();
         ImGui::PopID();
         if (!open) skipDeeperThan = line.depth;
@@ -2823,12 +2848,17 @@ static void LiveList(const HeroStatsLiveChampion &live)
     IconAt(ImGui::GetWindowDrawList(), item, ImVec2(at.x, at.y + (line - 16) / 2), 16);
     ImGui::Dummy(ImVec2(16, line));
     ImGui::SameLine(0, 6);
+    // A name too long for a narrow list goes on under itself, its charges on a line of their own
+    bool wraps = InMeasuredTable() && measuring->fit.wrap;
+    if (wraps) ImGui::PushTextWrapPos(0.0f);
     ImGui::TextColored(Colour(Hot(item.inChest ? PART_RGB : TEXT_RGB)), "%s", item.name.c_str());
     if (!after.empty())
     {
-      ImGui::SameLine(0, 0);
-      ImGui::TextColored(Colour(DIM_RGB), "%s", after.c_str());
+      if (wraps) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 22);
+      else ImGui::SameLine(0, 0);
+      ImGui::TextColored(Colour(DIM_RGB), "%s", wraps ? charges.c_str() : after.c_str());
     }
+    if (wraps) ImGui::PopTextWrapPos();
     if (indent > 0) ImGui::Unindent(indent);
     ImGui::TableSetColumnIndex(2);
     RightText(HeroStatsLive_WeightText(item.weight, false), item.inChest ? PART_RGB : TEXT_RGB);
@@ -2916,7 +2946,10 @@ static void DrawLiveChampion(HeroStatsDrawState *state, const HeroStatsLiveChamp
   bool closed = (state->closedSections & HeroStatsDraw_SectionBit(HERO_STATS_INVENTORY_SECTION)) != 0;
   // The backpack stands beside the body when the champion's column still gets its full width
   bool packBeside = available >= HERO_LAYOUT_CHAMPION_WIDEST + COLUMN_GAP + pictureWide;
-  float inventoryWidth = state->inventoryList || closed ? std::min(420.0f, available) : packBeside ? pictureWide : pictureTall;
+  // The list is as wide as its table needed when last drawn (420 before that), the picture as its slots
+  static float listNeeds = 0;
+  float listWidth = std::min(available, std::max(420.0f, listNeeds));
+  float inventoryWidth = state->inventoryList || closed ? listWidth : packBeside ? pictureWide : pictureTall;
   bool two = available >= LEFT_SMALLEST + COLUMN_GAP + inventoryWidth;
   float leftWidth = std::min(HERO_LAYOUT_CHAMPION_WIDEST, two ? available - COLUMN_GAP - inventoryWidth : available);
   if (!two) packBeside = available >= pictureWide;
@@ -2943,7 +2976,11 @@ static void DrawLiveChampion(HeroStatsDrawState *state, const HeroStatsLiveChamp
   if (two) ImGui::SameLine(0, COLUMN_GAP);
   if (ImGui::BeginChild("##inventory", ImVec2(two ? inventoryWidth : std::min(available, std::max(inventoryWidth, leftWidth)), 0),
                         ImGuiChildFlags_AutoResizeY, plain))
+  {
+    widestTableBegun = 0;
     LiveInventory(state, live, packBeside);
+    if (state->inventoryList && widestTableBegun > 0) listNeeds = widestTableBegun;
+  }
   ImGui::EndChild();
   ImGui::PopID();
 }

@@ -20,8 +20,9 @@ const float HERO_LAYOUT_TILE_SMALLEST = 150;
 
 // What a table needs: label: its widest label on one line; numbers: the number columns that
 // always show; derived: the columns worked out from others (Rate, Avg), 0 when none. All with
-// their cell padding.
-struct HeroStatsTableNeeds { float label, numbers, derived; bool hasBar; };
+// their cell padding. barHeader: what the bar's header needs ("Share of party"); a bar is never
+// narrower than that or than the smallest bar.
+struct HeroStatsTableNeeds { float label, numbers, derived; bool hasBar; float barHeader; };
 // What it gets at a width: the bar and the derived columns shown or not, the label wrapping, the
 // table scrolling sideways on its own. tableWidth is more than what was available only when
 // scroll is set.
@@ -29,7 +30,7 @@ struct HeroStatsTableFit { bool bar, derived, wrap, scroll; float labelWidth, ba
 // A table too wide gives up, in this order: the bar, the derived columns, the label's single
 // line, and at last it scrolls
 HeroStatsTableFit HeroStatsLayout_FitTable(const HeroStatsTableNeeds &needs, float available);
-// label + numbers + derived + the smallest bar: what the table needs to show everything
+// label + numbers + derived + the smallest bar it may have: what the table needs to show everything
 float HeroStatsLayout_FullWidth(const HeroStatsTableNeeds &needs);
 // How many of count equal boxes stand in a row: as many as fit, but four boxes never three and one
 int HeroStatsLayout_Across(int count, float available, float smallest, float gap);

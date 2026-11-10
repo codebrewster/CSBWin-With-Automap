@@ -47,6 +47,16 @@ static void NoRoomAtAllStillGivesWidths(void)
   CHECK(!HeroStatsLayout_FitTable(plain, 500).bar && HeroStatsLayout_FitTable(plain, 500).labelWidth == 440);
 }
 
+// A bar is never narrower than its header ("Share of party", "Who: Experience")
+static void ABarKeepsRoomForItsHeader(void)
+{
+  HeroStatsTableNeeds needs = {200, 300, 100, true, 150};
+  CHECK(HeroStatsLayout_FullWidth(needs) == 750);
+  CHECK(!HeroStatsLayout_FitTable(needs, 720).bar);          // 110 would fit, the header's 150 does not
+  HeroStatsTableFit fit = HeroStatsLayout_FitTable(needs, 760);
+  CHECK(fit.bar && fit.barWidth == 160 && fit.labelWidth == 200);
+}
+
 static void FullWidthIsEverythingWithTheSmallestBar(void)
 {
   CHECK(HeroStatsLayout_FullWidth(NEEDS) == 710);
@@ -87,6 +97,7 @@ void TestHeroStatsLayout(void)
   ThenTheLabelWraps();
   ANameTooLongScrollsTheTable();
   NoRoomAtAllStillGivesWidths();
+  ABarKeepsRoomForItsHeader();
   FullWidthIsEverythingWithTheSmallestBar();
   CardsNeverStandThreeAndOne();
   SectionsStandSideBySideWhenEachFitsInHalf();
