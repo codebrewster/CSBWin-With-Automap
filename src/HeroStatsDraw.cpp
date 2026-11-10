@@ -7,7 +7,10 @@
 #include <cmath>
 #include <string>
 #include <vector>
+#include <map>
 #include "imgui.h"
+#include "imgui_internal.h"
+#include "HeroStatsLayout.h"
 #include "HeroStatsDraw.h"
 #include "HeroStatsHooks.h"
 #include "HeroStatsPages.h"
@@ -507,16 +510,60 @@ static const PageData &CachedPage(const HeroStatsDrawState &state, const HeroSta
 // ---------------------------------------------------------------------------------------------
 // Cells, bars and section headers
 
+// A number column and a bar before their table has been measured (its first frame)
 static const float NUMBER_WIDTH = 70;
 static const float BAR_WIDTH = 170;
-static const float WHO_WIDTH = 140;
-static const float LABEL_SMALLEST = 190;
+static const ImU32 GUIDE_RGB = 0x2b3140;       // the row under the pointer
+static const ImU32 GUIDE_EDGE_RGB = 0x5b8fd9;  // its edge, and the hovered column's line
+static const ImU32 GUIDE_CROSS_RGB = 0x36405a; // where the row and the column meet
+
+// How wide a table's columns are. No column has a width of its own: a number column is as wide
+// as its widest text, which the cells note as they are drawn, so a table is laid out with the
+// widths of the frame before (its first frame with the defaults above). What the table gives up
+// when the page is too narrow is HeroStatsLayout_FitTable's.
+enum ColumnKind { ColumnLabel, ColumnNumber, ColumnDerived, ColumnBar, ColumnText };
+struct TableMeasure
+{
+  std::vector<int> kinds, lastKinds;  // of this frame as the columns are set up, and of the last
+  std::vector<float> seen, width;     // the widest text noted this frame, and the last frame's
+  std::vector<bool> disabled;         // columns the fit dropped this frame: they note nothing
+  HeroStatsTableFit fit;
+  bool known;                         // the last frame measured this table with these columns
+};
+static std::map<ImGuiID, TableMeasure> tableMeasures;
+static TableMeasure *measuring = NULL;
+static ImGuiID measuringId = 0;
+static bool rowIsHot = false;
+
+// The table being drawn is the one BeginPageTable began
+static bool InMeasuredTable(void)
+{
+  ImGuiTable *table = ImGui::GetCurrentTable();
+  return measuring != NULL && table != NULL && table->ID == measuringId;
+}
+
+// A cell's text is this wide: its column must be
+static void NoteWidth(float width)
+{
+  if (!InMeasuredTable()) return;
+  int column = ImGui::TableGetColumnIndex();
+  if (column < 0 || column >= (int)measuring->seen.size()) return;
+  measuring->seen[column] = std::max(measuring->seen[column], width);
+}
+
+// The text of the row under the pointer is white
+static ImU32 Hot(ImU32 rgb)
+{
+  return rowIsHot && InMeasuredTable() && (rgb == TEXT_RGB || rgb == PART_RGB || rgb == DIM_RGB) ? WHITE_RGB : rgb;
+}
 
 static void RightText(const std::string &text, ImU32 rgb)
 {
-  float room = ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(text.c_str()).x;
+  float width = ImGui::CalcTextSize(text.c_str()).x;
+  NoteWidth(width);
+  float room = ImGui::GetContentRegionAvail().x - width;
   if (room > 0) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + room);
-  ImGui::TextColored(Colour(rgb), "%s", text.c_str());
+  ImGui::TextColored(Colour(Hot(rgb)), "%s", text.c_str());
 }
 
 // A number in a table cell: a dim dot for zero, bad news on a red pill
@@ -533,6 +580,7 @@ static void NumberCell(const std::string &text, int value, bool isBad, ImU32 rgb
     return;
   }
   float width = ImGui::CalcTextSize(text.c_str()).x;
+  NoteWidth(width);
   float room = ImGui::GetContentRegionAvail().x - width;
   if (room > 0) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + room);
   PillBehind(ImGui::GetWindowDrawList(), ImGui::GetCursorScreenPos(), ImVec2(width, ImGui::GetTextLineHeight()));
@@ -628,34 +676,145 @@ static void SectionGap(void)
 
 static const ImGuiTableFlags TABLE_FLAGS = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_BordersInnerH;
 
-// A table as wide as the page, or as wide as its columns need when the page is narrower
-static bool BeginPageTable(const char *id, int columnCount, float fixedWidth, bool sortable, float labelWidth = LABEL_SMALLEST)
+// A table as wide as the page. Its columns follow with LabelColumn, NumberColumn, BarColumn and
+// TextColumn, one call per column in order. When the page is too narrow for it, the bar column
+// and then the derived columns are left out, then the label wraps, and at last the table scrolls
+// sideways on its own with its label staying in place.
+static bool BeginPageTable(const char *id, int columnCount, bool sortable)
 {
-  // Each column has its cell padding on both sides besides its width
-  float needed = labelWidth + fixedWidth + ImGui::GetStyle().CellPadding.x * 2 * columnCount;
-  float width = std::max(ImGui::GetContentRegionAvail().x, needed);
-  ImGuiTableFlags flags = TABLE_FLAGS | (sortable ? ImGuiTableFlags_Sortable : 0);
-  return ImGui::BeginTable(id, columnCount, flags, ImVec2(width, 0));
+  ImGuiID tableId = ImGui::GetID(id);
+  TableMeasure &measure = tableMeasures[tableId];
+  // What the last frame saw is what this frame is laid out with
+  if (!measure.kinds.empty())
+  {
+    if (measure.width.size() != measure.kinds.size()) measure.width.assign(measure.kinds.size(), 0.0f);
+    for (size_t i = 0; i < measure.kinds.size() && i < measure.seen.size(); i++)
+      if (!(i < measure.disabled.size() && measure.disabled[i])) measure.width[i] = measure.seen[i];
+    measure.lastKinds = measure.kinds;
+  }
+  ImGuiTable *last = ImGui::TableFindByID(tableId);
+  float available = ImGui::GetContentRegionAvail().x;
+  float padding = ImGui::GetStyle().CellPadding.x * 2;
+  measure.known = (int)measure.lastKinds.size() == columnCount && last != NULL && last->ColumnsCount == columnCount;
+  HeroStatsTableFit everything = {true, true, false, false, 0, BAR_WIDTH + padding, available};
+  measure.fit = everything;
+  if (measure.known)
+  {
+    HeroStatsTableNeeds needs = {0, 0, 0, false};
+    for (int i = 0; i < columnCount; i++)
+    {
+      float width = measure.width[i];
+      // A text column sizes itself to what is in it (ImGui's own measure of the last frame)
+      if (measure.lastKinds[i] == ColumnText) width = last->Columns[i].WidthAuto;
+      switch (measure.lastKinds[i])
+      {
+      case ColumnLabel: needs.label += width + padding; break;
+      case ColumnDerived: needs.derived += width + padding; break;
+      case ColumnBar: needs.hasBar = true; break;
+      default: needs.numbers += width + padding; break;
+      }
+    }
+    measure.fit = HeroStatsLayout_FitTable(needs, available);
+  }
+  measure.kinds.clear();
+  measure.seen.assign(columnCount, 0.0f);
+  measure.disabled.assign(columnCount, false);
+  measuring = &measure;
+  measuringId = tableId;
+  rowIsHot = false;
+  ImGuiTableFlags flags = TABLE_FLAGS | ImGuiTableFlags_HighlightHoveredColumn | (sortable ? ImGuiTableFlags_Sortable : 0);
+  ImVec2 size(available, 0);
+  if (measure.fit.scroll)
+  {
+    // A scrolling table is a window of its own and needs its height: the last frame's rows
+    bool scrolled = last->InnerWindow != last->OuterWindow;
+    size.y = (scrolled ? last->InnerWindow->ContentSize.y : last->OuterRect.GetHeight()) + ImGui::GetStyle().ScrollbarSize;
+    flags |= ImGuiTableFlags_ScrollX;
+  }
+  if (!ImGui::BeginTable(id, columnCount, flags, size, measure.fit.scroll ? measure.fit.tableWidth : 0.0f))
+  {
+    measuring = NULL;
+    return false;
+  }
+  if (measure.fit.scroll) ImGui::TableSetupScrollFreeze(1, 0);
+  return true;
 }
 
-// The label column takes the room the numbers leave
-static void LabelColumn(const char *label, bool sortable = false)
+// The column being set up: its place, and whether the fit leaves it out
+static int AddColumn(ColumnKind kind, bool off)
 {
-  ImGuiTableColumnFlags flags = ImGuiTableColumnFlags_WidthStretch;
-  if (!sortable) flags |= ImGuiTableColumnFlags_NoSort;
-  ImGui::TableSetupColumn(label, flags);
+  if (measuring == NULL) return -1;
+  int index = (int)measuring->kinds.size();
+  measuring->kinds.push_back(kind);
+  if (index < (int)measuring->disabled.size()) measuring->disabled[index] = off;
+  return index;
 }
 
-static void NumberColumn(const char *label, float width = NUMBER_WIDTH, bool sortsFirst = false)
+// The label column takes the room the others leave
+static void LabelColumn(const char *label, bool sortable = false, bool sortsFirst = false)
 {
+  AddColumn(ColumnLabel, false);
+  ImGuiTableColumnFlags flags = sortable ? 0 : ImGuiTableColumnFlags_NoSort;
+  if (sortsFirst) flags |= ImGuiTableColumnFlags_DefaultSort;
+  float padding = ImGui::GetStyle().CellPadding.x * 2;
+  if (measuring != NULL && measuring->fit.scroll)
+    ImGui::TableSetupColumn(label, flags | ImGuiTableColumnFlags_WidthFixed, std::max(20.0f, measuring->fit.labelWidth - padding));
+  else ImGui::TableSetupColumn(label, flags | ImGuiTableColumnFlags_WidthStretch);
+}
+
+// A column of numbers, as wide as its widest. derived: worked out from other columns (a rate, an
+// average), so it is left out before a label has to wrap.
+static void NumberColumn(const char *label, bool sortsFirst = false, bool derived = false)
+{
+  bool off = derived && measuring != NULL && measuring->known && !measuring->fit.derived;
+  int index = AddColumn(derived ? ColumnDerived : ColumnNumber, off);
+  float width = NUMBER_WIDTH;
+  if (measuring != NULL && measuring->known && index >= 0 && measuring->width[index] > 0) width = measuring->width[index];
   ImGuiTableColumnFlags flags = ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_PreferSortDescending;
   if (sortsFirst) flags |= ImGuiTableColumnFlags_DefaultSort;
+  if (off) flags |= ImGuiTableColumnFlags_Disabled;
   ImGui::TableSetupColumn(label, flags, width);
 }
 
-static void BarColumn(const char *label, float width)
+// A bar (Share, Who, To next rank): a share of the table, the first to go when it is narrow
+static void BarColumn(const char *label)
 {
-  ImGui::TableSetupColumn(label, ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_PreferSortDescending, width);
+  bool off = measuring != NULL && measuring->known && !measuring->fit.bar;
+  AddColumn(ColumnBar, off);
+  float width = BAR_WIDTH;
+  if (measuring != NULL && measuring->known && measuring->fit.bar)
+    width = std::max(20.0f, measuring->fit.barWidth - ImGui::GetStyle().CellPadding.x * 2);
+  ImGuiTableColumnFlags flags = ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_PreferSortDescending;
+  if (off) flags |= ImGuiTableColumnFlags_Disabled;
+  ImGui::TableSetupColumn(label, flags, width);
+}
+
+// A column of words, left-aligned, as wide as its widest
+static void TextColumn(const char *label)
+{
+  AddColumn(ColumnText, false);
+  ImGui::TableSetupColumn(label, ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort);
+}
+
+// The next row of a table, with the guide: the row under the pointer is lit with an edge at its
+// label, the column under it tinted (its header underlined by HeaderRow)
+static void NextGuidedRow(void)
+{
+  ImGui::TableNextRow();
+  rowIsHot = false;
+  if (!InMeasuredTable()) return;
+  ImGuiTable *table = ImGui::GetCurrentTable();
+  int hoveredColumn = ImGui::TableGetHoveredColumn();
+  rowIsHot = hoveredColumn >= 0 && ImGui::TableGetRowIndex() == ImGui::TableGetHoveredRow();
+  if (rowIsHot) ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg1, Packed(GUIDE_RGB));
+  if (hoveredColumn > 0 && hoveredColumn < table->ColumnsCount)
+    ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, rowIsHot ? Packed(GUIDE_CROSS_RGB) : Packed(GUIDE_EDGE_RGB, 0.05f), hoveredColumn);
+  if (rowIsHot && ImGui::TableSetColumnIndex(0))
+  {
+    float x = ImGui::GetCursorScreenPos().x - ImGui::GetStyle().CellPadding.x;
+    float height = ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.y * 2;
+    ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(x, table->RowPosY1), ImVec2(x + 2, table->RowPosY1 + height), Packed(GUIDE_EDGE_RGB));
+  }
 }
 
 // The header row: the label left, numbers right-aligned; a champion's name after their dot
@@ -675,18 +834,26 @@ static void HeaderRow(const std::vector<int> &columnOfHeader, const std::vector<
     // Numbers right-aligned, room left for the sort arrow; a champion's dot in two spaces before the name
     std::string prefix;
     float spaceWidth = ImGui::CalcTextSize(" ").x;
-    if (i > 0)
+    bool isText = measuring != NULL && i < (int)measuring->kinds.size() && measuring->kinds[i] == ColumnText;
+    bool guided = i > 0 && InMeasuredTable() && ImGui::TableGetHoveredColumn() == i;
+    if (!isText) NoteWidth(ImGui::CalcTextSize(name).x + (champion >= 0 ? spaceWidth * 2 : 0) + 14);
+    if (i > 0 && !isText)
     {
       float textWidth = ImGui::CalcTextSize(name).x + (champion >= 0 ? spaceWidth * 2 : 0);
       int spaces = (int)((ImGui::GetContentRegionAvail().x - textWidth - 14) / spaceWidth);
       if (spaces > 0) prefix = std::string(spaces, ' ');
     }
     std::string label = prefix + (champion >= 0 ? "  " : "") + name;
-    ImGui::PushStyleColor(ImGuiCol_Text, Colour(dimmed ? FAINT_RGB : DIM_RGB));
+    ImGui::PushStyleColor(ImGuiCol_Text, Colour(guided ? WHITE_RGB : dimmed ? FAINT_RGB : DIM_RGB));
     ImGui::PushID(i);
     ImGui::TableHeader(label.c_str());
     ImGui::PopID();
     ImGui::PopStyleColor();
+    if (guided)
+    {
+      ImRect cell = ImGui::TableGetCellBgRect(ImGui::GetCurrentTable(), i);
+      ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(cell.Min.x, cell.Max.y - 2), cell.Max, Packed(GUIDE_EDGE_RGB));
+    }
     if (champion >= 0)
     {
       ImVec2 max = ImGui::GetItemRectMax(), min = ImGui::GetItemRectMin();
@@ -698,7 +865,7 @@ static void HeaderRow(const std::vector<int> &columnOfHeader, const std::vector<
 
 static void TotalRow(void)
 {
-  ImGui::TableNextRow();
+  NextGuidedRow();
   ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, Packed(PANEL_RGB));
 }
 
@@ -741,8 +908,13 @@ static void SortRows(std::vector<Row> *rows, const TableSort &sort, Key key)
 static void LabelCell(const std::string &text, int depth, ImU32 rgb, const char *help = "")
 {
   ImGui::TableSetColumnIndex(0);
+  NoteWidth(ImGui::CalcTextSize(text.c_str()).x + 14.0f * depth);
   if (depth > 0) ImGui::Indent(14.0f * depth);
-  ImGui::TextColored(Colour(rgb), "%s", text.c_str());
+  // A label too long for a narrow table goes on under itself
+  bool wraps = InMeasuredTable() && measuring->fit.wrap;
+  if (wraps) ImGui::PushTextWrapPos(0.0f);
+  ImGui::TextColored(Colour(Hot(rgb)), "%s", text.c_str());
+  if (wraps) ImGui::PopTextWrapPos();
   if (help[0] != 0 && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", help);
   if (depth > 0) ImGui::Unindent(14.0f * depth);
 }
@@ -892,9 +1064,8 @@ static void DrawNumbers(const HeroStatsTopicPage &page, const HeroStatsDrawState
   size_t champion = 0;
   while (!isParty && champion < columns.size() && columns[champion].id != state.who) champion++;
   int count = isParty ? (int)columns.size() + 3 : 4;
-  float fixed = isParty ? NUMBER_WIDTH * (columns.size() + 1) + BAR_WIDTH : NUMBER_WIDTH * 2 + BAR_WIDTH;
   ImGui::PushID("numbers");
-  if (!BeginPageTable("##numbers", count, fixed, false))
+  if (!BeginPageTable("##numbers", count, false))
   {
     ImGui::PopID();
     return;
@@ -913,14 +1084,14 @@ static void DrawNumbers(const HeroStatsTopicPage &page, const HeroStatsDrawState
     headerColumns.push_back((int)champion);
   }
   NumberColumn("Party");
-  BarColumn(isParty ? "Share" : "Share of party", BAR_WIDTH);
+  BarColumn(isParty ? "Share" : "Share of party");
   HeaderRow(headerColumns, columns);
   for (size_t r = 0; r < page.numbers.size(); r++)
   {
     const HeroStatsNumbersRow &row = page.numbers[r];
     const HeroStatsNumberInfo &info = HeroStatsCatalogue_Info(row.number);
     ImU32 rgb = row.depth > 0 ? PART_RGB : TEXT_RGB;
-    ImGui::TableNextRow();
+    NextGuidedRow();
     LabelCell(info.label, row.depth, row.depth > 0 ? DIM_RGB : TEXT_RGB, info.help);
     for (size_t c = 0; c < row.byColumn.size(); c++)
     {
@@ -1065,16 +1236,16 @@ static void DrawWeapons(HeroStatsDrawState *state, const HeroStatsHeroPage &page
     return;
   }
   int count = isParty ? 8 : 7;
-  if (BeginPageTable("##weapons", count, NUMBER_WIDTH * 6 + (isParty ? WHO_WIDTH : 0), true))
+  if (BeginPageTable("##weapons", count, true))
   {
     LabelColumn("Weapon", true);
     NumberColumn("Tries");
     NumberColumn("Hits");
-    NumberColumn("Rate");
-    NumberColumn("Avg");
-    NumberColumn("Damage", NUMBER_WIDTH, true);
+    NumberColumn("Rate", false, true);
+    NumberColumn("Avg", false, true);
+    NumberColumn("Damage", true);
     NumberColumn("Kills");
-    if (isParty) BarColumn("Who", WHO_WIDTH);
+    if (isParty) BarColumn("Who");
     TableSort sort = CurrentSort();
     static const char *const LABELS[7] = {"Weapon", "Tries", "Hits", "Rate", "Avg", "Damage", "Kills"};
     int measure = WhoMeasure(sort, {1, 2, 5, 6}, 5);
@@ -1085,11 +1256,12 @@ static void DrawWeapons(HeroStatsDrawState *state, const HeroStatsHeroPage &page
     {
       HeroStatsWeaponLine &weapon = weapons[w];
       SortRows(&weapon.options, sort, CompareAttacks<HeroStatsOptionLine>);
-      ImGui::TableNextRow();
+      NextGuidedRow();
       ImGui::TableSetColumnIndex(0);
       // Open or folded is ImGui's own, per weapon and per hero, for as long as the program runs
       ImGui::PushID((int)state->who);
       ImGui::PushID(weapon.id);
+      NoteWidth(ImGui::CalcTextSize(weapon.name.c_str()).x + ImGui::GetTreeNodeToLabelSpacing());
       bool open = ImGui::TreeNodeEx(weapon.name.c_str(), ImGuiTreeNodeFlags_SpanLabelWidth);
       AttackCells(weapon, TEXT_RGB);
       if (isParty)
@@ -1103,7 +1275,7 @@ static void DrawWeapons(HeroStatsDrawState *state, const HeroStatsHeroPage &page
       {
         for (size_t o = 0; o < weapon.options.size(); o++)
         {
-          ImGui::TableNextRow();
+          NextGuidedRow();
           LabelCell(weapon.options[o].name, 1, DIM_RGB);
           AttackCells(weapon.options[o], PART_RGB);
         }
@@ -1158,16 +1330,16 @@ static void DrawSpells(HeroStatsDrawState *state, const HeroStatsHeroPage &page,
     return;
   }
   int count = isParty ? 8 : 7;
-  if (BeginPageTable("##spells", count, NUMBER_WIDTH * 6 + (isParty ? WHO_WIDTH : 0), true))
+  if (BeginPageTable("##spells", count, true))
   {
     LabelColumn("Spell", true);
     NumberColumn("Casts");
     NumberColumn("Failed");
-    NumberColumn("Mana", NUMBER_WIDTH, true);
+    NumberColumn("Mana", true);
     NumberColumn("Wasted");
     NumberColumn("Damage");
     NumberColumn("Kills");
-    if (isParty) BarColumn("Who", WHO_WIDTH);
+    if (isParty) BarColumn("Who");
     TableSort sort = CurrentSort();
     static const char *const LABELS[7] = {"Spell", "Casts", "Failed", "Mana", "Wasted", "Damage", "Kills"};
     int measure = WhoMeasure(sort, {1, 2, 3, 4, 5, 6}, 3);
@@ -1183,7 +1355,7 @@ static void DrawSpells(HeroStatsDrawState *state, const HeroStatsHeroPage &page,
       const HeroStatsSpellLine &line = isAll ? all : spells[i];
       ImU32 rgb = isAll ? WHITE_RGB : TEXT_RGB;
       if (isAll) TotalRow();
-      else ImGui::TableNextRow();
+      else NextGuidedRow();
       LabelCell(line.name, 0, rgb);
       for (int column = 1; column <= 6; column++)
       {
@@ -1219,11 +1391,11 @@ static void DrawAmounts(HeroStatsDrawState *state, int section, const char *titl
     return;
   }
   ImGui::PushID(section);
-  if (BeginPageTable("##amounts", isParty ? 3 : 2, NUMBER_WIDTH + (isParty ? WHO_WIDTH : 0), true))
+  if (BeginPageTable("##amounts", isParty ? 3 : 2, true))
   {
     LabelColumn("Source", true);
-    NumberColumn(column, NUMBER_WIDTH, true);
-    if (isParty) BarColumn("Who", WHO_WIDTH);
+    NumberColumn(column, true);
+    if (isParty) BarColumn("Who");
     HeaderRow(std::vector<int>(), columns, isParty ? std::string("Who: ") + column : "");
     std::vector<HeroStatsAmountLine> lines = source;
     SortRows(&lines, CurrentSort(), [](const HeroStatsAmountLine &a, const HeroStatsAmountLine &b, int c) {
@@ -1231,7 +1403,7 @@ static void DrawAmounts(HeroStatsDrawState *state, int section, const char *titl
     });
     for (size_t i = 0; i < lines.size(); i++)
     {
-      ImGui::TableNextRow();
+      NextGuidedRow();
       LabelCell(lines[i].text, 0, TEXT_RGB);
       ImGui::TableSetColumnIndex(1);
       PlainCell(lines[i].amount, TEXT_RGB, lines[i].isBad);
@@ -1294,12 +1466,12 @@ static void DrawConsumed(HeroStatsDrawState *state, const HeroStatsHeroPage &pag
     SectionGap();
     return;
   }
-  if (BeginPageTable("##consumed", isParty ? 4 : 3, NUMBER_WIDTH * 2 + (isParty ? WHO_WIDTH : 0), true))
+  if (BeginPageTable("##consumed", isParty ? 4 : 3, true))
   {
     LabelColumn("Item", true);
-    NumberColumn("Eaten", NUMBER_WIDTH, true);
+    NumberColumn("Eaten", true);
     NumberColumn("Drunk");
-    if (isParty) BarColumn("Who", WHO_WIDTH);
+    if (isParty) BarColumn("Who");
     TableSort sort = CurrentSort();
     static const char *const LABELS[3] = {"Item", "Eaten", "Drunk"};
     int measure = WhoMeasure(sort, {1, 2}, 1);
@@ -1314,7 +1486,7 @@ static void DrawConsumed(HeroStatsDrawState *state, const HeroStatsHeroPage &pag
     {
       bool isAll = i == lines.size();
       if (isAll) TotalRow();
-      else ImGui::TableNextRow();
+      else NextGuidedRow();
       ImU32 rgb = isAll ? WHITE_RGB : TEXT_RGB;
       LabelCell(isAll ? "Everything" : lines[i].name, 0, rgb);
       ImGui::TableSetColumnIndex(1);
@@ -1347,12 +1519,12 @@ static void DrawItems(HeroStatsDrawState *state, const std::vector<HeroStatsItem
     SectionGap();
     return;
   }
-  if (BeginPageTable("##items", 4, NUMBER_WIDTH * 3 + 30, true))
+  if (BeginPageTable("##items", 4, true))
   {
     LabelColumn("Item", true);
-    NumberColumn("Picked up", NUMBER_WIDTH, true);
-    NumberColumn("From chest", NUMBER_WIDTH);
-    NumberColumn("Used in walls", NUMBER_WIDTH + 30);
+    NumberColumn("Picked up", true);
+    NumberColumn("From chest");
+    NumberColumn("Used in walls");
     HeaderRow(std::vector<int>(), columns);
     SortRows(&lines, CurrentSort(), [](const HeroStatsItemLine &a, const HeroStatsItemLine &b, int c) {
       if (c == 0) return a.name.compare(b.name);
@@ -1364,7 +1536,7 @@ static void DrawItems(HeroStatsDrawState *state, const std::vector<HeroStatsItem
       bool isAll = i == lines.size();
       const HeroStatsItemLine &line = isAll ? all : lines[i];
       if (isAll) TotalRow();
-      else ImGui::TableNextRow();
+      else NextGuidedRow();
       ImU32 rgb = isAll ? WHITE_RGB : TEXT_RGB;
       LabelCell(line.name, 0, rgb);
       ImGui::TableSetColumnIndex(1);
@@ -1396,8 +1568,7 @@ static void DrawMonsters(HeroStatsDrawState *state, const std::vector<HeroStatsM
   // The Party: a column per champion, the doors, pits and other causes when there are any, all of them, Who
   bool door = isParty && all.door > 0, pit = isParty && all.pit > 0, other = isParty && all.other > 0;
   int count = 1 + (isParty ? (int)champions + door + pit + other + 2 : 1);
-  float fixed = NUMBER_WIDTH * (count - 1 - (isParty ? 1 : 0)) + (isParty ? WHO_WIDTH : 0);
-  if (BeginPageTable("##monsters", count, fixed, true))
+  if (BeginPageTable("##monsters", count, true))
   {
     LabelColumn("Monster", true);
     std::vector<int> headerColumns(1, -1);
@@ -1411,10 +1582,10 @@ static void DrawMonsters(HeroStatsDrawState *state, const std::vector<HeroStatsM
       if (door) NumberColumn("Door");
       if (pit) NumberColumn("Pit");
       if (other) NumberColumn("Other");
-      NumberColumn("All", NUMBER_WIDTH, true);
-      BarColumn("Who", WHO_WIDTH);
+      NumberColumn("All", true);
+      BarColumn("Who");
     }
-    else NumberColumn("Kills", NUMBER_WIDTH, true);
+    else NumberColumn("Kills", true);
     HeaderRow(headerColumns, columns, isParty ? "Who: Kills" : "");
     // The values of a line in table order after the name
     auto values = [&](const HeroStatsMonsterLine &line) {
@@ -1438,7 +1609,7 @@ static void DrawMonsters(HeroStatsDrawState *state, const std::vector<HeroStatsM
       bool isAll = i == lines.size();
       const HeroStatsMonsterLine &line = isAll ? all : lines[i];
       if (isAll) TotalRow();
-      else ImGui::TableNextRow();
+      else NextGuidedRow();
       ImU32 rgb = isAll ? WHITE_RGB : TEXT_RGB;
       LabelCell(line.name, 0, rgb);
       std::vector<int> v = values(line);
@@ -1471,19 +1642,18 @@ static void DrawSkills(HeroStatsDrawState *state, const std::vector<HeroStatsCla
   if (!SectionHeader(state, HeroDetailSkills, "Skills", "the hidden skills under each class")) return;
   bool isParty = state->who == HERO_STATS_PARTY;
   int count = isParty ? 4 : 4;
-  float fixed = isParty ? NUMBER_WIDTH * 2 + WHO_WIDTH : WHO_WIDTH + NUMBER_WIDTH * 2;
-  if (BeginPageTable("##skills", count, fixed, false))
+  if (BeginPageTable("##skills", count, false))
   {
     LabelColumn("Skill");
     if (isParty)
     {
       NumberColumn("Experience");
       NumberColumn("Ranks gained");
-      BarColumn("Who: Experience", WHO_WIDTH);
+      BarColumn("Who: Experience");
     }
     else
     {
-      BarColumn("Rank now", WHO_WIDTH);
+      TextColumn("Rank now");
       NumberColumn("Experience");
       NumberColumn("Ranks gained");
     }
@@ -1491,12 +1661,13 @@ static void DrawSkills(HeroStatsDrawState *state, const std::vector<HeroStatsCla
     for (size_t c = 0; c < classes.size(); c++)
     {
       const HeroStatsClassLine &line = classes[c];
-      ImGui::TableNextRow();
+      NextGuidedRow();
       ImGui::TableSetColumnIndex(0);
       ImGui::PushID((int)state->who);
       ImGui::PushID((int)c + 3000);
       std::string upper = line.name;
       for (size_t i = 0; i < upper.size(); i++) upper[i] = (char)toupper((unsigned char)upper[i]);
+      NoteWidth(ImGui::CalcTextSize(upper.c_str()).x + ImGui::GetTreeNodeToLabelSpacing());
       bool open = ImGui::TreeNodeEx(upper.c_str(), ImGuiTreeNodeFlags_SpanLabelWidth);
       if (isParty)
       {
@@ -1528,7 +1699,7 @@ static void DrawSkills(HeroStatsDrawState *state, const std::vector<HeroStatsCla
         for (size_t k = 0; k < line.skills.size(); k++)
         {
           const HeroStatsXpLine &skill = line.skills[k];
-          ImGui::TableNextRow();
+          NextGuidedRow();
           LabelCell(skill.name, 1, DIM_RGB);
           ImGui::TableSetColumnIndex(isParty ? 1 : 2);
           PlainCell(skill.amount, PART_RGB);
@@ -1556,9 +1727,8 @@ static void DrawXpSources(HeroStatsDrawState *state, const std::vector<HeroStats
   if (!SectionHeader(state, HeroDetailXpSources, "Experience by source", "click a line to fold it")) return;
   bool isParty = state->who == HERO_STATS_PARTY;
   int count = isParty ? 3 : 4;
-  float fixed = isParty ? NUMBER_WIDTH + BAR_WIDTH : NUMBER_WIDTH * 2 + BAR_WIDTH;
   size_t champion = ColumnOf(columns, state->who);
-  if (BeginPageTable("##xpsources", count, fixed, false))
+  if (BeginPageTable("##xpsources", count, false))
   {
     LabelColumn("Source");
     if (isParty) NumberColumn("Experience");
@@ -1567,7 +1737,7 @@ static void DrawXpSources(HeroStatsDrawState *state, const std::vector<HeroStats
       NumberColumn(champion < columns.size() ? columns[champion].name.c_str() : "");
       NumberColumn("Party");
     }
-    BarColumn(isParty ? "Who: Experience" : "Share of party", BAR_WIDTH);
+    BarColumn(isParty ? "Who: Experience" : "Share of party");
     std::vector<int> headerColumns(1, -1);
     if (!isParty) headerColumns.push_back((int)champion);
     HeaderRow(headerColumns, columns);
@@ -1579,10 +1749,11 @@ static void DrawXpSources(HeroStatsDrawState *state, const std::vector<HeroStats
       if (line.depth == 0) topLine = line.name;
       if (skipDeeperThan >= 0 && line.depth > skipDeeperThan) continue;
       skipDeeperThan = -1;
-      ImGui::TableNextRow();
+      NextGuidedRow();
       ImGui::TableSetColumnIndex(0);
       if (line.depth > 0) ImGui::Indent(14.0f * line.depth);
       ImU32 rgb = line.depth > 0 ? PART_RGB : TEXT_RGB;
+      NoteWidth(ImGui::CalcTextSize((line.name + (line.note.empty() ? "" : "  " + line.note)).c_str()).x + ImGui::GetTreeNodeToLabelSpacing() + 14.0f * line.depth);
       if (line.hasChildren)
       {
         // Attacks with its first weapon, Spells with its classes
@@ -1646,19 +1817,19 @@ static void DrawRankUps(HeroStatsDrawState *state, const std::vector<HeroStatsRa
   }
   bool isParty = state->who == HERO_STATS_PARTY;
   int count = isParty ? 5 : 4;
-  if (BeginPageTable("##rankups", count, WHO_WIDTH * 2 + NUMBER_WIDTH * (isParty ? 3 : 2), false))
+  if (BeginPageTable("##rankups", count, false))
   {
     if (isParty) LabelColumn("Who");
-    if (isParty) BarColumn("Class", NUMBER_WIDTH);
+    if (isParty) TextColumn("Class");
     else LabelColumn("Class");
-    BarColumn("Rank", WHO_WIDTH);
-    BarColumn("With", WHO_WIDTH + NUMBER_WIDTH);
+    TextColumn("Rank");
+    TextColumn("With");
     NumberColumn("Lv");
     HeaderRow(std::vector<int>(), columns);
     for (size_t i = 0; i < lines.size(); i++)
     {
       const HeroStatsRankUpLine &line = lines[i];
-      ImGui::TableNextRow();
+      NextGuidedRow();
       int column = 0;
       if (isParty)
       {
@@ -1666,6 +1837,7 @@ static void DrawRankUps(HeroStatsDrawState *state, const std::vector<HeroStatsRa
         size_t c = ColumnOf(columns, line.who);
         ImVec2 at = ImGui::GetCursorScreenPos();
         if (c < columns.size()) ChampionDot(ImVec2(at.x + 4, at.y + ImGui::GetTextLineHeight() / 2), c, columns[c].hasLeft);
+        NoteWidth(14 + ImGui::CalcTextSize(WhoLabel(columns, line.who).c_str()).x);
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 14);
         ImGui::TextColored(Colour(TEXT_RGB), "%s", WhoLabel(columns, line.who).c_str());
       }
@@ -1697,15 +1869,15 @@ static void DrawRecords(HeroStatsDrawState *state, const std::vector<HeroStatsRe
   if (!SectionHeader(state, HeroDetailRecords, "Records", summary)) return;
   size_t champion = ColumnOf(columns, state->who);
   int count = 6;
-  if (BeginPageTable("##records", count, NUMBER_WIDTH * 2 + WHO_WIDTH * 2 + NUMBER_WIDTH * 2 + 110, false, 250))
+  if (BeginPageTable("##records", count, false))
   {
     LabelColumn("Record");
-    BarColumn(isParty ? "Value" : (champion < columns.size() ? columns[champion].name.c_str() : "Value"), NUMBER_WIDTH * 2);
-    if (isParty) BarColumn("Who", NUMBER_WIDTH);
-    BarColumn("How", WHO_WIDTH + 80);
-    BarColumn("On / from", WHO_WIDTH);
-    NumberColumn("Lv", 40);
-    if (!isParty) BarColumn("Party best", NUMBER_WIDTH + 30);
+    TextColumn(isParty ? "Value" : (champion < columns.size() ? columns[champion].name.c_str() : "Value"));
+    if (isParty) TextColumn("Who");
+    TextColumn("How");
+    TextColumn("On / from");
+    NumberColumn("Lv");
+    if (!isParty) TextColumn("Party best");
     HeaderRow(std::vector<int>(), columns);
     std::string group;
     for (size_t i = 0; i < lines.size(); i++)
@@ -1714,12 +1886,12 @@ static void DrawRecords(HeroStatsDrawState *state, const std::vector<HeroStatsRe
       if (line.group != group)
       {
         group = line.group;
-        ImGui::TableNextRow();
+        NextGuidedRow();
         std::string upper = group;
         for (size_t k = 0; k < upper.size(); k++) upper[k] = (char)toupper((unsigned char)upper[k]);
         LabelCell(upper, 0, DIM_RGB);
       }
-      ImGui::TableNextRow();
+      NextGuidedRow();
       LabelCell(line.label, 0, TEXT_RGB, HeroStatsCatalogue_Info((HeroStatsNumber)(HeroNumRecFirst + line.kind)).help);
       int column = 1;
       ImGui::TableSetColumnIndex(column++);
@@ -2013,6 +2185,7 @@ static bool DrawPerLevelChoices(HeroStatsDrawState *state)
 static void LevelCell(HeroStatsDrawState *state, int level)
 {
   ImGui::TableSetColumnIndex(0);
+  NoteWidth(ImGui::CalcTextSize(LevelLabel(level).c_str()).x);
   ImGui::PushID(level);
   bool isRun = level == HERO_STATS_WHOLE_RUN;
   ImGui::PushStyleColor(ImGuiCol_Text, Colour(isRun ? WHITE_RGB : TEXT_RGB));
@@ -2035,53 +2208,30 @@ static void DrawPerLevel(HeroStatsDrawState *state, const HeroStats &stats, cons
   std::vector<int> headerColumns(1, -1);
   if (grid) count = 1 + (int)columns.size() + 1 + (table.hasShare ? 1 : 0);
   else count = 1 + (int)table.numbers.size() + (table.hasShare ? 1 : 0);
-  // The columns' widths first: a table wider than the page scrolls sideways with it
   std::vector<std::string> labels;
-  std::vector<float> widths;
   if (grid)
   {
-    for (size_t c = 0; c < columns.size(); c++)
-    {
-      labels.push_back(columns[c].name);
-      widths.push_back(std::max(NUMBER_WIDTH, ImGui::CalcTextSize(columns[c].name.c_str()).x + 40));
-    }
+    for (size_t c = 0; c < columns.size(); c++) labels.push_back(columns[c].name);
     labels.push_back("Party");
-    widths.push_back(NUMBER_WIDTH);
-    if (table.hasShare)
-    {
-      labels.push_back("Share");
-      widths.push_back(BAR_WIDTH);
-    }
+    if (table.hasShare) labels.push_back("Share");
   }
   else
   {
-    for (size_t n = 0; n < table.numbers.size(); n++)
-    {
-      labels.push_back(HeroStatsCatalogue_Info(table.numbers[n]).label);
-      widths.push_back(std::max(NUMBER_WIDTH, ImGui::CalcTextSize(labels.back().c_str()).x + 26));
-    }
-    if (table.hasShare)
-    {
-      labels.push_back(std::string("Who: ") + HeroStatsCatalogue_Info(table.shareNumber).label);
-      widths.push_back(std::max(WHO_WIDTH, ImGui::CalcTextSize(labels.back().c_str()).x + 26));
-    }
+    for (size_t n = 0; n < table.numbers.size(); n++) labels.push_back(HeroStatsCatalogue_Info(table.numbers[n]).label);
+    if (table.hasShare) labels.push_back(std::string("Who: ") + HeroStatsCatalogue_Info(table.shareNumber).label);
   }
-  const float LEVEL_WIDTH = 90;
-  float tableWidth = LEVEL_WIDTH + ImGui::GetStyle().CellPadding.x * 2 * count;
-  for (size_t i = 0; i < widths.size(); i++) tableWidth += widths[i];
   ImGui::PushID(grid ? "grid" : "totals");
-  if (!ImGui::BeginTable("##perlevel", count, TABLE_FLAGS | ImGuiTableFlags_Sortable,
-                         ImVec2(std::max(tableWidth, ImGui::GetContentRegionAvail().x), 0)))
+  if (!BeginPageTable("##perlevel", count, true))
   {
     ImGui::PopID();
     return;
   }
-  ImGui::TableSetupColumn("Level", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_DefaultSort, LEVEL_WIDTH);
+  LabelColumn("Level", true, true);
   for (size_t i = 0; i < labels.size(); i++)
   {
     bool isBar = table.hasShare && i == labels.size() - 1;
-    if (isBar) BarColumn(labels[i].c_str(), widths[i]);
-    else NumberColumn(labels[i].c_str(), widths[i]);
+    if (isBar) BarColumn(labels[i].c_str());
+    else NumberColumn(labels[i].c_str());
     if (grid && i < columns.size()) headerColumns.push_back((int)i);
   }
   HeaderRow(headerColumns, columns);
@@ -2106,7 +2256,7 @@ static void DrawPerLevel(HeroStatsDrawState *state, const HeroStats &stats, cons
     const HeroStatsLevelRow &row = rows[r];
     bool isRun = row.level == HERO_STATS_WHOLE_RUN;
     if (isRun) TotalRow();
-    else ImGui::TableNextRow();
+    else NextGuidedRow();
     LevelCell(state, row.level);
     ImU32 rgb = isRun ? WHITE_RGB : TEXT_RGB;
     for (size_t v = 0; v < row.values.size(); v++)
@@ -2249,32 +2399,17 @@ static void LiveVitals(const HeroStatsLiveChampion &live, ImU32 rgb)
   else ImGui::TextColored(Colour(DIM_RGB), "none");
 }
 
-// A table of the Champions tab: exactly as wide as its half of the page. BeginPageTable keeps a
-// label column of at least LABEL_SMALLEST and runs past a half that is narrower, where the
-// page's two halves clip it; the labels here are short.
-static bool BeginLiveTable(const char *id, int columnCount)
-{
-  return ImGui::BeginTable(id, columnCount, TABLE_FLAGS, ImVec2(ImGui::GetContentRegionAvail().x, 0));
-}
-
-// A column wide enough for its header: HeaderRow keeps room for the sort arrow beside it
-static float HeaderFits(const char *label, float atLeast)
-{
-  return std::max(atLeast, ImGui::CalcTextSize(label).x + 24);
-}
-
 // The attributes, current and max: drained below the max in red, raised above it in gold
 static void LiveAttributes(const HeroStatsLiveChampion &live)
 {
-  float current = HeaderFits("Current", NUMBER_WIDTH), most = HeaderFits("Max", NUMBER_WIDTH);
-  if (!BeginLiveTable("##attributes", 3)) return;
+  if (!BeginPageTable("##attributes", 3, false)) return;
   LabelColumn("Attribute");
-  NumberColumn("Current", current);
-  NumberColumn("Max", most);
+  NumberColumn("Current");
+  NumberColumn("Max");
   HeaderRow(std::vector<int>(), std::vector<HeroStatsColumn>());
   for (int a = 0; a < HERO_LIVE_ATTRIBUTE_COUNT; a++)
   {
-    ImGui::TableNextRow();
+    NextGuidedRow();
     LabelCell(HeroStatsLive_AttributeName(a), 0, TEXT_RGB);
     int now = live.attributeNow[a], most = live.attributeMax[a];
     ImGui::TableSetColumnIndex(1);
@@ -2287,15 +2422,14 @@ static void LiveAttributes(const HeroStatsLiveChampion &live)
 
 static void LiveRanks(const HeroStatsLiveChampion &live, ImU32 rgb)
 {
-  float bar = HeaderFits("To next rank", 110);
-  if (!BeginLiveTable("##ranks", 3)) return;
+  if (!BeginPageTable("##ranks", 3, false)) return;
   LabelColumn("Class");
-  NumberColumn("Rank", 120);
-  BarColumn("To next rank", bar);
+  TextColumn("Rank");
+  BarColumn("To next rank");
   HeaderRow(std::vector<int>(), std::vector<HeroStatsColumn>());
   for (int cls = 0; cls < 4; cls++)
   {
-    ImGui::TableNextRow();
+    NextGuidedRow();
     LabelCell(HeroXp_ClassName(cls), 0, TEXT_RGB);
     std::string rank = HeroXp_RankName(live.rank[cls]);
     ImGui::TableSetColumnIndex(1);
@@ -2323,8 +2457,8 @@ static void LiveItems(const HeroStatsLiveChampion &live)
     ImGui::TextColored(Colour(DIM_RGB), "Carries nothing.");
     return;
   }
-  if (!BeginLiveTable("##items", 2)) return;
-  ImGui::TableSetupColumn("Slot", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort, 110);
+  if (!BeginPageTable("##items", 2, false)) return;
+  TextColumn("Slot");
   LabelColumn("Item");
   // Both left-aligned, as their texts are (HeaderRow puts the headers after the first on the right)
   ImGui::PushStyleColor(ImGuiCol_Text, Colour(DIM_RGB));
@@ -2333,7 +2467,7 @@ static void LiveItems(const HeroStatsLiveChampion &live)
   for (size_t i = 0; i < live.items.size(); i++)
   {
     const HeroStatsLiveItem &item = live.items[i];
-    ImGui::TableNextRow();
+    NextGuidedRow();
     ImGui::TableSetColumnIndex(0);
     if (!item.inChest) ImGui::TextColored(Colour(DIM_RGB), "%s", HeroStatsLive_SlotName(item.slot).c_str());
     ImGui::TableSetColumnIndex(1);
@@ -2362,7 +2496,7 @@ static void DrawLiveChampion(HeroStatsDrawState *state, const HeroStatsLiveChamp
   ImGui::Dummy(ImVec2(0, 2));
   if (ImGui::BeginTable("##champion", 2, ImGuiTableFlags_SizingStretchSame))
   {
-    ImGui::TableNextRow();
+    NextGuidedRow();
     ImGui::TableSetColumnIndex(0);
     LiveVitals(live, rgb);
     if (brief)
