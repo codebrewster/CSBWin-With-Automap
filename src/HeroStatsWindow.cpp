@@ -26,7 +26,7 @@ extern char pwd[]; // LinCSBUI.cpp
 static const char *SETTINGS_SECTION = "settings";
 static const int DEFAULT_WIDTH = 900;
 static const int DEFAULT_HEIGHT = 640;
-static const int SMALLEST_WIDTH = 600;
+static const int SMALLEST_WIDTH = 420;
 static const int SMALLEST_HEIGHT = 400;
 // About 30 frames a second: the window has nothing that moves quickly, and the game loop
 // calls Paint after every event
