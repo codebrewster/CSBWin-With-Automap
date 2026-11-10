@@ -2446,7 +2446,11 @@ static std::string WeightAndCharges(const HeroStatsLiveItem &item, int held)
 // charges, and for a chest what it holds
 static void SlotTooltip(const std::vector<HeroStatsLiveItem> &items, int index, const std::string &slotName, bool wounded)
 {
-  if (!ImGui::BeginTooltip()) return;
+  // Room around the picture: the window's own tooltips are text and need none
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 8));
+  bool open = ImGui::BeginTooltip();
+  ImGui::PopStyleVar();
+  if (!open) return;
   if (index < 0)
   {
     ImGui::TextColored(Colour(DIM_RGB), "%s %s empty", slotName.c_str(), MIDDLE_DOT);
@@ -2512,7 +2516,7 @@ static void DrawSlot(const std::vector<HeroStatsLiveItem> &items, int index, con
   drawList->AddRectFilled(min, max, Packed(has ? ICON_GROUND_RGB : SLOT_RGB), 3.0f);
   if (has)
   {
-    float icon = floorf(size * 0.8f / 16) * 16;
+    float icon = floorf((size - 4) / 16) * 16;  // a whole multiple of the icon's 16 pixels
     if (icon < 16) icon = 16;
     IconAt(drawList, items[index], ImVec2(min.x + (size - icon) / 2, min.y + (size - icon) / 2), icon);
     int held = HeroStatsLive_HeldCount(items, (size_t)index);

@@ -86,6 +86,25 @@ Every topic is built the same way:
 
 Click a section's title to fold or open it; the window remembers which sections are folded.
 
+**The window follows its width.** No column has a fixed width: a number column is as wide as its
+widest number, a bar takes about a quarter of its table, and the name takes the rest, so nothing
+is cut off. When the window is too narrow for a table, the table gives up room in this order:
+
+1. the bar (Share, Who) goes;
+2. then the columns worked out from others (Rate and Avg in Weapons);
+3. then long names go on under themselves on a second line;
+4. and at last the table scrolls sideways on its own, its names staying in place. The page
+   itself never scrolls sideways.
+
+In a narrow window the champions' buttons, the level picker and the tabs go onto further lines,
+the level numbers become **◀ list ▶**, and the tiles stand two or one across. In a wide window
+the sections of a topic stand side by side (Numbers beside Weapons, for example) once each fits
+in half the window, so a name and its numbers stay close together.
+
+**Finding a number.** The row under the pointer is lit, with a blue edge at its name, and the
+column under the pointer is tinted with its header underlined: where they cross is the number
+you are pointing at.
+
 Throughout the window:
 
 - a **dim dot** (·) is a zero; a **-** is a rate or an average with nothing to work it out from,
@@ -357,18 +376,44 @@ gold with a ★. The party's own records (falls, teleports, sleep) are not on a 
 ## Champions
 
 The last tab shows the champions as they are **now**, what the game's own inventory screen shows
-of each: health, stamina and mana (bars in the champion's colour), food and water, the load
-against what the champion can carry, wounds, poison (the sum of all doses and the damage per 36 ticks,
-with each dose listed under it; the doses add up to the sum), the six attributes (current and max; drained
-in red, raised above the max in gold), the rank in each class with the way to the next rank, and
-every item carried, slot by slot, with a chest's contents under it. The **Party** shows every
-champion one under the other and the item on the cursor; a champion shows only them.
+of each. It only reads the champions: nothing is opened or changed in the game. That makes it the
+way to look into the champions while **watching a replay**, someone else's included: the replay
+stays in step with its recording. The level picker is hidden on this tab; it has no levels.
 
-It only reads the champions: nothing is opened or changed in the game. That makes it the way to
-look into the champions while **watching a replay**, someone else's included: the replay stays in
-step with its recording. The level picker is hidden on this tab; it has no levels.
+**The Party** shows a card per champion, four, two or one across:
 
-The HTML export has the tab too, with the champions as they were when it was written.
+- the portrait, the name and title, and "dead" or "poisoned" in red;
+- health, stamina and mana as bars in the champion's colour, food and water, and the load against
+  what the champion can carry, each with its number; then wounds and poison (the sum of all doses
+  and the damage per 36 ticks, with each dose listed under it; the doses add up to the sum);
+- what the champion holds and wears as icons (both hands, head, neck, torso, legs, feet) and how
+  many more items they carry;
+- the rank in each class with the way to the next rank.
+
+Above the cards is the item on the cursor, when there is one. Click a card to see that champion.
+
+![A champion on the Champions tab: the bars, attributes and ranks, and the inventory as in the game with a chest's contents under the pointer](images/statistics-champions.png)
+
+**A champion** shows the same bars, then **Attributes** (current and max; drained in red, raised
+above the max in gold), **Ranks** and the **Inventory**. Click a title to fold its section, as on
+the topics.
+
+The inventory is laid out as on the game's screen, with the game's own icons: head, neck, torso,
+legs and feet, both hands, the pouch, the quiver and the 17 slots of the backpack. An item looks
+as it does in the game right now: a spent Fury, an empty waterskin, a burning torch, the Firestaff
+with or without the Power Gem.
+
+- **Point at a slot** for the item's name, its weight and its charges ("9 charges", "no charges";
+  a waterskin's gulps). The game never shows the charges; here you can see them.
+- **Point at a chest** for what it holds. The small number in the chest's corner is how many
+  items; its weight includes them.
+- A **red frame** marks a wounded part of the body.
+- **Picture / List** under the title switches to a list of every slot with its item, the charges
+  after the name and the weight in a column, a chest's contents under the chest. The window
+  remembers the choice.
+
+The HTML export has the tab too, with the champions as they were when it was written. There a
+click on a chest keeps its contents open until the next click, for touch screens.
 
 ## Per level
 
@@ -417,7 +462,8 @@ where `csb.cfg` is), and tells you where. Click **Open** in that message to look
 The file is a copy of the Statistics window as a web page:
 
 - every topic for the party and for every champion, every visited level and Per level, with
-  folding sections and sortable tables;
+  folding sections and sortable tables; it follows the width of the browser window as the game's
+  window does, down to a phone's;
 - the champions' names, the dungeon file and the date at the top;
 - one file with nothing else needed and nothing loaded from the internet. Send it to a friend or
   attach it to a forum post.
@@ -489,7 +535,8 @@ The window keeps these in the `[settings]` section of `csb.cfg`:
 | `stats_layout` | 2: `stats_page` holds a topic. Without it, `stats_page` is read as the front page of earlier versions (3 Monsters, 4 Items; the others open the Overview). |
 | `stats_separator` | The mark between thousands: `comma` (4,261, the default), `dot` (4.261), `space` (4 261), `apostrophe` (4'261) or `none` (4261). Edit it while the game is closed. |
 | `stats_zoom` | The zoom in percent: 70, 80, 90, 100 (the default), 110, 125, 150, 175, 200 or 250. Another number is taken as the nearest of these. |
-| `stats_closed` | Which sections are folded, added up: 1 Weapons, 2 Spells, 4 Damage taken by source, 8 Healing by source, 16 Deaths, 32 Eaten and drunk, 64 Items, 128 Monsters killed, 256 Numbers, 512 Key numbers, 1024 Skills, 2048 Experience by source, 4096 Ranks gained, 8192 Records; 0 none |
+| `stats_closed` | Which sections are folded, added up: 1 Weapons, 2 Spells, 4 Damage taken by source, 8 Healing by source, 16 Deaths, 32 Eaten and drunk, 64 Items, 128 Monsters killed, 256 Numbers, 512 Key numbers, 1024 Skills, 2048 Experience by source, 4096 Ranks gained, 8192 Records, 16384 Attributes, 32768 Ranks, 65536 Inventory (the last three on the Champions tab); 0 none |
+| `stats_inventory` | How the Champions tab shows a champion's inventory: `picture` (the default) or `list` |
 
 Who is picked, Per level and its choices are not kept: the window opens on the Party.
 

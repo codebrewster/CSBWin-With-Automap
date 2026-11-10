@@ -24,6 +24,7 @@ builds; only the hooks and the window touch the game.
 | `HeroStatsPages` | The numbers of each page as the window draws them: a topic's tiles, its Numbers rows and its detail tables (weapons, spells, damage taken, healing, deaths, food, items, monsters), the Overview cards, and the Per level tables. On the Party's page each line also holds every champion's own numbers, for the Who bar. |
 | `HeroStatsExport` | The whole window as one HTML file: the catalogue and every page's numbers as JSON, and a script in the file that draws the same pages. |
 | `HeroStatsDump` | Every non-zero count as text, printed on each save with `map_debug = 1`. |
+| `HeroStatsLayout` | How the pages follow the window's width: what a table gives up when it does not fit, how many cards or tiles stand in a row, when sections stand side by side. No engine, no ImGui; the export follows the same rules in its script. |
 
 **Engine-facing** (link only into the game):
 
