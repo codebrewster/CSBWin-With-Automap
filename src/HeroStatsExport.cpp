@@ -417,12 +417,13 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
     --text:#d8d8d8; --part:#b4b6bf; --dim:#8a8d98; --faint:#5a5d68; --on:#4272b8; --bad:#e5735f; --track:#2f323a;
     --c0:#5fbf5f; --c1:#d8c447; --c2:#d9604f; --c3:#5b8fd9 }
   body { background:#121317; color:#ccc; font:14px system-ui,sans-serif; margin:24px }
+  @media (max-width:700px) { body { margin:10px } }
   h1 { font-size:18px; color:#fff; margin:0 0 4px; font-weight:600 }
   .about { color:#999; margin-bottom:12px }
-  .im { max-width:1000px; background:var(--bg); color:var(--text); font:12.5px/1.45 "DejaVu Sans Mono","Bitstream Vera Sans Mono",Menlo,Consolas,monospace;
+  .im { max-width:1500px; background:var(--bg); color:var(--text); font:12.5px/1.45 "DejaVu Sans Mono","Bitstream Vera Sans Mono",Menlo,Consolas,monospace;
     border:1px solid var(--line); border-radius:6px; overflow:hidden }
-  .title { background:#294a7a; color:#fff; padding:4px 10px; display:flex; gap:12px }
-  .title span:last-child { margin-left:auto; color:#b9c9e4 }
+  .title { background:#294a7a; color:#fff; padding:4px 10px; display:flex; gap:12px; white-space:nowrap }
+  .title span:last-child { margin-left:auto; color:#b9c9e4; overflow:hidden; text-overflow:ellipsis; min-width:0 }
   .bar1 { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 10px 0 }
   .whos, .seg { display:flex; gap:4px; flex-wrap:wrap; align-items:center }
   .seg { gap:1px }
@@ -454,8 +455,25 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   .sech .a { color:var(--dim); width:10px } .sech .s { color:var(--dim); margin-left:auto }
   .closed .secb { display:none }
   table { border-collapse:collapse; width:100% }
-  td, th { padding:3px 8px; text-align:right; white-space:nowrap; border-bottom:1px solid var(--row) }
-  th { color:var(--dim); font-weight:normal; border-bottom-color:var(--line) }
+  /* No column has a width of its own: a number column is as wide as its widest text, a bar takes
+     a share of the table, the label the rest. A table too wide for the page gives up its bar,
+     then the columns worked out from others, then lets its labels wrap, and at last scrolls on
+     its own (fitTables in the script decides, as HeroStatsLayout_FitTable does for the window). */
+  td, th { padding:3px 8px; text-align:right; white-space:nowrap; border-bottom:1px solid var(--row); width:1% }
+  td:first-child, th:first-child { width:auto }
+  th { color:var(--dim); font-weight:normal; border-bottom-color:var(--line); position:sticky; top:-10px; background:var(--bg); z-index:1 }
+  .c-bar { width:26%; min-width:110px }
+  .nobar .c-bar, .noder .c-der { display:none }
+  .wrap td:first-child { white-space:normal; min-width:120px }
+  .scrolls { overflow-x:auto } .scrolls th { position:static }
+  .scrolls td:first-child, .scrolls th:first-child { position:sticky; left:0; background:var(--bg) }
+  .scrolls tr.all td:first-child { background:var(--panel) }
+  .measure table, .measure td, .measure th { width:auto } .measure .c-bar { width:110px }
+  /* The guide: the row under the pointer, and the column under it */
+  tr:hover td { background:#2b3140; color:#fff } tr:hover td:first-child { box-shadow:inset 2px 0 #5b8fd9 }
+  .scrolls tr:hover td:first-child { background:#2b3140 }
+  th.hc { color:#fff; box-shadow:inset 0 -2px #5b8fd9 } td.hc { background:rgba(91,143,217,.05) } tr:hover td.hc { background:#36405a }
+  .secs.two { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:0 22px; align-items:start }
   th.sort { cursor:pointer; user-select:none } th.sort:hover { color:#fff } th .arrow { color:var(--dim) }
   td:first-child, th:first-child { text-align:left }
   tr.d1 td, tr.d2 td { color:var(--part) } tr.d1 td:first-child { padding-left:22px; color:var(--dim) }
@@ -471,18 +489,16 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   .nt { color:var(--faint) } table td.l, table th.l { text-align:left }
   .z, table tr td.z { color:var(--faint) } .gone { color:var(--dim) }  /* a zero is faint in part and total rows too */
   .pill { color:var(--bad); background:rgba(229,115,95,.16); border-radius:3px; padding:0 4px }
-  td.bar { width:170px } td.whobar { width:140px }
-  .share { display:flex; height:9px; background:var(--track); border-radius:2px; overflow:hidden; min-width:100px } .share i { display:block; height:100% }
+  .share { display:flex; height:9px; background:var(--track); border-radius:2px; overflow:hidden; min-width:60px } .share i { display:block; height:100% }
   .choices { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:8px }
   .note { color:var(--dim); padding:4px 0 }
-  .wide { overflow-x:auto }
   .live { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin:4px 0 6px }
   .vit { display:grid; grid-template-columns:76px 140px auto; gap:4px 10px; align-items:center; margin-bottom:10px }
   .vit .l { color:var(--dim) } .vit .bad, .live .bad { color:var(--bad) } .vit .none { color:var(--dim) }
   .vbar { height:10px; background:var(--track); border-radius:2px; overflow:hidden } .vbar i { display:block; height:100% }
   .live table { margin-bottom:10px } .live td.rk { width:110px }
   .live .raised { color:#e0b54a } .live tr.in td:last-child { padding-left:22px; color:var(--part) }
-  @media (max-width:640px) { .tiles, .cards { grid-template-columns:1fr 1fr } .topics, .live { grid-template-columns:1fr } }
+  @media (max-width:640px) { .live { grid-template-columns:1fr } }
 </style></head>
 <body>
 )HTML";
@@ -498,7 +514,7 @@ const TOPIC_RECORDS = 8;
 // The tab after the topics: the champions when the page was written
 const CHAMPIONS = TOP.length, LIVE = D.live || {inHand: '', champions: []};
 const NUMBERS_SECTION = 'numbers', KEY_SECTION = 'key';
-const st = {who: N, topic: 0, level: -1, per: false, side: false, grid: {}, closed: {}, sort: {}, open: {}};
+const st = {who: N, topic: 0, level: -1, per: false, side: false, grid: {}, closed: {}, sort: {}, open: {}, compact: false};
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'})[c]);
 const fmt = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, D.separator);
@@ -582,7 +598,7 @@ function picker() {
   const L = D.levels, one = !st.per;
   let out = `<div class="seg"><button class="ch${one && st.level === -1 ? ' on' : ''}" onclick="set({per:false,level:-1})">Whole run</button>` +
     `<button class="ch${st.per ? ' on' : ''}" onclick="set({per:true})">Per level</button><span class="lab">Lv</span>`;
-  if (L.length <= 16)
+  if (L.length <= 16 && !st.compact)
     return out + L.map(l => `<button class="ch${one && st.level === l ? ' on' : ''}" onclick="set({per:false,level:${l}})">${l}</button>`).join('') + '</div>';
   const at = L.indexOf(st.level);
   const prev = !one || st.level === -1 ? L[L.length - 1] : at > 0 ? L[at - 1] : null;
@@ -883,7 +899,7 @@ function topicPage() {
     const body = tiles(isParty() ? TOP[0].tiles : D.heroTiles) + (isParty() ? cards() : topicTiles());
     return body + section(KEY_SECTION, 'Key numbers', isParty() ? 'one row from each topic' : 'compared with the party', numbersTable(0));
   }
-  let html = tiles(TOP[t].tiles);
+  let html = tiles(TOP[t].tiles) + '<div class="secs">';
   // The Records table is the page's numbers
   if (t !== TOPIC_RECORDS)
     html += section(NUMBERS_SECTION, 'Numbers', isParty() ? 'each champion and the party' : esc(H[st.who].name) + ' and the party', numbersTable(t));
@@ -901,7 +917,7 @@ function topicPage() {
     else if (d === DETAIL.RANK_UPS) html += rankUps(p);
     else if (d === DETAIL.RECORDS) html += records(p);
   }
-  return html;
+  return html + '</div>';
 }
 
 // Per level: the Party's totals or its champions side by side, a champion's totals
@@ -995,8 +1011,84 @@ function draw() {
   if (N === 0 && D.levels.length === 0) html = '<div class="note">No statistics yet.</div>';
   else html = st.topic === CHAMPIONS ? championsPage() : st.per ? perLevel() : topicPage();
   document.getElementById('view').innerHTML = html;
+  fit();
   writeLink();
 }
+
+// ---- following the page's width (the window does the same in HeroStatsLayout) ----
+// How many of count equal boxes stand in a row: as many as fit, but four never three and one
+function across(count, available, smallest, gap) {
+  let fits = 1;
+  while (fits < count && (fits + 1) * smallest + fits * gap <= available) fits++;
+  return count === 4 && fits === 3 ? 2 : fits;
+}
+// The bar cells and the cells worked out from others (Rate, Avg) get a class by column, their
+// headers too, so a narrow table can leave the whole column out
+function tagColumns(table) {
+  const rows = [...table.rows], head = rows[0];
+  if (!head) return;
+  const bars = new Set(), derived = new Set();
+  rows.forEach(r => [...r.cells].forEach(c => { if (c.classList.contains('bar') || c.classList.contains('whobar')) bars.add(c.cellIndex); }));
+  [...head.cells].forEach(c => { if (/^(Rate|Avg)\b/.test(c.textContent.trim())) derived.add(c.cellIndex); });
+  rows.forEach(r => { if (r.cells.length !== head.cells.length) return;
+    bars.forEach(i => r.cells[i].classList.add('c-bar')); derived.forEach(i => r.cells[i].classList.add('c-der')); });
+}
+function fitTables(view) {
+  view.querySelectorAll('.wide').forEach(w => {
+    const table = w.querySelector('table');
+    if (!table) return;
+    w.classList.remove('nobar', 'noder', 'wrap', 'scrolls');
+    for (const step of ['nobar', 'noder', 'wrap', 'scrolls']) {
+      if (table.offsetWidth <= w.clientWidth + 1) break;
+      w.classList.add(step);
+    }
+  });
+}
+function fit() {
+  const view = document.getElementById('view'), top = document.getElementById('top');
+  // The row of level numbers that does not fit becomes the stepper
+  const seg = top.querySelector('.seg');
+  if (seg) {
+    const tooWide = () => top.querySelector('.seg').offsetWidth > top.clientWidth - 20;
+    if (st.compact) { st.compact = false; frame(); }
+    if (tooWide()) { st.compact = true; frame(); }
+  }
+  const style = getComputedStyle(view);
+  const width = view.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+  view.querySelectorAll('table').forEach(tagColumns);
+  // Sections side by side when each fits in half the page at its full width, each in the column
+  // shorter so far
+  const secs = view.querySelector('.secs');
+  if (secs) {
+    const all = [...secs.children];
+    view.classList.add('measure');
+    const needs = all.map(s => Math.max(0, ...[...s.querySelectorAll('table')].map(x => x.offsetWidth)));
+    view.classList.remove('measure');
+    if (all.length >= 2 && needs.every(n => n <= (width - 22) / 2)) {
+      const heights = all.map(s => s.offsetHeight);
+      const cols = [document.createElement('div'), document.createElement('div')], tall = [0, 0];
+      all.forEach((s, i) => { const c = tall[1] < tall[0] ? 1 : 0; cols[c].appendChild(s); tall[c] += heights[i]; });
+      secs.classList.add('two');
+      secs.append(cols[0], cols[1]);
+    }
+  }
+  fitTables(view);
+  view.querySelectorAll('.tiles').forEach(g => { g.style.gridTemplateColumns = `repeat(${across(g.children.length, width, 150, 8)},1fr)`; });
+  view.querySelectorAll('.cards').forEach(g => { g.style.gridTemplateColumns = `repeat(${across(g.children.length, width, 190, 8)},1fr)`; });
+  view.querySelectorAll('.topics').forEach(g => { g.style.gridTemplateColumns = width >= 528 ? '1fr 1fr' : '1fr'; });
+}
+let fitTimer = 0;
+addEventListener('resize', () => { clearTimeout(fitTimer); fitTimer = setTimeout(draw, 80); });
+// The column guide: the cells and the header of the column under the pointer
+let hot = [];
+document.addEventListener('mousemove', e => {
+  hot.forEach(c => c.classList.remove('hc'));
+  hot = [];
+  const cell = e.target.closest ? e.target.closest('#view td') : null;
+  if (!cell || cell.cellIndex === 0) return;
+  const table = cell.closest('table'), n = cell.parentNode.cells.length;
+  [...table.rows].forEach(r => { if (r.cells.length === n && r.cells[cell.cellIndex]) { r.cells[cell.cellIndex].classList.add('hc'); hot.push(r.cells[cell.cellIndex]); } });
+});
 
 // The view as a link: #who=Party&topic=Records&level=run (level: run, a number or per; side=1 for
 // the champions side by side). Read when the page opens, from the hash or the query string, and
