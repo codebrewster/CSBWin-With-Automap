@@ -563,6 +563,12 @@ static std::map<ImGuiID, TableMeasure> tableMeasures;
 // The widest full width (HeroStatsLayout_FullWidth) of the tables begun since it was last set to
 // 0: what a section needs to stand beside another
 static float widestTableBegun = 0;
+// The tables begun this frame, to tell afterwards whether any was laid out with stale widths
+static std::vector<TableMeasure *> tablesThisFrame;
+// Frames still to draw unseen after the page, the champion, the level or the window's width
+// changed: children that size themselves and sections side by side take a few to settle
+static int settlingPasses = 0;
+static bool sectionsMoved = false;
 static TableMeasure *measuring = NULL;
 static ImGuiID measuringId = 0;
 static bool rowIsHot = false;
@@ -758,6 +764,7 @@ static bool BeginPageTable(const char *id, int columnCount, bool sortable)
   measure.disabled.assign(columnCount, false);
   measuring = &measure;
   measuringId = tableId;
+  tablesThisFrame.push_back(&measure);
   rowIsHot = false;
   ImGuiTableFlags flags = TABLE_FLAGS | ImGuiTableFlags_HighlightHoveredColumn | (sortable ? ImGuiTableFlags_Sortable : 0);
   ImVec2 size(available, 0);
@@ -864,7 +871,8 @@ static void HeaderRow(const std::vector<int> &columnOfHeader, const std::vector<
   int count = ImGui::TableGetColumnCount();
   for (int i = 0; i < count; i++)
   {
-    if (!ImGui::TableSetColumnIndex(i)) continue;
+    // A column scrolled out of sight still has its header's width noted
+    bool inSight = ImGui::TableSetColumnIndex(i);
     const char *name = i == count - 1 && !lastLabel.empty() ? lastLabel.c_str() : ImGui::TableGetColumnName(i);
     int champion = i < (int)columnOfHeader.size() ? columnOfHeader[i] : -1;
     bool dimmed = champion >= 0 && columns[champion].hasLeft;
@@ -874,6 +882,7 @@ static void HeaderRow(const std::vector<int> &columnOfHeader, const std::vector<
     bool isText = measuring != NULL && i < (int)measuring->kinds.size() && measuring->kinds[i] == ColumnText;
     bool guided = i > 0 && InMeasuredTable() && ImGui::TableGetHoveredColumn() == i;
     if (!isText) NoteWidth(ImGui::CalcTextSize(name).x + (champion >= 0 ? spaceWidth * 2 : 0) + 14);
+    if (!inSight) continue;
     bool isLabel = measuring != NULL && i < (int)measuring->kinds.size() && measuring->kinds[i] == ColumnLabel;
     if (i > 0 && !isText && !isLabel)
     {
@@ -2217,7 +2226,10 @@ static void DrawTopicPage(HeroStatsDrawState *state, const PageData &data, const
       float top = ImGui::GetCursorPosY();
       widestTableBegun = 0;
       DrawSection(state, page, sections[s], whose, columns);
-      sizeOf[s]->height = ImGui::GetCursorPosY() - top;
+      float height = ImGui::GetCursorPosY() - top;
+      if (fabsf(height - sizeOf[s]->height) > 1 || (widestTableBegun > 0 && fabsf(widestTableBegun - sizeOf[s]->fullWidth) > 1))
+        sectionsMoved = true;
+      sizeOf[s]->height = height;
       // A folded section and one without a table keep what they needed when last open
       if (widestTableBegun > 0) sizeOf[s]->fullWidth = widestTableBegun;
     }
@@ -3047,11 +3059,44 @@ static void DrawChampionsPage(HeroStatsDrawState *state, const HeroStatsLivePart
   ImGui::EndChild();
 }
 
+bool HeroStatsDraw_WantsAnotherPass(void)
+{
+  if (settlingPasses > 0)
+  {
+    settlingPasses--;
+    return true;
+  }
+  if (sectionsMoved) return true;
+  for (size_t t = 0; t < tablesThisFrame.size(); t++)
+  {
+    const TableMeasure &measure = *tablesThisFrame[t];
+    if (!measure.known) return true;
+    for (size_t i = 0; i < measure.seen.size() && i < measure.width.size() && i < measure.kinds.size(); i++)
+    {
+      bool measured = measure.kinds[i] != ColumnText && !(i < measure.disabled.size() && measure.disabled[i]);
+      if (measured && fabsf(measure.seen[i] - measure.width[i]) > 0.5f) return true;
+    }
+  }
+  return false;
+}
+
 void HeroStatsDraw_Frame(HeroStatsDrawState *state, const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
                          const HeroStatsPicker &picker, const HeroStatsLiveParty &live, const HeroStatsDrawPictures &pictures,
                          void (*exportStatistics)(void))
 {
   livePictures = &pictures;
+  tablesThisFrame.clear();
+  sectionsMoved = false;
+  // What decides the layout besides the numbers: when it changes, the next frames settle unseen
+  static std::string shownBefore;
+  char shown[160];
+  snprintf(shown, sizeof shown, "%u|%d|%d|%d|%d|%d|%d|%d|%d", (unsigned)state->who, state->topic, state->level, (int)state->perLevel,
+           (int)state->sideBySide, state->closedSections, (int)state->inventoryList, (int)ImGui::GetWindowWidth(), (int)columns.size());
+  if (shownBefore != shown)
+  {
+    shownBefore = shown;
+    settlingPasses = 3;
+  }
   DrawTitle(*state, columns, exportStatistics);
   ImGui::SetCursorPos(ImVec2(GUTTER, ImGui::GetCursorPosY() + 6));
   float whoWidth = DrawWhoRow(state, columns);

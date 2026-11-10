@@ -642,18 +642,23 @@ void HeroStatsWindow_Paint(void)
     for (int b = 0; b < 3; b++)
       if (mouseIo.MouseDown[b] && !(down & masks[b])) mouseIo.AddMouseButtonEvent(b, false);
   }
-  ImGui_ImplSDLRenderer2_NewFrame();
-  ImGui_ImplSDL2_NewFrame();
+  // A frame laid out with stale widths (a page shown for the first time, numbers grown wider) is
+  // drawn again before anything is shown, so the page never visibly jumps into place
+  const int MOST_PASSES = 5;
+  for (int pass = 0; pass < MOST_PASSES; pass++)
   {
+    ImGui_ImplSDLRenderer2_NewFrame();
+    ImGui_ImplSDL2_NewFrame();
     ImGuiIO &zoomIo = ImGui::GetIO();
     zoomIo.DisplaySize.x /= Zoom();
     zoomIo.DisplaySize.y /= Zoom();
     zoomIo.DisplayFramebufferScale.x *= Zoom();
     zoomIo.DisplayFramebufferScale.y *= Zoom();
+    ImGui::NewFrame();
+    DrawWindowContents();
+    ImGui::Render();
+    if (!HeroStatsDraw_WantsAnotherPass()) break;
   }
-  ImGui::NewFrame();
-  DrawWindowContents();
-  ImGui::Render();
   ImGuiIO &io = ImGui::GetIO();
   SDL_RenderSetScale(statsRenderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
   SDL_SetRenderDrawColor(statsRenderer, BACKGROUND[0], BACKGROUND[1], BACKGROUND[2], 0xff);

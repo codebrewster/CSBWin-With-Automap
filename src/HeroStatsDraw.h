@@ -57,6 +57,10 @@ void HeroStatsDraw_ApplyStyle(void);
 void HeroStatsDraw_Frame(HeroStatsDrawState *state, const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
                          const HeroStatsPicker &picker, const HeroStatsLiveParty &live, const HeroStatsDrawPictures &pictures,
                          void (*exportStatistics)(void));
+// True when the frame just drawn was laid out with widths that are now known to be stale: a table
+// shown for the first time, numbers that grew wider, another page, another window width. The
+// window then draws again before it shows anything, so the page never visibly jumps into place.
+bool HeroStatsDraw_WantsAnotherPass(void);
 // The pages' numbers are rebuilt on the next frame (a game loaded, the window shown again)
 void HeroStatsDraw_Forget(void);
 
