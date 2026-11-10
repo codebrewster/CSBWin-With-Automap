@@ -1057,9 +1057,29 @@ function liveCard(c) {
     '<div class="strip">' + [0, 1, 2, 10, 3, 4, 5].map(s => slotHtml(c.items, s, isWounded(c, s))).join('') +
     (carried ? `<span class="more">+${carried} carried</span>` : '') + '</div>' + liveRanks(c, colour) + '</div>';
 }
+// The places of the items in the order the list shows them (HeroStatsLive_Order in the game)
+function listOrder(items, col, desc) {
+  const key = col === 3 ? (it => it[4]) : col === 2 ? (it => it[1]) : null;
+  const sorted = places => {
+    if (!key) return desc ? places.reverse() : places;
+    return places.sort((a, b) => { const x = key(items[a]), y = key(items[b]), c = x < y ? -1 : x > y ? 1 : 0; return (desc ? -c : c) || a - b; });
+  };
+  const out = [];
+  for (const o of sorted(items.map((it, i) => i).filter(i => !items[i][2]))) {
+    const held = [];
+    for (let k = o + 1; k < items.length && items[k][2]; k++) held.push(k);
+    out.push(o, ...(key ? sorted(held) : held));
+  }
+  return out;
+}
 function liveInventory(c) {
   if (!c.items.length) return '<div class="note">Carries nothing.</div>';
-  if (st.list) return '<div class="wide"><table class="ilist"><tr><th>Slot</th><th></th><th class="l">Item</th><th>Weight</th></tr>' + c.items.map(it => {
+  // The list sorts by slot, name or weight; a chest keeps what it holds under it
+  const s = st.sort.ilist || {col: 0, desc: false};
+  const th = (col, label, num, cls) => `<th class="sort${cls}" onclick="sortBy('ilist',${col},${num})">${label}` +
+    (s.col === col ? ` <span class="arrow">${s.desc ? '&#9660;' : '&#9650;'}</span>` : '') + '</th>';
+  if (st.list) return '<div class="wide"><table class="ilist"><tr>' + th(0, 'Slot', 0, '') + '<th></th>' + th(2, 'Item', 0, ' l') + th(3, 'Weight', 1, '') + '</tr>' +
+    listOrder(c.items, s.col, s.desc).map(i => c.items[i]).map(it => {
     const charges = chargesOf(it);
     return `<tr class="${it[2] ? 'in' : ''}"><td class="nt">${it[2] ? '' : slotName(it[0])}</td><td class="ic">${it[2] ? '' : iconOf(it)}</td>` +
       `<td class="l nm">${it[2] ? `<span class="inl">${iconOf(it)}${esc(it[1])}</span>` : esc(it[1])}${charges ? ` <span class="none">· ${charges}</span>` : ''}</td><td>${tenths(it[4])} kg</td></tr>`;
@@ -1089,7 +1109,9 @@ function championsPage() {
   if (!shown.length) return `<div class="note">${esc(whoName(st.who))} was not in the party when the page was written.</div>`;
   let html = '<div class="note">The champions as they were when the page was written.</div>';
   if (!isParty()) return html + liveChampion(shown[0]);
-  if (LIVE.cursor) html += `<div class="oncursor">On the cursor: ${slotHtml([LIVE.cursor], -1, false)}<b>${esc(LIVE.cursor[1])}</b></div>`;
+  // The line is there with nothing on the cursor too, as in the window
+  html += `<div class="oncursor">On the cursor: ${slotHtml(LIVE.cursor ? [LIVE.cursor] : [], -1, false)}` +
+    (LIVE.cursor ? `<b>${esc(LIVE.cursor[1])}</b>` : '<span class="nt">nothing</span>') + '</div>';
   return html + '<div class="lcards">' + shown.map(liveCard).join('') + '</div>';
 }
 
@@ -1206,7 +1228,7 @@ function fit() {
   }
   fitTables(view);
   view.querySelectorAll('.tiles').forEach(g => { g.style.gridTemplateColumns = `repeat(${across(g.children.length, width, 150, 8)},1fr)`; });
-  view.querySelectorAll('.cards').forEach(g => { g.style.gridTemplateColumns = `repeat(${across(g.children.length, width, 190, 8)},1fr)`; });
+  view.querySelectorAll('.cards').forEach(g => { g.style.gridTemplateColumns = `repeat(${across(g.children.length, width, 190, 8)},minmax(0,480px))`; });
   view.querySelectorAll('.lcards').forEach(g => { g.style.gridTemplateColumns = `repeat(${across(g.children.length, width, 290, 10)},minmax(0,480px))`; });
   view.querySelectorAll('.topics').forEach(g => { g.style.gridTemplateColumns = width >= 528 ? '1fr 1fr' : '1fr'; });
 }

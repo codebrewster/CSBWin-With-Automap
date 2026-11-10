@@ -834,10 +834,13 @@ static void BarColumn(const char *label)
 }
 
 // A column of words, left-aligned, as wide as its widest
-static void TextColumn(const char *label)
+static void TextColumn(const char *label, bool sortable = false, bool sortsFirst = false)
 {
   AddColumn(ColumnText, false);
-  ImGui::TableSetupColumn(label, ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort);
+  ImGuiTableColumnFlags flags = ImGuiTableColumnFlags_WidthFixed;
+  if (!sortable) flags |= ImGuiTableColumnFlags_NoSort;
+  if (sortsFirst) flags |= ImGuiTableColumnFlags_DefaultSort;
+  ImGui::TableSetupColumn(label, flags);
 }
 
 // The next row of a table, with the guide: the row under the pointer is lit with an edge at its
@@ -881,7 +884,8 @@ static void HeaderRow(const std::vector<int> &columnOfHeader, const std::vector<
     float spaceWidth = ImGui::CalcTextSize(" ").x;
     bool isText = measuring != NULL && i < (int)measuring->kinds.size() && measuring->kinds[i] == ColumnText;
     bool guided = i > 0 && InMeasuredTable() && ImGui::TableGetHoveredColumn() == i;
-    if (!isText) NoteWidth(ImGui::CalcTextSize(name).x + (champion >= 0 ? spaceWidth * 2 : 0) + 14);
+    // Room for the sort arrow beside the name, so a sorted column's header is not cut short
+    if (!isText) NoteWidth(ImGui::CalcTextSize(name).x + (champion >= 0 ? spaceWidth * 2 : 0) + 22);
     if (!inSight) continue;
     bool isLabel = measuring != NULL && i < (int)measuring->kinds.size() && measuring->kinds[i] == ColumnLabel;
     if (i > 0 && !isText && !isLabel)
@@ -2033,7 +2037,8 @@ static bool DrawCards(const std::vector<HeroStatsCard> &cards, HeroStatsChampion
   float gap = 8;
   float width = ImGui::GetContentRegionAvail().x;
   int perRow = HeroStatsLayout_Across((int)cards.size(), width, OVERVIEW_CARD_SMALLEST, gap);
-  float cardWidth = (width - gap * (perRow - 1)) / perRow;
+  // A lone champion's card does not stretch across the window: its bars would be very long
+  float cardWidth = std::min(HERO_LAYOUT_CARD_WIDEST, (width - gap * (perRow - 1)) / perRow);
   float line = ImGui::GetTextLineHeight() + 4;
   float height = 10 + line * 7 + 4;
   ImDrawList *drawList = ImGui::GetWindowDrawList();
@@ -2838,14 +2843,18 @@ static void LiveList(const HeroStatsLiveChampion &live)
     ImGui::TextColored(Colour(DIM_RGB), "Carries nothing.");
     return;
   }
-  if (!BeginPageTable("##items", 3, false)) return;
-  TextColumn("Slot");
-  LabelColumn("Item");
+  if (!BeginPageTable("##items", 3, true)) return;
+  TextColumn("Slot", true, true);
+  LabelColumn("Item", true);
   NumberColumn("Weight");
   HeaderRow(std::vector<int>(), std::vector<HeroStatsColumn>());
-  for (size_t i = 0; i < live.items.size(); i++)
+  // By slot as the game numbers them, by name or by weight; a chest keeps what it holds under it
+  TableSort sort = CurrentSort();
+  HeroStatsLiveOrder by = sort.column == 1 ? HeroLiveByName : sort.column == 2 ? HeroLiveByWeight : HeroLiveBySlot;
+  std::vector<size_t> order = HeroStatsLive_Order(live.items, by, sort.descending);
+  for (size_t k = 0; k < order.size(); k++)
   {
-    const HeroStatsLiveItem &item = live.items[i];
+    const HeroStatsLiveItem &item = live.items[order[k]];
     NextGuidedRow();
     ImGui::TableSetColumnIndex(0);
     if (!item.inChest) ImGui::TextColored(Colour(Hot(DIM_RGB)), "%s", HeroStatsLive_SlotName(item.slot).c_str());
@@ -3009,18 +3018,20 @@ static void DrawChampionsPage(HeroStatsDrawState *state, const HeroStatsLivePart
     if (live.champions.empty()) ImGui::TextColored(Colour(DIM_RGB), "No champion in the party.");
     else if (!isParty && HeroStatsLive_Find(live, state->who) == NULL)
       ImGui::TextColored(Colour(DIM_RGB), "%s is not in the party now.", WhoLabel(columns, state->who).c_str());
-    if (isParty && !live.cursor.name.empty())
+    if (isParty && !live.champions.empty())
     {
-      // The item on the cursor, as a slot of its own
+      // The item on the cursor, as a slot of its own. The line is there with nothing on the
+      // cursor too, so the cards do not move up and down as items are taken and put away.
+      bool holds = !live.cursor.name.empty();
       std::vector<HeroStatsLiveItem> cursor(1, live.cursor);
       ImGui::AlignTextToFramePadding();
       ImGui::TextColored(Colour(DIM_RGB), "On the cursor:");
       ImGui::SameLine(0, 10);
       float y = ImGui::GetCursorPosY();
-      DrawSlot(cursor, 0, "On the cursor", 36, false, NULL);
+      DrawSlot(cursor, holds ? 0 : -1, "On the cursor", 36, false, NULL);
       ImGui::SameLine(0, 10);
       ImGui::SetCursorPosY(y + (36 - ImGui::GetTextLineHeight()) / 2);
-      ImGui::TextColored(Colour(TEXT_RGB), "%s", live.cursor.name.c_str());
+      ImGui::TextColored(Colour(holds ? TEXT_RGB : FAINT_RGB), "%s", holds ? live.cursor.name.c_str() : "nothing");
       ImGui::SetCursorPosY(y + 36 + 8);
     }
     if (isParty && !live.champions.empty())

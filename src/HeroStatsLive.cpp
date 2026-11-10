@@ -1,6 +1,7 @@
 // HeroStatsLive.cpp : see HeroStatsLive.h
 #include "HeroStatsLive.h"
 
+#include <algorithm>
 #include <cstdlib>
 
 std::string HeroStatsLive_SlotName(int slot)
@@ -107,4 +108,37 @@ int HeroStatsLive_CarriedCount(const std::vector<HeroStatsLiveItem> &items)
     if (!items[i].inChest && !wornOrHeld) count++;
   }
   return count;
+}
+
+// Sorts places in items by name or weight; equal ones keep the order they came in
+static void SortPlaces(const std::vector<HeroStatsLiveItem> &items, std::vector<size_t> *places, HeroStatsLiveOrder by, bool descending)
+{
+  if (by == HeroLiveBySlot)
+  {
+    if (descending) std::reverse(places->begin(), places->end());
+    return;
+  }
+  std::stable_sort(places->begin(), places->end(), [&](size_t a, size_t b) {
+    if (by == HeroLiveByWeight) return descending ? items[a].weight > items[b].weight : items[a].weight < items[b].weight;
+    return descending ? items[a].name > items[b].name : items[a].name < items[b].name;
+  });
+}
+
+std::vector<size_t> HeroStatsLive_Order(const std::vector<HeroStatsLiveItem> &items, HeroStatsLiveOrder by, bool descending)
+{
+  std::vector<size_t> outside;
+  for (size_t i = 0; i < items.size(); i++)
+    if (!items[i].inChest) outside.push_back(i);
+  SortPlaces(items, &outside, by, descending);
+  std::vector<size_t> order;
+  for (size_t k = 0; k < outside.size(); k++)
+  {
+    order.push_back(outside[k]);
+    std::vector<size_t> held;
+    for (size_t i = outside[k] + 1; i < items.size() && items[i].inChest; i++) held.push_back(i);
+    // What is in a chest has no slot of its own: by slot it stays as it lies
+    if (by != HeroLiveBySlot) SortPlaces(items, &held, by, descending);
+    order.insert(order.end(), held.begin(), held.end());
+  }
+  return order;
 }

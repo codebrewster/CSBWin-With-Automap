@@ -101,6 +101,11 @@ int HeroStatsLive_HeldCount(const std::vector<HeroStatsLiveItem> &items, size_t 
 // The items a Party card sums up as "+N carried": not in a hand or on the head, neck, torso,
 // legs or feet, and not inside a chest
 int HeroStatsLive_CarriedCount(const std::vector<HeroStatsLiveItem> &items);
+// The order the inventory list shows the items in: their places in items, sorted by slot (the
+// order they come in), name or weight. What a chest holds stays under its chest, sorted the same
+// way; by slot it keeps its own order.
+enum HeroStatsLiveOrder { HeroLiveBySlot, HeroLiveByName, HeroLiveByWeight };
+std::vector<size_t> HeroStatsLive_Order(const std::vector<HeroStatsLiveItem> &items, HeroStatsLiveOrder by, bool descending);
 // The champion of the party with this fingerprint, or NULL
 const HeroStatsLiveChampion *HeroStatsLive_Find(const HeroStatsLiveParty &party, HeroStatsChampion who);
 

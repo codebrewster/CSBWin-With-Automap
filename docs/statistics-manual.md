@@ -390,7 +390,7 @@ stays in step with its recording. The level picker is hidden on this tab; it has
   many more items they carry;
 - the rank in each class with the way to the next rank.
 
-Above the cards is the item on the cursor, when there is one. Click a card to see that champion.
+Above the cards is the item on the cursor, or "nothing" when the cursor is empty. Click a card to see that champion.
 
 ![A champion on the Champions tab: the bars, attributes and ranks, and the inventory as in the game with a chest's contents under the pointer](images/statistics-champions.png)
 
@@ -409,8 +409,9 @@ with or without the Power Gem.
   items; its weight includes them.
 - A **red frame** marks a wounded part of the body.
 - **Picture / List** under the title switches to a list of every slot with its item, the charges
-  after the name and the weight in a column, a chest's contents under the chest. The window
-  remembers the choice.
+  after the name and the weight in a column, a chest's contents under the chest. Click **Slot**,
+  **Item** or **Weight** to sort the list by it; what a chest holds stays under its chest. The
+  window remembers Picture or List.
 
 The HTML export has the tab too, with the champions as they were when it was written. There a
 click on a chest keeps its contents open until the next click, for touch screens.

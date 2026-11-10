@@ -78,8 +78,40 @@ static void AChestCountsWhatFollowsIt(void)
   CHECK(HeroStatsLive_CarriedCount(items) == 3);  // the chest, the apple, the rock
 }
 
+static HeroStatsLiveItem Weighing(int slot, const char *name, bool inChest, int weight)
+{
+  HeroStatsLiveItem item = HeroStatsLive_Item(slot, name, inChest);
+  item.weight = weight;
+  return item;
+}
+
+static bool OrderIs(const std::vector<size_t> &order, size_t a, size_t b, size_t c, size_t d, size_t e, size_t f)
+{
+  const size_t want[6] = {a, b, c, d, e, f};
+  return order == std::vector<size_t>(want, want + 6);
+}
+
+// The inventory list sorts by slot, name or weight; what a chest holds stays under its chest,
+// sorted the same way
+static void TheListSortsWithAChestsContentsUnderIt(void)
+{
+  std::vector<HeroStatsLiveItem> items;
+  items.push_back(Weighing(1, "SWORD", false, 32));
+  items.push_back(Weighing(13, "CHEST", false, 88));
+  items.push_back(Weighing(13, "GOLD COIN", true, 1));
+  items.push_back(Weighing(13, "APPLE", true, 4));
+  items.push_back(Weighing(14, "APPLE", false, 4));
+  items.push_back(Weighing(11, "ROCK", false, 10));
+  CHECK(OrderIs(HeroStatsLive_Order(items, HeroLiveBySlot, false), 0, 1, 2, 3, 4, 5));
+  CHECK(OrderIs(HeroStatsLive_Order(items, HeroLiveBySlot, true), 5, 4, 1, 2, 3, 0));
+  CHECK(OrderIs(HeroStatsLive_Order(items, HeroLiveByName, false), 4, 1, 3, 2, 5, 0));
+  CHECK(OrderIs(HeroStatsLive_Order(items, HeroLiveByWeight, true), 1, 3, 2, 0, 5, 4));
+  CHECK(HeroStatsLive_Order(std::vector<HeroStatsLiveItem>(), HeroLiveByName, false).empty());
+}
+
 void TestHeroStatsLive(void)
 {
+  TheListSortsWithAChestsContentsUnderIt();
   WeightAndChargesRead();
   AnItemWithoutAnIconHasNoKey();
   TheBodySlotsHaveTheirPlaces();
