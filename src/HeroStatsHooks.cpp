@@ -244,7 +244,9 @@ HeroStatsLiveParty HeroStats_LiveParty(void)
     int carried = 0;
     for (size_t i = 0; i < live.items.size(); i++)
       if (!live.items[i].inChest) carried += live.items[i].weight;
-    if (!loadChecked && carried != hero.load)
+    // The item on the cursor weighs on the champion who holds it
+    int onCursor = d.objectInHand != RNnul ? (int)GetObjectWeight(d.objectInHand) : 0;
+    if (!loadChecked && carried != hero.load && carried + onCursor != hero.load)
     {
       loadChecked = true;
       fprintf(stderr, "Statistics: load differs for %s: items %d, load %d\n", live.name.c_str(), carried, (int)hero.load);

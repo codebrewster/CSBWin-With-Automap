@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <ctime>
+#include <map>
 #include <string>
 #include <vector>
 #include "imgui.h"
@@ -18,6 +19,7 @@
 #include "HeroStatsHooks.h"
 #include "HeroStatsView.h"
 #include "HeroStatsWindow.h"
+#include "AutoMapSprites.h"
 
 #include "confile.h"
 
@@ -97,6 +99,8 @@ void HeroStatsWindow_ReadSettings(void)
   else
     drawState.topic = page >= 0 && page <= HERO_STATS_CHAMPIONS_TAB ? page : HeroTopicOverview;
   drawState.closedSections = csb_get_config_int(SETTINGS_SECTION, "stats_closed", 0);
+  char defaultInventory[] = "picture";
+  drawState.inventoryList = std::string(csb_get_config_string(SETTINGS_SECTION, "stats_inventory", defaultInventory)) == "list";
   char defaultSeparator[] = "comma";
   separatorSetting = csb_get_config_string(SETTINGS_SECTION, "stats_separator", defaultSeparator);
   HeroStatsView_SetThousandsSeparator(HeroStatsView_SeparatorOfSetting(separatorSetting));
@@ -134,6 +138,9 @@ void HeroStatsWindow_WriteSettings(void)
   csb_set_config_int(SETTINGS_SECTION, "stats_page", drawState.topic);
   csb_set_config_int(SETTINGS_SECTION, "stats_layout", SETTINGS_LAYOUT);
   csb_set_config_int(SETTINGS_SECTION, "stats_closed", drawState.closedSections);
+  char inventory[8];
+  snprintf(inventory, sizeof inventory, "%s", drawState.inventoryList ? "list" : "picture");
+  csb_set_config_string(SETTINGS_SECTION, "stats_inventory", inventory);
   csb_set_config_int(SETTINGS_SECTION, "stats_zoom", zoomPercent);
   std::vector<char> separator(separatorSetting.begin(), separatorSetting.end());
   separator.push_back(0);
@@ -217,8 +224,73 @@ static void ReportThatTheWindowCannotBeCreated(void)
   SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Statistics", message.c_str(), NULL);
 }
 
+// The pictures of the Champions tab as textures of this window's renderer: the items' inventory
+// icons, decoded as the map decodes them, and the champions' portraits. Kept until the game or
+// the renderer changes; a picture that cannot be made is kept as none, not tried every frame.
+struct StatsPicture
+{
+  SDL_Texture *texture;
+  int width, height;
+};
+static std::map<int, StatsPicture> iconPictures;
+static std::map<HeroStatsChampion, StatsPicture> portraitPictures;
+
+static StatsPicture PictureOf(const std::vector<unsigned char> &rgba, int width, int height)
+{
+  StatsPicture picture = {NULL, width, height};
+  if (statsRenderer == NULL || width <= 0 || height <= 0 || rgba.size() < (size_t)width * height * 4) return picture;
+  picture.texture = SDL_CreateTexture(statsRenderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC, width, height);
+  if (picture.texture == NULL) return picture;
+  SDL_UpdateTexture(picture.texture, NULL, rgba.data(), width * 4);
+  SDL_SetTextureBlendMode(picture.texture, SDL_BLENDMODE_BLEND);
+  SDL_SetTextureScaleMode(picture.texture, SDL_ScaleModeNearest);  // the game's pixels, not a blur
+  return picture;
+}
+
+static ImTextureID IconTexture(int graphic, int tile)
+{
+  int key = graphic * 256 + tile;
+  std::map<int, StatsPicture>::iterator at = iconPictures.find(key);
+  if (at == iconPictures.end())
+  {
+    // The inventory tile as the map asks for it: 16 x 16, opaque, the inventory's palette
+    AutoMapSpriteRequest request = {graphic, -1, true, (tile & 15) * 16, (tile >> 4) * 16, 16, 16, true, 0, 0};
+    std::vector<Uint8> rgba;
+    int width = 0, height = 0;
+    if (!AutoMapSprites_Pixels(request, &rgba, &width, &height)) width = height = 0;
+    at = iconPictures.insert(std::make_pair(key, PictureOf(rgba, width, height))).first;
+  }
+  return (ImTextureID)(intptr_t)at->second.texture;
+}
+
+static ImTextureID PortraitTexture(HeroStatsChampion who, int *width, int *height)
+{
+  std::map<HeroStatsChampion, StatsPicture>::iterator at = portraitPictures.find(who);
+  if (at == portraitPictures.end())
+  {
+    std::vector<unsigned char> rgba;
+    int w = 0, h = 0;
+    if (!HeroStats_PortraitPixels(who, &rgba, &w, &h)) w = h = 0;
+    at = portraitPictures.insert(std::make_pair(who, PictureOf(rgba, w, h))).first;
+  }
+  *width = at->second.width;
+  *height = at->second.height;
+  return (ImTextureID)(intptr_t)at->second.texture;
+}
+
+static void ForgetPictures(void)
+{
+  for (std::map<int, StatsPicture>::iterator at = iconPictures.begin(); at != iconPictures.end(); ++at)
+    if (at->second.texture != NULL) SDL_DestroyTexture(at->second.texture);
+  for (std::map<HeroStatsChampion, StatsPicture>::iterator at = portraitPictures.begin(); at != portraitPictures.end(); ++at)
+    if (at->second.texture != NULL) SDL_DestroyTexture(at->second.texture);
+  iconPictures.clear();
+  portraitPictures.clear();
+}
+
 static void DestroyStatsWindow(void)
 {
+  ForgetPictures();
   if (statsRenderer != NULL) SDL_DestroyRenderer(statsRenderer);
   if (statsWindow != NULL) SDL_DestroyWindow(statsWindow);
   statsRenderer = NULL;
@@ -265,6 +337,8 @@ void HeroStatsWindow_Show(void)
 
 void HeroStatsWindow_Forget(void)
 {
+  // Another game may have other icons, palettes and champions
+  ForgetPictures();
   HeroStatsDraw_Forget();
 }
 
@@ -456,7 +530,8 @@ static void DrawWindowContents(void)
     std::vector<HeroStatsColumn> columns = HeroStatsView_Columns(stats, HeroStats_PartyNow());
     // A champion of a game before is not in this game's list
     drawState.who = HeroStatsView_ValidWho(columns, drawState.who);
-    HeroStatsDraw_Frame(&drawState, stats, columns, picker, HeroStats_LiveParty(), ExportStatistics);
+    HeroStatsDrawPictures pictures = {IconTexture, PortraitTexture};
+    HeroStatsDraw_Frame(&drawState, stats, columns, picker, HeroStats_LiveParty(), pictures, ExportStatistics);
   }
   ImGui::End();
 }
