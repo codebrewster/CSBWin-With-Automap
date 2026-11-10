@@ -37,6 +37,7 @@ int main(void)
   TestHeroStatsExperience();
   TestHeroStatsRecords();
   TestHeroStatsLive();
+  TestHeroStatsLayout();
   if (failedCheckCount != 0)
   {
     std::printf("%d checks failed\n", failedCheckCount);

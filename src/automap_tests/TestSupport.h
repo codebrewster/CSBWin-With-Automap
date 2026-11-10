@@ -47,5 +47,6 @@ void TestHeroStatsCatalogue(void);
 void TestHeroStatsExperience(void);
 void TestHeroStatsRecords(void);
 void TestHeroStatsLive(void);
+void TestHeroStatsLayout(void);
 
 #endif
