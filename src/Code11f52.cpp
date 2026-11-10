@@ -3012,6 +3012,10 @@ i16 MoveObject(const RN        object,
         {
           AutoMap_OnPartyTeleported(curLevel, newX, newY);
           HeroStats_OnPartyTeleported(curLevel);
+        }
+        else if (DB1A2 != pretendTeleporter)
+        { // A missile, item or monster that the party can watch gets taken or turned
+          AutoMap_OnThingTeleported(curLevel, newX, newY);
         };
         SET(D0B, newX == (DB1A2->destX()));
         if (D0B!=0)

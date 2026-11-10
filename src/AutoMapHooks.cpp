@@ -951,6 +951,12 @@ void AutoMap_OnPartyTeleported(int level, int x, int y)
   LearnCell(AutoMapFactTeleporter, level, x, y);
 }
 
+void AutoMap_OnThingTeleported(int level, int x, int y)
+{
+  if (level != d.partyLevel || !PartyLevelIsLoaded() || !recorder.CanTell(x, y)) return;
+  LearnCell(AutoMapFactTeleporter, level, x, y);
+}
+
 void AutoMap_OnGeneratorFired(int actuator, int x, int y)
 {
   if (!PartyLevelIsLoaded() || !recorder.CanTell(x, y)) return;

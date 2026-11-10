@@ -86,6 +86,9 @@ void AutoMap_OnWallClickedSilently(int x, int y);
 void AutoMap_OnFellThroughPit(int level, int x, int y, bool isParty);
 // A teleporter or spinner on (level, x, y) took the party
 void AutoMap_OnPartyTeleported(int level, int x, int y);
+// A teleporter or spinner on (level, x, y) took or turned something other than the party;
+// learned when the party can tell the cell
+void AutoMap_OnThingTeleported(int level, int x, int y);
 void AutoMap_OnGeneratorFired(int actuator, int x, int y);
 // A launcher in the wall (x, y) fired towards side
 void AutoMap_OnLauncherFired(int actuator, int x, int y, int side);

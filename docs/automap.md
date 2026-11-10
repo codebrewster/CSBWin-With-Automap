@@ -475,7 +475,7 @@ them into facts:
 | Lock requirement | the item in hand was the one the actuator compares with (`itemMatches`, worked out before a key is used up); an empty click or a wrong item teaches nothing, even where it fires the actuator (a normally closed lock fires for the wrong item, a constant-pressure one always), and a consumed type-17 lock passes no record | `Mouse.cpp:599` (`itemMatches`) |
 | False wall | the party stood in it; clicked the wall ahead and heard no wall sound; or saw it open or close (`AutoMapFalseWallWatch`) | `Mouse.cpp:1201`, `AutoMapHooks.cpp:222` |
 | Pit | the party fell or climbed down a rope, or something fell on a cell in sight | `Code11f52.cpp:3092` |
-| Teleporter or spinner | it moved or turned the party | `Code11f52.cpp:2979` |
+| Teleporter or spinner | it moved or turned the party, or a missile, item or monster on a cell the party can tell (a spinner for fireballs only never touches the party) | `Code11f52.cpp:3011` |
 | Launcher, generator | it fired out of a face in sight; a visible monster really appeared on a cell in sight (no fact when `CreateMonster` fails or the generator makes invisible monsters) | `Timer.cpp:2368`, `1800` |
 | Chest opened, scroll read | the party opened or read it | `Character.cpp:3569`, `3562` |
 | Link | see below | `AutoMapHooks.cpp:226` (`LearnWatchedLinks`) |
