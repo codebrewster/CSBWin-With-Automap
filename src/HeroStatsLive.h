@@ -29,10 +29,17 @@ const int HERO_LIVE_FOOD_EMPTY = -1024;  // the lowest the game lets food and wa
 // One item a champion carries; a chest's contents follow the chest, with inChest set
 struct HeroStatsLiveItem
 {
-  int slot;
-  std::string name;
+  int slot;            // -1: the item on the cursor
+  std::string name;    // as the inventory names it now (a spent Fury, an empty waterskin)
   bool inChest;
+  int iconGraphic;     // the picture of the graphics file holding the inventory icon, -1: no icon
+  int iconTile;        // the 16 x 16 tile in it
+  int weight;          // in tenths of a kilogram; a chest's includes what is in it
+  int charges;         // -1: this kind of item holds none
+  bool gulps;          // the charges are a waterskin's gulps
 };
+// An item with no icon, no weight and no charges
+HeroStatsLiveItem HeroStatsLive_Item(int slot, const std::string &name, bool inChest);
 
 struct HeroStatsLiveChampion
 {
@@ -62,7 +69,8 @@ struct HeroStatsLiveChampion
 struct HeroStatsLiveParty
 {
   std::vector<HeroStatsLiveChampion> champions;  // party order; a candidate in a mirror left out
-  std::string inHand;                            // the item on the cursor, "" for none
+  HeroStatsLiveItem cursor;                      // the item on the cursor, its name "" for none
+  HeroStatsLiveParty() : cursor(HeroStatsLive_Item(-1, "", false)) {}
 };
 
 // "Ready hand", "Action hand", "Head", "Torso", "Legs", "Feet", "Pouch 2", "Quiver 2" .. "Quiver
@@ -74,6 +82,25 @@ const char *HeroStatsLive_WoundName(int bit);            // "" outside them
 std::string HeroStatsLive_Wounds(int mask);
 // Tenths as the game writes them: 123 -> "12.3", -5 -> "-0.5"
 std::string HeroStatsLive_Tenths(int tenths);
+// What tells an item's icon from every other: graphic * 256 + tile, -1 without an icon
+int HeroStatsLive_IconKey(const HeroStatsLiveItem &item);
+// "0.9 kg"; a chest that holds something: "7.3 kg with contents"
+std::string HeroStatsLive_WeightText(int tenths, bool withContents);
+// "9 charges", "1 charge", "no charges"; a waterskin: "3 gulps left", "empty"; "" for -1
+std::string HeroStatsLive_ChargesText(int charges, bool gulps);
+// The inventory as the game lays it out: the body slots (hands, head, neck, torso, legs, feet,
+// pouch, quiver) on a grid of five by five, the backpack's seventeen slots after them
+const int HERO_LIVE_DOLL_COLUMNS = 5;
+const int HERO_LIVE_DOLL_ROWS = 5;
+const int HERO_LIVE_FIRST_BACKPACK_SLOT = 13;
+const int HERO_LIVE_BACKPACK_ACROSS = 6;
+// The place of a body slot on that grid, column and row from 1; false for the backpack and outside
+bool HeroStatsLive_DollCell(int slot, int *column, int *row);
+// How many items follow items[index] inside it (0 when it is no chest, or empty)
+int HeroStatsLive_HeldCount(const std::vector<HeroStatsLiveItem> &items, size_t index);
+// The items a Party card sums up as "+N carried": not in a hand or on the head, neck, torso,
+// legs or feet, and not inside a chest
+int HeroStatsLive_CarriedCount(const std::vector<HeroStatsLiveItem> &items);
 // The champion of the party with this fingerprint, or NULL
 const HeroStatsLiveChampion *HeroStatsLive_Find(const HeroStatsLiveParty &party, HeroStatsChampion who);
 

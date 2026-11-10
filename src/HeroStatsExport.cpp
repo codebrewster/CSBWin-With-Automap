@@ -295,7 +295,7 @@ static std::string Pair(int a, int b)
 
 static std::string LiveJson(const HeroStatsLiveParty &live, const std::vector<HeroStatsColumn> &columns)
 {
-  std::string out = "{\"inHand\":" + HeroStatsExport_JsonString(live.inHand) + ",\"champions\":[";
+  std::string out = "{\"inHand\":" + HeroStatsExport_JsonString(live.cursor.name) + ",\"champions\":[";
   for (size_t i = 0; i < live.champions.size(); i++)
   {
     const HeroStatsLiveChampion &c = live.champions[i];

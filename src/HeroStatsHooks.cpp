@@ -118,7 +118,7 @@ static std::string LiveItemName(RN rn)
 // in d.rnChestContents while it is open, a closed one in its own record
 static void AddLiveItem(std::vector<HeroStatsLiveItem> *items, int slot, RN rn)
 {
-  HeroStatsLiveItem item = {slot, LiveItemName(rn), false};
+  HeroStatsLiveItem item = HeroStatsLive_Item(slot, LiveItemName(rn), false);
   items->push_back(item);
   if (rn.dbType() != dbCHEST) return;
   if (rn == d.objOpenChest)
@@ -126,7 +126,7 @@ static void AddLiveItem(std::vector<HeroStatsLiveItem> *items, int slot, RN rn)
     for (int i = 0; i < 8; i++)
     {
       if (d.rnChestContents[i] == RNnul) continue;
-      HeroStatsLiveItem held = {slot, LiveItemName(d.rnChestContents[i]), true};
+      HeroStatsLiveItem held = HeroStatsLive_Item(slot, LiveItemName(d.rnChestContents[i]), true);
       items->push_back(held);
     }
     return;
@@ -135,7 +135,7 @@ static void AddLiveItem(std::vector<HeroStatsLiveItem> *items, int slot, RN rn)
   for (RN held = GetRecordAddressDB9(rn)->contents(); held != RNeof && held != RNnul && guard < 32;
        held = GetDBRecordLink(held), guard++)
   {
-    HeroStatsLiveItem inside = {slot, LiveItemName(held), true};
+    HeroStatsLiveItem inside = HeroStatsLive_Item(slot, LiveItemName(held), true);
     items->push_back(inside);
   }
 }
@@ -183,7 +183,7 @@ HeroStatsLiveParty HeroStats_LiveParty(void)
     }
     party.champions.push_back(live);
   }
-  if (d.objectInHand != RNnul) party.inHand = LiveItemName(d.objectInHand);
+  if (d.objectInHand != RNnul) party.cursor = HeroStatsLive_Item(-1, LiveItemName(d.objectInHand), false);
   return party;
 }
 

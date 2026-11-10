@@ -274,7 +274,7 @@ static void ExportHoldsTheChampionsAsTheyWere(void)
   HeroStatsLiveItem dagger = {0, "DAGGER", false};
   halk.items.push_back(dagger);
   info.live.champions.push_back(halk);
-  info.live.inHand = "TORCH";
+  info.live.cursor.name = "TORCH";
   json = HeroStatsExport_Json(stats, Columns(stats), NAMES, info);
   CHECK(json.find("\"inHand\":\"TORCH\"") != std::string::npos);
   CHECK(json.find("{\"hero\":0,\"name\":\"HALK\"") != std::string::npos);

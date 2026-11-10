@@ -53,3 +53,58 @@ const HeroStatsLiveChampion *HeroStatsLive_Find(const HeroStatsLiveParty &party,
     if (party.champions[i].who == who) return &party.champions[i];
   return NULL;
 }
+
+HeroStatsLiveItem HeroStatsLive_Item(int slot, const std::string &name, bool inChest)
+{
+  HeroStatsLiveItem item = {slot, name, inChest, -1, 0, 0, -1, false};
+  return item;
+}
+
+int HeroStatsLive_IconKey(const HeroStatsLiveItem &item)
+{
+  return item.iconGraphic < 0 ? -1 : item.iconGraphic * 256 + item.iconTile;
+}
+
+std::string HeroStatsLive_WeightText(int tenths, bool withContents)
+{
+  return HeroStatsLive_Tenths(tenths) + " kg" + (withContents ? " with contents" : "");
+}
+
+std::string HeroStatsLive_ChargesText(int charges, bool gulps)
+{
+  if (charges < 0) return "";
+  if (gulps) return charges == 0 ? "empty" : std::to_string(charges) + (charges == 1 ? " gulp left" : " gulps left");
+  if (charges == 0) return "no charges";
+  return std::to_string(charges) + (charges == 1 ? " charge" : " charges");
+}
+
+bool HeroStatsLive_DollCell(int slot, int *column, int *row)
+{
+  // By slot: ready hand, action hand, head, torso, legs, feet, pouch 2, quiver 2 to 4, neck, pouch 1, quiver 1
+  static const int PLACE[13][2] = {{1, 2}, {5, 2}, {3, 1}, {3, 2}, {3, 3}, {3, 4}, {1, 5},
+                                   {5, 4}, {4, 5}, {5, 5}, {2, 1}, {1, 4}, {4, 4}};
+  if (slot < 0 || slot >= HERO_LIVE_FIRST_BACKPACK_SLOT) return false;
+  *column = PLACE[slot][0];
+  *row = PLACE[slot][1];
+  return true;
+}
+
+int HeroStatsLive_HeldCount(const std::vector<HeroStatsLiveItem> &items, size_t index)
+{
+  if (index >= items.size() || items[index].inChest) return 0;
+  int count = 0;
+  for (size_t i = index + 1; i < items.size() && items[i].inChest; i++) count++;
+  return count;
+}
+
+int HeroStatsLive_CarriedCount(const std::vector<HeroStatsLiveItem> &items)
+{
+  int count = 0;
+  for (size_t i = 0; i < items.size(); i++)
+  {
+    int slot = items[i].slot;
+    bool wornOrHeld = (slot >= 0 && slot <= 5) || slot == 10;
+    if (!items[i].inChest && !wornOrHeld) count++;
+  }
+  return count;
+}

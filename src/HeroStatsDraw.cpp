@@ -2622,11 +2622,11 @@ static void DrawChampionsPage(HeroStatsDrawState *state, const HeroStatsLivePart
     if (live.champions.empty()) ImGui::TextColored(Colour(DIM_RGB), "No champion in the party.");
     else if (!isParty && HeroStatsLive_Find(live, state->who) == NULL)
       ImGui::TextColored(Colour(DIM_RGB), "%s is not in the party now.", WhoLabel(columns, state->who).c_str());
-    if (isParty && !live.inHand.empty())
+    if (isParty && !live.cursor.name.empty())
     {
       ImGui::TextColored(Colour(DIM_RGB), "In the hand:");
       ImGui::SameLine();
-      ImGui::TextColored(Colour(TEXT_RGB), "%s", live.inHand.c_str());
+      ImGui::TextColored(Colour(TEXT_RGB), "%s", live.cursor.name.c_str());
       ImGui::Dummy(ImVec2(0, 4));
     }
     bool first = true;

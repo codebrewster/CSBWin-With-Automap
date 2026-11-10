@@ -32,8 +32,58 @@ static void AChampionIsFoundByFingerprint(void)
   CHECK(HeroStatsLive_Find(party, 8) == NULL);
 }
 
+static void WeightAndChargesRead(void)
+{
+  CHECK(HeroStatsLive_WeightText(9, false) == "0.9 kg" && HeroStatsLive_WeightText(73, true) == "7.3 kg with contents");
+  CHECK(HeroStatsLive_ChargesText(-1, false).empty());
+  CHECK(HeroStatsLive_ChargesText(9, false) == "9 charges" && HeroStatsLive_ChargesText(1, false) == "1 charge");
+  CHECK(HeroStatsLive_ChargesText(0, false) == "no charges");
+  CHECK(HeroStatsLive_ChargesText(3, true) == "3 gulps left" && HeroStatsLive_ChargesText(1, true) == "1 gulp left");
+  CHECK(HeroStatsLive_ChargesText(0, true) == "empty");
+}
+
+static void AnItemWithoutAnIconHasNoKey(void)
+{
+  HeroStatsLiveItem item = HeroStatsLive_Item(3, "ODD THING", false);
+  CHECK(item.iconGraphic == -1 && item.charges == -1 && item.weight == 0 && !item.gulps && HeroStatsLive_IconKey(item) == -1);
+  item.iconGraphic = 42;
+  item.iconTile = 9;
+  CHECK(HeroStatsLive_IconKey(item) == 42 * 256 + 9);
+}
+
+static void TheBodySlotsHaveTheirPlaces(void)
+{
+  // slot: column, row, as the design's table
+  static const int PLACE[13][2] = {{1, 2}, {5, 2}, {3, 1}, {3, 2}, {3, 3}, {3, 4}, {1, 5}, {5, 4}, {4, 5}, {5, 5}, {2, 1}, {1, 4}, {4, 4}};
+  for (int slot = 0; slot < 13; slot++)
+  {
+    int column = 0, row = 0;
+    CHECK(HeroStatsLive_DollCell(slot, &column, &row) && column == PLACE[slot][0] && row == PLACE[slot][1]);
+  }
+  int column, row;
+  CHECK(!HeroStatsLive_DollCell(13, &column, &row) && !HeroStatsLive_DollCell(-1, &column, &row));
+}
+
+static void AChestCountsWhatFollowsIt(void)
+{
+  std::vector<HeroStatsLiveItem> items;
+  items.push_back(HeroStatsLive_Item(1, "SWORD", false));
+  items.push_back(HeroStatsLive_Item(13, "CHEST", false));
+  items.push_back(HeroStatsLive_Item(13, "GOLD COIN", true));
+  items.push_back(HeroStatsLive_Item(13, "SCROLL", true));
+  items.push_back(HeroStatsLive_Item(14, "APPLE", false));
+  items.push_back(HeroStatsLive_Item(11, "ROCK", false));
+  CHECK(HeroStatsLive_HeldCount(items, 1) == 2 && HeroStatsLive_HeldCount(items, 0) == 0 && HeroStatsLive_HeldCount(items, 4) == 0);
+  CHECK(HeroStatsLive_HeldCount(items, 99) == 0);
+  CHECK(HeroStatsLive_CarriedCount(items) == 3);  // the chest, the apple, the rock
+}
+
 void TestHeroStatsLive(void)
 {
+  WeightAndChargesRead();
+  AnItemWithoutAnIconHasNoKey();
+  TheBodySlotsHaveTheirPlaces();
+  AChestCountsWhatFollowsIt();
   SlotsAreNamedAsTheGameNumbersThem();
   WoundsAttributesAndTenthsRead();
   AChampionIsFoundByFingerprint();
