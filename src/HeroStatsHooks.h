@@ -17,6 +17,9 @@ HeroStatsOrigins &HeroStats_Origins(void);
 std::vector<HeroStatsChampion> HeroStats_PartyNow(void);
 // The champions of the party as they are now (HeroStatsLive.h), read without changing the game
 HeroStatsLiveParty HeroStats_LiveParty(void);
+// The champion's portrait as the game holds it, 4 bytes a pixel (red, green, blue, alpha), rows
+// from the top; false when who is not in the party
+bool HeroStats_PortraitPixels(HeroStatsChampion who, std::vector<unsigned char> *rgba, int *width, int *height);
 // The dungeon file of the game in play, "" before one is loaded
 std::string HeroStats_DungeonInPlay(void);
 

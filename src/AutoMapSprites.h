@@ -68,4 +68,8 @@ bool AutoMapSprites_SaveBmp(const AutoMapSpriteRequest &request, const char *pat
 // from the top; false when it cannot be decoded
 bool AutoMapSprites_Pixels(const AutoMapSpriteRequest &request, std::vector<Uint8> *rgba, int *w, int *h);
 
+// A picture the engine holds in memory in the graphics file's own layout (a champion's portrait),
+// with the portrait palette and colour 1 left out as the background; false when it has no size
+bool AutoMapSprites_PlanarPixels(const unsigned char *rows, int w, int h, std::vector<Uint8> *rgba);
+
 #endif

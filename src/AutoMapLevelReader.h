@@ -67,6 +67,9 @@ std::vector<AutoMapMonsterChoice> AutoMapLevelReader_MonsterTypesOfLevel(int lev
 // Translated name of an object type for tooltips, "" when unknown. The scene only
 // carries the type id; the window resolves the text on demand for the hovered cell.
 const char *AutoMapLevelReader_ItemName(int nameIndex);
+// The inventory tile of a display type (RN::NameIndex), as the game's inventory draws the item:
+// the picture of the graphics file and the 16 x 16 tile in it. False when the type names no tile.
+bool AutoMapLevelReader_IconForType(int objType, int *graphic, int *tile);
 // True when the object type is one the champions eat (objNI_Apple .. objNI_DragonSteak, the range
 // the eating code in Character.cpp feeds from), for the search word FOOD
 bool AutoMapLevelReader_ItemIsFood(int nameIndex);

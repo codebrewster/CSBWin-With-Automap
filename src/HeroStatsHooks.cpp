@@ -18,6 +18,9 @@
 #include "HeroStatsWindow.h"
 #include "AutoMapWindow.h"
 #include "AutoMapHooks.h"
+#include "AutoMapLevelReader.h"
+#include "AutoMapScene.h"
+#include "AutoMapSprites.h"
 
 #include "UI.h"
 #include "Dispatch.h"
@@ -109,35 +112,89 @@ static std::string RecordText(const char *chars, size_t size)
   return text;
 }
 
-static std::string LiveItemName(RN rn)
+// One item as the inventory shows it now. The look is the game's own choice (RN::NameIndex): a
+// torch by its flame, a waterskin full or empty, Fury, Flamitt and the like charged or spent. The
+// icon, the name and the charges all come from this one read, so they cannot disagree.
+static HeroStatsLiveItem LiveItemOf(int slot, RN rn, bool inChest)
 {
-  return HeroStats_WeaponNameOf(HeroStats_WeaponOf(rn));
+  HeroStatsLiveItem item = HeroStatsLive_Item(slot, "", inChest);
+  int basicType = (int)GetBasicObjectType(rn);
+  int displayType = (int)rn.NameIndex();
+  int nameCount = (int)(sizeof d.ObjectNames / sizeof d.ObjectNames[0]);
+  // The statistics' own name where the look is the basic one: it tells the Firestaff with the
+  // Power Gem from the one without. A look of its own (spent, empty, burning) has its own name.
+  if (displayType == basicType || displayType < 0 || displayType >= nameCount || d.ObjectNames[displayType] == NULL)
+    item.name = HeroStats_WeaponNameOf(basicType);
+  else item.name = d.ObjectNames[displayType];
+  // The inventory names a potion with its power rune in front (Character.cpp), flasks without
+  if (rn.dbType() == dbPOTION && displayType != objNI_WaterFlask && displayType != objNI_EmptyFlask)
+  {
+    const char *rune = AutoMapScene_PotionPowerName(GetRecordAddressDB8(rn)->strength() / 40);
+    if (rune[0] != 0) item.name = std::string(rune) + " " + item.name;
+  }
+  int graphic = -1, tile = 0;
+  if (AutoMapLevelReader_IconForType(displayType, &graphic, &tile))
+  {
+    item.iconGraphic = graphic;
+    item.iconTile = tile;
+  }
+  item.weight = GetObjectWeight(rn);
+  // Charges: weapons and clothing that hold any now or are of a kind that does (the kinds an
+  // altar of Vi recharges). A torch's count is its flame, not a charge. A waterskin has gulps.
+  bool isTorch = basicType >= objNI_Torch_a && basicType <= objNI_Torch_d;
+  int holds = -1;
+  if (rn.dbType() == dbWEAPON && !isTorch) holds = GetRecordAddressDB5(rn)->charges();
+  else if (rn.dbType() == dbCLOTHING) holds = GetRecordAddressDB6(rn)->charges();
+  if (holds > 0 || (holds == 0 && get_default_charges((OBJ_NAME_INDEX)basicType) > 0)) item.charges = holds;
+  if (basicType == objNI_Waterskin)
+  {
+    item.charges = GetRecordAddressDB10(rn)->value();
+    item.gulps = true;
+  }
+  return item;
 }
 
-// The item in a slot, then a chest's contents: the open chest shown in the action hand keeps them
-// in d.rnChestContents while it is open, a closed one in its own record
+// The item in a slot, then a chest's contents. The chest open in the action hand shows them from
+// d.rnChestContents, while its own record still lists what it held when it was opened: what is in
+// it now, and its weight now, are worked out from the open list.
 static void AddLiveItem(std::vector<HeroStatsLiveItem> *items, int slot, RN rn)
 {
-  HeroStatsLiveItem item = HeroStatsLive_Item(slot, LiveItemName(rn), false);
-  items->push_back(item);
+  items->push_back(LiveItemOf(slot, rn, false));
   if (rn.dbType() != dbCHEST) return;
+  size_t chest = items->size() - 1;
+  int guard = 0;
   if (rn == d.objOpenChest)
   {
+    int listed = 0;
+    for (RN held = GetRecordAddressDB9(rn)->contents(); held != RNeof && held != RNnul && guard < 32;
+         held = GetDBRecordLink(held), guard++)
+      listed += GetObjectWeight(held);
+    int now = 0;
     for (int i = 0; i < 8; i++)
     {
       if (d.rnChestContents[i] == RNnul) continue;
-      HeroStatsLiveItem held = HeroStatsLive_Item(slot, LiveItemName(d.rnChestContents[i]), true);
-      items->push_back(held);
+      items->push_back(LiveItemOf(slot, d.rnChestContents[i], true));
+      now += items->back().weight;
     }
+    (*items)[chest].weight += now - listed;
     return;
   }
-  int guard = 0;
   for (RN held = GetRecordAddressDB9(rn)->contents(); held != RNeof && held != RNnul && guard < 32;
        held = GetDBRecordLink(held), guard++)
+    items->push_back(LiveItemOf(slot, held, true));
+}
+
+bool HeroStats_PortraitPixels(HeroStatsChampion who, std::vector<unsigned char> *rgba, int *width, int *height)
+{
+  for (int slot = 0; slot < d.NumCharacter && slot < 4; slot++)
   {
-    HeroStatsLiveItem inside = HeroStatsLive_Item(slot, LiveItemName(held), true);
-    items->push_back(inside);
+    if (d.hero[slot].fingerPrint != who) continue;
+    // The champion's own copy of the portrait, 32 x 29 in the graphics file's layout (AddCharacter)
+    *width = 32;
+    *height = 29;
+    return AutoMapSprites_PlanarPixels((const unsigned char *)d.hero[slot].portrait, 32, 29, rgba);
   }
+  return false;
 }
 
 static std::vector<int> PoisonDosesOf(int slot);
@@ -181,9 +238,21 @@ HeroStatsLiveParty HeroStats_LiveParty(void)
       RN rn = hero.Possession(place);
       if (rn != RNnul) AddLiveItem(&live.items, place, rn);
     }
+#ifdef __SANITIZE_ADDRESS__
+    // The debug build checks the weights against the game's own load, once
+    static bool loadChecked = false;
+    int carried = 0;
+    for (size_t i = 0; i < live.items.size(); i++)
+      if (!live.items[i].inChest) carried += live.items[i].weight;
+    if (!loadChecked && carried != hero.load)
+    {
+      loadChecked = true;
+      fprintf(stderr, "Statistics: load differs for %s: items %d, load %d\n", live.name.c_str(), carried, (int)hero.load);
+    }
+#endif
     party.champions.push_back(live);
   }
-  if (d.objectInHand != RNnul) party.cursor = HeroStatsLive_Item(-1, LiveItemName(d.objectInHand), false);
+  if (d.objectInHand != RNnul) party.cursor = LiveItemOf(-1, d.objectInHand, false);
   return party;
 }
 

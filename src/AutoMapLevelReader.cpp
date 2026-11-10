@@ -683,7 +683,7 @@ static const int ICON_TILE_PIXELS = 16;
 
 // Inventory tile for an object type, mirroring GetIconGraphic. False when the
 // type names no tile.
-static bool IconForType(int objType, int *graphic, int *tile)
+bool AutoMapLevelReader_IconForType(int objType, int *graphic, int *tile)
 {
   int group = 0;
   for (; group < ICON_GRAPHICS; group++)
@@ -714,7 +714,7 @@ static AutoMapItem ItemForDescriptor(int descIndex)
   item.nameIndex = objType;
   int graphic = AUTOMAP_NO_PICTURE;
   int tile = 0;
-  if (!IconForType(objType, &graphic, &tile)) return item;
+  if (!AutoMapLevelReader_IconForType(objType, &graphic, &tile)) return item;
   item.hasIcon = true;
   item.iconGraphic = graphic;
   item.iconTile = tile;
@@ -740,7 +740,7 @@ static AutoMapItem ItemForRN(RN object)
   }
   int graphic = AUTOMAP_NO_PICTURE;
   int tile = 0;
-  if (!IconForType(displayType, &graphic, &tile))
+  if (!AutoMapLevelReader_IconForType(displayType, &graphic, &tile))
   {
     item.hasIcon = false;
     return item;

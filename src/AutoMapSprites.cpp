@@ -315,3 +315,15 @@ bool AutoMapSprites_SaveBmp(const AutoMapSpriteRequest &request, const char *pat
   SDL_FreeSurface(surface);
   return ok;
 }
+
+bool AutoMapSprites_PlanarPixels(const unsigned char *rows, int w, int h, std::vector<Uint8> *rgba)
+{
+  if (rows == NULL || w <= 0 || h <= 0 || w > LARGEST_WIDTH || h > LARGEST_HEIGHT) return false;
+  PlanarPicture picture;
+  picture.width = w;
+  picture.height = h;
+  picture.rows.assign(rows, rows + (size_t)BytesPerRow(w) * h);
+  AutoMapSpriteRequest request = {0, 1, false, 0, 0, 0, 0, true, 0, 0};
+  *rgba = ToRgba(picture, request);
+  return true;
+}
