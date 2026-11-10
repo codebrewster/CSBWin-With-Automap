@@ -492,13 +492,45 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   .share { display:flex; height:9px; background:var(--track); border-radius:2px; overflow:hidden; min-width:60px } .share i { display:block; height:100% }
   .choices { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:8px }
   .note { color:var(--dim); padding:4px 0 }
-  .live { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin:4px 0 6px }
-  .vit { display:grid; grid-template-columns:76px 140px auto; gap:4px 10px; align-items:center; margin-bottom:10px }
-  .vit .l { color:var(--dim) } .vit .bad, .live .bad { color:var(--bad) } .vit .none { color:var(--dim) }
-  .vbar { height:10px; background:var(--track); border-radius:2px; overflow:hidden } .vbar i { display:block; height:100% }
-  .live table { margin-bottom:10px } .live td.rk { width:110px }
-  .live .raised { color:#e0b54a } .live tr.in td:last-child { padding-left:22px; color:var(--part) }
-  @media (max-width:640px) { .live { grid-template-columns:1fr } }
+  /* The Champions tab. A card and the champion's own column stop growing, so no bar gets long. */
+  #view { container-type:inline-size }
+  .vit { display:grid; grid-template-columns:max-content minmax(40px,1fr) max-content; gap:4px 10px; align-items:center }
+  .vit .l, .lranks .l { color:var(--dim) } .vit .v { text-align:right; white-space:nowrap } .vit .w { grid-column:2 / 4 }
+  .bad { color:var(--bad) } .none { color:var(--dim) } .raised { color:#e0b54a }
+  .vbar { height:9px; background:var(--track); border-radius:2px; overflow:hidden } .vbar i { display:block; height:100% }
+  .lranks { display:grid; grid-template-columns:max-content max-content minmax(30px,1fr); gap:3px 10px; align-items:center }
+  .chead { display:flex; gap:10px; align-items:center; min-width:0 }
+  .chead img { width:64px; height:58px; image-rendering:pixelated; flex:none; border:1px solid #3a3d46; background:#17181c }
+  .chead .nm { font-size:14px } .chead .ti { color:var(--dim) } .chead .grow { flex:1; min-width:0 }
+  .lcards { display:grid; gap:10px; justify-content:start }
+  .lcard { background:var(--panel); border:1px solid transparent; border-radius:5px; padding:10px 12px 12px; display:grid; gap:10px; cursor:pointer; min-width:0; align-content:start }
+  .lcard:hover { border-color:#3a3d46 }
+  .strip { display:flex; flex-wrap:wrap; gap:4px; align-items:center } .strip .slot { width:36px; height:36px } .strip .more { color:var(--dim); margin-left:6px }
+  .oncursor { display:flex; gap:10px; align-items:center; color:var(--dim); margin-bottom:10px } .oncursor b { color:var(--text); font-weight:normal }
+  .slot { width:40px; height:40px; background:#17181c; border:1px solid #2a2c33; border-radius:3px; display:grid; place-items:center; position:relative; flex:none }
+  .slot img { width:32px; height:32px; image-rendering:pixelated; display:block }
+  .slot.has { background:#484848; border-color:#3a3d46 } .slot.has:hover, .slot.pin { border-color:#fff }
+  .slot.wound { border-color:var(--bad); box-shadow:inset 0 0 0 1px var(--bad) }
+  .slot .cnt { position:absolute; right:1px; bottom:0; font-size:10px; color:#fff; background:rgba(0,0,0,.72); border-radius:2px; padding:0 3px; line-height:13px }
+  .slot .gh { color:#3a3d46; font-size:9.5px; text-transform:uppercase } .noicon { color:var(--dim) }
+  .champ { display:grid; gap:14px 36px; grid-template-columns:minmax(0,1fr); grid-template-areas:"v" "a" "i"; align-items:start }
+  .champ > * { min-width:0 } .a-v { grid-area:v; display:grid; gap:10px } .a-a { grid-area:a } .a-i { grid-area:i }
+  .sech .seg { display:inline-flex; vertical-align:middle } .sech .ch { padding:0 8px }
+  .inv { display:flex; flex-wrap:wrap; gap:14px 20px; padding-top:10px }
+  .doll { display:grid; grid-template-columns:repeat(5,40px); grid-auto-rows:40px; gap:4px; flex:none }
+  .cap { color:var(--faint); font-size:10px; text-transform:uppercase; letter-spacing:.05em; align-self:end; white-space:nowrap }
+  .pack { display:grid; gap:6px; align-content:start } .pack .grid { display:grid; grid-template-columns:repeat(6,40px); gap:4px }
+  .ilist td.ic { padding-right:0 } .ilist img { width:16px; height:16px; image-rendering:pixelated; display:block }
+  .ilist .inl { display:inline-flex; gap:8px; align-items:center; padding-left:14px; color:var(--part) }
+  @container (min-width:640px) { .champ { grid-template-columns:minmax(0,460px) auto; grid-template-rows:auto 1fr; grid-template-areas:"v i" "a i"; justify-content:start } .inv { flex-direction:column } }
+  @container (min-width:1040px) { .inv { flex-direction:row; flex-wrap:nowrap } }
+  #tip { position:fixed; z-index:20; pointer-events:none; background:var(--panel); border:1px solid #4a4e5a; border-radius:4px; padding:8px 10px;
+    font:12.5px/1.45 "DejaVu Sans Mono","Bitstream Vera Sans Mono",Menlo,Consolas,monospace; color:var(--text); max-width:320px; box-shadow:0 6px 18px rgba(0,0,0,.5) }
+  #tip .h { display:flex; gap:10px; align-items:center } #tip .h img { width:48px; height:48px; image-rendering:pixelated; flex:none }
+  #tip .n { color:#fff } #tip .s { color:var(--dim) } #tip .x { color:var(--part) } #tip .bad { color:var(--bad) }
+  #tip .in { border-top:1px solid var(--line); margin-top:8px; padding-top:7px; display:grid; grid-template-columns:1fr 1fr; gap:4px 14px }
+  #tip .in div { display:flex; gap:6px; align-items:center; white-space:nowrap } #tip .in img { width:16px; height:16px; image-rendering:pixelated }
+  #tip .in .cap { grid-column:1 / -1; color:var(--dim); font-size:inherit; text-transform:none; letter-spacing:0 }
 </style></head>
 <body>
 )HTML";
@@ -512,9 +544,9 @@ const DETAIL = {WEAPONS: 0, SPELLS: 1, HARM: 2, HEALING: 3, DEATHS: 4, CONSUMED:
                 SKILLS: 8, XP_SOURCES: 9, RANK_UPS: 10, RECORDS: 11};
 const TOPIC_RECORDS = 8;
 // The tab after the topics: the champions when the page was written
-const CHAMPIONS = TOP.length, LIVE = D.live || {inHand: '', champions: []};
+const CHAMPIONS = TOP.length, LIVE = D.live || {cursor: null, list: false, icons: [], champions: []};
 const NUMBERS_SECTION = 'numbers', KEY_SECTION = 'key';
-const st = {who: N, topic: 0, level: -1, per: false, side: false, grid: {}, closed: {}, sort: {}, open: {}, compact: false};
+const st = {who: N, topic: 0, level: -1, per: false, side: false, grid: {}, closed: {}, sort: {}, open: {}, compact: false, list: !!(D.live && D.live.list)};
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'})[c]);
 const fmt = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, D.separator);
@@ -960,51 +992,151 @@ function perLevel() {
 // The Champions tab: what the game's inventory screen showed of each champion when the page was written
 function vitalBar(label, now, most, colour, txt) {
   const w = most > 0 ? Math.max(0, Math.min(100, now * 100 / most)) : 0;
-  return `<span class="l">${label}</span><div class="vbar"><i style="width:${w}%;background:${colour}"></i></div><span>${txt}</span>`;
+  return `<span class="l">${label}</span><div class="vbar"><i style="width:${w}%;background:${colour}"></i></div><span class="v">${txt}</span>`;
 }
 function nourished(label, v, colour, empty) {
   const low = -1024, full = 2048, tone = v < -512 ? 'var(--bad)' : v < 0 ? '#e8d44a' : 'var(--text)';
   const w = Math.max(0, Math.min(100, (v - low) * 100 / (full - low)));
   return `<span class="l">${label}</span><div class="vbar"><i style="width:${w}%;background:${colour}"></i></div>` +
-    `<span style="color:${tone}">${v}${v < 0 ? ` (${empty})` : ''}</span>`;
+    `<span class="v" style="color:${tone}">${v}${v < 0 ? ` (${empty})` : ''}</span>`;
 }
 const tenths = t => (t < 0 ? '-' : '') + Math.floor(Math.abs(t) / 10) + '.' + (Math.abs(t) % 10);
-function liveChampion(c, i, brief) {
-  const colour = c.hero >= 0 ? COLOUR(c.hero) : 'var(--text)';
-  let vit = vitalBar('Health', c.hp[0], c.hp[1], colour, `${c.hp[0]} / ${c.hp[1]}`) +
+// The Champions tab: a card per champion for the Party; for one champion the inventory laid out
+// as the game's own screen, a slot's tooltip with name, weight and charges, a chest's with what
+// it holds. An item is [slot, name, in a chest, icon, weight, charges, gulps].
+const SLOT_NAMES = ['Ready hand', 'Action hand', 'Head', 'Torso', 'Legs', 'Feet', 'Pouch 2', 'Quiver 2', 'Quiver 3', 'Quiver 4', 'Neck', 'Pouch 1', 'Quiver 1'];
+const slotName = s => s < 0 ? 'On the cursor' : SLOT_NAMES[s] || 'Backpack ' + (s - 12);
+// The place of a body slot on the picture's grid of five by five: [column, row]
+const DOLL = {10: [2, 1], 2: [3, 1], 0: [1, 2], 3: [3, 2], 1: [5, 2], 4: [3, 3], 11: [1, 4], 5: [3, 4], 12: [4, 4], 7: [5, 4], 6: [1, 5], 8: [4, 5], 9: [5, 5]};
+const PART = {0: 'hand', 1: 'hand', 2: 'head', 3: 'torso', 4: 'legs', 5: 'feet', 10: 'neck'};
+const iconOf = it => it[3] === null || !LIVE.icons[it[3]] ? '<span class="noicon">?</span>' : `<img src="${LIVE.icons[it[3]]}" alt="">`;
+const chargesOf = it => it[5] < 0 ? '' : it[6] ? (it[5] === 0 ? 'empty' : it[5] + (it[5] === 1 ? ' gulp left' : ' gulps left')) :
+  it[5] === 0 ? 'no charges' : it[5] + (it[5] === 1 ? ' charge' : ' charges');
+const heldIn = (items, i) => { const held = []; if (i < 0 || items[i][2]) return held; for (let k = i + 1; k < items.length && items[k][2]; k++) held.push(items[k]); return held; };
+let TIPS = [];
+function tipOf(html) { TIPS.push(html); return ` data-tip="${TIPS.length - 1}"`; }
+function slotTip(items, i, slot, wounded) {
+  const hurt = wounded ? ' <span class="bad">· wounded</span>' : '';
+  if (i < 0) return `<div class="s">${slotName(slot)} · empty${hurt}</div>`;
+  const it = items[i], held = heldIn(items, i), charges = chargesOf(it);
+  let html = `<div class="h">${iconOf(it)}<div><div class="n">${esc(it[1])}</div><div class="s">${slotName(slot)}${hurt}</div>` +
+    `<div class="x">${tenths(it[4])} kg${held.length ? ' with contents' : ''}${charges ? ' · ' + charges : ''}</div></div></div>`;
+  if (held.length) html += `<div class="in"><div class="cap">Holds ${held.length} ${held.length === 1 ? 'item' : 'items'}</div>` +
+    held.map(h => `<div>${iconOf(h)}${esc(h[1])}</div>`).join('') + '</div>';
+  return html;
+}
+function slotHtml(items, slot, wounded, part) {
+  const i = items.findIndex(it => it[0] === slot && !it[2]), held = heldIn(items, i);
+  return `<div class="slot ${i < 0 ? 'empty' : 'has'}${wounded ? ' wound' : ''}" tabindex="0"${tipOf(slotTip(items, i, slot, wounded))}${held.length ? ' data-pin="1"' : ''}>` +
+    (i < 0 ? (part ? `<span class="gh">${part}</span>` : '') : iconOf(items[i]) + (held.length ? `<span class="cnt">${held.length}</span>` : '')) + '</div>';
+}
+const isWounded = (c, slot) => slot >= 0 && slot < 6 && ((c.woundBits >> slot) & 1) === 1;
+function liveVitals(c, colour) {
+  const heavy = c.load[0] > c.load[1];
+  return '<div class="vit">' + vitalBar('Health', c.hp[0], c.hp[1], colour, `${c.hp[0]} / ${c.hp[1]}`) +
     vitalBar('Stamina', c.stamina[0], c.stamina[1], colour, `${Math.floor(c.stamina[0] / 10)} / ${Math.floor(c.stamina[1] / 10)}`) +
     vitalBar('Mana', c.mana[0], c.mana[1], colour, `${c.mana[0]} / ${c.mana[1]}`) +
     nourished('Food', c.food, '#9b6a3c', 'starving') + nourished('Water', c.water, '#4a8fe0', 'parched') +
-    `<span class="l">Load</span><span class="${c.load[0] > c.load[1] ? 'bad' : ''}" style="grid-column:span 2">${tenths(c.load[0])} / ${tenths(c.load[1])} kg</span>` +
-    `<span class="l">Wounds</span><span class="${c.wounds ? 'bad' : 'none'}" style="grid-column:span 2">${c.wounds ? esc(c.wounds) : 'none'}</span>` +
-    `<span class="l">Poison</span><span class="${c.poison ? 'bad' : 'none'}" style="grid-column:span 2">${c.poison ?
+    vitalBar('Load', c.load[0], c.load[1], heavy ? 'var(--bad)' : 'var(--faint)', `<span class="${heavy ? 'bad' : ''}">${tenths(c.load[0])} / ${tenths(c.load[1])} kg</span>`) +
+    `<span class="l">Wounds</span><span class="w ${c.wounds ? 'bad' : 'none'}">${c.wounds ? esc(c.wounds) : 'none'}</span>` +
+    `<span class="l">Poison</span><span class="w ${c.poison ? 'bad' : 'none'}">${c.poison ?
       `${c.poisonSum} (${c.poison} ${c.poison === 1 ? 'dose' : 'doses'}, ${c.poisonDoses.reduce((t, v) => t + Math.max(1, Math.floor(v / 64)), 0)} HP per 36 ticks)` : 'none'}</span>` +
-    c.poisonDoses.map(v => `<span></span><span class="none" style="grid-column:span 2">${v} (${Math.max(1, Math.floor(v / 64))} HP per 36 ticks, ${v * 36} ticks left)</span>`).join('');
-  const attrs = '<table><tr><th>Attribute</th><th>Current</th><th>Max</th></tr>' + c.attrs.map(a =>
-    `<tr><td>${esc(a[0])}</td><td class="${a[1] < a[2] ? 'bad' : a[1] > a[2] ? 'raised' : ''}">${a[1]}</td><td>${a[2]}</td></tr>`).join('') + '</table>';
-  const ranks = '<table><tr><th>Class</th><th>Rank</th><th class="l">To next rank</th></tr>' + c.ranks.map(r =>
-    `<tr><td>${esc(r[0])}</td><td class="${r[1] ? '' : 'z'}">${r[1] ? esc(r[1]) : '-'}</td>` +
-    `<td class="rk" title="${r[2]}% of the way to the next rank"><div class="vbar"><i style="width:${r[2]}%;background:${colour}"></i></div></td></tr>`).join('') + '</table>';
-  const items = c.items.length ? '<table><tr><th style="width:110px">Slot</th><th class="l">Item</th></tr>' + c.items.map(it =>
-    `<tr class="${it[2] ? 'in' : ''}"><td class="${it[2] ? '' : 'nt'}">${it[2] ? '' : esc(it[0])}</td><td class="l">${esc(it[1])}</td></tr>`).join('') + '</table>'
-    : '<div class="note">Carries nothing.</div>';
+    c.poisonDoses.map(v => `<span></span><span class="w none">${v} (${Math.max(1, Math.floor(v / 64))} HP per 36 ticks, ${v * 36} ticks left)</span>`).join('') + '</div>';
+}
+function liveHead(c, colour) {
   const status = c.hp[0] <= 0 ? 'dead' : c.poison ? 'poisoned' : '';
-  // As in the window: the Party's page has the vitals and class ranks only; a champion's own page also the attributes and items
-  const body = brief ? `<div class="live"><div class="vit">${vit}</div><div>${ranks}</div></div>`
-    : `<div class="live"><div><div class="vit">${vit}</div>${attrs}${ranks}</div><div>${items}</div></div>`;
-  return section('live' + i, c.name + (c.title ? ' ' + c.title : ''), status ? `<span class="pill">${status}</span>` : '', body);
+  return `<div class="chead">${c.portrait ? `<img src="${c.portrait}" alt="">` : ''}<div class="grow"><div class="nm" style="color:${colour}">${esc(c.name)}</div>` +
+    `<div class="ti">${esc(c.title)}</div></div>${status ? `<span class="pill">${status}</span>` : ''}</div>`;
+}
+const liveRanks = (c, colour) => '<div class="lranks">' + c.ranks.map(r => `<span class="l">${esc(r[0])}</span><span class="${r[1] ? '' : 'none'}">${r[1] ? esc(r[1]) : '-'}</span>` +
+  `<div class="vbar" title="${r[2]}% of the way to the next rank"><i style="width:${r[2]}%;background:${colour}"></i></div>`).join('') + '</div>';
+function liveCard(c) {
+  const colour = c.hero >= 0 ? COLOUR(c.hero) : 'var(--text)';
+  const carried = c.items.filter(it => !it[2] && !(it[0] >= 0 && it[0] <= 5) && it[0] !== 10).length;
+  return `<div class="lcard"${c.hero >= 0 ? ` onclick="set({who:${c.hero}})"` : ''}>` + liveHead(c, colour) + liveVitals(c, colour) +
+    '<div class="strip">' + [0, 1, 2, 10, 3, 4, 5].map(s => slotHtml(c.items, s, isWounded(c, s))).join('') +
+    (carried ? `<span class="more">+${carried} carried</span>` : '') + '</div>' + liveRanks(c, colour) + '</div>';
+}
+function liveInventory(c) {
+  if (!c.items.length) return '<div class="note">Carries nothing.</div>';
+  if (st.list) return '<div class="wide"><table class="ilist"><tr><th>Slot</th><th></th><th class="l">Item</th><th>Weight</th></tr>' + c.items.map(it => {
+    const charges = chargesOf(it);
+    return `<tr class="${it[2] ? 'in' : ''}"><td class="nt">${it[2] ? '' : slotName(it[0])}</td><td class="ic">${it[2] ? '' : iconOf(it)}</td>` +
+      `<td class="l nm">${it[2] ? `<span class="inl">${iconOf(it)}${esc(it[1])}</span>` : esc(it[1])}${charges ? ` <span class="none">· ${charges}</span>` : ''}</td><td>${tenths(it[4])} kg</td></tr>`;
+  }).join('') + '</table></div>';
+  let doll = '';
+  for (const s in DOLL) doll += `<div style="grid-column:${DOLL[s][0]};grid-row:${DOLL[s][1]}">${slotHtml(c.items, +s, isWounded(c, +s), PART[s])}</div>`;
+  let pack = '';
+  for (let s = 13; s < 30; s++) pack += slotHtml(c.items, s, false);
+  return `<div class="inv"><div class="doll">${doll}<span class="cap" style="grid-column:1;grid-row:3">Pouch</span><span class="cap" style="grid-column:4/6;grid-row:3">Quiver</span></div>` +
+    `<div class="pack"><span class="cap">Backpack</span><div class="grid">${pack}</div></div></div>`;
+}
+function liveChampion(c) {
+  const colour = c.hero >= 0 ? COLOUR(c.hero) : 'var(--text)';
+  const attrs = '<div class="wide"><table><tr><th>Attribute</th><th>Current</th><th>Max</th></tr>' + c.attrs.map(a =>
+    `<tr><td>${esc(a[0])}</td><td class="${a[1] < a[2] ? 'bad' : a[1] > a[2] ? 'raised' : ''}">${a[1]}</td><td>${a[2]}</td></tr>`).join('') + '</table></div>';
+  const count = c.items.length;
+  const choice = `<span class="seg" onclick="event.stopPropagation()"><button class="ch${st.list ? '' : ' on'}" onclick="set({list:false})">Picture</button>` +
+    `<button class="ch${st.list ? ' on' : ''}" onclick="set({list:true})">List</button></span>`;
+  return `<div class="champ"><div class="a-v">${liveHead(c, colour)}${liveVitals(c, colour)}</div>` +
+    `<div class="a-a">${section('attrs', 'Attributes', '', attrs)}${section('ranks', 'Ranks', 'way to the next rank', liveRanks(c, colour))}</div>` +
+    `<div class="a-i">${section('inventory', 'Inventory', `${count} ${count === 1 ? 'item' : 'items'} &nbsp;${choice}`, liveInventory(c))}</div></div>`;
 }
 function championsPage() {
-  const all = LIVE.champions.map((c, i) => [c, i]);
+  const all = LIVE.champions;
   if (!all.length) return '<div class="note">No champion in the party when the page was written.</div>';
-  const shown = isParty() ? all : all.filter(([c]) => c.hero === st.who);
+  const shown = isParty() ? all : all.filter(c => c.hero === st.who);
   if (!shown.length) return `<div class="note">${esc(whoName(st.who))} was not in the party when the page was written.</div>`;
   let html = '<div class="note">The champions as they were when the page was written.</div>';
-  if (isParty() && LIVE.inHand) html += `<div class="note">In the hand: <span style="color:var(--text)">${esc(LIVE.inHand)}</span></div>`;
-  return html + shown.map(([c, i]) => liveChampion(c, i, isParty())).join('');
+  if (!isParty()) return html + liveChampion(shown[0]);
+  if (LIVE.cursor) html += `<div class="oncursor">On the cursor: ${slotHtml([LIVE.cursor], -1, false)}<b>${esc(LIVE.cursor[1])}</b></div>`;
+  return html + '<div class="lcards">' + shown.map(liveCard).join('') + '</div>';
 }
 
+// A slot's tooltip follows the pointer and stays inside the page; a click on a chest keeps it
+// open until the next click, for touch screens
+const tip = document.createElement('div');
+tip.id = 'tip';
+tip.hidden = true;
+document.body.appendChild(tip);
+let pinned = null;
+function placeTip(x, y) {
+  const r = tip.getBoundingClientRect();
+  let px = x + 16, py = y + 18;
+  if (px + r.width > innerWidth - 8) px = Math.max(8, x - r.width - 12);
+  if (py + r.height > innerHeight - 8) py = Math.max(8, y - r.height - 12);
+  tip.style.left = px + 'px';
+  tip.style.top = py + 'px';
+}
+function showTip(el, x, y) {
+  tip.innerHTML = TIPS[+el.dataset.tip] || '';
+  tip.hidden = false;
+  if (x === undefined) { const r = el.getBoundingClientRect(); x = r.right - 12; y = r.bottom - 14; }
+  placeTip(x, y);
+}
+function hideTip(unpin) {
+  if (unpin && pinned) { pinned.classList.remove('pin'); pinned = null; }
+  if (!pinned) tip.hidden = true;
+}
+document.addEventListener('mousemove', e => {
+  if (pinned) return;
+  const el = e.target.closest ? e.target.closest('[data-tip]') : null;
+  if (el) showTip(el, e.clientX, e.clientY); else tip.hidden = true;
+});
+document.addEventListener('click', e => {
+  const el = e.target.closest ? e.target.closest('.slot') : null;
+  const was = pinned;
+  hideTip(true);
+  if (!el) return;
+  e.stopPropagation();  // a slot in a card does not open the champion
+  if (el.dataset.pin && el !== was) { pinned = el; el.classList.add('pin'); showTip(el, e.clientX, e.clientY); }
+}, true);
+document.addEventListener('focusin', e => { const el = e.target.closest ? e.target.closest('[data-tip]') : null; if (el && !pinned) showTip(el); });
+document.addEventListener('focusout', () => hideTip(false));
+
 function draw() {
+  TIPS = [];
+  hideTip(true);
   if (st.level !== -1 && !D.views[String(st.level)]) st.level = -1;
   frame();
   let html;
@@ -1075,6 +1207,7 @@ function fit() {
   fitTables(view);
   view.querySelectorAll('.tiles').forEach(g => { g.style.gridTemplateColumns = `repeat(${across(g.children.length, width, 150, 8)},1fr)`; });
   view.querySelectorAll('.cards').forEach(g => { g.style.gridTemplateColumns = `repeat(${across(g.children.length, width, 190, 8)},1fr)`; });
+  view.querySelectorAll('.lcards').forEach(g => { g.style.gridTemplateColumns = `repeat(${across(g.children.length, width, 290, 10)},minmax(0,480px))`; });
   view.querySelectorAll('.topics').forEach(g => { g.style.gridTemplateColumns = width >= 528 ? '1fr 1fr' : '1fr'; });
 }
 let fitTimer = 0;
