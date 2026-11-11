@@ -15,6 +15,7 @@ void DisableTraceIfEnciphered(void);
 void PlayFile_Close(void);
 void RecordFile_Close(void);
 bool IsPlayFileOpen(void);
+void ReplayBackToNormalSpeed(void);
 bool IsRecordFileRecording(void);
 void RecordFile_Open(void);
 void RecordFile_Record(i32 x, i32 y, i32 z);
@@ -221,6 +222,7 @@ RESTARTABLE _ShowCredits(const i32 P1) //(void)
 //
       };
       d.DynamicPaletteSwitching = 0;
+      if (!RepeatGame) ReplayBackToNormalSpeed();
       videoMode = VM_CAST;
       FadeToPalette(_5_,&LOCAL_78); //Show Champion's Levels
       for (i=0;(i<2000)&&(RepeatGame) || (!RepeatGame); i++)

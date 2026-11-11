@@ -51,6 +51,7 @@ extern bool TimerTraceActive;
 extern i16 TraceFile;
 extern bool RepeatGame;
 extern i32 VBLMultiplier;
+void ReplayBackToNormalSpeed(void);
 extern bool neophyteSkills;
 extern bool RecordCommandOption;
 extern bool NoRecordCommandOption;
@@ -321,11 +322,7 @@ bool PLAYFILE::Play(MouseQueueEnt *ent)
       Close();
       // No message box: it would stop the game, the map and the statistics windows until
       // answered. The menu bar says the replay ended (CSBlinux.cpp)
-      if (!RepeatGame)
-      {
-        NoSpeedLimit = 0;
-        VBLMultiplier = 1;
-      };
+      if (!RepeatGame) ReplayBackToNormalSpeed();
       return false;
     };
     len = strlen(line);
@@ -922,6 +919,15 @@ void PLAYFILE::Backspace(MouseQueueEnt *
   m_time = d.Time;
 }
 
+
+// A replay that is over, or a game that is won, runs at 1x again: at max the engine has no clock
+// and would keep the processor at full load while it waits at the end
+void ReplayBackToNormalSpeed(void)
+{
+  PlaybackControl_Reset();
+  NoSpeedLimit = 0;
+  VBLMultiplier = 1;
+}
 
 PLAYFILE PlayFile;
 bool PlayfileIsOpen(void) {return PlayFile.IsOpen();};
