@@ -37,6 +37,7 @@ void TestAutoMapTickRate(void);
 void TestShotMissiles(void);
 void TestPlaybackControl(void);
 void TestGameRules(void);
+void TestContinueLog(void);
 void TestHeroStats(void);
 void TestHeroStatsOrigins(void);
 void TestHeroStatsPending(void);

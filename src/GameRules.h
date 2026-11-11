@@ -37,8 +37,11 @@ std::string GameRules_RecordLines(const GameRules &rules);
 // A rule line changes that rule and gives true; any other line gives false
 bool GameRules_ReadLine(const char *line, GameRules *rules);
 
-// The rules in force: the settings, or a replay's while it runs
+// The rules in force: a replay's while it runs, else those of a continued recording
+// (File > Continue recording) while it is written, else the settings
 void GameRules_SetSettings(const GameRules &rules);
+void GameRules_KeepForRecording(const GameRules &rules);
+void GameRules_EndRecording(void);
 void GameRules_BeginReplay(const GameRules &rules);
 GameRules *GameRules_Replay(void);   // NULL when no replay runs
 void GameRules_EndReplay(void);

@@ -27,6 +27,7 @@ int main(void)
   TestShotMissiles();
   TestPlaybackControl();
   TestGameRules();
+  TestContinueLog();
   TestHeroStats();
   TestHeroStatsOrigins();
   TestHeroStatsPending();

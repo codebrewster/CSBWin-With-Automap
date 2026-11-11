@@ -72,6 +72,61 @@ bool firstDungeonWarning = true;
 
 RECORDFILE RecordFile;
 
+// File > Continue recording: the replay of a recording runs to the end of the file, and the
+// recording goes on in that file from there. The game is then the one every replay of it
+// reaches, here and in CSBwin, so the file stays one plain stream of inputs.
+static std::string continuePath;      // the recording to continue, while its replay runs
+static bool replayReachedItsEnd = false;
+// For the menu bar (CSBlinux.cpp): what became of it. No message box: Close() is also called
+// from the menus, in the middle of drawing them.
+static std::string continueNews;
+static int continueNewsCount = 0;
+
+const char *ContinueRecording_News(int *count)
+{
+  *count = continueNewsCount;
+  return continueNews.c_str();
+}
+
+static void ContinueRecording_Tell(const std::string &news)
+{
+  continueNews = news;
+  continueNewsCount++;
+}
+
+void ContinueRecording_Begin(const char *path)
+{
+  continuePath = path;
+}
+
+bool ContinueRecording_IsPending(void)
+{
+  return !continuePath.empty();
+}
+
+static void ContinueRecording_Cancel(const char *why)
+{
+  if (continuePath.empty()) return;
+  continuePath.clear();
+  ContinueRecording_Tell(why);
+}
+
+// The replay ended at the end of its file: the recording goes on, by the replay's rules
+static void ContinueRecording_Start(const GameRules &rules)
+{
+  std::string path = continuePath;
+  continuePath.clear();
+  size_t slash = path.find_last_of("/\\");
+  std::string name = slash == std::string::npos ? path : path.substr(slash + 1);
+  if (!RecordFile.Append(path.c_str()))
+  {
+    ContinueRecording_Tell("Cannot write to " + name + ": the recording was not continued.");
+    return;
+  }
+  GameRules_KeepForRecording(rules);
+  ContinueRecording_Tell("The recording continues in " + name + ".");
+}
+
 
 class TABLE
 {
@@ -283,6 +338,8 @@ void PLAYFILE::Open(void)
 
 void PLAYFILE::Close(void)
 {
+  if (!replayReachedItsEnd && (m_file >= 0))
+    ContinueRecording_Cancel("The replay was stopped before its end: the recording was not continued.");
   GameRules_EndReplay();
   if (m_file >= 0)
   {
@@ -332,9 +389,18 @@ bool PLAYFILE::Play(MouseQueueEnt *ent)
 #endif
       tent.x = 0;
       tent.y = 0;
-      d.RandomNumber ^= 0xaa00;
-      RecordFile.Record(&tent);
+      bool continuing = ContinueRecording_IsPending();
+      if (!continuing)
+      { // Playing on from a replay goes another way than the recording did. Not when the
+        // recording goes on: CSBwin, replaying it, reads on past this point.
+        d.RandomNumber ^= 0xaa00;
+        RecordFile.Record(&tent);
+      };
+      GameRules rules = (GameRules_Replay() != NULL) ? *GameRules_Replay() : GameRules_Current();
+      replayReachedItsEnd = true;
       Close();
+      replayReachedItsEnd = false;
+      if (continuing) ContinueRecording_Start(rules);
       // No message box: it would stop the game, the map and the statistics windows until
       // answered. The menu bar says the replay ended (CSBlinux.cpp)
       if (!RepeatGame) ReplayBackToNormalSpeed();
@@ -590,6 +656,14 @@ bool PLAYFILE::Play(MouseQueueEnt *ent)
   {
     i32 answer;
 
+    if (ContinueRecording_IsPending())
+    { // A recording whose replay goes out of step cannot be continued
+      ContinueRecording_Cancel("The replay went out of step: the recording was not continued.");
+      answer = UI_MessageBox("Sequence/timing error\nThe recording cannot be continued.\nShould we quit?",
+                             "Playback error",
+                             MESSAGE_YESNO);
+    }
+    else
     answer = UI_MessageBox("Sequence/timing error\nShould we quit?",
                            "Playback error",
                            MESSAGE_YESNO);
@@ -1192,8 +1266,23 @@ void RECORDFILE::Open(void)
   };
 };
 
+// File > Continue recording: on at the end of an existing recording, without its header
+bool RECORDFILE::Append(const char *path)
+{
+  if (m_fileNum >= 0) Close();
+  m_fileNum = CREATE(path, "a", false);
+  m_lineQueue.clear();
+  m_isQueueingLines = false;
+  if (m_fileNum < 0) return false;
+  // CSBwin skips it: one word after the #
+  fprintf(GETFILE(m_fileNum), "#ContinuedRecording\n");
+  fflush(GETFILE(m_fileNum));
+  return true;
+}
+
 void RECORDFILE::Close(void)
 {
+  GameRules_EndRecording();
   if (m_fileNum >= 0) CLOSE(m_fileNum);
   m_fileNum = -1;
   m_lineQueue.clear();

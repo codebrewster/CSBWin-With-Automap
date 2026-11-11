@@ -156,6 +156,22 @@ static void ReplayRulesHoldOnlyWhileTheReplayRuns(void)
   CHECK(GameRules_Replay() == NULL);
 }
 
+// A continued recording goes on by the rules of the replay that brought it to its end
+static void ContinuedRecordingKeepsItsRulesUntilItIsClosed(void)
+{
+  GameRules settings = GameRules_FromSettings(true, false, 1);
+  GameRules_SetSettings(settings);
+  GameRules recorded = GameRules_PortBefore(false, true);
+  GameRules_KeepForRecording(recorded);
+  CHECK(SameRules(GameRules_Current(), recorded));
+  GameRules_BeginReplay(GameRules_Classic());
+  CHECK(SameRules(GameRules_Current(), GameRules_Classic()));
+  GameRules_EndReplay();
+  CHECK(SameRules(GameRules_Current(), recorded));
+  GameRules_EndRecording();
+  CHECK(SameRules(GameRules_Current(), settings));
+}
+
 void TestGameRules(void)
 {
   ClassicRulesAreThoseOfCsbwin176();
@@ -169,4 +185,5 @@ void TestGameRules(void)
   RuleLinesAreSingleWordCommentLines();
   OtherCommentLinesAreNotRules();
   ReplayRulesHoldOnlyWhileTheReplayRuns();
+  ContinuedRecordingKeepsItsRulesUntilItIsClosed();
 }

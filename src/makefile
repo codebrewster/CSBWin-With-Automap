@@ -98,6 +98,10 @@ SHOT_MISSILES_TESTS += automap_tests/PlaybackControlTest.o
 SHOT_MISSILES_TESTED += GameRules.o
 SHOT_MISSILES_TESTS += automap_tests/GameRulesTest.o
 
+# File > Continue recording: a recording made ready to be replayed to its end. Engine-free.
+SHOT_MISSILES_TESTED += ContinueLog.o
+SHOT_MISSILES_TESTS += automap_tests/ContinueLogTest.o
+
 # The hero statistics store. Engine-free as well; "make test" runs its tests with the others.
 HERO_STATS_TESTED = HeroStats.o HeroStatsLive.o HeroStatsLayout.o HeroStatsExperience.o HeroStatsRecords.o HeroStatsCatalogue.o HeroStatsOrigins.o HeroStatsPending.o HeroStatsRunes.o HeroStatsDump.o HeroStatsGame.o HeroStatsView.o HeroStatsPages.o HeroStatsExport.o
 HERO_STATS_TESTS = automap_tests/HeroStatsTest.o automap_tests/HeroStatsLiveTest.o automap_tests/HeroStatsLayoutTest.o automap_tests/HeroStatsCatalogueTest.o automap_tests/HeroStatsOriginsTest.o automap_tests/HeroStatsPendingTest.o automap_tests/HeroStatsDumpTest.o automap_tests/HeroStatsGameTest.o automap_tests/HeroStatsViewTest.o automap_tests/HeroStatsPagesTest.o automap_tests/HeroStatsExperienceTest.o automap_tests/HeroStatsRecordsTest.o

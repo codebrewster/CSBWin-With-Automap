@@ -83,6 +83,7 @@ public:
     return (m_fileNum >= 0) || m_isQueueingLines;
   };
   void Open(void);
+  bool Append(const char *path);
   void PreOpen(void);
   void Close(void);
   void Record(MouseQueueEnt *happening);

@@ -126,6 +126,19 @@ bool GameRules_ReadLine(const char *line, GameRules *rules)
 static GameRules settingsRules = GameRules_Classic();
 static GameRules replayRules = GameRules_Classic();
 static bool replayRuns = false;
+static GameRules recordingRules = GameRules_Classic();
+static bool recordingKeepsRules = false;
+
+void GameRules_KeepForRecording(const GameRules &rules)
+{
+  recordingRules = rules;
+  recordingKeepsRules = true;
+}
+
+void GameRules_EndRecording(void)
+{
+  recordingKeepsRules = false;
+}
 
 void GameRules_SetSettings(const GameRules &rules)
 {
@@ -150,5 +163,6 @@ void GameRules_EndReplay(void)
 
 const GameRules &GameRules_Current(void)
 {
-  return replayRuns ? replayRules : settingsRules;
+  if (replayRuns) return replayRules;
+  return recordingKeepsRules ? recordingRules : settingsRules;
 }

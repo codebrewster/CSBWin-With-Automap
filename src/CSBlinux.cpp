@@ -23,6 +23,7 @@
 #include "ReplaySnapshot.h"
 #include "AutoMapTickRate.h"
 #include "GameRules.h"
+#include "ContinueLog.h"
 
 #include "Dispatch.h"
 #include "Objects.h"
@@ -884,6 +885,62 @@ static void Process_ecode_IDC_Playback(void)
   {
     PostQuitMessage(0x1a);
   };
+}
+
+// File > Continue recording (Recording.cpp)
+extern char *PlayfileName; // CSBUI.cpp
+void ContinueRecording_Begin(const char *path);
+bool ContinueRecording_IsPending(void);
+const char *ContinueRecording_News(int *count);
+
+// A last inventory Save and Quit is made ready (ContinueLog.h), the file as it was kept as
+// <name>.orig; then the replay of the recording, when it starts, is one to continue
+bool PrepareContinueRecording(const std::string &path)
+{
+  static std::string replayed;   // PlayfileName points at it while the replay runs
+  std::string log;
+  FILE *f = fopen(path.c_str(), "rb");
+  if (f == NULL) {
+    UI_MessageBox(_("Cannot read that recording."), _("Continue recording"), MESSAGE_OK);
+    return false;
+  }
+  char buffer[65536];
+  size_t n;
+  while ((n = fread(buffer, 1, sizeof buffer, f)) > 0) log.append(buffer, n);
+  fclose(f);
+  bool changed = false;
+  std::string prepared = ContinueLog_Prepare(log, &changed);
+  if (changed) {
+    std::string original = path + ".orig";
+    FILE *o = fopen(original.c_str(), "rb");
+    if (o != NULL) fclose(o);
+    else if ((o = fopen(original.c_str(), "wb")) != NULL) {
+      fwrite(log.data(), 1, log.size(), o);
+      fclose(o);
+    }
+    FILE *w = fopen(path.c_str(), "wb");
+    if (w == NULL || fwrite(prepared.data(), 1, prepared.size(), w) != prepared.size()) {
+      if (w != NULL) fclose(w);
+      UI_MessageBox(_("Cannot write to that recording."), _("Continue recording"), MESSAGE_OK);
+      return false;
+    }
+    fclose(w);
+  }
+  replayed = path;
+  PlayfileName = (char *)replayed.c_str();
+  ContinueRecording_Begin(replayed.c_str());
+  return true;
+}
+
+// Replays the recording at max to its end; the recording goes on there
+static void StartContinueRecording(const std::string &path)
+{
+  if (!PrepareContinueRecording(path)) return;
+  Process_ecode_IDC_Playback();
+  if (!PlayfileIsOpen()) return;
+  PlaybackControl_SetSpeedIndex(PLAYBACK_SPEED_MAX);
+  NoSpeedLimit = 0x20000000;
+  VBLMultiplier = 1;
 }
 
 static void Process_ecode_IDC_DispatchTrace(void)
@@ -2657,8 +2714,48 @@ static const char *RecordTooltip(void)
   return _("Records the next game, from its prison door or when a saved game is loaded.");
 }
 
+// --continue-check DAY1:DAY2: at the prison door File > Continue recording continues DAY1;
+// once the recording goes on, the replay of DAY2 (the rest of that game, from a later tick)
+// plays its inputs into it, and at its end prints the fingerprints of --rewind-check. A replay
+// of DAY1 continued must then end as the game DAY1 and DAY2 were cut from.
+extern const char *continueCheck; // LinCSBUI.cpp
+void PlayfileOpen(bool open); // Recording.cpp
+extern bool checkDungeonSignature; // Recording.cpp
+static void ContinueCheck(void)
+{
+    static int stage = 0;
+    static std::string day2;
+    if (continueCheck == NULL) return;
+    if (stage == 0) { // day 1 opens at the prison door, as with --play (LinCSBUI.cpp)
+	const char *colon = strchr(continueCheck, ':');
+	day2 = colon == NULL ? "" : colon + 1;
+	stage = 1;
+    } else if (stage == 1 && PlayfileIsOpen()) {
+	printf("continue-check: continuing %s\n", PlayfileName);
+	fflush(stdout);
+	SetReplaySpeed(PLAYBACK_SPEED_MAX);
+	stage = 2;
+    } else if (stage == 2 && !PlayfileIsOpen()) {
+	int count;
+	const char *news = ContinueRecording_News(&count);
+	printf("continue-check: replay ended at tick %d: %s\n", (int)d.Time, news);
+	fflush(stdout);
+	if (!RecordfileIsOpen()) exit(3);
+	PlayfileName = (char *)day2.c_str();
+	ReplaySnapshot_EnableCheck("none");
+	PlayfileOpen(true);
+	// DAY2 opens in the middle of a game: its dungeon signature lines name the file the game
+	// began with, which a game in progress need not have open (a CSB save, say)
+	checkDungeonSignature = false;
+	printf("continue-check: playing %s into it from tick %d\n", day2.c_str(), (int)d.Time);
+	fflush(stdout);
+	stage = 3;
+    }
+}
+
 void post_render() {
     static bool was_active;
+    ContinueCheck();
     // A replay that ended (its file ran out, the party died, or it was stopped) says so on the bar
     // for a while; no message box, which would stop the game and its windows until answered
     static bool replayWasOpen = false;
@@ -2669,9 +2766,19 @@ void post_render() {
     if (!replayWasOpen && PlayfileIsOpen()) replayEndedAt = 0;
     replayWasOpen = PlayfileIsOpen();
     if (replayEndedAt != 0 && SDL_GetTicks() - replayEndedAt > 15000) replayEndedAt = 0;
+    // What became of File > Continue recording, for as long
+    static int continueNewsSeen = 0;
+    static Uint32 continueNewsAt = 0;
+    int continueNewsCount;
+    const char *continueNews = ContinueRecording_News(&continueNewsCount);
+    if (continueNewsCount != continueNewsSeen) {
+	continueNewsSeen = continueNewsCount;
+	continueNewsAt = SDL_GetTicks() | 1;
+    }
+    if (continueNewsAt != 0 && SDL_GetTicks() - continueNewsAt > 15000) continueNewsAt = 0;
     drawn = 1;
     SDL_Rect r;
-    bool open = false,save = false,open_dungeon = false, open_playback = false;
+    bool open = false,save = false,open_dungeon = false, open_playback = false, open_continue = false;
     if (!d.NumGraphic) imgui_active = true;
 
     // Start the Dear ImGui frame
@@ -2714,6 +2821,17 @@ void post_render() {
 	    // Limited playback in front the dungeon door
 	    if (ImGui::MenuItem(_("Playback.."), NULL,false,d.partyLevel == 255 && d.NumGraphic > 0 && !PlayfileIsOpen()))
 		open_playback = true;
+	    // Replays a recording to its end, at max, and records on into it from there
+	    if (ImGui::MenuItem(_("Continue recording..."), NULL, false,
+				d.partyLevel == 255 && d.NumGraphic > 0 && !PlayfileIsOpen() && !RecordfileIsOpen()))
+		open_continue = true;
+	    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+		if (RecordfileIsOpen())
+		    ImGui::SetTooltip("%s", _("A recording is being written: choose Record to stop it first."));
+		else
+		    ImGui::SetTooltip("%s", _("Replays a recording to its end at full speed, then records on into\n"
+					      "the same file: one recording over several sessions. At the prison door."));
+	    }
 	    // Recording keeps every input of a game in logs/RecordNNNNN.log, for Playback
 	    if (ImGui::MenuItem(_("Record"), NULL, RecordMenuOption || RecordfileIsOpen(),
 				d.NumGraphic > 0 && !PlayfileIsOpen() && !endSequencePlaying))
@@ -2850,6 +2968,8 @@ void post_render() {
 
 	if (PlayfileIsOpen()) {
 	    DrawReplayControls(was_active);
+	} else if (continueNewsAt != 0) {
+	    ImGui::TextColored(ImVec4(0.6f, 0.9f, 0.6f, 1.0f), "%s", _(continueNews));
 	} else if (replayEndedAt != 0) {
 	    ImGui::TextColored(ImVec4(0.6f, 0.9f, 0.6f, 1.0f), _("Replay ended at tick %d: you play on from here"), replayEndTick);
 	}
@@ -2875,6 +2995,9 @@ void post_render() {
     } else if (open_playback) {
 	fb_shown = true;
 	ImGui::OpenPopup(_("Select playback file..."));
+    } else if (open_continue) {
+	fb_shown = true;
+	ImGui::OpenPopup(_("Continue recording..."));
     } else if (save) {
 	fb2_shown = true;
         ImGui::OpenPopup(_("Save game"));
@@ -2883,6 +3006,14 @@ void post_render() {
     /* Optional third parameter. Support opening only compressed rar/zip files.
      * Opening any other file will show error, return false and won't close the dialog.
      */
+    if(file_dialog.showFileDialog(_("Continue recording..."), imgui_addons::ImGuiFileBrowser::DialogMode::OPEN, ImVec2(700, 310), "*.log")) {
+	std::string chosen = file_dialog.selected_path;
+	StartContinueRecording(chosen);
+	fb_shown = false;
+    } else if (fb_shown && !ImGui::IsPopupOpen(_("Continue recording...")) && !ImGui::IsPopupOpen(_("Select playback file..."))
+	       && !ImGui::IsPopupOpen(_("Load saved game")))
+	fb_shown = false;
+
     if(file_dialog.showFileDialog(_("Select playback file..."), imgui_addons::ImGuiFileBrowser::DialogMode::OPEN, ImVec2(700, 310), "*.log")) {
 	PlayfileName = (char*)file_dialog.selected_path.c_str();
 	Process_ecode_IDC_Playback();

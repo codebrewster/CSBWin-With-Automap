@@ -38,6 +38,9 @@
 extern int eventNum;
 // Set by --victory-test; the main loop then wins the game at once.
 bool victoryTestPending = false;
+// --continue-check DAY1:DAY2 (CSBlinux.cpp)
+const char *continueCheck = NULL;
+bool PrepareContinueRecording(const std::string &path);
 extern void ReadConfigFile(void);
 char pwd[FILENAME_MAX];
 
@@ -380,6 +383,7 @@ enum {
 		    enum_height,
 		    enum_quick,
 		    enum_rewind_check,
+		    enum_continue_check,
 		    enum_vblmultiplier,
 		    enum_dungeon,
 		    enum_width,
@@ -490,6 +494,8 @@ bool UI_ProcessOption(char **argv, int &argc)
 			state=enum_visibility_test;
 		    }else if(!strcmp("--rewind-check",key) ) {
 			state=enum_rewind_check;
+		    }else if(!strcmp("--continue-check",key) ) {
+			state=enum_continue_check;
 		    }else if(!strcmp("--rewind-test",key) ) {
 			ReplaySnapshot_EnableTest();
 			state=enum_ignore;
@@ -660,6 +666,18 @@ bool UI_ProcessOption(char **argv, int &argc)
 		case enum_rewind_check:
 		    ReplaySnapshot_EnableCheck(key);
 		    break;
+
+		case enum_continue_check:
+		{ // DAY1 is replayed to be continued, started as --play starts a replay
+		    continueCheck = key;
+		    setenv("SDL_VIDEODRIVER", "dummy", 1);
+		    std::string day1 = key;
+		    day1 = day1.substr(0, day1.find(':'));
+		    if (!PrepareContinueRecording(day1)) exit(3);
+		    extraTicks = false;
+		    PlaybackCommandOption = true;
+		    break;
+		}
 
 		case enum_vblmultiplier:
 		    sscanf(key,"%d", &VBLMultiplier);

@@ -25,6 +25,33 @@ Record cannot be switched during a replay.
 Saving with **File → Save game** is recorded too: the recording gets a `2223` line, which CSBwin
 also knows, so that a replay does to the game what the save did.
 
+## One recording over several sessions
+
+A whole game rarely fits into one sitting. **File → Continue recording...** carries a recording
+on into the next session, so that the game ends up in one file:
+
+1. Play with **Record** on. Stop whenever you like: save or not, then quit.
+2. Next time, at the prison door (before **Enter** or **Resume**), choose
+   **File → Continue recording...** and pick yesterday's `logs/RecordNNNNN.log`. **Record**
+   must be off for that (choose it again if a new recording has just started).
+3. The recording is replayed at full speed to its end. The replay bar shows how far it is;
+   a long game takes a minute or two.
+4. At its end the menu bar says **The recording continues in RecordNNNNN.log**, **REC**
+   shows, and you play on. What you do is added to the same file.
+
+You go on where the recording ends, which is where you stopped playing, whether or not you
+saved there; you do not load a saved game for it. The game you continue is the one any replay
+of the file reaches, so the file stays one plain stream of inputs and replays from start to end
+like any other recording, in CSBwin 17.6 as well when it was made by its rules. It keeps the
+rules it was recorded with (see below), whatever the settings say now.
+
+If the last session ended with **Save and Quit** from the inventory's disk icon, a replay would
+quit there too. Before the replay that save is turned into a `2223` line, as **File → Save
+game** writes it, and the file as it was is kept as `RecordNNNNN.log.orig`.
+
+The recording is not continued, and the menu bar says so, when the replay is stopped before its
+end or goes out of step.
+
 ## Recordings that replay in CSBwin 17.6
 
 A few rules of this port are not in Paul Stevens' CSBwin 17.6:
@@ -112,6 +139,13 @@ by itself, as after a win you played; both exports work there too.
 
 The rules where the port and 17.6 differ, and which ones are in force, live in
 `src/GameRules.{h,cpp}` (no engine, no SDL; tested in `src/automap_tests/GameRulesTest.cpp`).
+Continue recording is in `src/Recording.cpp` (`ContinueRecording_*`, `RECORDFILE::Append`); the
+preparation of a Save and Quit ending in `src/ContinueLog.{h,cpp}`, tested in
+`src/automap_tests/ContinueLogTest.cpp`. `--continue-check DAY1:DAY2` tests it with a recording
+cut in two at a tick: it continues `DAY1`, plays the inputs of `DAY2` (the header of the
+recording and its lines from the cut on) into the continued game, and prints the fingerprints
+of `--rewind-check` at the end. A replay of the continued `DAY1` must then end like the uncut
+recording.
 The pace lives in `src/PlaybackControl.{h,cpp}` (no engine, no SDL; tested in
 `src/automap_tests/PlaybackControlTest.cpp`). `checkVBL` in `src/system.cpp` hands out the
 vertical blanks from a `PlaybackClock` when a replay is paused or not at 1x; at 1x the game's
