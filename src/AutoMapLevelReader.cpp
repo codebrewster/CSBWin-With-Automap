@@ -18,6 +18,7 @@
 #include "CSB.h"
 #include "Data.h"
 #include "AutoMapHooks.h"
+#include "HeroStats.h"
 
 static const i32 CUSTOM_WALL_GRAPHIC = 0x10000;
 static const i32 CUSTOM_FLOOR_GRAPHIC = 0x4000;
@@ -852,14 +853,21 @@ static int ResidueDescriptor(i16 entry)
   return descriptor;
 }
 
-// The translated name of an object type for the tooltip footer. "" when unknown.
+// The translated name of an object type for the tooltip footer. "" when unknown. Item types that
+// share a name are told apart as the statistics do: "MAGICAL BOX (blue)", "FINE ROBE (legs)".
 const char *AutoMapLevelReader_ItemName(int nameIndex)
 {
-  int names = (int)(sizeof(d.ObjectNames) / sizeof(d.ObjectNames[0]));
+  const int names = (int)(sizeof(d.ObjectNames) / sizeof(d.ObjectNames[0]));
   if (nameIndex < 0 || nameIndex >= names) return "";
   const char *name = d.ObjectNames[nameIndex];
   if (name == NULL) return "";
-  return TranslateLanguage(name);
+  const char *detail = HeroStats_TwinDetail(nameIndex, d.ObjectNames, names);
+  if (detail[0] == 0) return TranslateLanguage(name);
+  // One string per type, so the pointer stays good for whoever keeps it
+  static std::string withDetail[names];
+  std::string full = std::string(TranslateLanguage(name)) + detail;
+  if (withDetail[nameIndex] != full) withDetail[nameIndex] = full;
+  return withDetail[nameIndex].c_str();
 }
 
 bool AutoMapLevelReader_ItemIsFood(int nameIndex)

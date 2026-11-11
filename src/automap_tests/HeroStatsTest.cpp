@@ -827,6 +827,34 @@ static void WeaponNamesComeFromTheItemNames(void)
   // A dungeon that names them apart keeps its names
   twins[HERO_STATS_FIRESTAFF_WITH_GEM] = "GEMSTAFF";
   CHECK(HeroStats_WeaponName(HERO_STATS_FIRESTAFF_WITH_GEM, twins, 30) == "GEMSTAFF");
+  CHECK(HeroStats_WeaponName(HERO_STATS_FIRESTAFF, twins, 30) == "THE FIRESTAFF");
+
+  // The other DM and CSB twins by what they are, the ones the game uses most by the plain name
+  const char *game[199] = {};
+  game[0x43] = game[0x53] = "ROBE";
+  game[0x44] = game[0x54] = "FINE ROBE";
+  game[0x84] = game[0x85] = "MAGICAL BOX";
+  game[0x93] = game[0xc6] = "BONES";
+  game[0x94] = game[0x9f] = "MON POTION";
+  CHECK(HeroStats_WeaponName(0x43, game, 199) == "ROBE (torso)");
+  CHECK(HeroStats_WeaponName(0x53, game, 199) == "ROBE (legs)");
+  CHECK(HeroStats_WeaponName(0x44, game, 199) == "FINE ROBE (torso)");
+  CHECK(HeroStats_WeaponName(0x54, game, 199) == "FINE ROBE (legs)");
+  CHECK(HeroStats_WeaponName(0x84, game, 199) == "MAGICAL BOX (blue)");
+  CHECK(HeroStats_WeaponName(0x85, game, 199) == "MAGICAL BOX (green)");
+  CHECK(HeroStats_WeaponName(0x93, game, 199) == "BONES (champion's)");
+  CHECK(HeroStats_WeaponName(0xc6, game, 199) == "BONES");
+  CHECK(HeroStats_WeaponName(0x94, game, 199) == "MON POTION (no effect)");
+  CHECK(HeroStats_WeaponName(0x9f, game, 199) == "MON POTION");
+  // The automap's names take the same detail, and nothing for any other type
+  CHECK(std::string(HeroStats_TwinDetail(0x84, game, 199)) == " (blue)");
+  CHECK(std::string(HeroStats_TwinDetail(0x9f, game, 199)) == "");
+  CHECK(std::string(HeroStats_TwinDetail(0x10, game, 199)) == "");
+  CHECK(std::string(HeroStats_TwinDetail(-1, game, 199)) == "");
+  // CSB's TATTERED SHIRT leaves its ROBE alone
+  game[0x43] = "TATTERED SHIRT";
+  CHECK(HeroStats_WeaponName(0x53, game, 199) == "ROBE");
+  CHECK(std::string(HeroStats_TwinDetail(0x53, game, 199)) == "");
 }
 
 static void ManaGainIsKeptBySource(void)

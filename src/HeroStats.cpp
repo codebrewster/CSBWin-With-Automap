@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <stdio.h>
+#include <string.h>
 
 HeroStatsBlow HeroStatsBlow_Nobody(HeroBlowBy by)
 {
@@ -27,6 +28,46 @@ uint32_t HeroStats_RuneSpellKey(const void *incantation)
   return key;
 }
 
+// The item types DM and CSB give one name (graphics.dat item 0x22c, objNI_* in Objects.h): what
+// tells each apart, "" for the one that keeps the plain name. Used only while the dungeon's names
+// are these and still shared, so a dungeon that names them apart keeps its own names.
+struct HeroStatsTwin { int type; const char *name; const char *detail; };
+static const HeroStatsTwin heroStatsTwins[] = {
+  { HERO_STATS_FIRESTAFF,          "THE FIRESTAFF", "" },
+  { HERO_STATS_FIRESTAFF_WITH_GEM, "THE FIRESTAFF", " (with Power Gem)" },
+  { 0x43, "ROBE",        " (torso)" },        // DM only; CSB has a TATTERED SHIRT here
+  { 0x53, "ROBE",        " (legs)" },
+  { 0x44, "FINE ROBE",   " (torso)" },
+  { 0x54, "FINE ROBE",   " (legs)" },
+  { 0x84, "MAGICAL BOX", " (blue)" },         // Freeze Life for 30 ticks (Attack.cpp)
+  { 0x85, "MAGICAL BOX", " (green)" },        // for 125
+  { 0x93, "BONES",       " (champion's)" },   // a dead champion's, to resurrect
+  { 0xc6, "BONES",       "" },
+  { 0x94, "MON POTION",  " (no effect)" },    // potion type 0: drinking it does nothing
+  { 0x9f, "MON POTION",  "" },                // potion type 11: the stamina potion
+};
+
+// The twin's entry when type is one of them under its shared name, else NULL
+static const HeroStatsTwin *TwinOf(int type, const char *const *itemNames, int nameCount)
+{
+  if (type < 0 || type >= nameCount || itemNames[type] == NULL) return NULL;
+  for (const HeroStatsTwin &twin : heroStatsTwins)
+  {
+    if (twin.type != type || strcmp(itemNames[type], twin.name) != 0) continue;
+    for (const HeroStatsTwin &other : heroStatsTwins)
+      if (other.type != type && other.type < nameCount && strcmp(other.name, twin.name) == 0 &&
+          itemNames[other.type] != NULL && strcmp(itemNames[other.type], twin.name) == 0)
+        return &twin;
+  }
+  return NULL;
+}
+
+const char *HeroStats_TwinDetail(int type, const char *const *itemNames, int nameCount)
+{
+  const HeroStatsTwin *twin = TwinOf(type, itemNames, nameCount);
+  return twin != NULL ? twin->detail : "";
+}
+
 std::string HeroStats_WeaponName(int weapon, const char *const *itemNames, int nameCount)
 {
   if (weapon == HERO_STATS_UNARMED) return "UNARMED";
@@ -35,13 +76,12 @@ std::string HeroStats_WeaponName(int weapon, const char *const *itemNames, int n
   {
     // Types that share a name are different items: tell them apart
     std::string name = itemNames[weapon];
+    if (TwinOf(weapon, itemNames, nameCount) != NULL)
+      return name + HeroStats_TwinDetail(weapon, itemNames, nameCount);
     int before = 0;
     for (int other = 0; other < weapon; other++)
       if (itemNames[other] != NULL && name == itemNames[other]) before++;
     if (before == 0) return name;
-    if (weapon == HERO_STATS_FIRESTAFF_WITH_GEM && itemNames[HERO_STATS_FIRESTAFF] != NULL &&
-        name == itemNames[HERO_STATS_FIRESTAFF])
-      return name + " (with Power Gem)";
     return name + " (" + std::to_string(before + 1) + ")";
   }
   char number[16];

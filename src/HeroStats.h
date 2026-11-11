@@ -69,8 +69,13 @@ uint32_t HeroStats_RuneSpellKey(const void *incantation);
 // The display name of a weapon key: the basic object type's name from the game's item names
 // (d.ObjectNames, nameCount entries), "UNARMED" for an empty hand, "" for spells entered as runes,
 // "#N" for a type the table does not name. Types that share a name are different items and get
-// their own: "THE FIRESTAFF (with Power Gem)", otherwise "AMULET (2)" by their order in the table.
+// their own: DM's and CSB's by what they are ("THE FIRESTAFF (with Power Gem)", "MAGICAL BOX
+// (blue)", "FINE ROBE (legs)"), any other by its order in the table ("AMULET (2)").
 std::string HeroStats_WeaponName(int weapon, const char *const *itemNames, int nameCount);
+// What tells one of DM's and CSB's same-named item types apart, to put after its name: " (blue)"
+// for the blue MAGICAL BOX; "" for the one that keeps the plain name, for any other type, and once
+// the dungeon names the pair apart
+const char *HeroStats_TwinDetail(int type, const char *const *itemNames, int nameCount);
 
 struct HeroStatsChampionInfo { HeroStatsChampion id; std::string name; };
 // A rune entered: the level it was entered on and the mana the engine took for it
