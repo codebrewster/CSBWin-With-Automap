@@ -3,11 +3,13 @@
 
 #include <cstring>
 #include <istream>
+#include <iterator>
 #include <ostream>
 #include <vector>
 
 static const char FILE_TYPE_MARKER[4] = {'C', 'S', 'B', 'M'};
-static const uint32_t FORMAT_VERSION = 25;
+static const char STATS_TYPE_MARKER[4] = {'C', 'S', 'B', 'S'};
+static const uint32_t FORMAT_VERSION = 26;
 static const uint32_t FIRST_VERSION_WITH_FACES = 2;
 static const uint32_t FIRST_VERSION_WITH_ITEMS = 3;
 static const uint32_t FIRST_VERSION_WITH_GLIMPSES = 4;
@@ -20,6 +22,10 @@ static const uint32_t FIRST_VERSION_WITH_DAMAGE = 10;
 static const uint32_t FIRST_VERSION_WITH_RIMS = 11;
 static const uint32_t FIRST_VERSION_WITH_SEEN_FLOORS = 12;
 static const uint32_t FIRST_VERSION_WITH_STATISTICS = 13;
+// From here on the statistics are an entry of their own (AutoMapStatsFile)
+static const uint32_t FIRST_VERSION_WITHOUT_STATISTICS = 26;
+// The layout the statistics entry was first written in: the one map files of version 25 held
+static const uint32_t FIRST_STATS_ENTRY_LAYOUT = 25;
 // A floor link source has no side: it is stored as all ones in its byte
 static const uint32_t NO_SIDE_BYTE = 0xff;
 // A missing picture is stored as all ones in its two bytes
@@ -63,8 +69,7 @@ void AutoMapFile::Write(std::ostream &out, const AutoMapExplored &explored,
                         const AutoMapKnowledge &knowledge,
                         const AutoMapItemMemory &items, const AutoMapCellMemory &cells,
                         const AutoMapPlayerNotes &notes,
-                        const AutoMapMonsterDamage &damage, const HeroStats &stats,
-                        const HeroStatsOrigins &origins) const
+                        const AutoMapMonsterDamage &damage) const
 {
   out.write(FILE_TYPE_MARKER, sizeof(FILE_TYPE_MARKER));
   WriteNumber(out, FORMAT_VERSION, 2);
@@ -171,27 +176,18 @@ void AutoMapFile::Write(std::ostream &out, const AutoMapExplored &explored,
       WriteNumber(out, (uint32_t)groups[i].second[(size_t)member], 2);
     }
   }
-  // The statistics block: its length, then the length of the statistics proper (the origins
-  // fill the rest), so a reader can take the whole block off the stream before parsing it
-  std::vector<uint8_t> statsBytes;
-  stats.Serialize(&statsBytes);
-  std::vector<uint8_t> originsBytes;
-  origins.Serialize(&originsBytes);
-  WriteNumber(out, (uint32_t)(4 + statsBytes.size() + originsBytes.size()), 4);
-  WriteNumber(out, (uint32_t)statsBytes.size(), 4);
-  out.write((const char *)statsBytes.data(), (std::streamsize)statsBytes.size());
-  out.write((const char *)originsBytes.data(), (std::streamsize)originsBytes.size());
 }
 
-static AutoMapFileResult ReadHeader(std::istream &in, uint32_t *version,
+static AutoMapFileResult ReadHeader(std::istream &in, const char *typeMarker, uint32_t firstVersion,
+                                    uint32_t lastVersion, uint32_t *version,
                                     AutoMapSaveSignature *saveSignature)
 {
   char marker[sizeof(FILE_TYPE_MARKER)];
   in.read(marker, sizeof(marker));
   if (!in.good()) return AutoMapFileIsNotAMapFile;
-  if (memcmp(marker, FILE_TYPE_MARKER, sizeof(marker)) != 0) return AutoMapFileIsNotAMapFile;
+  if (memcmp(marker, typeMarker, sizeof(marker)) != 0) return AutoMapFileIsNotAMapFile;
   if (!ReadNumber(in, 2, version)) return AutoMapFileIsTruncated;
-  if (*version < 1 || *version > FORMAT_VERSION) return AutoMapFileHasUnknownVersion;
+  if (*version < firstVersion || *version > lastVersion) return AutoMapFileHasUnknownVersion;
   if (!ReadNumber(in, 4, &saveSignature->first)) return AutoMapFileIsTruncated;
   if (!ReadNumber(in, 4, &saveSignature->second)) return AutoMapFileIsTruncated;
   return AutoMapFileRead;
@@ -481,8 +477,24 @@ static AutoMapFileResult ReadDamage(std::istream &in, AutoMapMonsterDamage *dama
   return AutoMapFileRead;
 }
 
-// The length is not trusted for allocation: the block is taken off the stream in pieces, so a
-// damaged length just meets the end of the file
+// The block: the length of the hero statistics, those, then the origins filling the rest
+static AutoMapFileResult ParseStatistics(const std::vector<uint8_t> &block, uint32_t layout, HeroStats *stats,
+                                         HeroStatsOrigins *origins)
+{
+  if (block.size() < 4) return AutoMapFileIsTruncated;
+  uint32_t statsLength = (uint32_t)block[0] | (uint32_t)block[1] << 8 | (uint32_t)block[2] << 16
+                         | (uint32_t)block[3] << 24;
+  if (statsLength > block.size() - 4) return AutoMapFileIsTruncated;
+  const uint8_t *statsBytes = block.data() + 4;
+  const uint8_t *originsBytes = statsBytes + statsLength;
+  if (!stats->Deserialize(statsBytes, statsLength, (int)layout)) return AutoMapFileIsTruncated;
+  if (!origins->Deserialize(originsBytes, block.size() - 4 - statsLength, (int)layout)) return AutoMapFileIsTruncated;
+  return AutoMapFileRead;
+}
+
+// The statistics block inside a map file of version 13 to 25. The length is not trusted for
+// allocation: the block is taken off the stream in pieces, so a damaged length just meets the
+// end of the file
 static AutoMapFileResult ReadStatistics(std::istream &in, uint32_t version, HeroStats *stats,
                                         HeroStatsOrigins *origins)
 {
@@ -498,15 +510,7 @@ static AutoMapFileResult ReadStatistics(std::istream &in, uint32_t version, Hero
     in.read((char *)&block[at], (std::streamsize)piece);
     if (!in.good()) return AutoMapFileIsTruncated;
   }
-  if (block.size() < 4) return AutoMapFileIsTruncated;
-  uint32_t statsLength = (uint32_t)block[0] | (uint32_t)block[1] << 8 | (uint32_t)block[2] << 16
-                         | (uint32_t)block[3] << 24;
-  if (statsLength > block.size() - 4) return AutoMapFileIsTruncated;
-  const uint8_t *statsBytes = block.data() + 4;
-  const uint8_t *originsBytes = statsBytes + statsLength;
-  if (!stats->Deserialize(statsBytes, statsLength, (int)version)) return AutoMapFileIsTruncated;
-  if (!origins->Deserialize(originsBytes, block.size() - 4 - statsLength, (int)version)) return AutoMapFileIsTruncated;
-  return AutoMapFileRead;
+  return ParseStatistics(block, version, stats, origins);
 }
 
 AutoMapFileResult AutoMapFile::Read(std::istream &in, AutoMapExplored *explored,
@@ -514,11 +518,11 @@ AutoMapFileResult AutoMapFile::Read(std::istream &in, AutoMapExplored *explored,
                                     bool *hadItemMemory, AutoMapCellMemory *cells,
                                     bool *hadCellMemory, AutoMapPlayerNotes *notes,
                                     AutoMapMonsterDamage *damage, HeroStats *stats,
-                                    HeroStatsOrigins *origins) const
+                                    HeroStatsOrigins *origins, bool *hadStatistics) const
 {
   uint32_t version;
   AutoMapSaveSignature storedSignature;
-  AutoMapFileResult result = ReadHeader(in, &version, &storedSignature);
+  AutoMapFileResult result = ReadHeader(in, FILE_TYPE_MARKER, 1, FORMAT_VERSION, &version, &storedSignature);
   if (result != AutoMapFileRead) return result;
   if (storedSignature.first != m_saveSignature.first
       || storedSignature.second != m_saveSignature.second)
@@ -579,7 +583,8 @@ AutoMapFileResult AutoMapFile::Read(std::istream &in, AutoMapExplored *explored,
   }
   HeroStats readStats;
   HeroStatsOrigins readOrigins;
-  if (version >= FIRST_VERSION_WITH_STATISTICS)
+  bool statisticsAreHere = version < FIRST_VERSION_WITHOUT_STATISTICS;
+  if (version >= FIRST_VERSION_WITH_STATISTICS && statisticsAreHere)
   {
     result = ReadStatistics(in, version, &readStats, &readOrigins);
     if (result != AutoMapFileRead) return result;
@@ -591,10 +596,57 @@ AutoMapFileResult AutoMapFile::Read(std::istream &in, AutoMapExplored *explored,
   if (notesWereStored) *notes = readNotes;
   if (damageWasStored) *damage = readDamage;
   // A file before version 13 has no statistics: the stores come out empty
-  *stats = readStats;
-  *origins = readOrigins;
+  if (statisticsAreHere)
+  {
+    *stats = readStats;
+    *origins = readOrigins;
+  }
+  *hadStatistics = statisticsAreHere;
   *hadItemMemory = itemsWereStored;
   *hadCellMemory = looksWereStored;
+  return AutoMapFileRead;
+}
+
+AutoMapStatsFile::AutoMapStatsFile(const AutoMapSaveSignature &saveSignature)
+  : m_saveSignature(saveSignature)
+{
+}
+
+void AutoMapStatsFile::Write(std::ostream &out, const HeroStats &stats, const HeroStatsOrigins &origins) const
+{
+  out.write(STATS_TYPE_MARKER, sizeof(STATS_TYPE_MARKER));
+  WriteNumber(out, (uint32_t)HeroStats::LAYOUT, 2);
+  WriteNumber(out, m_saveSignature.first, 4);
+  WriteNumber(out, m_saveSignature.second, 4);
+  std::vector<uint8_t> statsBytes;
+  stats.Serialize(&statsBytes);
+  std::vector<uint8_t> originsBytes;
+  origins.Serialize(&originsBytes);
+  WriteNumber(out, (uint32_t)statsBytes.size(), 4);
+  out.write((const char *)statsBytes.data(), (std::streamsize)statsBytes.size());
+  out.write((const char *)originsBytes.data(), (std::streamsize)originsBytes.size());
+}
+
+AutoMapFileResult AutoMapStatsFile::Read(std::istream &in, HeroStats *stats, HeroStatsOrigins *origins) const
+{
+  uint32_t layout;
+  AutoMapSaveSignature storedSignature;
+  AutoMapFileResult result = ReadHeader(in, STATS_TYPE_MARKER, FIRST_STATS_ENTRY_LAYOUT,
+                                        (uint32_t)HeroStats::LAYOUT, &layout, &storedSignature);
+  if (result != AutoMapFileRead) return result;
+  if (storedSignature.first != m_saveSignature.first
+      || storedSignature.second != m_saveSignature.second)
+  {
+    return AutoMapFileBelongsToAnotherSave;
+  }
+  // The entry is already in memory, so taking the rest of it at once is no risk
+  std::vector<uint8_t> block((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  HeroStats readStats;
+  HeroStatsOrigins readOrigins;
+  result = ParseStatistics(block, layout, &readStats, &readOrigins);
+  if (result != AutoMapFileRead) return result;
+  *stats = readStats;
+  *origins = readOrigins;
   return AutoMapFileRead;
 }
 

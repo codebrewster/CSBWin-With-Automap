@@ -53,9 +53,11 @@ Everything counts on the level the party is on (`HeroStats_OnPartyOnLevel`, call
 
 ## Saving and loading
 
-The store and the origins are written into the statistics block of the save's `.map` file
-(`AutoMapFile`, format version 13 and later; the layout is in the header comment of
-`AutoMapFile.h` and in [data-formats.md](data-formats.md)). `AutoMap_OnDungeonLoaded` calls
+The store and the origins are written into the `statistics` entry of the save's zipped `.map`
+file (`AutoMapStatsFile`; the layout is in the header comment of `AutoMapFile.h` and in
+[data-formats.md](data-formats.md)). Map files of versions 13 to 25 held them inside the map
+data and still load. The map and the statistics are read apart, so a bad statistics entry
+leaves the map, and the other way round. `AutoMap_OnDungeonLoaded` calls
 `HeroStats_OnDungeonLoaded`; after the `.map` file is read, `HeroStats_OnMapFileRead` (or
 `HeroStats_OnNoMapFile`) asks `HeroStatsGame` whether this is the game in play. If it is, the
 deaths, wipes and reloads in memory stay and the load counts as a reload.
@@ -66,7 +68,8 @@ seen and viewed) are taken from the map's memory when the window shows them
 
 ## Adding a number
 
-1. Count it in `HeroStats` (and in `Serialize`, with a new `.map` format version), with a hook
+1. Count it in `HeroStats` (and in `Serialize`, with a new `HeroStats::LAYOUT`; the map's format
+   version stays), with a hook
    in the engine.
 2. Add it to the catalogue: an entry in `HeroStatsNumber`, its `HeroStatsNumberInfo`, its place
    in a topic's rows (and tiles, if it is one of the four main numbers), and its value in

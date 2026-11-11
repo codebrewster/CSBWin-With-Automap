@@ -2307,7 +2307,10 @@ static std::string MapFileOf(const std::string &savePath)
   return savePath + MAP_FILE_SUFFIX;
 }
 
-// The one entry inside the zipped .map file: the map file's own name, without its folder
+// The entry of the zipped .map file that holds the hero statistics (AutoMapStatsFile)
+static const char *STATISTICS_ENTRY_NAME = "statistics";
+
+// The first entry inside the zipped .map file, the map: the map file's own name, without its folder
 static std::string MapEntryNameOf(const std::string &mapPath)
 {
   size_t slash = mapPath.find_last_of("/\\");
@@ -2347,13 +2350,19 @@ static bool WriteMapFile(const SavedGameFile &save)
 {
   if (save.path.empty()) return false;
   HeroStats_BeforeGameSaved();
-  std::ostringstream data;
-  AutoMapFile(save.signature).Write(data, recorder.Explored(), recorder.Knowledge(), recorder.Items(),
-                                    recorder.Cells(), recorder.Notes(), recorder.Damage(), HeroStats_Store(),
-                                    HeroStats_Origins());
-  if (data.fail()) return false;
+  std::ostringstream mapData;
+  AutoMapFile(save.signature).Write(mapData, recorder.Explored(), recorder.Knowledge(), recorder.Items(),
+                                    recorder.Cells(), recorder.Notes(), recorder.Damage());
+  std::ostringstream statsData;
+  AutoMapStatsFile(save.signature).Write(statsData, HeroStats_Store(), HeroStats_Origins());
+  if (mapData.fail() || statsData.fail()) return false;
   std::string mapPath = MapFileOf(save.path);
-  std::string packed = AutoMapZip_Pack(MapEntryNameOf(mapPath), data.str());
+  std::vector<AutoMapZipEntry> entries(2);
+  entries[0].name = MapEntryNameOf(mapPath);
+  entries[0].bytes = mapData.str();
+  entries[1].name = STATISTICS_ENTRY_NAME;
+  entries[1].bytes = statsData.str();
+  std::string packed = AutoMapZip_Pack(entries);
   if (packed.empty()) return false;
   std::ofstream out(mapPath.c_str(), std::ios::binary | std::ios::trunc);
   out.write(packed.data(), (std::streamsize)packed.size());
@@ -2402,41 +2411,75 @@ static void RememberLooksOfExploredCells(void)
   }
 }
 
-// False when no map file was read, so that the hero statistics know it
-static bool ReadMapFile(const SavedGameFile &save)
+// The map entry into the stores. True when it was read and held the statistics too (a file
+// older than version 26), which then are in *stats and *origins
+static bool ReadMapEntry(const SavedGameFile &save, const std::string &mapPath, const std::string &bytes,
+                         HeroStats *stats, HeroStatsOrigins *origins)
 {
-  ForgetLearnedFrame();
+  std::istringstream in(bytes);
+  bool hadItemMemory = false;
+  bool hadCellMemory = false;
+  bool hadStatistics = false;
+  AutoMapFileResult result = AutoMapFile(save.signature).Read(
+    in, &recorder.Explored(), &recorder.Knowledge(), &recorder.Items(), &hadItemMemory,
+    &recorder.Cells(), &hadCellMemory, &recorder.Notes(), &recorder.Damage(), stats, origins,
+    &hadStatistics);
+  if (result != AutoMapFileRead)
+  {
+    printf("Automap: ignoring %s: %s\n", mapPath.c_str(), AutoMapFile_Describe(result));
+    return false;
+  }
+  // An older map file showed every live item on an explored cell: keep showing those
+  if (!hadItemMemory) RememberItemsOfExploredCells();
+  if (!hadCellMemory) RememberLooksOfExploredCells();
+  return hadStatistics;
+}
+
+// The map and the statistics are read apart, so that a damaged one does not cost the other.
+// True when the file gave the statistics, into *stats and *origins
+static bool ReadMapFileInto(const SavedGameFile &save, HeroStats *stats, HeroStatsOrigins *origins)
+{
   if (save.path.empty()) return false;
   std::string mapPath = MapFileOf(save.path);
   std::ifstream file(mapPath.c_str(), std::ios::binary);
   if (!file.is_open()) return false;
   std::ostringstream fileBytes;
   fileBytes << file.rdbuf();
-  std::string bytes;
-  if (AutoMapZip_Unpack(fileBytes.str(), &bytes) == AutoMapZipIsBroken)
+  std::vector<AutoMapZipEntry> entries;
+  if (AutoMapZip_Unpack(fileBytes.str(), &entries) == AutoMapZipIsBroken)
   {
     printf("Automap: ignoring %s: the zip archive is damaged\n", mapPath.c_str());
     return false;
   }
-  std::istringstream in(bytes);
-  bool hadItemMemory = false;
-  bool hadCellMemory = false;
+  if (ReadMapEntry(save, mapPath, entries[0].bytes, stats, origins)) return true;
+  const AutoMapZipEntry *statsEntry = AutoMapZip_Find(entries, STATISTICS_ENTRY_NAME);
+  if (statsEntry == NULL) return false;
+  if (!statsEntry->isReadable)
+  {
+    printf("Automap: ignoring the statistics in %s: the entry is damaged\n", mapPath.c_str());
+    return false;
+  }
+  std::istringstream in(statsEntry->bytes);
+  AutoMapFileResult result = AutoMapStatsFile(save.signature).Read(in, stats, origins);
+  if (result == AutoMapFileRead) return true;
+  printf("Automap: ignoring the statistics in %s: %s\n", mapPath.c_str(), AutoMapFile_Describe(result));
+  return false;
+}
+
+// Reads the save's .map file and tells the hero statistics whether it gave them theirs
+static void ReadMapFile(const SavedGameFile &save)
+{
+  ForgetLearnedFrame();
   HeroStats statsFromFile;
   HeroStatsOrigins originsFromFile;
-  AutoMapFileResult result = AutoMapFile(save.signature).Read(
-    in, &recorder.Explored(), &recorder.Knowledge(), &recorder.Items(), &hadItemMemory,
-    &recorder.Cells(), &hadCellMemory, &recorder.Notes(), &recorder.Damage(), &statsFromFile,
-    &originsFromFile);
-  if (result == AutoMapFileRead)
+  if (ReadMapFileInto(save, &statsFromFile, &originsFromFile))
   {
     HeroStats_OnMapFileRead(statsFromFile, originsFromFile);
-    // An older map file showed every live item on an explored cell: keep showing those
-    if (!hadItemMemory) RememberItemsOfExploredCells();
-    if (!hadCellMemory) RememberLooksOfExploredCells();
-    return true;
   }
-  printf("Automap: ignoring %s: %s\n", mapPath.c_str(), AutoMapFile_Describe(result));
-  return false;
+  else
+  {
+    HeroStats_OnNoMapFile();
+  }
 }
 
 // With map_timing set, list every lock actuator sitting on a door cell once per
@@ -2495,7 +2538,7 @@ void AutoMap_OnDungeonLoaded(void)
   if (d.gameState != GAMESTATE_ResumeSavedGame) return;
   SavedGameFile save = FindSavedGame(d.SaveGameFilename);
   MoveMapFile(pathOfRestoredBackup, save.path);
-  if (!ReadMapFile(save)) HeroStats_OnNoMapFile();
+  ReadMapFile(save);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -2504,38 +2547,59 @@ void AutoMap_OnDungeonLoaded(void)
 
 static const AutoMapSaveSignature SNAPSHOT_SIGNATURE = {0, 0};
 
-void AutoMap_SaveState(SnapshotBytes &b)
+static void PutSnapshotPart(SnapshotBytes &b, const std::string &bytes)
 {
-  std::ostringstream data;
-  AutoMapFile(SNAPSHOT_SIGNATURE).Write(data, recorder.Explored(), recorder.Knowledge(), recorder.Items(),
-                                        recorder.Cells(), recorder.Notes(), recorder.Damage(),
-                                        HeroStats_Store(), HeroStats_Origins());
-  std::string bytes = data.str();
   size_t n = bytes.size();
   SnapshotPut(b, &n, sizeof n);
   SnapshotPut(b, bytes.data(), n);
 }
 
-void AutoMap_RestoreState(SnapshotReader &r)
+static std::string GetSnapshotPart(SnapshotReader &r)
 {
   size_t n;
   r.Get(&n, sizeof n);
   const unsigned char *p = r.Skip(n);
-  std::istringstream in(std::string((const char *)p, n));
+  return std::string((const char *)p, n);
+}
+
+// The map, then the statistics, each as its entry of the .map file
+void AutoMap_SaveState(SnapshotBytes &b)
+{
+  std::ostringstream mapData;
+  AutoMapFile(SNAPSHOT_SIGNATURE).Write(mapData, recorder.Explored(), recorder.Knowledge(), recorder.Items(),
+                                        recorder.Cells(), recorder.Notes(), recorder.Damage());
+  std::ostringstream statsData;
+  AutoMapStatsFile(SNAPSHOT_SIGNATURE).Write(statsData, HeroStats_Store(), HeroStats_Origins());
+  PutSnapshotPart(b, mapData.str());
+  PutSnapshotPart(b, statsData.str());
+}
+
+void AutoMap_RestoreState(SnapshotReader &r)
+{
+  std::istringstream mapIn(GetSnapshotPart(r));
+  std::istringstream statsIn(GetSnapshotPart(r));
   bool hadItemMemory = false;
   bool hadCellMemory = false;
+  bool hadStatistics = false;
   AutoMapPlayerNotes notes;
   HeroStats stats;
   HeroStatsOrigins origins;
   AutoMapFileResult result = AutoMapFile(SNAPSHOT_SIGNATURE).Read(
-    in, &recorder.Explored(), &recorder.Knowledge(), &recorder.Items(), &hadItemMemory,
-    &recorder.Cells(), &hadCellMemory, &notes, &recorder.Damage(), &stats, &origins);
+    mapIn, &recorder.Explored(), &recorder.Knowledge(), &recorder.Items(), &hadItemMemory,
+    &recorder.Cells(), &hadCellMemory, &notes, &recorder.Damage(), &stats, &origins, &hadStatistics);
   if (result != AutoMapFileRead)
   {
-    printf("Automap: a replay snapshot could not be put back: %s\n", AutoMapFile_Describe(result));
-    return;
+    printf("Automap: a replay snapshot's map could not be put back: %s\n", AutoMapFile_Describe(result));
   }
-  HeroStats_PutBack(stats, origins);
+  result = AutoMapStatsFile(SNAPSHOT_SIGNATURE).Read(statsIn, &stats, &origins);
+  if (result == AutoMapFileRead)
+  {
+    HeroStats_PutBack(stats, origins);
+  }
+  else
+  {
+    printf("Automap: a replay snapshot's statistics could not be put back: %s\n", AutoMapFile_Describe(result));
+  }
   // The window shows the level anew at the next tick
   lastBuiltLevel = AUTOMAP_NO_LEVEL;
 }

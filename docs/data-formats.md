@@ -75,18 +75,25 @@ The automap keeps its own state — the explored cells, the wall faces the 3D vi
 shown, the facts the party has learned, the floor items it has seen and how it last saw each cell — in a `.map` file alongside the save, not in
 the savegame itself. The glue is described in [automap.md](automap.md).
 
-On disk the `.map` file is a zip archive with one entry, named like the `.map` file itself,
-that holds the data laid out below (`AutoMapZip.h`, built on miniz in `src/miniz`). Renamed to
-`.zip`, it opens in any zip tool. A file written before the map was zipped holds the data
-bare; it starts with `CSBM` instead of `PK`, still loads and is zipped at the next save. A zip
-whose entry cannot be read is ignored like any other bad map file.
+On disk the `.map` file is a zip archive (`AutoMapZip.h`, built on miniz in `src/miniz`) with
+two entries: first the map, named like the `.map` file itself and laid out below, then
+`statistics`, the hero statistics (`AutoMapStatsFile`, laid out after the map). Renamed to
+`.zip`, it opens in any zip tool. The two are read apart: a statistics entry that is damaged,
+missing, of another save or of a newer layout costs only the statistics, and a map that cannot be
+read costs only the map. A file written before the map was zipped holds the map data bare; it
+starts with `CSBM` instead of `PK`, still loads and is zipped at the next save. A zip that cannot
+be opened, or whose map entry cannot be read, is ignored like any other bad map file.
 
-Numbers are stored lowest byte first. Layout of version 20 (`AutoMapFile.h`):
+Up to version 25 the statistics were a block at the end of the map data, and every change to
+them meant a new map version. From version 26 they are the entry of their own, with its own
+layout number (`HeroStats::LAYOUT`), so the map format stays as it is when they change.
+
+Numbers are stored lowest byte first. Layout of version 26 (`AutoMapFile.h`):
 
 | Size | Content |
 |------|---------|
 | 4 bytes | `CSBM` |
-| 2 bytes | format version (20) |
+| 2 bytes | format version (26) |
 | 4 + 4 bytes | the two signature words of the saved game |
 | 2 bytes | number of levels |
 | per level | 1 byte width, 1 byte height, the explored bits (one per cell, row by row, lowest bit first), the seen-face bits (four per cell: bit `4 * (y * width + x) + side`, side 0 north, 1 east, 2 south, 3 west), the glimpsed-face bits (same layout: something seen on that face in the dark), the read-text bits (same layout: the wall text on that face read), the looked-into bits (same layout: the alcove in that face seen from in front, its contents drawn), the seen-floor bits (one per cell like the explored bits: the cell's floor picture noticed in the 3D view), then the same six sets for the rim, the ring of cells one step outside the level where the engine makes up rock: its cells in the order row above (corners included), row below, column left, column right, one explored bit, four bits for each face set and one seen-floor bit per cell |
@@ -102,8 +109,7 @@ Numbers are stored lowest byte first. Layout of version 20 (`AutoMapFile.h`):
 | per link | 1 byte each source level, x, y, side (0 north to 3 west, `0xff` for a link from a floor tile), then target level, x, y (the target is on the source's level) |
 | 4 bytes | number of damaged monster groups |
 | per group | 4 bytes record, 2 bytes damage shown to each of the four members |
-| 4 bytes | length of the statistics block (version 13) |
-| block | 4 bytes length of the hero statistics (`HeroStats::Serialize`), those bytes, then the origins of missiles, clouds and potions (`HeroStatsOrigins::Serialize`); the tables inside are listed in the header comment of `AutoMapFile.h`. Version 14 adds the missile kind of a monster's missile to each harm record and the party's movement per level (steps, turns, teleports, ticks) at the end; version 15 adds the uses of actions that cannot hit to each attack record and ticks asleep, pit falls, pit climbs and wall bumps to the movement; version 16 adds the items picked up and used in walls, and the held items to the origins; version 17 adds what was eaten and drunk, the doors bashed and the chests opened (and the opened chests to the origins); version 18 adds how each door was opened and the food and water gained and wasted; version 19 adds the tiles walked; version 20 adds the scrolls read (and the read scrolls to the origins); version 24 adds to each item row how many of the items picked up were taken out of a chest |
+| 4 bytes | (versions 13 to 25 only) length of the statistics block, then the block as the statistics entry holds it after its header |
 
 A record fact has `0xff` for level, x and y; a cell fact has `0xffffffff` for the record.
 The record is `(dbNum << 16) | idx`. Items are stored in the order seen, looks by level, then y, then x, marks by level, y, x and links by level, y, x, side, then target y, x. Version 1 has neither
@@ -118,7 +124,20 @@ statistics (they start empty), version 13 no missile kinds and no movement, vers
 action uses, sleep, pits or bumps, version 15 no items, version 16 nothing eaten or drunk, no
 doors bashed and no chests opened, version 17 no door methods and no food and water, version 18
 no tiles walked, version 19 no scrolls read and version 23 no items taken from chests (none
-counted); all are still read. A mark or link outside the dungeon, a side other than 0-3 or `0xff`, an open byte other than 0 or 1, or a link target on another level makes the whole file be ignored.
+counted); all are still read. Version 26 holds no statistics: they are in the statistics entry. A mark or link outside the dungeon, a side other than 0-3 or `0xff`, an open byte other than 0 or 1, or a link target on another level makes the whole file be ignored.
+
+The statistics entry, layout 25 (`AutoMapStatsFile` in `AutoMapFile.h`):
+
+| Size | Content |
+|------|---------|
+| 4 bytes | `CSBS` |
+| 2 bytes | layout (25; `HeroStats::LAYOUT`) |
+| 4 + 4 bytes | the two signature words of the saved game, as in the map |
+| 4 bytes | length of the hero statistics |
+| rest | the hero statistics (`HeroStats::Serialize`), then the origins of missiles, clouds and potions (`HeroStatsOrigins::Serialize`); the tables inside are listed in the header comment of `AutoMapFile.h` |
+
+The layout numbers continue the map's version numbers: a map file of version 13 to 25 holds the
+statistics of the layout of the same number. Layout 14 adds the missile kind of a monster's missile to each harm record and the party's movement per level (steps, turns, teleports, ticks) at the end; layout 15 adds the uses of actions that cannot hit to each attack record and ticks asleep, pit falls, pit climbs and wall bumps to the movement; layout 16 adds the items picked up and used in walls, and the held items to the origins; layout 17 adds what was eaten and drunk, the doors bashed and the chests opened (and the opened chests to the origins); layout 18 adds how each door was opened and the food and water gained and wasted; layout 19 adds the tiles walked; layout 20 adds the scrolls read (and the read scrolls to the origins); layout 24 adds to each item row how many of the items picked up were taken out of a chest. An entry is never older than layout 25.
 
 ## Item and attack tables
 

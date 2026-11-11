@@ -100,12 +100,13 @@ What the party has explored, seen, learned and left lying on the floor is kept i
 the savegame (see [data-formats.md](data-formats.md)). It is keyed by the saved
 game's identity — the two words `Signature()` computes over the save file
 (`AutoMapSaveSignature`, `AutoMapFile.h:10`) — so a save and its map stay
-together. On disk the data sits in a zip archive of one entry (`AutoMapZip`), which cuts
-the file to about a sixth. The automap writes its own settings (window size, whether it was open)
+together. On disk the data sits in a zip archive (`AutoMapZip`), which cuts the file to about
+a sixth: the map is its first entry, the hero statistics a second one named `statistics`
+(`AutoMapStatsFile`), read apart so that a bad one does not cost the other. The automap writes its own settings (window size, whether it was open)
 into `csb.cfg` via `AutoMapWindow_ReadSettings`/`AutoMapWindow_WriteSettings`
 (`AutoMapWindow.h`).
 
-The file is format version 20. After the explored bits of each level it holds four
+The map is format version 26. After the explored bits of each level it holds four
 seen-face bits per cell, four glimpsed-face bits per cell, four read-text bits per cell, four looked-into bits per cell and one seen-floor bit per cell (since version 12: the floor picture was noticed), then the same six sets for the level's rim (since version 11, see the rim rock below), and after the levels the list of learned facts: kind, record,
 level, x, y, then the floor items the 3D view last showed (`AutoMapItemMemory`): record,
 description index, level, x, y and whether it was a mere glimpse, in the order seen, and
@@ -115,10 +116,9 @@ notes (`AutoMapPlayerNotes`, see [Player notes](#player-notes)): a count of pit 
 level, x, y and open per mark, then a count of player links with the source's level, x, y and
 side (a signed byte, -1 for a floor source) and the target's level, x, y (layout in
 `AutoMapFile.h`, [data-formats.md](data-formats.md)). A cell outside the dungeon or a side
-outside -1..3 fails the read. Since version 13 the file ends in the hero statistics of the
-Statistics window ([statistics-manual.md](statistics-manual.md)); version 14 added the kind of a
-monster's missile to the damage the party took and the party's movement per level, version 15 the
-uses of actions that cannot hit, sleep, pits and wall bumps. A file older
+outside -1..3 fails the read. Versions 13 to 25 end in the hero statistics of the
+Statistics window ([statistics-manual.md](statistics-manual.md)); since version 26 those are the
+`statistics` entry, with a layout number of their own. A file older
 than version 9 reads with no notes. A
 version-1 file is still read: its seen faces are filled in by the old rule (every face
 whose facing floor cell is explored, `AutoMapExplored::MarkFacesTowardsExploredCells`)
