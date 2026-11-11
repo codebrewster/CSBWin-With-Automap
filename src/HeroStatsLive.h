@@ -37,6 +37,7 @@ struct HeroStatsLiveItem
   int weight;          // in tenths of a kilogram; a chest's includes what is in it
   int charges;         // -1: this kind of item holds none
   bool gulps;          // the charges are a waterskin's gulps
+  bool torch;          // the charges are a torch's fuel
 };
 // An item with no icon, no weight and no charges
 HeroStatsLiveItem HeroStatsLive_Item(int slot, const std::string &name, bool inChest);
@@ -87,7 +88,7 @@ int HeroStatsLive_IconKey(const HeroStatsLiveItem &item);
 // "0.9 kg"; a chest that holds something: "7.3 kg with contents"
 std::string HeroStatsLive_WeightText(int tenths, bool withContents);
 // "9 charges", "1 charge", "no charges"; a waterskin: "3 gulps left", "empty"; "" for -1
-std::string HeroStatsLive_ChargesText(int charges, bool gulps);
+std::string HeroStatsLive_ChargesText(int charges, bool gulps, bool torch = false);
 // The inventory as the game lays it out: the body slots (hands, head, neck, torso, legs, feet,
 // pouch, quiver) on a grid of five by five, the backpack's seventeen slots after them
 const int HERO_LIVE_DOLL_COLUMNS = 5;

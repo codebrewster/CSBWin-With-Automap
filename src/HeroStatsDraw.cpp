@@ -2479,7 +2479,7 @@ static int ItemIn(const std::vector<HeroStatsLiveItem> &items, int slot)
 static std::string WeightAndCharges(const HeroStatsLiveItem &item, int held)
 {
   std::string text = HeroStatsLive_WeightText(item.weight, held > 0);
-  std::string charges = HeroStatsLive_ChargesText(item.charges, item.gulps);
+  std::string charges = HeroStatsLive_ChargesText(item.charges, item.gulps, item.torch);
   if (!charges.empty()) text += std::string(" ") + MIDDLE_DOT + " " + charges;
   return text;
 }
@@ -2536,6 +2536,14 @@ static void SlotTooltip(const std::vector<HeroStatsLiveItem> &items, int index, 
         ImGui::Dummy(ImVec2(16, 16));
         ImGui::SameLine(0, 6);
         ImGui::TextColored(Colour(TEXT_RGB), "%s", inside.name.c_str());
+        std::string charges = HeroStatsLive_ChargesText(inside.charges, inside.gulps, inside.torch);
+        if (!charges.empty())
+        {
+          ImGui::SameLine(0, 0);
+          ImGui::TextColored(Colour(DIM_RGB), " %s %s", MIDDLE_DOT, charges.c_str());
+        }
+        ImGui::TableNextColumn();
+        ImGui::TextColored(Colour(PART_RGB), "%s", HeroStatsLive_WeightText(inside.weight, false).c_str());
       }
       ImGui::EndTable();
     }
@@ -2860,7 +2868,7 @@ static void LiveList(const HeroStatsLiveChampion &live)
     if (!item.inChest) ImGui::TextColored(Colour(Hot(DIM_RGB)), "%s", HeroStatsLive_SlotName(item.slot).c_str());
     ImGui::TableSetColumnIndex(1);
     float indent = item.inChest ? 14.0f : 0.0f;
-    std::string charges = HeroStatsLive_ChargesText(item.charges, item.gulps);
+    std::string charges = HeroStatsLive_ChargesText(item.charges, item.gulps, item.torch);
     std::string after = charges.empty() ? "" : std::string(" ") + MIDDLE_DOT + " " + charges;
     NoteWidth(indent + 22 + ImGui::CalcTextSize((item.name + after).c_str()).x);
     if (indent > 0) ImGui::Indent(indent);

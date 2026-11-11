@@ -57,7 +57,7 @@ const HeroStatsLiveChampion *HeroStatsLive_Find(const HeroStatsLiveParty &party,
 
 HeroStatsLiveItem HeroStatsLive_Item(int slot, const std::string &name, bool inChest)
 {
-  HeroStatsLiveItem item = {slot, name, inChest, -1, 0, 0, -1, false};
+  HeroStatsLiveItem item = {slot, name, inChest, -1, 0, 0, -1, false, false};
   return item;
 }
 
@@ -71,11 +71,11 @@ std::string HeroStatsLive_WeightText(int tenths, bool withContents)
   return HeroStatsLive_Tenths(tenths) + " kg" + (withContents ? " with contents" : "");
 }
 
-std::string HeroStatsLive_ChargesText(int charges, bool gulps)
+std::string HeroStatsLive_ChargesText(int charges, bool gulps, bool torch)
 {
   if (charges < 0) return "";
   if (gulps) return charges == 0 ? "empty" : std::to_string(charges) + (charges == 1 ? " gulp left" : " gulps left");
-  if (charges == 0) return "no charges";
+  if (charges == 0) return torch ? "burnt out" : "no charges";
   return std::to_string(charges) + (charges == 1 ? " charge" : " charges");
 }
 

@@ -149,12 +149,18 @@ static HeroStatsLiveItem LiveItemOf(int slot, RN rn, bool inChest)
   }
   item.weight = GetObjectWeight(rn);
   // Charges: weapons and clothing that hold any now or are of a kind that does (the kinds an
-  // altar of Vi recharges). A torch's count is its flame, not a charge. A waterskin has gulps.
+  // altar of Vi recharges). A torch shows its fuel, which the game keeps in the same field. A
+  // waterskin has gulps.
   bool isTorch = basicType >= objNI_Torch_a && basicType <= objNI_Torch_d;
   int holds = -1;
-  if (rn.dbType() == dbWEAPON && !isTorch) holds = GetRecordAddressDB5(rn)->charges();
+  if (rn.dbType() == dbWEAPON) holds = GetRecordAddressDB5(rn)->charges();
   else if (rn.dbType() == dbCLOTHING) holds = GetRecordAddressDB6(rn)->charges();
-  if (holds > 0 || (holds == 0 && get_default_charges((OBJ_NAME_INDEX)basicType) > 0)) item.charges = holds;
+  if (isTorch && rn.dbType() == dbWEAPON)
+  {
+    item.charges = holds;
+    item.torch = true;
+  }
+  else if (holds > 0 || (holds == 0 && get_default_charges((OBJ_NAME_INDEX)basicType) > 0)) item.charges = holds;
   if (basicType == objNI_Waterskin)
   {
     item.charges = GetRecordAddressDB10(rn)->value();
