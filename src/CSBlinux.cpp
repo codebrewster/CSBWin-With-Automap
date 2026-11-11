@@ -29,6 +29,7 @@
 #include "Objects.h"
 #include "CSB.h"
 #include "Data.h"
+#include "WindowPosition.h"
 
 bool imgui_active = false;
 static bool capturing_key;
@@ -229,6 +230,8 @@ static void PushEvent(void *param)
 }
 
 int WindowWidth = 320*4,winx,winy;
+// Where the game window sits on the desktop, kept in csb.cfg like the map's and the statistics'
+static int windowPosX = SDL_WINDOWPOS_CENTERED, windowPosY = SDL_WINDOWPOS_CENTERED;
 int WindowHeight = 200*4 + DY;
 float st_X = 320.0 / WindowWidth;
 float st_Y = 200.0 / (WindowHeight - 20);
@@ -1174,6 +1177,7 @@ static void Process_SDL_KEYDOWN(void)
 	    fullscreenActive = true;
 	    winx = WindowWidth;
 	    winy = WindowHeight;
+	    GetWindowPlacePosition(sdlWindow,&windowPosX,&windowPosY);
 	    SDL_SetWindowDisplayMode(sdlWindow,&mode);
 	}
 	SDL_SetWindowFullscreen(sdlWindow,(fullscreenActive ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
@@ -1526,8 +1530,8 @@ int main(int argc, char* argv[])
     SDL_GetDisplayBounds(0,&desktop);
     if ((sdlWindow = SDL_CreateWindow(
                    szCSBVersion,
-                   SDL_WINDOWPOS_CENTERED,
-                   SDL_WINDOWPOS_CENTERED,
+                   windowPosX,
+                   windowPosY,
                    fullscreenRequested ? winx : WindowWidth,
 		   fullscreenRequested ? winy : WindowHeight,
                    flags)) == NULL)
@@ -2074,6 +2078,8 @@ static void read_conf() {
     WindowHeight = csb_get_config_int("settings","height", 200*4);
     winx = csb_get_config_int("settings","winx",320*4);
     winy = csb_get_config_int("settings","winy",200*4);
+    windowPosX = csb_get_config_int("settings","window_x",SDL_WINDOWPOS_CENTERED);
+    windowPosY = csb_get_config_int("settings","window_y",SDL_WINDOWPOS_CENTERED);
     gameSpeed = (SPEEDS)csb_get_config_int("settings","gameSpeed",4); // 4 seems to be SPEED_NORMAL
     show_coords = csb_get_config_int("settings","show_coords",0);
     monsters_vulnerable_on_attack = csb_get_config_int("settings","monsters_vulnerable_on_attack",0);
@@ -2109,6 +2115,11 @@ static void save_conf() {
     csb_set_config_int("settings","height",WindowHeight);
     csb_set_config_int("settings","winx",winx);
     csb_set_config_int("settings","winy",winy);
+    // In fullscreen the window has no place of its own; keep the one it had before
+    if (sdlWindow && !fullscreenActive)
+	GetWindowPlacePosition(sdlWindow,&windowPosX,&windowPosY);
+    csb_set_config_int("settings","window_x",windowPosX);
+    csb_set_config_int("settings","window_y",windowPosY);
     csb_set_config_int("settings","gameSpeed",gameSpeed);
     csb_set_config_int("settings","show_coords",show_coords);
     csb_set_config_int("settings","monsters_vulnerable_on_attack",monsters_vulnerable_on_attack);

@@ -23,6 +23,7 @@
 #include "AutoMapHtml.h"
 
 #include "confile.h"
+#include "WindowPosition.h"
 
 extern char pwd[]; // LinCSBUI.cpp
 
@@ -124,7 +125,7 @@ void HeroStatsWindow_ReadSettings(void)
 static void RememberPlacement(void)
 {
   if (statsWindow == NULL || !isShown) return;
-  SDL_GetWindowPosition(statsWindow, &placement.x, &placement.y);
+  GetWindowPlacePosition(statsWindow, &placement.x, &placement.y);
   SDL_GetWindowSize(statsWindow, &placement.width, &placement.height);
 }
 

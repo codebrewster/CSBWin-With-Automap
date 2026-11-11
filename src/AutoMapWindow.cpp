@@ -23,6 +23,7 @@
 #include "AutoMapLevelReader.h"
 
 #include "confile.h"
+#include "WindowPosition.h"
 
 static const char *SETTINGS_SECTION = "settings";
 static const int DEFAULT_SIZE = 640;
@@ -422,7 +423,7 @@ void AutoMapWindow_ReadSettings(void)
 static void RememberPlacement(void)
 {
   if (mapWindow == NULL || !isShown) return;
-  SDL_GetWindowPosition(mapWindow, &placement.x, &placement.y);
+  GetWindowPlacePosition(mapWindow, &placement.x, &placement.y);
   SDL_GetWindowSize(mapWindow, &placement.width, &placement.height);
 }
 
