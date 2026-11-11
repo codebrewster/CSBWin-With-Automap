@@ -2816,6 +2816,9 @@ void ProcessTT_ViAltar(TIMER *pTimer)
         // if (objD4.dbType() != dbMISC) continue;
         objNI_2 = objD4.NameIndex();
 	if (objD4.dbType() == dbWEAPON) {
+	    // Only the weapon this timer was set for: one lying beside bones must not stop
+	    // them coming back to life
+	    if (objD4 != objBones) continue;
 	    DB5 *db = GetRecordAddressDB5(objD4);
 	    int charges = get_default_charges(objNI_2);
 	    db->charges(charges);

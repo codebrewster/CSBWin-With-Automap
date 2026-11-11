@@ -22,6 +22,36 @@ right now.
 A replay only works with the same `dungeon.dat` and `graphics.dat` it was recorded with.
 Record cannot be switched during a replay.
 
+Saving with **File → Save game** is recorded too: the recording gets a `2223` line, which CSBwin
+also knows, so that a replay does to the game what the save did.
+
+## Recordings that replay in CSBwin 17.6
+
+A few rules of this port are not in Paul Stevens' CSBwin 17.6:
+
+- clicking a fountain with an empty hand gives the leader water (17.6 touches the wall);
+- a weapon left in the Altar of Vi gets its charges back;
+- SHOOT gives 20 experience where `graphics.dat` says 9 (Dungeon Master 1.0);
+- **Monsters vulnerable on attack**: a monster that is attacking has half its defence;
+- **Launchers power** above 1: a missile shot with a bow, crossbow or sling hits that many
+  times as hard.
+
+**Misc → Nostalgia Mode** switches all of them off: the game then plays by the rules of 17.6,
+and a recording made that way replays in 17.6 as well. Without it a recording replays only in
+this port.
+
+When a recording starts with any of these rules on, a box lists them and asks whether to switch
+to the 17.6 rules. **Yes** turns Nostalgia Mode on; **No** keeps the settings, and the box does
+not come back for the same settings until CSB starts again. The map's testing aids
+(`map_debug = 1`) are listed too: what they do is not recorded at all, so no replay can follow
+them; **Yes** turns them off until CSB starts again.
+
+A recording names its rules in `#` lines at its start (`#NoFountainDrink`,
+`#ShotDamageFactor1`, ...), which CSBwin skips. A replay plays by those rules, whatever the
+settings are, and while a recording is written or a replay runs the three settings cannot be
+changed. Recordings from before these lines replay as they were made: the launcher bonus at 4,
+the fountain and the SHOOT experience on.
+
 ## Replaying
 
 At the prison door, **File → Playback..** picks a `.log` file and starts the replay. You can
@@ -60,7 +90,8 @@ switch topics, and use **EXPORT** and **Export as HTML** whenever you like.
 ## Recordings from CSBwin 17.6
 
 Playfiles made with Paul Stevens' CSBwin 17.6 (often named `playfile.log`) replay here as
-well: pick them with **File → Playback..** like your own. Antman's Dungeon Master run, for
+well: pick them with **File → Playback..** like your own. They replay by the rules of 17.6,
+whatever Nostalgia Mode and the other settings say. Antman's Dungeon Master run, for
 example, plays to its end on the same tick as in 17.6. Put the `dungeon.dat` and
 `graphics.dat` it was recorded with into the game folder first; a replay with other game data
 goes out of step.
@@ -79,6 +110,8 @@ by itself, as after a win you played; both exports work there too.
 
 ## For developers
 
+The rules where the port and 17.6 differ, and which ones are in force, live in
+`src/GameRules.{h,cpp}` (no engine, no SDL; tested in `src/automap_tests/GameRulesTest.cpp`).
 The pace lives in `src/PlaybackControl.{h,cpp}` (no engine, no SDL; tested in
 `src/automap_tests/PlaybackControlTest.cpp`). `checkVBL` in `src/system.cpp` hands out the
 vertical blanks from a `PlaybackClock` when a replay is paused or not at 1x; at 1x the game's

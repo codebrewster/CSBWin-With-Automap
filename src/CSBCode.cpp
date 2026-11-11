@@ -38,6 +38,8 @@ i32  TextWidth(void);
 
 void TraceTimer(TIMER *pTimer, i32 index, const char *msg);
 void RecordfileOpen(bool open);
+bool RecordfileIsOpen(void);
+extern bool RecordMenuOption;
 void RecordFile_Close(void);
 void RecordFile_Record(MouseQueueEnt *MQ);
 void RecordFile_Record(const char *line);
@@ -9699,6 +9701,9 @@ RESTARTABLE _TAG01f746(void)
 	    {
 		HandleMouseEvents(_4_,0); //TAG01a7b2();
 	    } while (intResult & 1);
+	    // File -> Record at the prison door: this game is recorded from here
+	    if (RecordMenuOption && !RecordfileIsOpen() && !IsPlayFileOpen())
+		RecordfileOpen(true);
 	    if (DiskMenuNeeded)
 		DisplayDiskMenu(_6_);
 	} while (d.gameState == GAMESTATE_AtPrisonDoor);
@@ -10342,10 +10347,7 @@ void ReadTablesFromGraphicsFile(void)
       swapRectPos(&d.wRectPos20226);
       swapRectPos(&d.wRectPos20234);
   }
-  if (d.experienceForAttacking[32] == 9) { // hotfix for shoot experience, raised from 9 to 20 in dm 1.1!
-      d.experienceForAttacking[32] = 20;
-      printf("Fixed Shoot experience for DM 1.1\n");
-  }
+  // SHOOT's 9 experience of DM 1.0 becomes 20 when it is used, in Attack.cpp (GameRules)
   for (i=0; i<25; i++) fixSpell(&d.Spells[i]);
 
   if (list_commands) {

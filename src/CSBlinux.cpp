@@ -22,6 +22,7 @@
 #include "PlaybackControl.h"
 #include "ReplaySnapshot.h"
 #include "AutoMapTickRate.h"
+#include "GameRules.h"
 
 #include "Dispatch.h"
 #include "Objects.h"
@@ -1878,15 +1879,68 @@ bool monsters_vulnerable_on_attack = true,nostalgia_mode = false,filter_dsa_door
 extern char *PlayfileName; // csbui.cpp
 
 int want_popup;
-char popup_msg[80];
+char popup_msg[1024];
 int yes_selected;
 
 void open_popup(const char *msg) {
     imgui_active = true;
     want_popup = 1;
-    strncpy(popup_msg,msg,80);
-    popup_msg[79] = 0;
+    strncpy(popup_msg,msg,sizeof popup_msg);
+    popup_msg[sizeof popup_msg - 1] = 0;
     yes_selected = 0;
+}
+
+// The rule settings of the Misc menu, for GameRules
+static void ApplyRuleSettings(void)
+{
+    GameRules_SetSettings(GameRules_FromSettings(nostalgia_mode, monsters_vulnerable_on_attack,
+                                                 launcher_power));
+}
+
+// A recording starts. Rules that CSBwin 17.6 does not have make it replay in this version only,
+// and what the map's testing aids do is not recorded at all: say so, and offer the 17.6 rules
+// (Nostalgia Mode). Not asked again for the same settings once declined.
+void RecordingRules_ConfirmAtStart(void)
+{
+    if (PlaybackCommandOption || PlayfileIsOpen()) return;
+    ApplyRuleSettings();
+    std::vector<std::string> differences = GameRules_Differences(GameRules_Current());
+    bool mapDebug = AutoMapWindow_DebugIsOn();
+    if (differences.empty() && !mapDebug) return;
+    static std::string declined;
+    std::string asked = GameRules_RecordLines(GameRules_Current()) + (mapDebug ? "map_debug" : "");
+    if (asked == declined) return;
+    std::string msg = _("This recording will replay only in this version of CSB,\nnot in CSBwin 17.6:\n");
+    for (size_t i = 0; i < differences.size(); i++) msg += "  - " + differences[i] + "\n";
+    if (mapDebug) msg += _("  - Map testing aids (map_debug): what they do is not recorded,\n    so no replay can follow them\n");
+    msg += "\n";
+    if (differences.empty()) msg += _("Turn the map testing aids off until CSB starts again?");
+    else if (mapDebug) msg += _("Switch to the CSBwin 17.6 rules (Nostalgia Mode)\nand turn the map testing aids off until CSB starts again?");
+    else msg += _("Switch to the CSBwin 17.6 rules (Nostalgia Mode)?");
+    if (UI_MessageBox(msg.c_str(), _("Recording"), MESSAGE_YESNO) == MESSAGE_IDYES) {
+	if (!differences.empty()) {
+	    nostalgia_mode = true;
+	    monsters_vulnerable_on_attack = false;
+	    launcher_power = 1;
+	}
+	if (mapDebug) AutoMapWindow_TurnDebugOff();
+	ApplyRuleSettings();
+    } else {
+	declined = asked;
+    }
+}
+
+// The rules of a recording stay as they were when it started, and a replay plays by its own
+static bool RuleSettingsLocked(void)
+{
+    return RecordfileIsOpen() || PlayfileIsOpen();
+}
+
+static void RuleSettingTooltip(void)
+{
+    if (!RuleSettingsLocked() || !ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) return;
+    if (PlayfileIsOpen()) ImGui::SetTooltip("%s", _("A replay plays by the rules it was recorded with."));
+    else ImGui::SetTooltip("%s", _("The rules stay as they were when the recording started."));
 }
 
 static float active_red = 0.75, inc_active = 0.02;
@@ -1971,6 +2025,7 @@ static void read_conf() {
     select_dungeon(dungeonName);
     strcpy(graphicName,csb_get_config_string("settings","graphicName",(char*)"graphics.dat"));
     launcher_power = csb_get_config_int("settings","launcher_power",1);
+    ApplyRuleSettings();
     filter_dsa_door_sound = csb_get_config_int("settings","filter_dsa_door_sound",0);
     PlaybackControl_SetSoundsWhenFast(csb_get_config_int("settings","replay_sounds",1) != 0,
                                       csb_get_config_int("settings","replay_sound_gap",PLAYBACK_SOUND_GAP_MS));
@@ -2753,7 +2808,10 @@ void post_render() {
 	    ImGui::MenuItem(_("Filter DSA door sounds (for Conflux/DMCoE!)"),NULL, &filter_dsa_door_sound);
 	    if (ImGui::MenuItem(_("Extended character info..."),NULL,false,d.NumCharacter > 0))
 		open_char_info = true;
-	    if (ImGui::BeginMenu(_("Launchers power"))) {
+	    // The rules where the port and CSBwin 17.6 differ (GameRules). A launcher's shot hits
+	    // this many times as hard; 1 as in CSBwin.
+	    bool rulesLocked = RuleSettingsLocked();
+	    if (ImGui::BeginMenu(_("Launchers power"), !rulesLocked)) {
 		if (ImGui::MenuItem(_("1 (default)"), NULL, launcher_power == 1)) launcher_power = 1;
 		if (ImGui::MenuItem("2", NULL, launcher_power == 2)) { launcher_power = 2; nostalgia_mode = false; }
 		if (ImGui::MenuItem("3", NULL, launcher_power == 3)) { launcher_power = 3; nostalgia_mode = false; }
@@ -2761,14 +2819,24 @@ void post_render() {
 		if (ImGui::MenuItem("5", NULL, launcher_power == 5)) { launcher_power = 5; nostalgia_mode = false; }
 		if (ImGui::MenuItem("6", NULL, launcher_power == 6)) { launcher_power = 6; nostalgia_mode = false; }
 		ImGui::EndMenu();
+		ApplyRuleSettings();
 	    }
-	    if (ImGui::MenuItem(_("Monsters vulnerable on attack"),NULL,&monsters_vulnerable_on_attack))
+	    RuleSettingTooltip();
+	    if (ImGui::MenuItem(_("Monsters vulnerable on attack"),NULL,&monsters_vulnerable_on_attack,!rulesLocked))
 		if (monsters_vulnerable_on_attack)
 		    nostalgia_mode = false;
-	    if (ImGui::MenuItem(_("Nostalgia Mode"), NULL, &nostalgia_mode)) {
+	    RuleSettingTooltip();
+	    if (ImGui::MenuItem(_("Nostalgia Mode"), NULL, &nostalgia_mode, !rulesLocked)) {
 		monsters_vulnerable_on_attack = false;
 		launcher_power = 1;
 	    }
+	    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled) && !rulesLocked)
+		ImGui::SetTooltip("%s", _("The rules of CSBwin 17.6, so that a recording replays there too:\n"
+					  "no fountain drinking, no weapons recharged in the Vi altar,\n"
+					  "SHOOT experience as in graphics.dat, Launchers power 1,\n"
+					  "monsters not vulnerable on attack."));
+	    RuleSettingTooltip();
+	    ApplyRuleSettings();
 	    ImGui::EndMenu();
 	} else if (!imgui_active) {
 	    if (was_active && !cursorIsShowing) {
@@ -3080,7 +3148,7 @@ void post_render() {
 
     if (ImGui::BeginPopupModal("Question", NULL, ImGuiWindowFlags_AlwaysAutoResize))
     {
-	ImGui::Text(popup_msg);
+	ImGui::TextUnformatted(popup_msg);
 	ImGui::Separator();
 
 	//static int unused_i = 0;

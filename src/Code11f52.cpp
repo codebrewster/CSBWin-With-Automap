@@ -13,6 +13,7 @@
 extern bool legacyDamageMonsterResult;
 #include "AutoMapHooks.h"
 #include "ShotMissiles.h"
+#include "GameRules.h"
 
 #ifdef _DEBUG
 extern i32 timertrace[1000];
@@ -1722,7 +1723,7 @@ i16 DetermineMagicDamage(DB14 *rec, RN object)
   D0W = rec->damageRemaining();
   D1W = sw(D1W - D0W/8);
   D6W = sw(Larger(D6W/2, D6W-D1W));
-  if (IsShotMissile(db.GetDBIndex(rec, dbMISSILE))) D6W *= SHOT_MISSILE_DAMAGE_FACTOR;
+  if (IsShotMissile(db.GetDBIndex(rec, dbMISSILE))) D6W *= GameRules_Current().shotDamageFactor;
   return D6W;
 }
 

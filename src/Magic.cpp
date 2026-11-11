@@ -10,9 +10,9 @@
 #include "Dispatch.h"
 #include "CSB.h"
 #include "Data.h"
-extern bool noShotMissileBonus;
 extern bool legacyStaminaLevelUp;
 #include "ShotMissiles.h"
+#include "GameRules.h"
 
 
 // ***********************************************************
@@ -80,8 +80,9 @@ i16 LaunchMissile(
   timer.timerWord8() = (I16)((timer.timerWord8() & 0x0fff) | (D3W << 12));
   timer.timerWord8() = (I16)((timer.timerWord8() & 0xf3ff) | ((dir & 3) << 10));
   DB14A3->timerIndex(gameTimers.SetTimer(&timer));
-  // The original CSBwin had no launcher bonus: not in a replay of its playfiles
-  if (shotWithLauncher && !noShotMissileBonus) RememberShotMissile(db.GetDBIndex(DB14A3, dbMISSILE));
+  // CSBwin had no launcher bonus: Launchers power 1, or Nostalgia Mode (GameRules)
+  if (shotWithLauncher && (GameRules_Current().shotDamageFactor > 1))
+    RememberShotMissile(db.GetDBIndex(DB14A3, dbMISSILE));
   return sw((DB14A3->timerIndex()));
 }
 

@@ -831,6 +831,8 @@ struct BlockDesc
 // TAG001de4c
 extern char *opened_file;
 bool skipToSavenPlay;
+// File -> Save game goes past the disk menu, so its clicks are not in the recording
+static bool savingFromFileMenu = false;
 
 // A file picked in the File menu takes the place of SelectSaveGame's choice, so it needs the
 // backup name SelectSaveGame would have made: the name with BAK for its extension, as
@@ -915,6 +917,7 @@ RESTARTABLE _DisplayDiskMenu(void)
   {
       if (skipToSavenPlay) {
 	  skipToSavenPlay = false;
+	  savingFromFileMenu = true;
 	  i16Result = 1;
       } else {
 	  DoMenu(_1_,
@@ -1378,6 +1381,12 @@ RESTARTABLE _DisplayDiskMenu(void)
   // The 'Restore' operation did a 'ProcessMonstersOnLevel'.  So
   // I figured that if I did it during a 'Save' then the results
   // would be identical.
+    if (savingFromFileMenu)
+    { // No clicks of the disk menu went into the recording: 2223, which CSBwin knows too,
+      // does to a replay what the next three lines do to the game. Written first: a replay
+      // checks the random number of the line before it does them.
+      RecordFile_Record(0, 0, 0x2223);
+    };
     TAG00bd40(); //Remove the Active Monster (ITEM16) entries
     ProcessMonstersOnLevel();
     SmartDiscard(true); //Initialize Smart Discard.  0x2223
@@ -1411,6 +1420,7 @@ tag01e4f0:
   STHideCursor(HC57);
   D0W = i16Result;
 tag01e52c:
+  savingFromFileMenu = false;
   FreeTempMemory(512);
   InsertDisk(D0W, 0);
   TAG0207cc();

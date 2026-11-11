@@ -380,6 +380,14 @@ bool AutoMapWindow_DebugIsOn(void)
   return debugMenuOn;
 }
 
+static void LevelPanelClose(void);
+
+void AutoMapWindow_TurnDebugOff(void)
+{
+  debugMenuOn = false;
+  LevelPanelClose();
+}
+
 // With map_debug the + button beside search opens a panel of testing aids: the champions'
 // base skills (a click on a skill gives that champion one level in it), the light the 3D
 // view is shown in, and forgetting what was explored or learned. Only one of the legend,

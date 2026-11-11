@@ -209,7 +209,7 @@ dungeon).
 
 | Number | What it counts |
 |---|---|
-| **Eaten**, **Drunk** | everything eaten and drunk; drinks straight from a fountain count as drunk |
+| **Eaten**, **Drunk** | everything eaten and drunk; drinks straight from a fountain count as drunk (there are none in Nostalgia Mode, where a click on a fountain touches the wall, as in CSBwin) |
 | **Food gained**, **Water gained** | how much the champion's food and water actually rose, in the game's own units (a champion is full at 2048; an apple gives 500, a water flask 1600, a gulp from a waterskin 800, a fountain 1600) |
 | **Food wasted (over full)**, **Water wasted (over full)** | the part that went over full and was lost. An apple worth 500 eaten by a champion 200 short of full gains 200 and wastes 300. |
 | **Items picked up** | items the party took from the dungeon into the hand, the first time only (Party) |

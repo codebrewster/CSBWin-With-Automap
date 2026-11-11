@@ -16,6 +16,7 @@
 #include "Data.h"
 #include "ReplaySnapshotParts.h"
 #include "ReplaySnapshot.h"
+#include "GameRules.h"
 
 void SmartDiscardTrace(FILE *f);
 void DSAInstrumentation_Dump(void);
@@ -37,7 +38,8 @@ extern bool legacyNoMouseUp;
 extern bool legacyAttackAfterDamage;
 extern bool legacyWoundPenalty;
 extern bool legacyDamageMonsterResult;
-extern bool noShotMissileBonus;
+extern bool monsters_vulnerable_on_attack;
+void RecordingRules_ConfirmAtStart(void);
 extern bool legacyStaminaLevelUp;
 extern bool legacyThrowStamina;
 extern bool legacyKeyWeightKept;
@@ -233,8 +235,15 @@ void PLAYFILE::Open(void)
                           && !PlayfileVersionBefore(versionLine+1, 9.6);
   legacyNoEkkhardCross   = PlayfileVersionBefore(versionLine+1, 10.056);
   legacyFluxcageCheck    = PlayfileVersionBefore(versionLine+1, 9.9);
-  // Any numbered version (or none) is the original CSBwin
-  noShotMissileBonus     = PlayfileVersionBefore(versionLine+1, 1.0e9);
+  // The replay plays by the rules of its recording (GameRules): CSBwin's for a playfile of the
+  // original CSBwin (any numbered version, or none). The port's own playfiles name their rules
+  // in # lines; those from before played by the settings, with the launcher bonus always on.
+  if (PlayfileVersionBefore(versionLine+1, 1.0e9))
+    GameRules_BeginReplay(GameRules_Classic());
+  else
+    GameRules_BeginReplay(GameRules_PortBefore(nostalgia_mode, monsters_vulnerable_on_attack));
+  // A recording opened before the replay named the settings' rules: these come later and count
+  RecordFile.Record(GameRules_RecordLines(*GameRules_Replay()).c_str());
   legacyUnsequencedTimers = PlayfileVersionBefore(versionLine+1, 11.0);
   legacyPitViewportRedraw = PlayfileVersionBefore(versionLine+1, 10.078);
   legacyMonsterAttackOrder = PlayfileVersionBefore(versionLine+1, 9.9);
@@ -274,6 +283,7 @@ void PLAYFILE::Open(void)
 
 void PLAYFILE::Close(void)
 {
+  GameRules_EndReplay();
   if (m_file >= 0)
   {
     CLOSE(m_file);
@@ -358,6 +368,12 @@ bool PLAYFILE::Play(MouseQueueEnt *ent)
       {
         DM_rules = true;
         RecordFile.Record("#DMRules\n");
+        continue;
+      };
+      if ((GameRules_Replay() != NULL) && GameRules_ReadLine(line, GameRules_Replay()))
+      {
+        std::string ruleLine = std::string(line) + "\n";
+        RecordFile.Record(ruleLine.c_str());
         continue;
       };
       if (strcmp(line,"#NoDMRules")==0)
@@ -1026,6 +1042,8 @@ void RECORDFILE::Open(void)
   // be put on disk.
   int tryAgain;
   if (m_fileNum >= 0) return; //Already open
+  // Settings CSBwin 17.6 does not have: say so, and offer its rules (CSBlinux.cpp)
+  RecordingRules_ConfirmAtStart();
 #ifdef _LINUX
   char folder[10] = "logs/";
 #else
@@ -1119,6 +1137,9 @@ void RECORDFILE::Open(void)
         fprintf(GETFILE(m_fileNum),"##   #TimerTrace<On/Off>\n");
         fprintf(GETFILE(m_fileNum),"##   #AITrace<On/Off>\n");
         fprintf(GETFILE(m_fileNum),"##   #DSATrace<On/Off>\n");
+        // The rules this recording is played by, for a replay in this port (GameRules).
+        // CSBwin skips these lines.
+        fputs(GameRules_RecordLines(GameRules_Current()).c_str(), GETFILE(m_fileNum));
         //Now dump any pre-open lines.
 #ifdef MSVC_QUEUE
         for (std::list<std::string>::const_iterator j=m_lineQueue.begin(); j!=m_lineQueue.end(); ++j)

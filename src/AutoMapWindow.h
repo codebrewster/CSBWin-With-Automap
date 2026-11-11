@@ -63,6 +63,8 @@ void AutoMapWindow_SetShows(AutoMapShown what, bool isShown);
 bool AutoMapWindow_TimingReportsOn(void);
 // Whether map_debug was set while the settings were read
 bool AutoMapWindow_DebugIsOn(void);
+// Turns the testing aids off until CSB starts again; csb.cfg keeps map_debug
+void AutoMapWindow_TurnDebugOff(void);
 // Hands the view back to the party without touching which level is shown
 void AutoMapWindow_RecenterView(void);
 // Both return true when the event belongs to the map window and must go no further

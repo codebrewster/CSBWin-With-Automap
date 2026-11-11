@@ -13,6 +13,7 @@
 extern bool legacyThrowStamina;
 extern bool legacyKeyWeightKept;
 #include "AutoMapHooks.h"
+#include "GameRules.h"
 
 
 extern i32 VBLperTimer;
@@ -930,7 +931,7 @@ void DropObject(i16 pos)
     if (d.FacingViAltar != 0)
     {
       objNI_2 = objD4.NameIndex();
-      if (objD4.dbType() == dbWEAPON && !nostalgia_mode) {
+      if (objD4.dbType() == dbWEAPON && GameRules_Current().viAltarRecharge) {
 	  DB5 *db = GetRecordAddressDB5(objD4);
 	  if (db->charges() < get_default_charges(objNI_2)) {
 	      D0L = d.Time;
@@ -1180,7 +1181,7 @@ void HandleClickInViewport(i32 clickX, i32 clickY)
         };
         if (D5W == 5)
         {
-	    if (d.FacingWaterFountain) {
+	    if (d.FacingWaterFountain && GameRules_Current().fountainDrink) { // CSBwin touches the wall
 		CHARDESC *pc;
 		pc = &d.hero[d.HandChar]; // selected character
 		int waterBefore = pc->water;

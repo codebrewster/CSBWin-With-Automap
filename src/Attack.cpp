@@ -14,6 +14,7 @@ extern bool legacyFluxcageCheck;
 #include "HeroStatsWindow.h"
 #include "AutoMapHooks.h"
 #include "ShotMissiles.h"
+#include "GameRules.h"
 
 extern ui32 *pDSAparameters;
 extern bool overlayActive;
@@ -514,7 +515,6 @@ extern void LIN_PlayDirect(const char *name,int posX, int posY);
 // Called when we hit monster with sword
 //*********************************************************
 //  TAG00f930
-extern bool monsters_vulnerable_on_attack;
 i32 DeterminePhysicalAttackDamage(
               ATTACKPARAMETERS *pParam,
               FILTER *pFilter,
@@ -576,7 +576,7 @@ i32 DeterminePhysicalAttackDamage(
   DB4 *db = GetRecordAddressDB4(objMon);
   int nb = pParam->attdep.physicalAttack.attackedMonsterOrdinal-1;
   ITEM16 *pi16_4 = &d.Item16[db->groupIndex()];
-  int attacking = (monsters_vulnerable_on_attack ? pi16_4->singleMonsterStatus[nb].TestAttacking() : 0);
+  int attacking = (GameRules_Current().vulnerableOnAttack ? pi16_4->singleMonsterStatus[nb].TestAttacking() : 0);
 #if 0
   printf("nb %d attacking %d %d %d %d\n",nb,
 	  pi16_4->singleMonsterStatus[0].TestAttacking(),
@@ -1804,6 +1804,10 @@ RESTARTABLE _Attack(const i32 initialChIdx, const ATTACKTYPE initialAttackType)
                       pParam->attackType, pParam->staminaCost);
   };
   pParam->experienceGained = (UI8)(d.experienceForAttacking[pParam->attackType]);
+  // DM 1.1 raised SHOOT from 9 to 20; CSBwin keeps what graphics.dat says
+  if (   (pParam->attackType == atk_SHOOT)
+      && (pParam->experienceGained == 9)
+      && GameRules_Current().shootExperience20) pParam->experienceGained = 20;
         //small integers.  largest 35.
   if (AttackTraceActive)
   {
