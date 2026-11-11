@@ -20,6 +20,7 @@
 #include "AutoMapWindow.h"
 #include "HeroStatsWindow.h"
 #include "PlaybackControl.h"
+#include "ReplaySnapshot.h"
 #include "AutoMapTickRate.h"
 
 #include "Dispatch.h"
@@ -2431,6 +2432,19 @@ static void ReplaySkip(int n)
   VBLMultiplier = 1;
 }
 
+// Going back n ticks: the engine puts back the latest snapshot before the tick at its next
+// tick boundary (ReplaySnapshot.h) and runs on at max to the tick
+static void ReplayBack(int n)
+{
+  if (!PlaybackControl_RewindBy((int)d.Time, n, ReplaySpeedIndex()))
+  {
+    // Only a skip that heads less far
+    PlaybackControl_TakeSpeedSync();
+    NoSpeedLimit = PlaybackControl_IsMax() ? 0x20000000 : 0;
+    VBLMultiplier = 1;
+  }
+}
+
 // The player takes over where the replay stands
 static void StopReplay(void)
 {
@@ -2441,7 +2455,8 @@ static void StopReplay(void)
   VBLMultiplier = 1;
 }
 
-// Space pauses, + and - change the speed. Taken before the game sees them: a key the game took
+// Space pauses, + and - change the speed, Right, Up and Page Up run ahead, Left, Down and Page
+// Down go back (25, 250 and 2500 ticks). Taken before the game sees them: a key the game took
 // in the middle of a replay could only disturb it
 static bool HandleReplayKey(const SDL_Event &event)
 {
@@ -2462,11 +2477,23 @@ static bool HandleReplayKey(const SDL_Event &event)
   case SDLK_KP_MINUS:
     SetReplaySpeed(ReplaySpeedIndex() - 1);
     return true;
+  case SDLK_RIGHT:
+    ReplaySkip(PLAYBACK_SKIP_TINY);
+    return true;
+  case SDLK_LEFT:
+    ReplayBack(PLAYBACK_SKIP_TINY);
+    return true;
   case SDLK_UP:
     ReplaySkip(PLAYBACK_SKIP_SMALL);
     return true;
   case SDLK_PAGEUP:
     ReplaySkip(PLAYBACK_SKIP_LARGE);
+    return true;
+  case SDLK_DOWN:
+    ReplayBack(PLAYBACK_SKIP_SMALL);
+    return true;
+  case SDLK_PAGEDOWN:
+    ReplayBack(PLAYBACK_SKIP_LARGE);
     return true;
   default:
     return false;
@@ -2502,6 +2529,14 @@ static void DrawReplayControls(bool &was_active)
   if (ImGui::SmallButton("-")) SetReplaySpeed(ReplaySpeedIndex() - 1);
   ImGui::Text("%4s", ReplaySpeedLabel());
   if (ImGui::SmallButton("+")) SetReplaySpeed(ReplaySpeedIndex() + 1);
+  if (ImGui::SmallButton("<<<")) ReplayBack(PLAYBACK_SKIP_LARGE);
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip(_("Back %d ticks (Page Down)"), PLAYBACK_SKIP_LARGE);
+  if (ImGui::SmallButton("<<")) ReplayBack(PLAYBACK_SKIP_SMALL);
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip(_("Back %d ticks (Down)"), PLAYBACK_SKIP_SMALL);
+  if (ImGui::SmallButton("<")) ReplayBack(PLAYBACK_SKIP_TINY);
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip(_("Back %d ticks (Left)"), PLAYBACK_SKIP_TINY);
+  if (ImGui::SmallButton(">")) ReplaySkip(PLAYBACK_SKIP_TINY);
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip(_("Fast forward %d ticks (Right)"), PLAYBACK_SKIP_TINY);
   if (ImGui::SmallButton(">>")) ReplaySkip(PLAYBACK_SKIP_SMALL);
   if (ImGui::IsItemHovered()) ImGui::SetTooltip(_("Fast forward %d ticks (Up)"), PLAYBACK_SKIP_SMALL);
   if (ImGui::SmallButton(">>>")) ReplaySkip(PLAYBACK_SKIP_LARGE);
@@ -2521,6 +2556,12 @@ static void DrawReplayControls(bool &was_active)
     else snprintf(text, sizeof text, "%s  %s  (%d)", PlaybackControl_IsPaused() ? _("Paused") : _("tick"), elapsed, (int)d.Time);
     if (PlaybackControl_IsPaused()) ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "%s", text);
     else ImGui::TextDisabled("%s", text);
+    if (ImGui::IsItemHovered())
+      ImGui::SetTooltip(_("Going back uses a snapshot taken every %d ticks: %d so far, %.1f MB"),
+                        REPLAY_SNAPSHOT_EVERY, ReplaySnapshot_Count(), ReplaySnapshot_Bytes() / 1048576.0);
+    if (PlaybackControl_RewindPending() || PlaybackControl_SkipIsRewind())
+      ImGui::TextColored(ImVec4(0.6f, 0.8f, 1.0f, 1.0f), _("back to %d"),
+                         PlaybackControl_RewindPending() ? PlaybackControl_RewindTarget() : PlaybackControl_SkipTarget());
   }
   {
     // Pause when the tick counter reaches the number typed (Enter); empty or 0 takes it away

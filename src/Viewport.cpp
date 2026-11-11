@@ -6711,11 +6711,14 @@ void FillViewportCanvas(VIEWPORTCANVAS * /*pvc*/, i32 /*x*/, i32 /*y*/, i32 /*fa
 //             |          |           |           |
 //             +----------+-----------+-----------+
 
+// The 3D view's own random numbers. Outside the function so that a replay snapshot
+// (ReplaySnapshot.cpp) keeps it: what the view draws is what the automap measures
+ui32 viewportRandom = 0x34175432;
+
 //   TAG00803a
 void DrawViewport(i32 facing,i32 x,i32 y)
 {
   SUMMARIZEROOMDATA roomData[21];
-  static ui32 viewportRandom = 0x34175432;
   i32  userCellNum;
   ui16 *pCode;
   ui32 saveRandom;

@@ -98,6 +98,11 @@ public:
   // Likewise for the wall decoration the 3D view draws at drawLocation (Viewport.cpp)
   bool DrawLocationIsShownByHole(int drawLocation) const;
 
+  // Copies what it keeps besides the stores of the .map file (the last frame, the cells visible
+  // now, the watches) into another recorder: a replay that goes back puts it back with the
+  // stores (ReplaySnapshot.h)
+  void CopyTransientTo(AutoMapRecorder *to) const;
+
 private:
   std::vector<std::pair<int, int> > m_holeCells;
   std::vector<int> m_holeCellNumbers;

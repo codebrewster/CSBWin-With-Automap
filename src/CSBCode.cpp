@@ -16,6 +16,9 @@ ui32 time(void *);
 #include "Data.h"
 #include "AutoMapHooks.h"
 #include "PlaybackControl.h"
+#include "ReplaySnapshot.h"
+#include "ReplaySnapshotParts.h"
+#include <string>
 
 
 extern i32 VBLperTimer;
@@ -174,6 +177,7 @@ struct PRINTENTRY
 
 class PRINTQUEUE
 {
+  friend struct MessagesSnapshot;
 private:
   PRINTENTRY *m_firstEnt;
 public:
@@ -592,9 +596,13 @@ void jdisint(i16)
 }
 
 
+// Outside the function so that a replay snapshot (ReplaySnapshot.cpp) keeps it: what it draws
+// is part of the screen and of what the automap measures
+ui32 graphicRandom = 12345;
+
 ui32 GraphicRandom(ui32 n)
 {
-  static ui32 r = 12345;
+  ui32 &r = graphicRandom;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   r = r * ui32(0xbb40e62d) + 11;
   return (r>>7) % n;
@@ -791,6 +799,9 @@ tag0007c8:
     if (d.ClockRunning == 0) AutoMap_OnClockStopped(); // Game frozen
     if (d.clockTick    == 0) WaitForButtonFlash(); // If any active
     if (d.clockTick    == 0) goto tag0007b4; // Usually 0
+    // Between two ticks, the next one due: a replay's snapshot is taken or put back here
+    // (ReplaySnapshot.h). A paused replay comes by here again and again.
+    ReplaySnapshot_AtTickBoundary();
     if (IsPlayFileOpen()) AutoMap_CheckBreakpoint();
     if (IsPlayFileOpen() && PlaybackControl_HoldsTicks()) goto tag0007b4; // A replay's pause is due
     if (d.ClockRunning == 0) goto tag0007b4; // Usually 1
@@ -1549,6 +1560,9 @@ void SCROLLING_TEXT::RemoveTimedOutText(void)
   //RETURN;
 }
 
+// How many times PrintLines has run: the lines it queues count by it (and a replay's snapshot
+// keeps it, ReplaySnapshot.cpp)
+static i32 printLinesCounter = 0;
 static int nextTries; // may contain the number of ticks for the next text to display
 int nextTextTiming;
 
@@ -1748,7 +1762,7 @@ void PrintLines(const i32 color, const char *Text)
   i8  LOCAL_56[54];
   //static i16  LOCAL_2;
   pnt text;
-  static i32 printLinesCount = 0;
+  i32 &printLinesCount = printLinesCounter;
   //RESTARTMAP
   //  RESTART(1)
   //  RESTART(2)
@@ -11821,3 +11835,119 @@ askAgain:
   RETURN;
 }
 
+
+
+// For the snapshots of a replay (ReplaySnapshot.cpp): the lines of text at the bottom of the
+// screen, past, shown and still to come, and the lines waiting to be printed
+struct MessagesSnapshot
+{
+  static void PutText(SnapshotBytes &b, const char *text)
+  {
+    ui32 len = (ui32)strlen(text);
+    SnapshotPut(b, &len, sizeof len);
+    SnapshotPut(b, text, len);
+  }
+  static std::string GetText(SnapshotReader &r)
+  {
+    ui32 len;
+    r.Get(&len, sizeof len);
+    const unsigned char *p = r.Skip(len);
+    return std::string((const char *)p, len);
+  }
+  static void SaveLines(SnapshotBytes &b, const LINEQUEUE &q)
+  {
+    ui32 n = 0;
+    for (PIECE_OF_TEXT *p = q.m_firstText; p != NULL; p = p->m_next) n++;
+    SnapshotPut(b, &n, sizeof n);
+    for (PIECE_OF_TEXT *p = q.m_firstText; p != NULL; p = p->m_next)
+    {
+      SnapshotPut(b, &p->m_row, sizeof p->m_row);
+      SnapshotPut(b, &p->m_col, sizeof p->m_col);
+      SnapshotPut(b, &p->m_color, sizeof p->m_color);
+      SnapshotPut(b, &p->m_printLinesCount, sizeof p->m_printLinesCount);
+      PutText(b, (const char *)p + sizeof(*p));
+    }
+  }
+  // As LINEQUEUE::AddText, without moving the print column (d comes back on its own)
+  static void RestoreLines(SnapshotReader &r, LINEQUEUE &q)
+  {
+    q.Cleanup();
+    q.m_lastText = NULL;
+    ui32 n;
+    r.Get(&n, sizeof n);
+    for (ui32 i = 0; i < n; i++)
+    {
+      i32 row, col, color, count;
+      r.Get(&row, sizeof row);
+      r.Get(&col, sizeof col);
+      r.Get(&color, sizeof color);
+      r.Get(&count, sizeof count);
+      std::string text = GetText(r);
+      PIECE_OF_TEXT *p = (PIECE_OF_TEXT *)UI_malloc((ui32)(sizeof(PIECE_OF_TEXT) + text.size() + 1), MALLOC103);
+      p->m_row = row;
+      p->m_col = col;
+      p->m_color = color;
+      p->m_printLinesCount = count;
+      p->m_next = NULL;
+      memcpy((char *)p + sizeof(*p), text.c_str(), text.size() + 1);
+      if (q.m_firstText == NULL) q.m_firstText = p;
+      else q.m_lastText->m_next = p;
+      q.m_lastText = p;
+    }
+  }
+  static void Save(SnapshotBytes &b)
+  {
+    SaveLines(b, scrollingText.m_pastLines);
+    SaveLines(b, scrollingText.m_currentLines);
+    SaveLines(b, scrollingText.m_futureLines);
+    SnapshotPut(b, scrollingText.m_printLinesCount, sizeof scrollingText.m_printLinesCount);
+    ui32 n = 0;
+    for (PRINTENTRY *p = printQueue.m_firstEnt; p != NULL; p = p->m_next) n++;
+    SnapshotPut(b, &n, sizeof n);
+    for (PRINTENTRY *p = printQueue.m_firstEnt; p != NULL; p = p->m_next)
+    {
+      SnapshotPut(b, &p->m_color, sizeof p->m_color);
+      SnapshotPut(b, &p->m_type, sizeof p->m_type);
+      PutText(b, p->m_text);
+    }
+    SnapshotPut(b, &nextTextTiming, sizeof nextTextTiming);
+    SnapshotPut(b, &nextTries, sizeof nextTries);
+    SnapshotPut(b, &printLinesCounter, sizeof printLinesCounter);
+  }
+  static void Restore(SnapshotReader &r)
+  {
+    RestoreLines(r, scrollingText.m_pastLines);
+    RestoreLines(r, scrollingText.m_currentLines);
+    RestoreLines(r, scrollingText.m_futureLines);
+    r.Get(scrollingText.m_printLinesCount, sizeof scrollingText.m_printLinesCount);
+    while (printQueue.m_firstEnt != NULL)
+    {
+      PRINTENTRY *p = printQueue.m_firstEnt;
+      printQueue.m_firstEnt = p->m_next;
+      UI_free(p);
+    }
+    ui32 n;
+    r.Get(&n, sizeof n);
+    for (ui32 i = 0; i < n; i++)
+    {
+      i32 color, type;
+      r.Get(&color, sizeof color);
+      r.Get(&type, sizeof type);
+      std::string text = GetText(r);
+      printQueue.Queue(color, (i16)type, text.c_str());
+    }
+    r.Get(&nextTextTiming, sizeof nextTextTiming);
+    r.Get(&nextTries, sizeof nextTries);
+    r.Get(&printLinesCounter, sizeof printLinesCounter);
+  }
+};
+
+void Messages_SaveState(SnapshotBytes &b)
+{
+  MessagesSnapshot::Save(b);
+}
+
+void Messages_RestoreState(SnapshotReader &r)
+{
+  MessagesSnapshot::Restore(r);
+}

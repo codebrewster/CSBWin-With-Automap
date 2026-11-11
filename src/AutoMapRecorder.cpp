@@ -111,6 +111,20 @@ AutoMapRecorder::AutoMapRecorder(void)
 {
 }
 
+void AutoMapRecorder::CopyTransientTo(AutoMapRecorder *to) const
+{
+  to->m_holeCells = m_holeCells;
+  to->m_holeCellNumbers = m_holeCellNumbers;
+  to->m_visibleNow = m_visibleNow;
+  to->m_monstersSeenNow = m_monstersSeenNow;
+  to->m_linkWatch = m_linkWatch;
+  to->m_falseWallWatch = m_falseWallWatch;
+  to->m_frameLevel = m_frameLevel;
+  to->m_frameFacing = m_frameFacing;
+  to->m_viewIsHidden = m_viewIsHidden;
+  std::copy(m_frame, m_frame + AUTOMAP_SIGHT_CELL_COUNT, to->m_frame);
+}
+
 // OH EW RA: the 3D view cuts a round hole in the wall (or a window in the shut door) straight
 // ahead and shows through it the floor two ahead and the wall three ahead, painted before the
 // wall was. Those two cells are seen as if the cell in front of the party did not block.

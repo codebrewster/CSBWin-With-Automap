@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "ReplaySnapshotParts.h"
 #include <stdio.h>
 
 #include "UI.h"
@@ -1017,4 +1018,37 @@ void SmartDiscardTrace(FILE *f)
 {
   m_trace = f;
   SmartDiscardLegacyTrace(f);
+}
+
+// For the snapshots of a replay (ReplaySnapshot.cpp): where the discarding stands. The legacy
+// variant (SmartDiscardLegacy.cpp) adds its own.
+void SmartDiscardLegacy_SaveState(SnapshotBytes &b);
+void SmartDiscardLegacy_RestoreState(SnapshotReader &r);
+
+void SmartDiscard_SaveState(SnapshotBytes &b)
+{
+  SnapshotPut(b, &currentDBNum, sizeof currentDBNum);
+  SnapshotPut(b, &currentLevel, sizeof currentLevel);
+  SnapshotPut(b, &currentX, sizeof currentX);
+  SnapshotPut(b, &currentY, sizeof currentY);
+  SnapshotPut(b, &currentIndex, sizeof currentIndex);
+  SnapshotPut(b, &discardFailure, sizeof discardFailure);
+  SnapshotPut(b, &currentMode, sizeof currentMode);
+  SnapshotPut(b, &totalCount, sizeof totalCount);
+  SnapshotPut(b, &objlist, sizeof objlist);
+  SmartDiscardLegacy_SaveState(b);
+}
+
+void SmartDiscard_RestoreState(SnapshotReader &r)
+{
+  r.Get(&currentDBNum, sizeof currentDBNum);
+  r.Get(&currentLevel, sizeof currentLevel);
+  r.Get(&currentX, sizeof currentX);
+  r.Get(&currentY, sizeof currentY);
+  r.Get(&currentIndex, sizeof currentIndex);
+  r.Get(&discardFailure, sizeof discardFailure);
+  r.Get(&currentMode, sizeof currentMode);
+  r.Get(&totalCount, sizeof totalCount);
+  r.Get(&objlist, sizeof objlist);
+  SmartDiscardLegacy_RestoreState(r);
 }

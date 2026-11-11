@@ -16,6 +16,8 @@
 #include "HeroStatsPending.h"
 #include "HeroStatsRunes.h"
 #include "HeroStatsWindow.h"
+#include "HeroStatsDraw.h"
+#include "ReplaySnapshotParts.h"
 #include "AutoMapWindow.h"
 #include "AutoMapHooks.h"
 #include "AutoMapLevelReader.h"
@@ -1488,4 +1490,107 @@ int HeroStats_RankNow(HeroStatsChampion who, int cls, int *percentToNext)
   for (int slot = 0; slot < d.NumCharacter && slot < 4; slot++)
     if (d.hero[slot].fingerPrint == who) return ClassMastery(slot, cls, percentToNext);
   return -1;
+}
+
+// ---------------------------------------------------------------------------------------------
+// A replay going back (ReplaySnapshot.h)
+
+void HeroStats_PutBack(const HeroStats &stats, const HeroStatsOrigins &originsBack)
+{
+  store = stats;
+  origins = originsBack;
+  levelMarked = -1;
+  // The counts the file does not hold come from the automap, put back before this
+  HeroStats_RefreshMapCounts(true);
+  HeroStatsDraw_Forget();
+}
+
+namespace
+{
+struct HeroStatsTransient : public SnapshotKept
+{
+  bool lastBlowSet;
+  HeroStatsBlow lastBlow;
+  bool cloudBlowActive;
+  HeroStatsBlow cloudBlow;
+  std::set<int> missilesThatHit;
+  bool explosionActive;
+  bool explosionCloudPending;
+  int explosionMissile;
+  HeroStatsBlow explosionBlow;
+  int harmDepth;
+  HeroHarmSource harmSource;
+  HeroStatsBlow harmBlow;
+  HeroStatsPending pending;
+  int runeCastSlot;
+  bool doorBlowSet;
+  DoorBlow doorBlow;
+  std::map<int, DoorBlow> scheduledDoorBashes;
+  int killsInBlow;
+  int firstKillType;
+  int cloudTickTotal;
+  int cloudTickType;
+  bool experienceSourceSet;
+  HeroXpSource experienceSource;
+  HeroXpSource lastExperienceSource;
+};
+}
+
+SnapshotKeptRef HeroStats_KeepTransient(void)
+{
+  std::shared_ptr<HeroStatsTransient> k(new HeroStatsTransient);
+  k->lastBlowSet = lastBlowSet;
+  k->lastBlow = lastBlow;
+  k->cloudBlowActive = cloudBlowActive;
+  k->cloudBlow = cloudBlow;
+  k->missilesThatHit = missilesThatHit;
+  k->explosionActive = explosionActive;
+  k->explosionCloudPending = explosionCloudPending;
+  k->explosionMissile = explosionMissile;
+  k->explosionBlow = explosionBlow;
+  k->harmDepth = harmDepth;
+  k->harmSource = harmSource;
+  k->harmBlow = harmBlow;
+  k->pending = pending;
+  k->runeCastSlot = runeCastSlot;
+  k->doorBlowSet = doorBlowSet;
+  k->doorBlow = doorBlow;
+  k->scheduledDoorBashes = scheduledDoorBashes;
+  k->killsInBlow = killsInBlow;
+  k->firstKillType = firstKillType;
+  k->cloudTickTotal = cloudTickTotal;
+  k->cloudTickType = cloudTickType;
+  k->experienceSourceSet = experienceSourceSet;
+  k->experienceSource = experienceSource;
+  k->lastExperienceSource = lastExperienceSource;
+  return k;
+}
+
+void HeroStats_RestoreTransient(const SnapshotKept &kept)
+{
+  const HeroStatsTransient &k = static_cast<const HeroStatsTransient &>(kept);
+  lastBlowSet = k.lastBlowSet;
+  lastBlow = k.lastBlow;
+  cloudBlowActive = k.cloudBlowActive;
+  cloudBlow = k.cloudBlow;
+  missilesThatHit = k.missilesThatHit;
+  explosionActive = k.explosionActive;
+  explosionCloudPending = k.explosionCloudPending;
+  explosionMissile = k.explosionMissile;
+  explosionBlow = k.explosionBlow;
+  harmDepth = k.harmDepth;
+  harmSource = k.harmSource;
+  harmBlow = k.harmBlow;
+  pending = k.pending;
+  runeCastSlot = k.runeCastSlot;
+  doorBlowSet = k.doorBlowSet;
+  doorBlow = k.doorBlow;
+  scheduledDoorBashes = k.scheduledDoorBashes;
+  killsInBlow = k.killsInBlow;
+  firstKillType = k.firstKillType;
+  cloudTickTotal = k.cloudTickTotal;
+  cloudTickType = k.cloudTickType;
+  experienceSourceSet = k.experienceSourceSet;
+  experienceSource = k.experienceSource;
+  lastExperienceSource = k.lastExperienceSource;
 }

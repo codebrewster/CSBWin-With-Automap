@@ -1,5 +1,6 @@
 // Keep imgui includes at the top to avoid the pragma pack in CSB.h
 #include "PlaybackControl.h"
+#include "ReplaySnapshot.h"
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_sdlrenderer2.h"
@@ -121,6 +122,14 @@ i32 UI_MessageBox(const char *msg, const char *title, i32 flags ) {
 	printf("visibility: the game stopped before the cases ran: %s\n", text.c_str());
 	fflush(stdout);
 	_Exit(2);
+    }
+    // Nor to a rewind test, which runs without a window
+    if (ReplaySnapshot_TestIsRunning()) {
+	std::string text = msg != NULL ? msg : "";
+	for (size_t i = 0; i < text.size(); i++) if (text[i] == '\n') text[i] = ' ';
+	printf("rewind-test: message box at tick %d: %s\n", (int)d.Time, text.c_str());
+	fflush(stdout);
+	_Exit(3);
     }
     if (flags == MESSAGE_YESNO) {
 	open_popup(msg);
@@ -370,6 +379,7 @@ enum {
 		    enum_ignore, // ignore = do not expect arguments
 		    enum_height,
 		    enum_quick,
+		    enum_rewind_check,
 		    enum_vblmultiplier,
 		    enum_dungeon,
 		    enum_width,
@@ -478,6 +488,11 @@ bool UI_ProcessOption(char **argv, int &argc)
 			state=enum_play;
 		    }else if(!strcmp("--visibility-test",key) ) {
 			state=enum_visibility_test;
+		    }else if(!strcmp("--rewind-check",key) ) {
+			state=enum_rewind_check;
+		    }else if(!strcmp("--rewind-test",key) ) {
+			ReplaySnapshot_EnableTest();
+			state=enum_ignore;
 		    }else if(!strcmp("--victory-test",key) ) {
 			victoryTestPending = true;
 			state=enum_ignore;
@@ -640,6 +655,10 @@ bool UI_ProcessOption(char **argv, int &argc)
 
 		case enum_quick:
 		    sscanf(key,"%d", &NoSpeedLimit);
+		    break;
+
+		case enum_rewind_check:
+		    ReplaySnapshot_EnableCheck(key);
 		    break;
 
 		case enum_vblmultiplier:

@@ -44,11 +44,28 @@ void PlaybackControl_FormatTime(double seconds, char *buf, int size);
 
 // Fast forward: run n ticks at max from tick now, then go back to the speed index it ran at
 // (speedBefore) and to paused if it was paused. Pressing again while it runs adds to the target.
+const int PLAYBACK_SKIP_TINY = 25; // about five seconds at the normal speed
 const int PLAYBACK_SKIP_SMALL = 250;
 const int PLAYBACK_SKIP_LARGE = 2500;
 void PlaybackControl_SkipAhead(int now, int n, int speedBefore);
 bool PlaybackControl_IsSkipping(void);
 int PlaybackControl_SkipTarget(void); // -1 when none
+// Going back n ticks from tick now, or from where a running skip or a waiting rewind heads.
+// The engine runs only forward: it puts back the latest snapshot at or before that tick
+// (ReplaySnapshot.h) and runs on from there at max up to it, then at the speed it had
+// (speedBefore), paused if it was. Returns true when that is needed; the engine calls
+// RewindStart when it has put a snapshot back. False when the tick is still ahead of a running
+// skip: the skip only heads there now (or ends, when it is the tick it stands at).
+// On the way to the tick no breakpoint pauses: the party may have crossed one before it was set.
+bool PlaybackControl_RewindBy(int now, int n, int speedBefore);
+bool PlaybackControl_RewindPending(void);
+int PlaybackControl_RewindTarget(void); // -1 when none waits
+// The snapshot of tick restored is back: the run to the target begins (when it is ahead)
+void PlaybackControl_RewindStart(int restored);
+// No snapshot to go back to: the rewind is dropped
+void PlaybackControl_CancelRewind(void);
+// True while a skip runs that is the way back to a tick
+bool PlaybackControl_SkipIsRewind(void);
 // A pause when the tick counter reaches the tick (0 or less: none). False when it is not ahead.
 bool PlaybackControl_SetPauseTarget(int now, int tick);
 int PlaybackControl_PauseTarget(void); // -1 when none
@@ -60,6 +77,7 @@ void PlaybackControl_AtTick(int tickAfter);
 bool PlaybackControl_TakeSpeedSync(void);
 
 // A new replay starts at 1x and running, without breakpoints; a stopped one loses them too
+// (and a rewind that waits)
 void PlaybackControl_Reset(void);
 
 // Breakpoints: cells (level and the level's x, y, as the party's position) set on the automap.

@@ -113,6 +113,7 @@ public:
   void ReadEOF(void); //Force file close at EOF without
                       //advancing d.Time.
   bool IsEOF(void) {return m_eofEncountered;};
+  FILE *File(void) {return m_file < 0 ? NULL : GETFILE(m_file);};
 };
 
 //extern PLAYFILE PlayFile;

@@ -48,6 +48,7 @@ struct SavedGameFile
 
 #include "AutoMapHooks.h"
 #include "PlaybackControl.h"
+#include "ReplaySnapshotParts.h"
 
 extern bool PlayfileIsOpen(void);
 
@@ -2496,4 +2497,76 @@ void AutoMap_OnDungeonLoaded(void)
   SavedGameFile save = FindSavedGame(d.SaveGameFilename);
   MoveMapFile(pathOfRestoredBackup, save.path);
   if (!ReadMapFile(save)) HeroStats_OnNoMapFile();
+}
+
+// ---------------------------------------------------------------------------------------------
+// A replay going back (ReplaySnapshot.h): the stores go in as the .map file writes them, bound to
+// no saved game; the player's notes stay as they are now
+
+static const AutoMapSaveSignature SNAPSHOT_SIGNATURE = {0, 0};
+
+void AutoMap_SaveState(SnapshotBytes &b)
+{
+  std::ostringstream data;
+  AutoMapFile(SNAPSHOT_SIGNATURE).Write(data, recorder.Explored(), recorder.Knowledge(), recorder.Items(),
+                                        recorder.Cells(), recorder.Notes(), recorder.Damage(),
+                                        HeroStats_Store(), HeroStats_Origins());
+  std::string bytes = data.str();
+  size_t n = bytes.size();
+  SnapshotPut(b, &n, sizeof n);
+  SnapshotPut(b, bytes.data(), n);
+}
+
+void AutoMap_RestoreState(SnapshotReader &r)
+{
+  size_t n;
+  r.Get(&n, sizeof n);
+  const unsigned char *p = r.Skip(n);
+  std::istringstream in(std::string((const char *)p, n));
+  bool hadItemMemory = false;
+  bool hadCellMemory = false;
+  AutoMapPlayerNotes notes;
+  HeroStats stats;
+  HeroStatsOrigins origins;
+  AutoMapFileResult result = AutoMapFile(SNAPSHOT_SIGNATURE).Read(
+    in, &recorder.Explored(), &recorder.Knowledge(), &recorder.Items(), &hadItemMemory,
+    &recorder.Cells(), &hadCellMemory, &notes, &recorder.Damage(), &stats, &origins);
+  if (result != AutoMapFileRead)
+  {
+    printf("Automap: a replay snapshot could not be put back: %s\n", AutoMapFile_Describe(result));
+    return;
+  }
+  HeroStats_PutBack(stats, origins);
+  // The window shows the level anew at the next tick
+  lastBuiltLevel = AUTOMAP_NO_LEVEL;
+}
+
+namespace
+{
+struct AutoMapTransient : public SnapshotKept
+{
+  AutoMapRecorder recorder;
+  bool learnedFrameIsKnown;
+  unsigned long long learnedFrameHash;
+  std::vector<AutoMapRecordId> learnedFrameMonsters;
+};
+}
+
+SnapshotKeptRef AutoMap_KeepTransient(void)
+{
+  std::shared_ptr<AutoMapTransient> kept(new AutoMapTransient);
+  recorder.CopyTransientTo(&kept->recorder);
+  kept->learnedFrameIsKnown = learnedFrameIsKnown;
+  kept->learnedFrameHash = learnedFrameHash;
+  kept->learnedFrameMonsters = learnedFrameMonsters;
+  return kept;
+}
+
+void AutoMap_RestoreTransient(const SnapshotKept &kept)
+{
+  const AutoMapTransient &k = static_cast<const AutoMapTransient &>(kept);
+  k.recorder.CopyTransientTo(&recorder);
+  learnedFrameIsKnown = k.learnedFrameIsKnown;
+  learnedFrameHash = k.learnedFrameHash;
+  learnedFrameMonsters = k.learnedFrameMonsters;
 }

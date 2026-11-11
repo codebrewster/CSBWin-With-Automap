@@ -33,6 +33,11 @@ int skipSpeed = PLAYBACK_SPEED_NORMAL;
 bool skipWasPaused = false;
 int pauseTarget = -1;
 bool speedSyncDue = false;
+bool skipIsRewind = false;
+// A rewind waiting for the engine to put a snapshot back, and what it goes back to after
+int rewindTarget = -1;
+int rewindSpeed = PLAYBACK_SPEED_NORMAL;
+bool rewindWasPaused = false;
 
 int Clamped(int index)
 {
@@ -44,7 +49,7 @@ int Clamped(int index)
 
 int PlaybackControl_SpeedIndex(void) { return speedIndex; }
 // Choosing a speed by hand ends a skip
-void PlaybackControl_SetSpeedIndex(int index) { speedIndex = Clamped(index); skipTarget = -1; }
+void PlaybackControl_SetSpeedIndex(int index) { speedIndex = Clamped(index); skipTarget = -1; skipIsRewind = false; }
 void PlaybackControl_Faster(void) { PlaybackControl_SetSpeedIndex(speedIndex + 1); }
 void PlaybackControl_Slower(void) { PlaybackControl_SetSpeedIndex(speedIndex - 1); }
 bool PlaybackControl_IsMax(void) { return speedIndex == PLAYBACK_SPEED_MAX; }
@@ -65,8 +70,10 @@ void PlaybackControl_Reset(void)
   pauseIsDue = false;
   totalTicks = -1;
   skipTarget = -1;
+  skipIsRewind = false;
   pauseTarget = -1;
   speedSyncDue = false;
+  rewindTarget = -1;
 }
 
 void PlaybackControl_SetTotalTicks(int ticks) { totalTicks = ticks; }
@@ -141,6 +148,7 @@ void PlaybackControl_SkipAhead(int now, int n, int speedBefore)
     skipTarget = now + n;
     skipSpeed = Clamped(speedBefore);
     skipWasPaused = paused;
+    skipIsRewind = false;
   }
   else skipTarget += n;
   if (totalTicks > 0 && skipTarget > totalTicks) skipTarget = totalTicks;
@@ -149,6 +157,72 @@ void PlaybackControl_SkipAhead(int now, int n, int speedBefore)
   paused = false;
   speedSyncDue = true;
 }
+
+// The end of a skip, where it heads or because it is no longer needed: the speed and the pause
+// it came from
+static void EndSkip(void)
+{
+  skipTarget = -1;
+  skipIsRewind = false;
+  speedIndex = skipSpeed;
+  speedSyncDue = true;
+  if (skipWasPaused) pauseIsDue = true;
+}
+
+bool PlaybackControl_RewindBy(int now, int n, int speedBefore)
+{
+  if (n <= 0) return rewindTarget >= 0;
+  int from = rewindTarget >= 0 ? rewindTarget : skipTarget >= 0 ? skipTarget : now;
+  int target = from - n;
+  if (target < 0) target = 0;
+  if (rewindTarget < 0 && skipTarget >= 0 && target >= now)
+  {
+    // Still ahead of where the skip stands
+    skipTarget = target;
+    if (target == now) EndSkip();
+    return false;
+  }
+  if (rewindTarget < 0)
+  {
+    // From a skip: the speed and the pause it would have gone back to
+    rewindSpeed = skipTarget >= 0 ? skipSpeed : Clamped(speedBefore);
+    rewindWasPaused = skipTarget >= 0 ? skipWasPaused : paused;
+  }
+  rewindTarget = target;
+  return true;
+}
+
+bool PlaybackControl_RewindPending(void) { return rewindTarget >= 0; }
+int PlaybackControl_RewindTarget(void) { return rewindTarget; }
+
+void PlaybackControl_RewindStart(int restored)
+{
+  if (rewindTarget < 0) return;
+  hasLastCell = false;
+  pauseIsDue = false;
+  if (restored < rewindTarget)
+  {
+    skipTarget = rewindTarget;
+    skipSpeed = rewindSpeed;
+    skipWasPaused = rewindWasPaused;
+    skipIsRewind = true;
+    speedIndex = PLAYBACK_SPEED_MAX;
+    paused = false;
+  }
+  else
+  {
+    skipTarget = -1;
+    skipIsRewind = false;
+    speedIndex = rewindSpeed;
+    paused = rewindWasPaused;
+  }
+  speedSyncDue = true;
+  rewindTarget = -1;
+}
+
+void PlaybackControl_CancelRewind(void) { rewindTarget = -1; }
+
+bool PlaybackControl_SkipIsRewind(void) { return skipIsRewind && skipTarget >= 0; }
 
 bool PlaybackControl_IsSkipping(void) { return skipTarget >= 0; }
 int PlaybackControl_SkipTarget(void) { return skipTarget; }
@@ -165,13 +239,7 @@ int PlaybackControl_PauseTarget(void) { return pauseTarget; }
 
 void PlaybackControl_AtTick(int tickAfter)
 {
-  if (skipTarget >= 0 && tickAfter >= skipTarget)
-  {
-    skipTarget = -1;
-    speedIndex = skipSpeed;
-    speedSyncDue = true;
-    if (skipWasPaused) pauseIsDue = true;
-  }
+  if (skipTarget >= 0 && tickAfter >= skipTarget) EndSkip();
   if (pauseTarget >= 0 && tickAfter >= pauseTarget)
   {
     pauseTarget = -1;
@@ -205,6 +273,8 @@ bool PlaybackControl_PartyAt(int level, int x, int y)
   bool stepped = !hasLastCell || cell != lastCell;
   hasLastCell = true;
   lastCell = cell;
+  // On the way back to a tick the party walks where it walked before
+  if (PlaybackControl_SkipIsRewind()) return false;
   if (!stepped || !breakpoints.erase(cell)) return false;
   pauseIsDue = true;
   return true;

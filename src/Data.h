@@ -1542,6 +1542,7 @@ class TIMER_SEARCH;
 class GameTimers
 {
   friend class TIMER_SEARCH;
+  friend struct GameTimersSnapshot; // ReplaySnapshot.cpp
   friend RESTARTABLE _ReadEntireGame(void);
 //  friend void AdjustTimerPosition(i32 timerPosition);
 //  friend void DeleteTimer(i32 timerIndex);
@@ -1644,6 +1645,7 @@ public:
 class PIECE_OF_TEXT
 {
   friend class LINEQUEUE;
+  friend struct MessagesSnapshot; // CSBCode.cpp
 private:
   PIECE_OF_TEXT *m_next;
 public:
@@ -1656,6 +1658,7 @@ public:
 
 class LINEQUEUE
 {
+  friend struct MessagesSnapshot; // CSBCode.cpp, for ReplaySnapshot.cpp
 private:
   i32 m_maxLines;
   PIECE_OF_TEXT *m_firstText, *m_lastText;
@@ -1672,6 +1675,7 @@ public:
 
 class SCROLLING_TEXT
 {
+  friend struct MessagesSnapshot; // CSBCode.cpp, for ReplaySnapshot.cpp
 private:
   LINEQUEUE m_pastLines;
   LINEQUEUE m_currentLines;

@@ -7,6 +7,7 @@
 // is used only while such a playfile is replayed (legacySmartDiscard).
 
 #include "stdafx.h"
+#include "ReplaySnapshotParts.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -622,4 +623,35 @@ void SmartDiscardLegacy(bool Initialize)
                 "Warning",
                 MESSAGE_OK | MESSAGE_ICONWARNING);
   currentMode = ModeNotActive;
+}
+
+// For the snapshots of a replay (ReplaySnapshot.cpp), through SmartDiscard_SaveState
+void SmartDiscardLegacy_SaveState(SnapshotBytes &b)
+{
+  SnapshotPut(b, sdTable, sizeof sdTable);
+  SnapshotPut(b, &currentDBNum, sizeof currentDBNum);
+  SnapshotPut(b, &currentLevel, sizeof currentLevel);
+  SnapshotPut(b, &currentX, sizeof currentX);
+  SnapshotPut(b, &currentY, sizeof currentY);
+  SnapshotPut(b, &currentIndex, sizeof currentIndex);
+  SnapshotPut(b, &discardFailure, sizeof discardFailure);
+  SnapshotPut(b, &currentMode, sizeof currentMode);
+  SnapshotPut(b, objcount, sizeof objcount);
+  SnapshotPut(b, &totalCount, sizeof totalCount);
+  SnapshotPut(b, &objlist, sizeof objlist);
+}
+
+void SmartDiscardLegacy_RestoreState(SnapshotReader &r)
+{
+  r.Get(sdTable, sizeof sdTable);
+  r.Get(&currentDBNum, sizeof currentDBNum);
+  r.Get(&currentLevel, sizeof currentLevel);
+  r.Get(&currentX, sizeof currentX);
+  r.Get(&currentY, sizeof currentY);
+  r.Get(&currentIndex, sizeof currentIndex);
+  r.Get(&discardFailure, sizeof discardFailure);
+  r.Get(&currentMode, sizeof currentMode);
+  r.Get(objcount, sizeof objcount);
+  r.Get(&totalCount, sizeof totalCount);
+  r.Get(&objlist, sizeof objlist);
 }

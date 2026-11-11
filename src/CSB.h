@@ -1631,6 +1631,7 @@ public:
 class DATABASES
 {
   friend RESTARTABLE FindEmptyDBEntry(const i32,const DBTYPE,const bool);
+  friend struct DatabasesSnapshot; // ReplaySnapshot.cpp
   DBCOMMON *m_Address[16];
   i32       m_numEnt[16];
   i32       m_noEnlarge;//A bit for each DB.  Set when the

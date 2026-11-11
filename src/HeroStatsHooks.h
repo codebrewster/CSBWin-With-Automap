@@ -36,6 +36,9 @@ void HeroStats_OnMapFileRead(const HeroStats &fromFile, const HeroStatsOrigins &
 // memory survives (and the load counts as a reload) when the party is known to the game that
 // was in play, in the same dungeon.
 void HeroStats_OnNoMapFile(void);
+// A replay went back to a snapshot (ReplaySnapshot.h): the numbers become those it holds, as
+// they are, no reload counted; what comes from the automap is counted anew
+void HeroStats_PutBack(const HeroStats &stats, const HeroStatsOrigins &origins);
 // The map file is about to be written: the champions of the party are known by name
 void HeroStats_BeforeGameSaved(void);
 // With map_debug set, the dump is printed on every save

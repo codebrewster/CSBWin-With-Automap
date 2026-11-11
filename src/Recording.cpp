@@ -14,6 +14,8 @@
 #include "CSB.h"
 #include "Recording.h"
 #include "Data.h"
+#include "ReplaySnapshotParts.h"
+#include "ReplaySnapshot.h"
 
 void SmartDiscardTrace(FILE *f);
 void DSAInstrumentation_Dump(void);
@@ -84,6 +86,8 @@ public:
   void Add(i32 a, i32 b, i32 c);
   void Get(i32 index, i32 *a, i32 *b);
   void Get(i32 index, i32 *a, i32 *b, i32 *c);
+  void SaveState(SnapshotBytes &b) const;
+  void RestoreState(SnapshotReader &r);
 };
 
 TABLE::TABLE(i32 size)
@@ -259,6 +263,7 @@ void PLAYFILE::Open(void)
   };
   STHideCursor(HC35);
   PlaybackControl_Reset();
+  ReplaySnapshot_Forget();
   PlaybackControl_SetTotalTicks(PlaybackControl_ScanTotalTicks(PlayfileName));
   m_eofEncountered = m_forceClose = false;
   tableXYF.Clear();
@@ -924,6 +929,7 @@ void PLAYFILE::Backspace(MouseQueueEnt *
 // and would keep the processor at full load while it waits at the end
 void ReplayBackToNormalSpeed(void)
 {
+  ReplaySnapshot_ReplayOver();
   PlaybackControl_Reset();
   NoSpeedLimit = 0;
   VBLMultiplier = 1;
@@ -931,6 +937,65 @@ void ReplayBackToNormalSpeed(void)
 
 PLAYFILE PlayFile;
 bool PlayfileIsOpen(void) {return PlayFile.IsOpen();};
+
+// For the snapshots of a replay (ReplaySnapshot.cpp): the reader, where it stands in the file,
+// the tables of what it has read so far and the line it read last
+void TABLE::SaveState(SnapshotBytes &b) const
+{
+  SnapshotPut(b, &m_used, sizeof m_used);
+  SnapshotPut(b, m_table, sizeof(i32) * m_entsize * m_used);
+}
+
+// The table only grows while a replay runs: the block it has now holds the older content
+void TABLE::RestoreState(SnapshotReader &r)
+{
+  i32 used;
+  r.Get(&used, sizeof used);
+  if (m_allocated < used)
+  {
+    m_allocated = used;
+    m_table = (i32 *)UI_realloc(m_table, m_allocated * m_entsize * sizeof (i32), 0xffff);
+  };
+  r.Get(m_table, sizeof(i32) * m_entsize * used);
+  m_used = used;
+}
+
+void PlayFile_SaveState(SnapshotBytes &b)
+{
+  FILE *f = PlayFile.File();
+  long position = f == NULL ? -1 : ftell(f);
+  SnapshotPut(b, &position, sizeof position);
+  SnapshotPut(b, &PlayFile, sizeof PlayFile);
+  tableXYF.SaveState(b);
+  tableTXYF.SaveState(b);
+  tableTXYFR.SaveState(b);
+  SnapshotPut(b, line, sizeof line);
+  SnapshotPut(b, &f1, sizeof f1);
+  SnapshotPut(b, &f2, sizeof f2);
+  SnapshotPut(b, &f3, sizeof f3);
+  SnapshotPut(b, &f4, sizeof f4);
+  SnapshotPut(b, &f5, sizeof f5);
+  SnapshotPut(b, &checkDungeonSignature, sizeof checkDungeonSignature);
+}
+
+void PlayFile_RestoreState(SnapshotReader &r)
+{
+  long position;
+  r.Get(&position, sizeof position);
+  r.Get(&PlayFile, sizeof PlayFile);
+  FILE *f = PlayFile.File();
+  if (f != NULL && position >= 0) fseek(f, position, SEEK_SET);
+  tableXYF.RestoreState(r);
+  tableTXYF.RestoreState(r);
+  tableTXYFR.RestoreState(r);
+  r.Get(line, sizeof line);
+  r.Get(&f1, sizeof f1);
+  r.Get(&f2, sizeof f2);
+  r.Get(&f3, sizeof f3);
+  r.Get(&f4, sizeof f4);
+  r.Get(&f5, sizeof f5);
+  r.Get(&checkDungeonSignature, sizeof checkDungeonSignature);
+}
 void PlayfileOpen(bool open)
 {
   if (open)
