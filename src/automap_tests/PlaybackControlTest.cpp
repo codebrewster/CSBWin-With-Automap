@@ -239,6 +239,73 @@ static void ARewindRunsFromTheSnapshotToTheTick(void)
   CHECK(!PlaybackControl_RewindPending());
 }
 
+// The pause-at field with a tick behind: back there and paused, whatever ran before
+static void APauseTargetBehindGoesBackAndPauses(void)
+{
+  PlaybackControl_Reset();
+  PlaybackControl_SetSpeedIndex(3);
+  CHECK(PlaybackControl_SetPauseTarget(1000, 5000));
+  CHECK(!PlaybackControl_GoBackAndPause(1000, 1000, 3));   // not behind
+  CHECK(!PlaybackControl_GoBackAndPause(1000, 1200, 3));
+  CHECK(PlaybackControl_PauseTarget() == 5000);
+  CHECK(PlaybackControl_GoBackAndPause(1000, 600, 3));
+  CHECK(PlaybackControl_RewindTarget() == 600 && PlaybackControl_PauseTarget() == -1);
+  CHECK(PlaybackControl_GoBackAndPause(1000, 700, 3));     // typed again before it happened
+  CHECK(PlaybackControl_RewindTarget() == 700);
+  PlaybackControl_RewindStart(500);
+  CHECK(PlaybackControl_SkipIsRewind() && PlaybackControl_SkipTarget() == 700 && !PlaybackControl_IsPaused());
+  PlaybackControl_AtTick(700);
+  PlaybackControl_ApplyDuePause();
+  CHECK(PlaybackControl_IsPaused() && PlaybackControl_SpeedIndex() == 3);
+  // To a snapshot's own tick: paused at once
+  PlaybackControl_SetPaused(false);
+  CHECK(PlaybackControl_GoBackAndPause(1000, 750, 3));
+  PlaybackControl_RewindStart(750);
+  CHECK(!PlaybackControl_IsSkipping() && PlaybackControl_IsPaused());
+  // During a fast forward: the speed it would have gone back to
+  PlaybackControl_SetPaused(false);
+  PlaybackControl_SkipAhead(1000, 2500, 1);
+  CHECK(PlaybackControl_GoBackAndPause(1100, 400, PLAYBACK_SPEED_MAX));
+  PlaybackControl_RewindStart(250);
+  PlaybackControl_AtTick(400);
+  PlaybackControl_ApplyDuePause();
+  CHECK(PlaybackControl_IsPaused() && PlaybackControl_SpeedIndex() == 1 && !PlaybackControl_IsSkipping());
+  PlaybackControl_Reset();
+}
+
+// A fast forward may jump to a snapshot, up to its target or a pause before it, never past a
+// breakpoint
+static void ASkipMayJumpToItsTargetOrAPauseBeforeIt(void)
+{
+  PlaybackControl_Reset();
+  CHECK(PlaybackControl_JumpLimit() == -1);                 // no skip
+  PlaybackControl_SkipAhead(40000, 2500, 1);
+  CHECK(PlaybackControl_JumpLimit() == 42500);
+  PlaybackControl_JumpedTo(42250);
+  CHECK(PlaybackControl_IsSkipping());                      // the last ticks still run
+  PlaybackControl_JumpedTo(42500);
+  PlaybackControl_ApplyDuePause();
+  CHECK(!PlaybackControl_IsSkipping() && PlaybackControl_SpeedIndex() == 1 && !PlaybackControl_IsPaused());
+  // A pause target before the skip's target: no further, and it pauses there
+  CHECK(PlaybackControl_SetPauseTarget(42500, 43000));
+  PlaybackControl_SkipAhead(42500, 2500, 1);
+  CHECK(PlaybackControl_JumpLimit() == 43000);
+  PlaybackControl_JumpedTo(43000);
+  PlaybackControl_ApplyDuePause();
+  CHECK(PlaybackControl_IsPaused() && PlaybackControl_PauseTarget() == -1);
+  // A breakpoint: no jump
+  PlaybackControl_Reset();
+  PlaybackControl_ToggleBreakpoint(1, 2, 3);
+  PlaybackControl_SkipAhead(40000, 2500, 1);
+  CHECK(PlaybackControl_JumpLimit() == -1);
+  // A rewind waiting: no jump
+  PlaybackControl_Reset();
+  PlaybackControl_SkipAhead(40000, 2500, 1);
+  CHECK(PlaybackControl_RewindBy(40100, 2500, 1));          // from 42500 to 40000, behind
+  CHECK(PlaybackControl_JumpLimit() == -1);
+  PlaybackControl_Reset();
+}
+
 // Back while a fast forward runs: from where it heads
 static void ARewindDuringASkipCountsFromItsTarget(void)
 {
@@ -312,6 +379,8 @@ void TestPlaybackControl(void)
   ARewindRunsFromTheSnapshotToTheTick();
   ARewindDuringASkipCountsFromItsTarget();
   ARewindPassesBreakpoints();
+  APauseTargetBehindGoesBackAndPauses();
+  ASkipMayJumpToItsTargetOrAPauseBeforeIt();
   APauseTargetPausesWhenReached();
   TheLengthIsTheTimeOfTheLastRecord();
   ABreakpointPausesOnceWhenSteppedOnto();

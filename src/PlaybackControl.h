@@ -58,6 +58,18 @@ int PlaybackControl_SkipTarget(void); // -1 when none
 // skip: the skip only heads there now (or ends, when it is the tick it stands at).
 // On the way to the tick no breakpoint pauses: the party may have crossed one before it was set.
 bool PlaybackControl_RewindBy(int now, int n, int speedBefore);
+// The pause-at field with a tick behind tick now: back to that tick as RewindBy goes, then
+// paused there, whatever the replay did before (the speed stays). A pause target ahead goes.
+// False when the tick is not behind.
+bool PlaybackControl_GoBackAndPause(int now, int tick, int speedBefore);
+// A fast forward over ticks the replay has been at before need not run them again: the engine
+// may put back a snapshot on the way (ReplaySnapshot.h). The furthest tick it may jump to: the
+// skip's target, or a pause target before it; -1 when no skip runs, a rewind waits, or a
+// breakpoint is set (a jump would pass it unnoticed)
+int PlaybackControl_JumpLimit(void);
+// The snapshot of tick restored is back: as if the ticks up to it had run (the skip ends or the
+// pause comes when it is their tick)
+void PlaybackControl_JumpedTo(int restored);
 bool PlaybackControl_RewindPending(void);
 int PlaybackControl_RewindTarget(void); // -1 when none waits
 // The snapshot of tick restored is back: the run to the target begins (when it is ahead)

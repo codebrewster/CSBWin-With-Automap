@@ -25,7 +25,8 @@ int ReplaySnapshot_First(void); // the tick of the earliest, -1 when none
 // variables. It reports on stdout and ends the program when the replay ends.
 void ReplaySnapshot_EnableTest(void);
 // --rewind-check 5000:2500,30000:250 goes back 2500 ticks at tick 5000 and 250 at 30000 as the
-// keys would; "none" goes nowhere. At the end it prints a fingerprint of the game's state.
+// keys would; 5000:-2500 runs 2500 ticks ahead. "none" goes nowhere. At the end it prints a
+// fingerprint of the game's state.
 void ReplaySnapshot_EnableCheck(const char *presses);
 bool ReplaySnapshot_TestIsRunning(void);
 // The replay is over or the game is won (ReplayBackToNormalSpeed): a test or check ends here,

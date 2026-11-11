@@ -192,6 +192,31 @@ bool PlaybackControl_RewindBy(int now, int n, int speedBefore)
   return true;
 }
 
+bool PlaybackControl_GoBackAndPause(int now, int tick, int speedBefore)
+{
+  if (tick < 0 || tick >= now) return false;
+  if (rewindTarget < 0) rewindSpeed = skipTarget >= 0 ? skipSpeed : Clamped(speedBefore);
+  rewindWasPaused = true;
+  rewindTarget = tick;
+  // The field holds one target: this one replaces a pause ahead
+  pauseTarget = -1;
+  return true;
+}
+
+int PlaybackControl_JumpLimit(void)
+{
+  if (skipTarget < 0 || rewindTarget >= 0 || !breakpoints.empty()) return -1;
+  if (pauseTarget >= 0 && pauseTarget < skipTarget) return pauseTarget;
+  return skipTarget;
+}
+
+void PlaybackControl_JumpedTo(int restored)
+{
+  hasLastCell = false;
+  // The counter stands at the snapshot's tick as if the ticks up to it had run
+  PlaybackControl_AtTick(restored);
+}
+
 bool PlaybackControl_RewindPending(void) { return rewindTarget >= 0; }
 int PlaybackControl_RewindTarget(void) { return rewindTarget; }
 

@@ -479,9 +479,12 @@ Ahead runs the ticks at max speed, then the replay goes on at the speed it had (
 paused, if it was). Back puts the game back to the latest snapshot before the tick (one is
 taken every 250 ticks) and runs from there at max speed up to it; the map and the statistics
 go back with it, your own marks on the map stay. No replay pause on a cell stops the way
-back. Pressing again while it runs counts from where it heads. In the box beside them, type a
-tick number and press **Enter**: the replay pauses when the counter reaches it. **x** or an
-empty box takes the target away. From the automap window, Page Up and Page Down still change
+back. The snapshots stay: running ahead again over ticks the replay has been at before jumps
+to the latest snapshot on the way at once, unless a replay pause is set on a cell (the jump
+would pass it). It never jumps past a pause at a tick. Pressing again while it runs counts from where it heads. In the box beside them, type a
+tick number and press **Enter**: for a tick ahead the replay pauses when the counter reaches
+it, for a tick behind it goes back there and pauses, for the tick it is at it pauses now.
+**x**, 0 or an empty box takes a pause ahead away. From the automap window, Page Up and Page Down still change
 the level.
 
 ## Exporting the map as a web page

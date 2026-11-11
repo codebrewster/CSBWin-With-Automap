@@ -516,9 +516,11 @@ void CheckAtTickBoundary(void)
   {
     printf("rewind-check: at tick %d back %d\n", tick, checkPresses[nextCheckPress].second);
     fflush(stdout);
-    // At the speed it runs: --quick is max
-    PlaybackControl_RewindBy(tick, checkPresses[nextCheckPress].second,
-                             NoSpeedLimit != 0 ? PLAYBACK_SPEED_MAX : PlaybackControl_SpeedIndex());
+    // At the speed it runs: --quick is max. A negative count runs ahead (Up, Page Up, Right)
+    int n = checkPresses[nextCheckPress].second;
+    int speed = NoSpeedLimit != 0 ? PLAYBACK_SPEED_MAX : PlaybackControl_SpeedIndex();
+    if (n < 0) PlaybackControl_SkipAhead(tick, -n, speed);
+    else PlaybackControl_RewindBy(tick, n, speed);
     nextCheckPress++;
   }
 }
@@ -539,6 +541,22 @@ void AtTickBoundary(void)
     return;
   }
   int tick = (int)d.Time;
+  // A fast forward over ticks the replay has been at before: on from the latest snapshot on the way
+  int limit = PlaybackControl_JumpLimit();
+  if (limit > tick)
+  {
+    std::map<int, StoredSnapshot>::iterator it = store.upper_bound(limit);
+    if (it != store.begin() && (--it)->first > tick)
+    {
+      int restored;
+      if (RestoreStored(it->first, &restored))
+      {
+        if (checking) printf("rewind-check: at tick %d jumped to %d\n", tick, restored);
+        PlaybackControl_JumpedTo(restored);
+        return;
+      }
+    }
+  }
   if ((store.empty() || tick % SNAPSHOT_EVERY == 0) && store.find(tick) == store.end()) TakeStored();
 }
 
