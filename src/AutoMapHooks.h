@@ -94,11 +94,12 @@ void AutoMap_OnGeneratorFired(int actuator, int x, int y);
 void AutoMap_OnLauncherFired(int actuator, int x, int y, int side);
 void AutoMap_OnChestOpened(int chest);
 // The damage the game showed the player. Groups are RN::ConvertToInteger() of the group on the
-// loaded level. A melee hit's number on the attack panel, or PROJECTILE DAMAGE below the 3D view,
-// for one member:
+// loaded level. A melee hit's number on the attack panel, or PROJECTILE DAMAGE below the 3D view
+// (the hit points the member lost), for one member:
 void AutoMap_OnMonsterDamageShown(int group, int member, int damage);
-// SPELL DAMAGE below the 3D view: one number for the group, credited to every member it has now
-void AutoMap_OnGroupDamageShown(int group, int damage);
+// SPELL DAMAGE below the 3D view, after the damage: the hit points each member still in the group
+// lost, damage[0] for its first member
+void AutoMap_OnGroupDamageShown(int group, const int *damage, int memberCount);
 // The member left the group; the ones above it move down a slot
 void AutoMap_OnMonsterMemberRemoved(int group, int member);
 // FindEmptyDB4Entry handed out the record for a new group: none of the old group's damage stays

@@ -1946,15 +1946,14 @@ void AutoMap_OnMonsterDamageShown(int group, int member, int damage)
   FilterLastSnapshotAnew();
 }
 
-void AutoMap_OnGroupDamageShown(int group, int damage)
+void AutoMap_OnGroupDamageShown(int group, const int *damage, int memberCount)
 {
   RN record;
   record.ConstructFromInteger(group);
   if (record == RNeof || record == RNnul) return;
-  int memberCount = GetRecordAddressDB4(record)->numMonM1() + 1;
   for (int member = 0; member < memberCount; member++)
   {
-    recorder.Damage().Credit(AutoMapLevelReader_RecordId(group), member, damage);
+    if (damage[member] > 0) recorder.Damage().Credit(AutoMapLevelReader_RecordId(group), member, damage[member]);
   }
   FilterLastSnapshotAnew();
 }

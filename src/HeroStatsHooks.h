@@ -124,7 +124,8 @@ void HeroStats_OnDoorBashTimer(int level, int x, int y, bool breaksNow);
 
 // PhysicalAttackFilter: a melee attack at a monster group (0: none) with the damage the attack
 // panel shows. One try; a hit when the damage is above 0. The weapon is the item in the weapon
-// hand (possession 1), the option the attack type.
+// hand (possession 1), the option the attack type. Its damage is the hit points the monster
+// loses until HeroStats_EndMonsterBlow.
 void HeroStats_OnMeleeAttack(int slot, int attackType, int monsterGroup, int damageShown);
 // The weapon of the slot's attacks: the basic object type of the item in the weapon hand
 // (possession 1), HERO_STATS_UNARMED when it is empty
@@ -157,23 +158,25 @@ void HeroStats_DropExpectedMissile(void);
 // expectation is dropped)
 void HeroStats_OnMissileLaunched(int missileIndex);
 void HeroStats_OnMissileFreed(int missileIndex);
-// PROJECTILE DAMAGE on a monster; the first damage of a missile is its hit. A missile with no
-// known origin (launchers, scripts) is a trap's.
+// A missile hits a monster for damage; the first damage of a missile is its hit. A missile with
+// no known origin (launchers, scripts) is a trap's. Its damage is the hit points the monster
+// loses until HeroStats_EndMonsterBlow (PROJECTILE DAMAGE shows the same).
 void HeroStats_OnMissileDamage(int missileIndex, int damageShown, int monsterType);
 // Around CreateCloud for a missile's explosion: the explosion's SPELL DAMAGE is the missile's,
 // and the cloud CreateCloud makes first inherits its blow
 void HeroStats_BeginCloud(int missileIndex);
 void HeroStats_OnCloudMade(int cloudIndex);                 // every cloud made by CreateCloud
 void HeroStats_EndCloud(void);
-// SPELL DAMAGE: one number for the group, credited once per member. Outside Begin/EndCloud the
-// cloud has no known origin.
-void HeroStats_OnSpellDamage(int damageShown, int memberCount, int monsterType);
+// A fireball's or lightning's explosion hurts a group. Until HeroStats_EndMonsterBlow the hit
+// points each member loses are its damage (SPELL DAMAGE shows the same, one number per member).
+// Outside Begin/EndCloud the cloud has no known origin.
+void HeroStats_OnSpellDamage(int monsterType);
 // A cloud's tick hurts a group, by the cloud's origin. Until HeroStats_EndMonsterBlow the hit
 // points each member loses (HeroStats_OnMonsterDamaged) are the cloud's damage: the engine draws
 // each member's share at random, and the cloud's own number is never shown.
 void HeroStats_OnCloudDamage(int cloudIndex, int monsterType);
-// DamageMonster: a member lost hit points (all it had left when it died). Only a cloud's tick
-// counts them; every other blow is credited with the damage the game shows.
+// DamageMonster: a member lost hit points (all it had left when it died). A melee blow, a
+// missile's hit, an explosion and a cloud's tick are credited with them; doors and pits are not.
 void HeroStats_OnMonsterDamaged(int hitPointsLost);
 void HeroStats_OnCloudFreed(int cloudIndex);
 // Door, pit: until End, deaths count for it

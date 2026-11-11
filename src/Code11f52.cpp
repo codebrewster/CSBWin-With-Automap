@@ -1357,7 +1357,34 @@ void KillMonster(RN rnMon, ui32 indexInGroup)
 //
 // *********************************************************
 //  TAG00baec
-MONSTER_DAMAGE_RESULT DamageMonsterGroup(DB4 *pDB4,i32 mapX,i32 mapY,i32 damage,i16 P5, bool noItem16, MMRECORD *pmmr)
+extern int nextTextTiming; // CBSCode
+
+// SPELL DAMAGE below the 3D view: the hit points each member of the group lost, in the order of
+// its slots, after the damage. The automap learns the same numbers for the members still alive.
+static void ShowSpellDamage(RN group, const GROUP_DAMAGE &groupDamage)
+{
+  char text[64];
+  int length = snprintf(text, sizeof text, "SPELL DAMAGE");
+  int survivorDamage[4];
+  int survivorCount = 0;
+  bool anyLost = false;
+  for (i32 m = 0; m < groupDamage.memberCount; m++)
+  {
+    length += snprintf(text + length, sizeof text - length, "%s%d",
+                       m == 0 ? " " : ", ", groupDamage.hitPointsLost[m]);
+    if (groupDamage.hitPointsLost[m] > 0) anyLost = true;
+    if (!groupDamage.died[m]) survivorDamage[survivorCount++] = groupDamage.hitPointsLost[m];
+  };
+  if (!anyLost) return;
+  PrintLinefeed();
+  nextTextTiming = 8;
+  QuePrintLines(11, text, false); // 11 is yellow
+  if (survivorCount > 0)
+    AutoMap_OnGroupDamageShown(group.ConvertToInteger(), survivorDamage, survivorCount);
+}
+
+MONSTER_DAMAGE_RESULT DamageMonsterGroup(DB4 *pDB4,i32 mapX,i32 mapY,i32 damage,i16 P5, bool noItem16, MMRECORD *pmmr,
+                                         GROUP_DAMAGE *pGroupDamage)
 {//(i16)
   // Return 0 if no damage done.
   // Return 2 if all monsters in group are killed
@@ -1374,17 +1401,38 @@ MONSTER_DAMAGE_RESULT DamageMonsterGroup(DB4 *pDB4,i32 mapX,i32 mapY,i32 damage,
   w_6 = 0;
   w_8 = 1;
   d.Word13046 = 0;
+  if (pGroupDamage != NULL)
+  {
+    pGroupDamage->memberCount = 0;
+    for (i32 m = 0; m < 4; m++)
+    {
+      pGroupDamage->hitPointsLost[m] = 0;
+      pGroupDamage->died[m] = false;
+    };
+  };
   if (D7W <= 0) return NO_MONSTER_DIED;
   w_2 = DB4A3->numMonM1();
+  if (pGroupDamage != NULL) pGroupDamage->memberCount = w_2 + 1;
   D6W = sw(D7W/8 + 1);
   D7W = sw(D7W - D6W);
   D6W *= 2;
   do
   {
     MONSTER_DAMAGE_RESULT monsterDamageResult;
+    i32 hitPointsBefore = DB4A3->hitPoints6[w_2];
     D1W = (i16)STRandom(D6W);
     monsterDamageResult =
       DamageMonster(DB4A3, w_2, mapX, mapY, sw(D7W + D1W), P5, noItem16, pmmr);
+    if (pGroupDamage != NULL)
+    {
+      // The members go from the last down, so this one's slot is still its own. A member that
+      // is not the last leaves the group when it dies; the last one may stay (a pit's fall).
+      bool died = (w_2 > 0) ? (DB4A3->numMonM1() < w_2)
+                            : (monsterDamageResult != NO_MONSTER_DIED);
+      pGroupDamage->died[w_2] = died;
+      pGroupDamage->hitPointsLost[w_2] =
+          died ? hitPointsBefore : hitPointsBefore - DB4A3->hitPoints6[w_2];
+    };
     w_8 = (I16)((w_8!=0)&&(monsterDamageResult != NO_MONSTER_DIED) ? 1 : 0);
     w_6 = (I16)((w_6!=0)||(monsterDamageResult != NO_MONSTER_DIED) ? 1 : 0);
     w_2--;
@@ -1416,7 +1464,6 @@ i16 DeterminePoisonDamage(MONSTERTYPE monsterType, i16 P2)
 //
 // *********************************************************
 //   TAG00dea8
-extern int nextTextTiming; // CBSCode
 
 void CreateCloud(RN P1,
                  i16 size,
@@ -1553,16 +1600,12 @@ void CreateCloud(RN P1,
   D1W = sw(STRandom(2*D4W + 1));
   damage = sw(damage - D1W);
   if (damage <= 0) return;
-  char levelText[25];
-  PrintLinefeed();
-  nextTextTiming = 8;
-  snprintf(levelText,25,"SPELL DAMAGE %d",damage);
-  QuePrintLines(11, levelText, false); // 11 is yellow
-  AutoMap_OnGroupDamageShown(objMonster.ConvertToInteger(), damage);
-  HeroStats_OnSpellDamage(damage, pDB4_4->numMonM1() + 1, mtD0);
+  GROUP_DAMAGE groupDamage;
+  HeroStats_OnSpellDamage(mtD0);
   d.MonsterDamageResult
-     = (i16)DamageMonsterGroup(pDB4_4, objX, objY, damage, 1, false, pmmr);
+     = (i16)DamageMonsterGroup(pDB4_4, objX, objY, damage, 1, false, pmmr, &groupDamage);
   HeroStats_EndMonsterBlow();
+  ShowSpellDamage(objMonster, groupDamage);
 }
 
 // *********************************************************
@@ -2073,14 +2116,9 @@ i16 ProcessMissileEncounter(
       D1L = DeterminePoisonDamage(mt_60, d.Word12962);
       {
         MONSTER_DAMAGE_RESULT monsterDamageResult;
-	char levelText[25];
-	PrintLinefeed();
-	nextTextTiming = 8;
-	snprintf(levelText,25,"PROJECTILE DAMAGE %d",D5W+D1W);
-	// 15 is white like for a standard ST palette, can't believe they don't have any constant for colors!
-	QuePrintLines(15, levelText, false);
-        AutoMap_OnMonsterDamageShown(FindFirstMonster(objX, objY).ConvertToInteger(),
-                                     monsterOrdinal-1, D5W+D1W);
+        RN group = FindFirstMonster(objX, objY);
+        i32 hitPointsBefore = DBmonA2->hitPoints6[monsterOrdinal-1];
+        i32 hitPointsLost;
         HeroStats_OnMissileDamage(db.GetDBIndex(pDBmissile, dbMISSILE), D5W+D1W, mt_60);
 
         monsterDamageResult = DamageMonster(
@@ -2093,6 +2131,27 @@ i16 ProcessMissileEncounter(
                                             false,
                                             pmmr);
         HeroStats_EndMonsterBlow();
+        // PROJECTILE DAMAGE below the 3D view: the hit points the monster lost, all it had left
+        // when it died. The automap learns the same number while the monster lives.
+        if (monsterDamageResult != NO_MONSTER_DIED)
+        {
+          hitPointsLost = hitPointsBefore;
+        }
+        else
+        {
+          hitPointsLost = hitPointsBefore - DBmonA2->hitPoints6[monsterOrdinal-1];
+          if (hitPointsLost > 0)
+            AutoMap_OnMonsterDamageShown(group.ConvertToInteger(), monsterOrdinal-1, hitPointsLost);
+        };
+        if (hitPointsLost > 0)
+        {
+          char levelText[32];
+          PrintLinefeed();
+          nextTextTiming = 8;
+          snprintf(levelText, sizeof levelText, "PROJECTILE DAMAGE %d", hitPointsLost);
+          // 15 is white like for a standard ST palette
+          QuePrintLines(15, levelText, false);
+        };
         if (monsterDamageResult != ALL_MONSTERS_DIED)
         { //At least one monster in group remains.
           ProcessTimers29to41(objX, objY, TT_M2, 0);

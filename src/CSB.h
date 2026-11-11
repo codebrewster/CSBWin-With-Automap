@@ -3540,7 +3540,16 @@ MONSTER_DAMAGE_RESULT DamageMonster(
                bool noItem16,
                MMRECORD *pmmr);
 // TAG00baec
-MONSTER_DAMAGE_RESULT DamageMonsterGroup(DB4 *, i32, i32, i32, i16, bool, MMRECORD *pmmr); //(i16)
+// What each member of a group lost to DamageMonsterGroup, by its slot when the damage began. The
+// engine draws each member's share at random; a member that died lost the hit points it had left.
+struct GROUP_DAMAGE
+{
+  i32  memberCount;
+  i32  hitPointsLost[4];
+  bool died[4];
+};
+MONSTER_DAMAGE_RESULT DamageMonsterGroup(DB4 *, i32, i32, i32, i16, bool, MMRECORD *pmmr,
+                                         GROUP_DAMAGE *pGroupDamage = NULL); //(i16)
 void KillMonster(RN RNmon, ui32 indexInGroup);
 void StealFromCharacter(DB4 *, i32);//TAG00bc12//(void)
 i16  DeterminePoisonDamage(MONSTERTYPE mt, i16);
