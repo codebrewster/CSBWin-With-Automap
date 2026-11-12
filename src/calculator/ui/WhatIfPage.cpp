@@ -21,6 +21,7 @@ struct Setup {
   Rules rules;
   unsigned clock;
   int power;
+  int squares = 3;
 };
 
 struct Variable {
@@ -56,6 +57,15 @@ double spellAverage(const Setup &s, int missile)
   Cast c = castSpell(*s.data, s.hero, missile, s.power);
   MissileState at = flyMissile(c.range, c.damage, c.decay, 0);
   return missileOnMonster(missile, at, s.target, dice).stats.perTry;
+}
+
+// The weapon in the hero's hand thrown by hand at s.squares squares
+double thrownAverage(const Setup &s)
+{
+  if (s.hero.weapon < 0) return 0;
+  const GameData &g = *s.data;
+  ThrowResult r = throwAttack(g, s.hero, g.weapon(s.hero.weapon), nullptr, s.target, s.rules, s.squares, false);
+  return r.valid ? r.perThrow : 0;
 }
 
 double recoverySeconds(const Setup &s, RecoveryGoal RecoveryResult::*goal, int mode)
@@ -96,6 +106,7 @@ const std::vector<Variable> &variables()
     {"Monster: dexterity", [](Setup &s) { return &s.target.type.dexterity; }, 0, 255},
     {"Monster: attack", [](Setup &s) { return &s.target.type.attack; }, 0, 255},
     {"Monster: fire resistance", [](Setup &s) { return &s.target.type.fireResistance; }, 0, 15},
+    {"Throw: distance (squares)", [](Setup &s) { return &s.squares; }, 1, 30},
   };
   return v;
 }
@@ -112,6 +123,7 @@ const std::vector<Result> &results()
     {"Monster: damage per second", "hp / s", [](const Setup &s) { return monsterAttack(s.hero, s.party, s.target, *s.data, s.rules).groupDps; }},
     {"Monster: seconds until the hero dies", "s", [](const Setup &s) { return monsterAttack(s.hero, s.party, s.target, *s.data, s.rules).secondsToKill; }},
     {"Monster: wound chance per attack", "%", [](const Setup &s) { return 100 * monsterAttack(s.hero, s.party, s.target, *s.data, s.rules).woundChance; }},
+    {"Throw: damage per throw (weapon in hand, thrown)", "hp", [](const Setup &s) { return thrownAverage(s); }},
     {"Spell: Fireball, average damage", "hp", [](const Setup &s) { return spellAverage(s, MissileFireball); }},
     {"Spell: Lightning Bolt, average damage", "hp", [](const Setup &s) { return spellAverage(s, MissileLightning); }},
     {"Spell: Poison Bolt, average damage", "hp", [](const Setup &s) { return spellAverage(s, MissilePoisonBolt); }},
@@ -218,13 +230,19 @@ void WhatIfPage::recalculate()
   chart_->setMarks(marks);
   bool flat = true;
   for (const QPointF &pt : line.points) flat = flat && pt.y() == 0;
+  if (flat && QString::fromLatin1(res.name).startsWith(QLatin1String("Throw:"))) {
+    note_->setText(tr("Nothing to show: the hero holds nothing to throw, or the missile never arrives "
+                      "or cannot hurt the monster."));
+    return;
+  }
   if (flat && QString::fromLatin1(res.name).startsWith(QLatin1String("Hero:"))) {
     note_->setText(tr("Nothing to show: the weapon in the hero's hand has no physical action the hero "
                       "can use, or the monster cannot be hurt by it."));
     return;
   }
   note_->setText(tr("Now, with %1 at %2: %3 %4. Everything else stays as set in the side panel. "
-                    "A value of 0 for a time means it never happens.")
+                    "A value of 0 for a time means it never happens. The Throw lines use the weapon in the hero's "
+                    "hand, thrown by hand, at the distance set here (3 squares unless it is the input).")
                    .arg(tr(v.name)).arg(now).arg(num(atNow, 2), tr(res.unit)));
 }
 

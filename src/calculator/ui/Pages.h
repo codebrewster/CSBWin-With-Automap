@@ -81,8 +81,10 @@ class ThrowPage : public Page {
   QTableWidget *table_;
   Tile *tArrive_, *tDamage_, *tRange_, *tDps_, *tKill_, *tStamina_;
   Histogram *chart_;
+  LineChart *curve_;
   QLabel *note_;
   std::vector<calc::ThrowResult> rows_;
+  std::vector<calc::Hero> heroes_;   // each row's hero with the launcher or weapon in hand
   std::vector<int> needs_;    // skill level each row's action asks, -1 = none
   QString empty_;             // why the table is empty
   QString picked_;            // "object/launcher" of the row to keep selected

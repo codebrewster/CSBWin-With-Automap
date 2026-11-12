@@ -97,6 +97,9 @@ ThrowPage::ThrowPage(Session *session, QWidget *parent) : Page(session, parent)
   chart_ = new Histogram;
   chart_->setMinimumHeight(190);
   column()->addWidget(chart_, 2);
+  curve_ = new LineChart;
+  curve_->setMinimumHeight(170);
+  column()->addWidget(curve_, 2);
   note_ = noteLabel();
   column()->addWidget(note_);
 
@@ -169,6 +172,7 @@ void ThrowPage::recalculate()
 
   rows_.assign(jobs.size(), ThrowResult());
   needs_.assign(jobs.size(), -1);
+  heroes_.assign(jobs.size(), Hero());
   const Target target = s_->target;
   const Rules rules = s_->rules;
   const int squares = squares_->value();
@@ -182,6 +186,7 @@ void ThrowPage::recalculate()
       r.usable = job.usable;
       rows_[i] = r;
       needs_[i] = job.need;
+      heroes_[i] = job.hero;
     }
   };
   unsigned threads = std::max(1u, std::min<unsigned>(std::thread::hardware_concurrency(), unsigned(jobs.size())));
@@ -249,6 +254,8 @@ void ThrowPage::showRow()
     for (Tile *tile : {tArrive_, tDamage_, tRange_, tDps_, tKill_, tStamina_}) tile->set(QStringLiteral("–"));
     chart_->set(Dist(), tr("Damage of a throw"));
     chart_->clearExtras();
+    curve_->set({}, tr("Squares away"), tr("hp"));
+    curve_->setMarks({});
     note_->setText(empty_);
     return;
   }
@@ -263,6 +270,8 @@ void ThrowPage::showRow()
     for (Tile *tile : {tArrive_, tDamage_, tRange_, tDps_, tKill_, tStamina_}) tile->set(QStringLiteral("–"));
     chart_->set(Dist(), tr("Damage of a throw"));
     chart_->clearExtras();
+    curve_->set({}, tr("Squares away"), tr("hp"));
+    curve_->setMarks({});
     note_->setText(notes.join(QStringLiteral("  ")));
     return;
   }
@@ -273,7 +282,7 @@ void ThrowPage::showRow()
   if (r.throwsToKill > 0)
     tKill_->set(duration(r.secondsToKill), tr("%1 throws for %2 hp").arg(num(r.throwsToKill)).arg(t.hp));
   else
-    tKill_->set(tr("never"), t.hp > 0 ? tr("it cannot be hurt this way") : tr("no hit points set"));
+    tKill_->set(tr("never"), t.hp > 0 ? (r.arriveChance == 0 ? tr("it never arrives") : tr("it cannot be hurt this way")) : tr("no hit points set"));
   tStamina_->set(num(r.stamina),
                  r.stamina > 0 ? tr("%1 damage per point").arg(num(r.perThrow / r.stamina, 2)) : QString());
   QString name = QString::fromStdString(g.weapon(r.object).name);
@@ -282,8 +291,23 @@ void ThrowPage::showRow()
   chart_->set(r.damage, tr("%1 on %2: damage of a throw that hurts").arg(name, QString::fromStdString(t.type.name)),
               tr("hp"));
   if (t.hp > 0 && t.hp <= r.maxHit * 3 / 2) chart_->setMarker(t.hp, tr("kills"));
+  {
+    const int row = table_->item(sel.first()->row(), CWeapon)->data(Qt::UserRole).toInt();
+    Series line;
+    line.name = tr("Damage per throw");
+    line.color = theme().accent;
+    const WeaponType &object = g.weapon(r.object);
+    const WeaponType launcher = r.shot ? g.weapon(r.launcher) : WeaponType();
+    for (int sq = 1; sq <= 30; sq++) {
+      ThrowResult at = throwAttack(g, heroes_[size_t(row)], object, r.shot ? &launcher : nullptr, t,
+                                   s_->rules, sq, backRow_->isChecked());
+      line.points.append({double(sq), at.valid ? at.perThrow : 0.0});
+    }
+    curve_->set({line}, tr("Squares away"), tr("hp per throw"));
+    curve_->setMarks({{double(squares_->value()), tr("now: %1").arg(squares_->value()), theme().muted}});
+  }
   if (t.type.invincible) notes << tr("The game does not let this monster lose hit points.");
-  if (scope_->currentIndex() == 1)
+  if (scope_->currentIndex() == 1 && !r.shot)
     notes << tr("Other weapons are tried on with the hero's load as it is.");
   note_->setText(notes.join(QStringLiteral("  ")));
 }

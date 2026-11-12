@@ -50,6 +50,8 @@ at a target some squares away (optionally in the back row): the chance the
 missile arrives, damage per throw and per hit, least and most, damage per
 second, stamina, experience and the time to kill. Choose the weapon in hand or
 every weapon; in shot mode each row is a launcher with an ammunition that fits it.
+Under the histogram, a curve shows the damage per throw of the selected row for
+1 to 30 squares.
 
 **Monster attacks.** One blow of the monster on the hero: the chance it lands,
 the damage, which body part it is aimed at and that part's armour value, the
@@ -65,7 +67,9 @@ the cast works, or mana); the cell you click is shown in full below.
 walking, standing still or sleeping, and what the hero eats and drinks until
 then. Recovery is not random in the engine: it follows the game clock.
 
-**What if.** One result plotted against one input, everything else as set.
+**What if.** One result plotted against one input, everything else as set. The
+Throw result and the distance input use the weapon in the hero's hand, thrown by
+hand, at 3 squares unless the distance is the input.
 
 ## What to know about the numbers
 
@@ -84,6 +88,14 @@ then. Recovery is not random in the engine: it follows the game clock.
 - **Harm Non-Material against a Zytaz** is calculated like against any other
   non-material being; the engine has a special case for Zytaz that are attacking.
 - **Other weapons** in "Every weapon" are tried on with the hero's load as it is.
+- **Missiles have no hit roll** against monsters: a missile that arrives hits.
+  Only the fading with distance can make it vanish first.
+- **A shot's damage** depends on the launcher's class, not on the hero's Shoot
+  skill. The original CSBwin sources (9.96.3, 11.0 and the 2023 archive) do the
+  same. The launcher power is its class minus 16 for damage and minus 32 for decay.
+- **A throw takes 4 ticks** (`ThrowByCharacter`); a shot takes the ticks of the
+  Shoot action. The 2 ticks of clicking per throw are an assumption; they were
+  measured only for swings.
 - **A negative action bonus** (a savegame can hold -800) is shown as it is; the
   sidebar tick "Count a negative action bonus as 0" makes the calculation use 0
   for every hero.
@@ -129,6 +141,7 @@ Each formula names the engine function it follows and where that is:
 | `core/MonsterAttack.cpp` | `MonsterDamagesCharacter` (Monster.cpp) |
 | `core/Defense.cpp` | `DamageCharacter`, `TAG01680a`, `TAG016426` (Character.cpp), `PoisonCharacter` (CSBCode.cpp) |
 | `core/Spells.cpp` | `CastSpell`, `CharacterThrowsSpell` (Magic.cpp), `DetermineMagicDamage`, `ProcessMissileEncounter`, `CreateCloud` (Code11f52.cpp), `ProcessTT_25` (Timer.cpp), `MonsterAttacks` (Monster.cpp) |
+| `core/Thrown.cpp` | `ThrowByCharacter` (Mouse.cpp), `atk_SHOOT` (Attack.cpp), `DetermineMagicDamage`, `ProcessMissileEncounter` (Code11f52.cpp) |
 | `core/Recovery.cpp` | `TenSecondUpdate` (Code17818.cpp), `AdjustStamina` (Code11f52.cpp) |
 | `io/SaveGame.cpp` | `SaveGame.cpp`, `Unscramble` (CSBCode.cpp) |
 | `io/GraphicsDat.cpp` | `ReadTablesFromGraphicsFile` (CSBCode.cpp), `LZWExpand` (Graphics.cpp) |
