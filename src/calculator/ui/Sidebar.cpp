@@ -4,11 +4,14 @@
 #include <QDoubleSpinBox>
 #include <QGridLayout>
 #include <QLabel>
+#include <QPushButton>
+#include <QHBoxLayout>
 #include <QScrollArea>
 #include <QVBoxLayout>
 #include <QWheelEvent>
 
 #include "../core/Defense.h"
+#include "../core/Spells.h"
 #include "Widgets.h"
 
 using namespace calc;
@@ -184,12 +187,51 @@ void Sidebar::buildHero(QVBoxLayout *column)
   n = 0;
   Party &p = s_->party;
   const Party &pb = s_->partyBase;
-  Card::addPair(g, n++, 3, tr("Party"), field(&p.partyShield, &pb.partyShield, 0, 999),
-                tr("YA IR: added to the armour of every body part"));
+  auto *partyField = field(&p.partyShield, &pb.partyShield, 0, 999);
+  auto *fireField = field(&p.fireShield, &pb.fireShield, 0, 999);
+  Card::addPair(g, n++, 3, tr("Party"), partyField,
+                tr("YA IR: added to the armour of every body part. One cast adds 4 x (power + 1); "
+                   "above 50 a new cast adds only a quarter. Use the cast row below."));
   Card::addPair(g, n++, 3, tr("Spell"), field(&p.spellShield, &pb.spellShield, 0, 999),
-                tr("Taken off magic damage"));
-  Card::addPair(g, n++, 3, tr("Fire"), field(&p.fireShield, &pb.fireShield, 0, 999),
-                tr("FUL BRO NETA: taken off fire damage"));
+                tr("Spellshield action: taken off magic damage. One use adds strength / 32; "
+                   "above 50 a new use adds only a quarter. Typical: 5 to 60."));
+  Card::addPair(g, n++, 3, tr("Fire"), fireField,
+                tr("FUL BRO NETA: taken off fire damage. One cast adds (16 x (power + 1)^2 + 100) / 32; "
+                   "above 50 a new cast adds only a quarter. Use the cast row below."));
+  partyCard->body()->addWidget(mutedLabel(tr("Cast a shield spell")));
+  auto *castRow = new QHBoxLayout;
+  auto *spellBox = choice();
+  spellBox->addItem(tr("YA IR (party shield)"), ShieldYaIr);
+  spellBox->addItem(tr("FUL BRO NETA (fire shield)"), ShieldFulBroNeta);
+  auto *powerBox = choice();
+  for (int pw = 1; pw <= 6; pw++) powerBox->addItem(QString::fromLatin1(powerName(pw)), pw);
+  powerBox->setCurrentIndex(2);
+  auto *castButton = new QPushButton(tr("Cast"));
+  castRow->addWidget(spellBox, 1);
+  castRow->addWidget(powerBox);
+  castRow->addWidget(castButton);
+  partyCard->body()->addLayout(castRow);
+  auto *castNote = mutedLabel(QString());
+  castNote->setWordWrap(true);
+  partyCard->body()->addWidget(castNote);
+  auto preview = [=] {
+    auto sp = ShieldSpell(spellBox->currentData().toInt());
+    int current = sp == ShieldYaIr ? partyField->value() : fireField->value();
+    ShieldCast c = castShield(sp, powerBox->currentData().toInt(), current);
+    castNote->setText(tr("Adds %1 to the %2 shield, which wears off again after %3 ticks (about %4 seconds awake).")
+                        .arg(c.added).arg(sp == ShieldYaIr ? tr("party") : tr("fire")).arg(c.ticks)
+                        .arg(c.ticks / 4.2, 0, 'f', 0));
+  };
+  connect(spellBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, preview);
+  connect(powerBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, preview);
+  connect(partyField, QOverload<int>::of(&QSpinBox::valueChanged), this, preview);
+  connect(fireField, QOverload<int>::of(&QSpinBox::valueChanged), this, preview);
+  connect(castButton, &QPushButton::clicked, this, [=] {
+    auto sp = ShieldSpell(spellBox->currentData().toInt());
+    IntField *f = sp == ShieldYaIr ? partyField : fireField;
+    f->setValue(f->value() + castShield(sp, powerBox->currentData().toInt(), f->value()).added);
+  });
+  preview();
   column->addWidget(partyCard);
   partyCard->setCollapsed(true);
 }

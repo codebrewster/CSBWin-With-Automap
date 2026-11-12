@@ -218,6 +218,18 @@ static void heroAttacks(const GameData &g)
   }
 }
 
+static void shieldSpells()
+{
+  const int ya[6] = {8, 12, 16, 20, 24, 28}, fire[6] = {5, 7, 11, 15, 21, 27};
+  for (int p = 1; p <= 6; p++) {
+    expect(castShield(ShieldYaIr, p, 0).added == ya[p - 1], "YA IR adds 4 * (power + 1)");
+    expect(castShield(ShieldFulBroNeta, p, 0).added == fire[p - 1], "FUL BRO NETA adds its strength / 32");
+  }
+  expect(castShield(ShieldYaIr, 6, 0).ticks == 784, "YA IR MON lasts 28 squared ticks");
+  expect(castShield(ShieldYaIr, 6, 51).added == 7, "above 50 a cast adds a quarter");
+  expect(castShield(ShieldYaIr, 6, 50).added == 28, "50 itself is still full");
+}
+
 static void monsterAttacks(const GameData &g)
 {
   Rng rng(2);
@@ -416,6 +428,7 @@ int main(int argc, char **argv)
   expect(builtinChaosStrikesBack().actions[19].energy == 40 && g.actions[19].energy == 26,
          "Berzerk costs 40 stamina in Chaos Strikes Back, 26 in Dungeon Master");
   heroAttacks(g);
+  shieldSpells();
   monsterAttacks(g);
   spells(g);
   recovery();

@@ -44,6 +44,15 @@ struct Cast {
 };
 Cast castSpell(const GameData &data, const Hero &hero, int missile, int power);
 
+// The shield spells (Magic.cpp:1366 YA IR, Magic.cpp:1432 + Attack.cpp:1218 FUL BRO NETA)
+enum ShieldSpell { ShieldYaIr, ShieldFulBroNeta };
+struct ShieldCast {
+  int added = 0;      // what one cast adds to the shield
+  int ticks = 0;      // how long it lasts before the same amount is taken off
+};
+// `current` = the shield the party already has: above 50 a new cast adds only a quarter
+ShieldCast castShield(ShieldSpell spell, int power, int current);
+
 // DetermineMagicDamage for a spell missile
 Dist magicDamage(int missile, const MissileState &at, Dice &dice);
 int sampleMagicDamage(Draw &d, int missile, const MissileState &at, int *poison = nullptr);

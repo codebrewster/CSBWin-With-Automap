@@ -542,4 +542,20 @@ MonsterLaunch monsterLaunch(const MonsterType &m, Dice &dice)
   return l;
 }
 
+ShieldCast castShield(ShieldSpell spell, int power, int current)
+{
+  ShieldCast c;
+  const int d6 = 4 * (power + 1);   // the strength of every "light" class spell
+  if (spell == ShieldYaIr) {
+    c.added = d6;
+    c.ticks = d6 * d6;
+  } else {
+    const int strength = d6 * d6 + 100;
+    c.added = strength / 32;
+    c.ticks = strength;
+  }
+  if (current > 50) c.added = spell == ShieldYaIr ? c.added >> 2 : c.added / 4;
+  return c;
+}
+
 }  // namespace calc
