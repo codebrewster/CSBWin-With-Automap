@@ -95,7 +95,8 @@ void PlaybackControl_Reset(void);
 // Breakpoints: cells (level and the level's x, y, as the party's position) set on the automap.
 // When the party steps onto one, that breakpoint goes (the others stay) and a pause is due.
 // Stepping onto means coming from another cell: a breakpoint set under the party waits until it
-// leaves and comes back.
+// leaves and comes back. A breakpoint or a pause target reached during a fast forward ends it:
+// after the pause the replay goes on at the speed it had before the skip.
 void PlaybackControl_ToggleBreakpoint(int level, int x, int y);
 bool PlaybackControl_HasBreakpoint(int level, int x, int y);
 int PlaybackControl_BreakpointCount(void);

@@ -169,6 +169,18 @@ static void EndSkip(void)
   if (skipWasPaused) pauseIsDue = true;
 }
 
+// A breakpoint or a pause target the skip ran into: the replay pauses there and the skip is over,
+// so that it goes on from there at the speed it had before, not at max to the skip's target
+static void PauseEndsSkip(void)
+{
+  pauseIsDue = true;
+  if (skipTarget < 0) return;
+  skipTarget = -1;
+  skipIsRewind = false;
+  speedIndex = skipSpeed;
+  speedSyncDue = true;
+}
+
 bool PlaybackControl_RewindBy(int now, int n, int speedBefore)
 {
   if (n <= 0) return rewindTarget >= 0;
@@ -268,7 +280,7 @@ void PlaybackControl_AtTick(int tickAfter)
   if (pauseTarget >= 0 && tickAfter >= pauseTarget)
   {
     pauseTarget = -1;
-    pauseIsDue = true;
+    PauseEndsSkip();
   }
 }
 
@@ -301,7 +313,7 @@ bool PlaybackControl_PartyAt(int level, int x, int y)
   // On the way back to a tick the party walks where it walked before
   if (PlaybackControl_SkipIsRewind()) return false;
   if (!stepped || !breakpoints.erase(cell)) return false;
-  pauseIsDue = true;
+  PauseEndsSkip();
   return true;
 }
 

@@ -336,6 +336,33 @@ static void ARewindPassesBreakpoints(void)
   CHECK(PlaybackControl_PartyAt(1, 2, 3));
 }
 
+// A breakpoint or a pause target reached during a fast forward ends it: paused there, and on
+// unpausing the replay runs at the speed it had before the skip, not at max to the skip's target
+static void APauseDuringASkipEndsTheSkip(void)
+{
+  PlaybackControl_Reset();
+  PlaybackControl_ToggleBreakpoint(1, 2, 3);
+  PlaybackControl_SkipAhead(1000, 250, 2);
+  PlaybackControl_PartyAt(1, 2, 2);
+  PlaybackControl_AtTick(1010);
+  CHECK(PlaybackControl_PartyAt(1, 2, 3));
+  PlaybackControl_ApplyDuePause();
+  CHECK(PlaybackControl_IsPaused() && !PlaybackControl_IsSkipping());
+  CHECK(PlaybackControl_SpeedIndex() == 2 && PlaybackControl_TakeSpeedSync());
+  PlaybackControl_SetPaused(false);
+  PlaybackControl_AtTick(1250);                            // the old target: nothing happens
+  PlaybackControl_ApplyDuePause();
+  CHECK(!PlaybackControl_IsPaused() && PlaybackControl_SpeedIndex() == 2);
+  // A pause target before the skip's target
+  PlaybackControl_Reset();
+  CHECK(PlaybackControl_SetPauseTarget(1000, 1100));
+  PlaybackControl_SkipAhead(1000, 2500, 3);
+  PlaybackControl_AtTick(1100);
+  PlaybackControl_ApplyDuePause();
+  CHECK(PlaybackControl_IsPaused() && !PlaybackControl_IsSkipping() && PlaybackControl_SpeedIndex() == 3);
+  PlaybackControl_Reset();
+}
+
 static void APauseTargetPausesWhenReached(void)
 {
   PlaybackControl_Reset();
@@ -382,6 +409,7 @@ void TestPlaybackControl(void)
   APauseTargetBehindGoesBackAndPauses();
   ASkipMayJumpToItsTargetOrAPauseBeforeIt();
   APauseTargetPausesWhenReached();
+  APauseDuringASkipEndsTheSkip();
   TheLengthIsTheTimeOfTheLastRecord();
   ABreakpointPausesOnceWhenSteppedOnto();
   TheSpeedsGoFromHalfTo64AndMax();
