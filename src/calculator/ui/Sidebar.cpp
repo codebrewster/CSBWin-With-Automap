@@ -322,9 +322,11 @@ void Sidebar::fillGroups()
       const SavedGroup &grp = l.groups[i];
       QString hp;
       for (int k = 0; k < grp.count; k++) hp += (k ? QStringLiteral(", ") : QString()) + QString::number(grp.hp[k]);
+      // global coordinates: levels sit side by side, so L8 and L9 do not both have a 20,20
+      const int gx = grp.x + l.offsetX, gy = grp.y + l.offsetY;
       groupBox_->addItem(tr("%1 ×%2 at %3,%4 (%5 hp)")
                            .arg(QString::fromStdString(s_->data.monsters[size_t(qMin(grp.type, 26))].name))
-                           .arg(grp.count).arg(grp.x).arg(grp.y).arg(hp), int(i));
+                           .arg(grp.count).arg(gx).arg(gy).arg(hp), int(i));
     }
   }
   selectData(groupBox_, s_->groupIndex);

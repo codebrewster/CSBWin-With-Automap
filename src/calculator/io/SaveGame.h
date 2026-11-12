@@ -35,6 +35,7 @@ struct SavedGroup {
 struct SavedLevel {
   int expMultiplier = 0;
   int width = 0, height = 0;
+  int offsetX = 0, offsetY = 0;   // the level's place in the dungeon's global coordinates
   std::vector<SavedGroup> groups;
 };
 

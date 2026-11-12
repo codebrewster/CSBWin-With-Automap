@@ -35,8 +35,8 @@ int main(int argc, char **argv)
     }
     for (size_t i = 0; i < s.levels.size(); i++) {
       const SavedLevel &l = s.levels[i];
-      std::printf("level %zu: %dx%d multiplier %d, %zu groups:", i, l.width, l.height,
-                  l.expMultiplier, l.groups.size());
+      std::printf("level %zu: %dx%d at global (%d,%d) multiplier %d, %zu groups:", i, l.width,
+                  l.height, l.offsetX, l.offsetY, l.expMultiplier, l.groups.size());
       for (auto &grp : l.groups) {
         std::printf(" %s x%d (", monsterName(grp.type), grp.count);
         for (int k = 0; k < grp.count; k++) std::printf("%s%d", k ? "," : "", grp.hp[k]);

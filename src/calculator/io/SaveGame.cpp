@@ -335,6 +335,8 @@ void readLevels(const Dungeon &d, SaveGame &save)
     int word8 = f.u16(desc + 8);
     level.width = ((word8 >> 6) & 0x1f) + 1;
     level.height = ((word8 >> 11) & 0x1f) + 1;
+    level.offsetX = f.u8(desc + 6);
+    level.offsetY = f.u8(desc + 7);
     level.expMultiplier = (f.u16(desc + 12) >> 12) & 0xf;
     size_t map = d.cells + f.u16(desc);
     for (int x = 0; x < level.width; x++, column++) {
