@@ -508,6 +508,10 @@ static void thrown(const GameData &g)
   expect(sl.range.minValue() == bow.distance + arrow.distance && sl.range.maxValue() == sl.range.minValue() &&
            sl.decay == bow.cls - 16 && sl.damage.minValue() == bow.cls - 16 && sl.damage.maxValue() == bow.cls - 16,
          "a shot: range = launcher + ammo distance, damage and decay = launcher class - 16");
+  Launch slingShot = shotLaunch(sling, rock, h, shotRules);
+  expect(sling.cls >= 32 && slingShot.decay == sling.cls - 32 && slingShot.damage.minValue() == sling.cls - 32 &&
+           slingShot.damage.maxValue() == sling.cls - 32,
+         "a sling shot: damage and decay = launcher class - 32");
   for (int factor : {1, 4}) {
     shotRules.shotDamageFactor = factor;
     for (const auto &pair : {std::make_pair(&bow, &arrow), std::make_pair(&sling, &rock)}) {
@@ -521,6 +525,45 @@ static void thrown(const GameData &g)
                                                  *pair.second, t, 3, false, factor); });
     }
   }
+  // One result per throw or shot
+  // TAG016382: weight/2 limited to 1..10, then + (rest)/2 for every 10 above (30 -> 15 -> 10 + 5/2;
+  // 100 -> 50 -> 10 + 40/2 + 30/2 + 20/2 + 10/2 = 60)
+  expect(throwStamina(30) == 12 && throwStamina(4) == 2 && throwStamina(100) == 60,
+         "throw stamina after TAG016382 with the 11.024 fix");
+  Rules rules;
+  h.mastery[SkillThrow] = 4;
+  ThrowResult tr = throwAttack(g, h, dagger, nullptr, t, rules, 3, false);
+  Dist ref = damageOnMonster(handLaunch(h, dagger, dice), dagger, t, 3, false, 1, dice);
+  expect(tr.valid && !tr.shot && tr.damage.lo == ref.lo && tr.damage.p == ref.p,
+         "a thrown dagger's table is damageOnMonster's");
+  expect(std::fabs(tr.perThrow - tr.damage.sum()) < 1e-12, "per throw = the table's sum");
+  expect(tr.arriveChance > 0.5 && tr.arriveChance <= 1 + 1e-9, "a dagger at 3 squares usually arrives");
+  const ActionType &throwAct = g.actions[42], &shootAct = g.actions[32];
+  expect(throwAct.skill == SkillThrow && throwAct.ticks == 0 && shootAct.skill == SkillShoot,
+         "Throw is action 42, Shoot action 32");
+  // THROW action: action energy + coin flip (Attack.cpp:1797) + TAG016382 (Mouse.cpp:748);
+  // busy 4 ticks (Mouse.cpp:749); experience = action's + 8 + 4 + distance/4, times level, times 2
+  expect(std::fabs(tr.stamina - (throwAct.energy + 0.5 + throwStamina(dagger.weight))) < 1e-12,
+         "a throw costs the action's energy, a coin flip and the weight term");
+  expect(std::fabs(tr.ticks - swingPeriod(4)) < 1e-12, "a throw keeps the hero busy 4 ticks");
+  expect(std::fabs(tr.expPerThrow - (throwAct.exp + 12 + dagger.distance / 4) * t.level * 2) < 1e-12,
+         "throw experience: the action's and ThrowByCharacter's, scaled as AdjustSkills");
+  expect(std::fabs(tr.dps - ticksPerSecond() * tr.perThrow / tr.ticks) < 1e-12, "throw damage per second");
+  expect(tr.throwsToKill > 0 && std::fabs(tr.throwsToKill - meanTriesToReach(tr.damage, t.hp)) < 1e-12,
+         "throws to kill");
+  ThrowResult far = throwAttack(g, h, dagger, nullptr, t, rules, 40, false);
+  expect(far.valid && far.arriveChance == 0 && far.note.find("fades") != std::string::npos,
+         "40 squares: the dagger fades before it gets there");
+  ThrowResult wrong = throwAttack(g, h, rock, &bow, t, rules, 3, false);
+  expect(!wrong.valid && wrong.note == "Need ammo", "a bow with a rock: Need ammo");
+  ThrowResult shot = throwAttack(g, h, arrow, &bow, t, rules, 3, false);
+  Dist shotRef = damageOnMonster(shotLaunch(bow, arrow, h, rules), arrow, t, 3, false, rules.shotDamageFactor, dice);
+  expect(shot.valid && shot.shot && shot.damage.lo == shotRef.lo && shot.damage.p == shotRef.p,
+         "a shot's table is damageOnMonster's");
+  expect(std::fabs(shot.stamina - (shootAct.energy + 0.5)) < 1e-12 &&
+           std::fabs(shot.ticks - swingPeriod(shootAct.ticks)) < 1e-12 &&
+           std::fabs(shot.expPerThrow - shootAct.exp * t.level * 2) < 1e-12,
+         "a shot: the Shoot action's energy + coin flip, its ticks and its experience");
 }
 
 int main(int argc, char **argv)
