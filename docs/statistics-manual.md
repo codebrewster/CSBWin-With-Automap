@@ -325,7 +325,8 @@ the earlier one stays.
 
 | Record | What counts |
 |---|---|
-| **Biggest hit** | the most damage a blow, a thrown item or a shot did to one monster, as the game shows it |
+| **Biggest melee hit** | the most damage a blow at close range (a weapon or an empty hand) did to one monster, as the game shows it |
+| **Biggest ranged hit** | the most damage a thrown item or a shot did to one monster, as the game shows it |
 | **Biggest spell hit** | the most damage one monster took from one spell (an explosion, or a tick of its cloud) |
 | **Biggest spell in all** | one spell's damage to the whole group: a fireball doing 210 to each of four monsters is 840 |
 | **Most kills at once** | monsters killed by one blow, one explosion or one tick of a cloud |
@@ -559,7 +560,7 @@ closed: the game writes `csb.cfg` again when you leave it.
 | `stats_tiles_exploration` | The tiles of Exploration | `tiles_explored, steps, ticks, doors_bashed` |
 | `stats_tiles_monsters` | The tiles of Monsters | `kills, door_kills, pit_kills, other_kills` |
 | `stats_tiles_experience` | The tiles of Experience | `fighter, ninja, priest, wizard` |
-| `stats_tiles_records` | The tiles of Records | `biggest_hit, biggest_spell_total, biggest_hit_taken, closest_call` |
+| `stats_tiles_records` | The tiles of Records | `biggest_melee_hit, biggest_ranged_hit, biggest_spell_total, biggest_hit_taken` |
 | `stats_key_numbers` | The rows of Key numbers, in their order (at most 24) | `damage, kills, taken, healed, mana_spent, deaths, eaten, drunk, doors_bashed, steps, tiles_explored, ticks` |
 
 - A topic shows at most 4 tiles; names after the fourth are left out.
@@ -583,7 +584,8 @@ closed: the game writes `csb.cfg` again when you leave it.
 | Exploration | `steps`, `tiles_walked`, `tiles_explored`, `turns`, `wall_bumps`, `teleports`, `pit_falls`, `pit_climbs`, `ticks`, `sleep_ticks`, `doors_bashed`, `doors_smashed`, `doors_shot`, `doors_by_spell`, `doors_by_zo`, `doors_button_opened`, `doors_button_closed`, `chests`, `scrolls`, `wall_texts`, `champions_seen`, `champions_viewed` |
 | Monsters | `kills`, `door_kills`, `pit_kills`, `other_kills` |
 | Experience | `experience`, `fighter`, `ninja`, `priest`, `wizard`, `ranks_gained` |
-| Records | `biggest_hit`, `biggest_spell_hit`, `biggest_spell_total`, `most_kills_at_once`, `kill_streak`, `biggest_hit_taken`, `biggest_spell_hit_taken`, `closest_call`, `biggest_heal`, `most_mana_on_spell`, `biggest_experience_gain`, `heaviest_load`, `longest_fall`, `longest_teleport_chain`, `longest_sleep` |
+| Records | `biggest_melee_hit`, `biggest_ranged_hit`, `biggest_spell_hit`, `biggest_spell_total`, `most_kills_at_once`, `kill_streak`, `biggest_hit_taken`, `biggest_spell_hit_taken`, `closest_call`, `biggest_heal`, `most_mana_on_spell`, `biggest_experience_gain`, `heaviest_load`, `longest_fall`, `longest_teleport_chain`, `longest_sleep`, `most_poison`, `most_poison_doses`, `most_poison_per_36_ticks`, `longest_poisoned`, `most_poisonings`, `poison_doses_suffered`, `most_wounds`, `most_wounds_one_blow`, `wounds_suffered` |
 
 Each name is the number of the same label in that topic's Numbers: `heal_potions` is Potions under
-Healed, `mana_on_spells` is Spells under Mana spent, `ticks` is Time (ticks).
+Healed, `mana_on_spells` is Spells under Mana spent, `ticks` is Time (ticks). `biggest_hit`, from before the
+biggest hit was split into melee and ranged, now means `biggest_melee_hit`.

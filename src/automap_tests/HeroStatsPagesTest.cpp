@@ -731,12 +731,12 @@ static void RecordLinesShowTheirBlow(void)
   total.monsterType = 6;
   total.count = 4;
   stats.Records().Offer(HeroRecBiggestSpellTotal, total);
-  stats.Records().Offer(HeroRecBiggestHit, RecordEntry(7, 120));
-  stats.Records().Offer(HeroRecBiggestHit, RecordEntry(9, 90));
+  stats.Records().Offer(HeroRecBiggestMeleeHit, RecordEntry(7, 120));
+  stats.Records().Offer(HeroRecBiggestMeleeHit, RecordEntry(9, 90));
   stats.Records().CountPitFall(3, 10);
   stats.Records().CountMove();
   HeroStatsTopicPage party = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroTopicRecords, NAMES);
-  CHECK(party.records.size() == HERO_RECORD_COUNT);
+  CHECK(party.records.size() == HERO_RECORD_COUNT - 1);
   const HeroStatsRecordLine *spell = NULL, *fall = NULL;
   for (size_t i = 0; i < party.records.size(); i++)
   {
@@ -752,12 +752,30 @@ static void RecordLinesShowTheirBlow(void)
   for (size_t i = 0; i < syra.records.size(); i++)
   {
     hasFall = hasFall || HeroRecord_PartyOnly(syra.records[i].kind);
-    if (syra.records[i].kind == HeroRecBiggestHit) hit = &syra.records[i];
+    if (syra.records[i].kind == HeroRecBiggestMeleeHit) hit = &syra.records[i];
     if (syra.records[i].kind == HeroRecBiggestSpellTotal) own = &syra.records[i];
   }
   CHECK(!hasFall);
   CHECK(hit != NULL && !hit->held && hit->value == "90" && hit->partyValue == "120" && hit->partyHolder == 7);
   CHECK(own != NULL && own->held);
+}
+
+// The melee and ranged hits come first, among what was dealt; the biggest hit is not shown
+static void MeleeAndRangedHitsReplaceTheBiggestHit(void)
+{
+  HeroStats stats = ExperiencedParty();
+  stats.Records().Offer(HeroRecBiggestHit, RecordEntry(7, 200));  // from a file of before the split
+  stats.Records().Offer(HeroRecBiggestMeleeHit, RecordEntry(7, 120));
+  stats.Records().Offer(HeroRecBiggestRangedHit, RecordEntry(9, 60));
+  HeroStatsTopicPage party = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroTopicRecords, NAMES);
+  CHECK(party.records.size() == HERO_RECORD_COUNT - 1);
+  for (size_t i = 0; i < party.records.size(); i++) CHECK(party.records[i].kind != HeroRecBiggestHit);
+  CHECK(party.records.size() >= 3 && party.records[0].kind == HeroRecBiggestMeleeHit && party.records[1].kind == HeroRecBiggestRangedHit &&
+        party.records[2].kind == HeroRecBiggestSpellHit);
+  CHECK(party.records.size() >= 2 && party.records[0].group == "Dealt" && party.records[1].group == "Dealt");
+  CHECK(party.records.size() >= 2 && party.records[0].label == "Biggest melee hit" && party.records[0].value == "120");
+  CHECK(party.records.size() >= 2 && party.records[1].label == "Biggest ranged hit" && party.records[1].value == "60" &&
+        party.records[1].who == "SYRA");
 }
 
 // Hover texts the spec asks for: what the actions that cannot hit train, where a streak began
@@ -782,9 +800,9 @@ static void SourcesAndStreaksSayMore(void)
 static void RecordsPerLevelHaveNoShare(void)
 {
   HeroStats stats = ExperiencedParty();
-  stats.Records().Offer(HeroRecBiggestHit, RecordEntry(7, 120));
-  stats.Records().Offer(HeroRecBiggestHit, RecordEntry(9, 90));
-  HeroStatsPerLevel grid = HeroStatsPages_PerLevelGrid(stats, Columns(stats), HeroNumRecBiggestHit);
+  stats.Records().Offer(HeroRecBiggestMeleeHit, RecordEntry(7, 120));
+  stats.Records().Offer(HeroRecBiggestMeleeHit, RecordEntry(9, 90));
+  HeroStatsPerLevel grid = HeroStatsPages_PerLevelGrid(stats, Columns(stats), HeroNumRecBiggestMeleeHit);
   CHECK(!grid.hasShare);
   CHECK(!grid.rows.empty() && grid.rows.back().level == HERO_STATS_WHOLE_RUN && grid.rows.back().values.back() == 120);
 }
@@ -792,13 +810,13 @@ static void RecordsPerLevelHaveNoShare(void)
 static void ExportHasExperienceAndRecords(void)
 {
   HeroStats stats = ExperiencedParty();
-  stats.Records().Offer(HeroRecBiggestHit, RecordEntry(7, 120));
+  stats.Records().Offer(HeroRecBiggestMeleeHit, RecordEntry(7, 120));
   HeroStatsExportInfo info = {"dungeon.dat", "2026-11-05 12:00"};
   std::string json = HeroStatsExport_Json(stats, Columns(stats), NAMES, info);
   CHECK(json.find("\"xp\":{\"classes\":") != std::string::npos);
   CHECK(json.find("\"sources\":[[\"Attacks\"") != std::string::npos);
   CHECK(json.find("\"SWORD\"") != std::string::npos);
-  CHECK(json.find("\"records\":[[0,\"Dealt\",\"Biggest hit\",\"120\"") != std::string::npos);
+  CHECK(json.find("\"records\":[[" + std::to_string((int)HeroRecBiggestMeleeHit) + ",\"Dealt\",\"Biggest melee hit\",\"120\"") != std::string::npos);
   CHECK(json.find("\"xpFirst\":") != std::string::npos && json.find("\"recFirst\":") != std::string::npos);
   std::string html = HeroStatsExport_Html(stats, Columns(stats), NAMES, info);
   CHECK(html.find("function records(") != std::string::npos && html.find("function xpSources(") != std::string::npos);
@@ -812,6 +830,7 @@ void TestHeroStatsPages(void)
   ClassesOpenToTheirSkills();
   RankOfAGoneChampionIsTheLastKnown();
   RecordLinesShowTheirBlow();
+  MeleeAndRangedHitsReplaceTheBiggestHit();
   RecordsPerLevelHaveNoShare();
   SourcesAndStreaksSayMore();
   PerLevelEndsWithTheWholeRun();

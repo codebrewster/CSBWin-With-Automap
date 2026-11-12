@@ -1022,7 +1022,8 @@ void HeroStats_EndMonsterBlow(void)
                   blowMembersHurt);
     }
     else
-      OfferRecord(HeroRecBiggestHit, damageBlow.champion, blowBiggest, HowOf(damageBlow), blowMonsterType, 1);
+      OfferRecord(damageBlow.kind == HeroDamageMelee ? HeroRecBiggestMeleeHit : HeroRecBiggestRangedHit, damageBlow.champion,
+                  blowBiggest, HowOf(damageBlow), blowMonsterType, 1);
   }
   killsInBlow = 0;
   blowTotal = 0;

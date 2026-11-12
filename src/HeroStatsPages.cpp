@@ -680,6 +680,7 @@ static std::vector<HeroStatsRankUpLine> XpRankUps(const HeroStats &stats, HeroSt
 
 static const char *RecordGroup(HeroRecordKind kind)
 {
+  if (kind == HeroRecBiggestMeleeHit || kind == HeroRecBiggestRangedHit) return "Dealt";
   if (kind <= HeroRecKillStreak) return "Dealt";
   if (kind <= HeroRecClosestCall) return "Taken";
   if (kind <= HeroRecBiggestXpGain) return "Magic & healing";
@@ -708,7 +709,8 @@ static void DescribeRecord(HeroRecordKind kind, const HeroRecordEntry &entry, co
   std::string monster = entry.monsterType >= 0 ? names.monster(entry.monsterType, entry.variant) : "";
   switch (kind)
   {
-  case HeroRecBiggestHit: case HeroRecBiggestSpellHit: case HeroRecBiggestSpellTotal: case HeroRecMostKillsAtOnce:
+  case HeroRecBiggestHit: case HeroRecBiggestMeleeHit: case HeroRecBiggestRangedHit:
+  case HeroRecBiggestSpellHit: case HeroRecBiggestSpellTotal: case HeroRecMostKillsAtOnce:
     line->how = SourceText(entry.how, names);
     line->whom = entry.count > 1 && !monster.empty() ? std::to_string(entry.count) + " \xc3\x97 " + monster : monster;
     break;
@@ -761,11 +763,16 @@ static std::vector<HeroStatsRecordLine> RecordLines(const HeroStats &stats, cons
 {
   bool isParty = who == HERO_STATS_PARTY;
   std::vector<HeroStatsRecordLine> lines;
-  // Shown in the order of the enum, except that the poison records come before the wound records
+  // Shown in the order of the enum, except that the melee and ranged hits come first, where the
+  // biggest hit was (it is no longer shown), and the poison records come before the wound records
   // (the enum is the order of the save file, so it stays as it is)
   std::vector<int> order;
+  order.push_back(HeroRecBiggestMeleeHit);
+  order.push_back(HeroRecBiggestRangedHit);
   for (int k = 0; k < HERO_RECORD_COUNT; k++)
-    if (k != HeroRecTotalPoisonings && k != HeroRecTotalWounds && k != HeroRecMostPoisonDoses && k != HeroRecMostPoisonPerTurn) order.push_back(k);
+    if (k != HeroRecTotalPoisonings && k != HeroRecTotalWounds && k != HeroRecMostPoisonDoses && k != HeroRecMostPoisonPerTurn &&
+        k != HeroRecBiggestHit && k != HeroRecBiggestMeleeHit && k != HeroRecBiggestRangedHit)
+      order.push_back(k);
   order.insert(std::find(order.begin(), order.end(), (int)HeroRecLongestPoisoned), (int)HeroRecMostPoisonDoses);
   order.insert(std::find(order.begin(), order.end(), (int)HeroRecLongestPoisoned), (int)HeroRecMostPoisonPerTurn);
   order.insert(std::find(order.begin(), order.end(), (int)HeroRecMostWoundsAtOnce), (int)HeroRecTotalPoisonings);

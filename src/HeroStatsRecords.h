@@ -14,6 +14,8 @@
 // without a scratch ... kept per champion (or the party) and level. No engine.
 // Records are no hardship: a reload takes the file's.
 
+// HeroRecBiggestHit (melee and ranged in one) is no longer offered nor shown: the biggest melee
+// hit and the biggest ranged hit took its place. It keeps its number, the save file's.
 enum HeroRecordKind { HeroRecBiggestHit, HeroRecBiggestSpellHit, HeroRecBiggestSpellTotal, HeroRecMostKillsAtOnce,
                       HeroRecKillStreak, HeroRecBiggestHitTaken, HeroRecBiggestSpellHitTaken, HeroRecClosestCall,
                       HeroRecBiggestHeal, HeroRecMostManaOnSpell, HeroRecBiggestXpGain, HeroRecHeaviestLoad,
@@ -21,7 +23,8 @@ enum HeroRecordKind { HeroRecBiggestHit, HeroRecBiggestSpellHit, HeroRecBiggestS
                       HeroRecMostPoison, HeroRecLongestPoisoned, HeroRecMostPoisonings,
                       HeroRecMostWoundsAtOnce, HeroRecMostWoundsInOneBlow,
                       HeroRecTotalPoisonings, HeroRecTotalWounds,
-                      HeroRecMostPoisonDoses, HeroRecMostPoisonPerTurn, HERO_RECORD_COUNT };
+                      HeroRecMostPoisonDoses, HeroRecMostPoisonPerTurn,
+                      HeroRecBiggestMeleeHit, HeroRecBiggestRangedHit, HERO_RECORD_COUNT };
 bool HeroRecord_IsTotal(HeroRecordKind kind);        // a sum over the levels, not a best of them
 bool HeroRecord_LowerIsBetter(HeroRecordKind kind);  // the closest call
 bool HeroRecord_PartyOnly(HeroRecordKind kind);      // falls, teleport chains, sleep

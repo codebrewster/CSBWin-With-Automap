@@ -104,6 +104,8 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Wounds suffered", "All the parts of the body wounded that were whole before, added up over the run (or the level).", false, false, true, false, false, true},
     {"Most poison doses at once", "The most doses of poison working on a champion at the same time.", false, false, true, false, false, true},
     {"Most poison per 36 ticks", "The most HP a champion's poison could take at one poison tick (every 36 ticks), all doses added up.", false, false, true, false, false, true},
+    {"Biggest melee hit", "The most damage a blow at close range, with a weapon or an empty hand, did to one monster.", false, false, false, false, false, true},
+    {"Biggest ranged hit", "The most damage a thrown item or a shot did to one monster.", false, false, false, false, false, true},
 };
 
 // The names csb.cfg knows the numbers by, in the order of HeroStatsNumber
@@ -128,7 +130,8 @@ static const char *const KEYS[] = {
     "biggest_hit_taken", "biggest_spell_hit_taken", "closest_call", "biggest_heal", "most_mana_on_spell",
     "biggest_experience_gain", "heaviest_load", "longest_fall", "longest_teleport_chain", "longest_sleep",
     "most_poison", "longest_poisoned", "most_poisonings", "most_wounds", "most_wounds_one_blow",
-    "poison_doses_suffered", "wounds_suffered", "most_poison_doses", "most_poison_per_36_ticks"};
+    "poison_doses_suffered", "wounds_suffered", "most_poison_doses", "most_poison_per_36_ticks",
+    "biggest_melee_hit", "biggest_ranged_hit"};
 static_assert(sizeof KEYS / sizeof KEYS[0] == HERO_NUMBER_COUNT, "a name for every number");
 
 const HeroStatsNumberInfo &HeroStatsCatalogue_Info(HeroStatsNumber number)
@@ -181,8 +184,13 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
                                   {HeroNumXpWizard, 1}, {HeroNumRanksGained, 0}},
                                  {HeroNumXpFighter, HeroNumXpNinja, HeroNumXpPriest, HeroNumXpWizard}};
   topics[HeroTopicRecords] = {"Records", {},
-                              {HeroNumRecBiggestHit, HeroNumRecBiggestSpellTotal, HeroNumRecBiggestHitTaken, HeroNumRecClosestCall}};
-  for (int k = 0; k < HERO_RECORD_COUNT; k++) topics[HeroTopicRecords].rows.push_back({(HeroStatsNumber)(HeroNumRecFirst + k), 0});
+                              {HeroNumRecBiggestMeleeHit, HeroNumRecBiggestRangedHit, HeroNumRecBiggestSpellTotal, HeroNumRecBiggestHitTaken}};
+  // The melee and ranged hits first, where the biggest hit was; that one is no longer shown
+  topics[HeroTopicRecords].rows.push_back({HeroNumRecBiggestMeleeHit, 0});
+  topics[HeroTopicRecords].rows.push_back({HeroNumRecBiggestRangedHit, 0});
+  for (int k = 0; k < HERO_RECORD_COUNT; k++)
+    if (k != HeroRecBiggestHit && k != HeroRecBiggestMeleeHit && k != HeroRecBiggestRangedHit)
+      topics[HeroTopicRecords].rows.push_back({(HeroStatsNumber)(HeroNumRecFirst + k), 0});
   return topics;
 }
 
@@ -243,6 +251,8 @@ std::vector<HeroStatsNumber> HeroStatsCatalogue_ParseNumbers(const std::string &
     if (end == std::string::npos) end = text.size();
     std::string word = text.substr(start, end - start);
     for (size_t i = 0; i < word.size(); i++) word[i] = (char)tolower((unsigned char)word[i]);
+    // The biggest hit is no longer shown: a csb.cfg that names it gets the biggest melee hit
+    if (word == "biggest_hit") word = "biggest_melee_hit";
     for (int n = 0; n < HERO_NUMBER_COUNT; n++)
       if (word == KEYS[n] && std::find(numbers.begin(), numbers.end(), (HeroStatsNumber)n) == numbers.end())
         numbers.push_back((HeroStatsNumber)n);

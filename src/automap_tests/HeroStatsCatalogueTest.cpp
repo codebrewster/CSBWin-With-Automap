@@ -57,8 +57,9 @@ static void EveryNumberHasOneTopic(void)
   }
   for (int n = 0; n < HERO_NUMBER_COUNT; n++)
   {
-    // Kills belongs to Combat and is the first row of Monsters as well
-    int expected = n == HeroNumKills ? 2 : 1;
+    // Kills belongs to Combat and is the first row of Monsters as well; the biggest hit, split
+    // into melee and ranged, is in none
+    int expected = n == HeroNumKills ? 2 : n == HeroNumRecBiggestHit ? 0 : 1;
     if (seen[n] != expected) std::printf("number %d (%s) is in %d topics\n", n, HeroStatsCatalogue_Info((HeroStatsNumber)n).label, seen[n]);
     CHECK(seen[n] == expected);
   }
@@ -214,7 +215,9 @@ static void EveryNumberHasAName(void)
     std::string key = HeroStatsCatalogue_Key((HeroStatsNumber)n);
     CHECK(!key.empty() && key.find_first_of(" ,") == std::string::npos);
     std::vector<HeroStatsNumber> found = HeroStatsCatalogue_ParseNumbers(key, 1);
-    CHECK(found.size() == 1 && found[0] == n);
+    // The biggest hit is not shown: its name finds the biggest melee hit
+    HeroStatsNumber expected = n == HeroNumRecBiggestHit ? HeroNumRecBiggestMeleeHit : (HeroStatsNumber)n;
+    CHECK(found.size() == 1 && found[0] == expected);
   }
   CHECK(HeroStatsCatalogue_Key(HeroNumHitRate) == "hit_rate");
   CHECK(HeroStatsCatalogue_Key(HeroNumOtherActions) == "other_actions");
@@ -270,14 +273,20 @@ static void ExperienceAndRecordsHaveTopics(void)
   HeroStatsNumber xpTiles[4] = {HeroNumXpFighter, HeroNumXpNinja, HeroNumXpPriest, HeroNumXpWizard};
   CHECK(xp.tiles == std::vector<HeroStatsNumber>(xpTiles, xpTiles + 4));
   const HeroStatsTopicInfo &records = HeroStatsCatalogue_Topic(HeroTopicRecords);
-  CHECK(std::string(records.label) == "Records" && records.rows.size() == HERO_RECORD_COUNT);
-  for (int k = 0; k < HERO_RECORD_COUNT; k++) CHECK(records.rows[k].number == HeroNumRecFirst + k);
-  HeroStatsNumber recordTiles[4] = {HeroNumRecBiggestHit, HeroNumRecBiggestSpellTotal, HeroNumRecBiggestHitTaken, HeroNumRecClosestCall};
+  // Every record but the biggest hit (melee and ranged took its place, first)
+  CHECK(std::string(records.label) == "Records" && records.rows.size() == HERO_RECORD_COUNT - 1);
+  CHECK(records.rows.size() >= 3 && records.rows[0].number == HeroNumRecBiggestMeleeHit &&
+        records.rows[1].number == HeroNumRecBiggestRangedHit && records.rows[2].number == HeroNumRecBiggestSpellHit);
+  for (size_t r = 0; r < records.rows.size(); r++) CHECK(records.rows[r].number != HeroNumRecBiggestHit);
+  HeroStatsNumber recordTiles[4] = {HeroNumRecBiggestMeleeHit, HeroNumRecBiggestRangedHit, HeroNumRecBiggestSpellTotal, HeroNumRecBiggestHitTaken};
   CHECK(records.tiles == std::vector<HeroStatsNumber>(recordTiles, recordTiles + 4));
   CHECK(HeroStatsCatalogue_Key(HeroNumRecKillStreak) == "kill_streak" && HeroStatsCatalogue_Key(HeroNumXpPriest) == "priest");
   CHECK(HeroStatsCatalogue_RecordOf(HeroNumRecClosestCall) == HeroRecClosestCall && HeroStatsCatalogue_IsRecord(HeroNumRecLongestSleep));
   CHECK(!HeroStatsCatalogue_IsRecord(HeroNumExperience));
   CHECK(std::string(HeroStatsCatalogue_SettingEntry(HeroSettingRecordsTiles)) == "stats_tiles_records");
+  // A csb.cfg from before the split names the biggest hit: it gets the biggest melee hit
+  std::vector<HeroStatsNumber> old = HeroStatsCatalogue_ParseNumbers("biggest_hit, closest_call", 4);
+  CHECK(old.size() == 2 && old[0] == HeroNumRecBiggestMeleeHit && old[1] == HeroNumRecClosestCall);
   CHECK(HeroStatsCatalogue_SettingDefault(HeroSettingExperienceTiles) == "fighter, ninja, priest, wizard");
 }
 
@@ -319,7 +328,7 @@ static void RecordsAreNotSummable(void)
   CHECK(!HeroStatsCatalogue_Summable(HeroNumRecBiggestHit) && HeroStatsCatalogue_Summable(HeroNumExperience));
   CHECK(!HeroStatsCatalogue_Applies(HeroNumRecLongestFall, 7, HERO_STATS_WHOLE_RUN));
   CHECK(HeroStatsCatalogue_Applies(HeroNumRecLongestFall, HERO_STATS_PARTY, 3));
-  CHECK(HeroStatsCatalogue_GridNumbers(HeroTopicRecords).size() == HERO_RECORD_COUNT);
+  CHECK(HeroStatsCatalogue_GridNumbers(HeroTopicRecords).size() == HERO_RECORD_COUNT - 1);
   CHECK(HeroStatsCatalogue_GridNumbers(HeroTopicExperience).size() == 6);
 }
 
