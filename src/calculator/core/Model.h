@@ -21,6 +21,8 @@ struct Hero {
   int mastery[SkillCount] = {5, 4, 3, 3, 5, 5, 5, 5, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3};
   int shield = 0;               // shieldStrength: a potion's or spell's own shield
   int actionDefense = 0;        // word64: protection of the action under way
+  bool negativeActionIsZero = false;   // the calculation uses 0 for a negative actionDefense
+  int actionBonus() const { return negativeActionIsZero && actionDefense < 0 ? 0 : actionDefense; }
 
   // What is worn and held.  -1 = nothing.
   int weapon = -1;              // weapon type in the action hand

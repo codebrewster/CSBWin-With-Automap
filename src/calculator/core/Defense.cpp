@@ -58,7 +58,7 @@ int popcount6(int mask)
 Dist slotProtection(int slot, bool sharp, const Hero &h, const Party &party, const GameData &g,
                     Dice &dice)
 {
-  Dist sum = Dist::point(h.actionDefense + h.shield + party.partyShield);
+  Dist sum = Dist::point(h.actionBonus() + h.shield + party.partyShield);
   const int ml = eng::maxLoad(h, h.stamina);
   for (int hand = 0; hand < 2; hand++) {
     const ArmourType *a = armourAt(h, g, hand);
@@ -102,7 +102,7 @@ static int sampleSlotProtection(Draw &d, int slot, bool sharp, const Hero &h, co
   }
   int d7 = d.rnd(h.attr[Vitality] / 8 + 1);
   if (sharp) d7 /= 2;
-  d7 += h.actionDefense + h.shield + party.partyShield + d6;
+  d7 += h.actionBonus() + h.shield + party.partyShield + d6;
   if (slot > 1)
     if (const ArmourType *a = armourAt(h, g, slot)) d7 += scaledDefense(*a, sharp);
   if (h.wounds & (1 << slot)) d7 -= d.r03() + 8;

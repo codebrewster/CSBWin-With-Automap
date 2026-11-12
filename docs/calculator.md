@@ -78,6 +78,9 @@ then. Recovery is not random in the engine: it follows the game clock.
 - **Harm Non-Material against a Zytaz** is calculated like against any other
   non-material being; the engine has a special case for Zytaz that are attacking.
 - **Other weapons** in "Every weapon" are tried on with the hero's load as it is.
+- **A negative action bonus** (a savegame can hold -800) is shown as it is; the
+  sidebar tick "Count a negative action bonus as 0" makes the calculation use 0
+  for every hero.
 - **What a hand holds** counts with its weight only for weapons and shields.
 - **Walking** in the Recovery tab counts no stamina spent on the steps.
 

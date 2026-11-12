@@ -93,6 +93,7 @@ QString Session::openSave(const QString &path)
   hasBase = true;
   heroIndex = 0;
   hero = heroBase = save->heroes[0].hero;
+  hero.negativeActionIsZero = negativeActionIsZero;
   levelIndex = save->level >= 0 && save->level < int(save->levels.size()) ? save->level : -1;
   groupIndex = -1;
   if (levelIndex >= 0) {
@@ -128,8 +129,16 @@ void Session::selectHero(int index)
   if (!save || index < 0 || index >= int(save->heroes.size())) return;
   heroIndex = index;
   hero = heroBase = save->heroes[size_t(index)].hero;
+  hero.negativeActionIsZero = negativeActionIsZero;
   emit reloaded();
   emit changed();
+}
+
+void Session::setNegativeActionIsZero(bool on)
+{
+  negativeActionIsZero = on;
+  hero.negativeActionIsZero = on;
+  touch();
 }
 
 void Session::selectTables(int source)

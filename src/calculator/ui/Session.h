@@ -29,6 +29,7 @@ class Session : public QObject {
   int levelIndex = -1;                   // into save->levels
   int groupIndex = -1;                   // into that level's groups
 
+  bool negativeActionIsZero = false;     // sticky across heroes
   calc::Hero hero, heroBase;             // heroBase = as loaded, for "changed" marks
   calc::Party party, partyBase;
   calc::Target target, targetBase;
@@ -40,6 +41,7 @@ class Session : public QObject {
   QString openSave(const QString &path);
   void closeSave();
   void selectHero(int index);
+  void setNegativeActionIsZero(bool on);
   void selectTables(int source);
   void selectLevel(int index);           // -1 = no savegame level
   void selectGroup(int index);           // -1 = a fresh monster of the chosen type

@@ -1,5 +1,6 @@
 #include "Sidebar.h"
 
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QGridLayout>
@@ -192,6 +193,12 @@ void Sidebar::buildHero(QVBoxLayout *column)
   connect(s_, &Session::reloaded, this, checkAction);
   checkAction();
   gear->body()->addWidget(actionNote);
+  auto *negZero = new QCheckBox(tr("Count a negative action bonus as 0"));
+  negZero->setToolTip(tr("The field keeps the savegame's value; the calculation uses 0 when it is "
+                         "negative. Applies to every hero."));
+  negZero->setChecked(s_->negativeActionIsZero);
+  connect(negZero, &QCheckBox::toggled, s_, &Session::setNegativeActionIsZero);
+  gear->body()->addWidget(negZero);
   auto *cross = new BoolField(tr("Ekkhard Cross worn (faster healing)"), s_, &h.ekkhardCross);
   gear->body()->addWidget(cross);
   auto *wounds = new QGridLayout;

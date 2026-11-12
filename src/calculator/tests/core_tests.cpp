@@ -287,6 +287,25 @@ static void monsterAttacks(const GameData &g)
   }
 }
 
+static void actionBonusTick(const GameData &g)
+{
+  Party p;
+  Dice dice(true);
+  auto same = [](const Dist &a, const Dist &b) { return a.lo == b.lo && a.p == b.p; };
+  Hero neg, zero;
+  neg.actionDefense = -800;
+  zero.actionDefense = 0;
+  expect(!same(slotProtection(3, false, neg, p, g, dice), slotProtection(3, false, zero, p, g, dice)),
+         "a negative action bonus changes the protection");
+  neg.negativeActionIsZero = true;
+  expect(same(slotProtection(3, false, neg, p, g, dice), slotProtection(3, false, zero, p, g, dice)),
+         "with the tick a negative action bonus counts as 0");
+  Hero pos;
+  pos.actionDefense = 50;
+  pos.negativeActionIsZero = true;
+  expect(pos.actionBonus() == 50, "a positive action bonus stays with the tick");
+}
+
 static void spells(const GameData &g)
 {
   Rng rng(3);
@@ -429,6 +448,7 @@ int main(int argc, char **argv)
          "Berzerk costs 40 stamina in Chaos Strikes Back, 26 in Dungeon Master");
   heroAttacks(g);
   shieldSpells();
+  actionBonusTick(g);
   monsterAttacks(g);
   spells(g);
   recovery();
