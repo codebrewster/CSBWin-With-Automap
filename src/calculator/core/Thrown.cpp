@@ -114,7 +114,8 @@ Launch shotLaunch(const WeaponType &launcher, const WeaponType &ammo, const Hero
 {
   Launch l;
   const int power = launcher.cls - (launcher.cls >= 32 ? 32 : 16);
-  l.range = Dist::point(launcher.distance + ammo.distance);
+  // LaunchMissile wraps a range above 255 for shots too, as for throws.
+  l.range = Dist::point(keepRange(launcher.distance + ammo.distance));
   l.damage = Dist::point(power);
   l.decay = power;
   return l;
@@ -125,7 +126,7 @@ SampledLaunch sampleShotLaunch(Draw &, const WeaponType &launcher, const WeaponT
 {
   SampledLaunch l;
   l.decay = l.damage = launcher.cls - (launcher.cls >= 32 ? 32 : 16);
-  l.range = launcher.distance + ammo.distance;
+  l.range = keepRange(launcher.distance + ammo.distance);
   return l;
 }
 

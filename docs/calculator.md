@@ -88,13 +88,18 @@ hand, at 3 squares unless the distance is the input.
 - **Harm Non-Material against a Zytaz** is calculated like against any other
   non-material being; the engine has a special case for Zytaz that are attacking.
 - **Other weapons** in "Every weapon" are tried on with the hero's load as it is.
-- **Missiles have no hit roll** against monsters: a missile that arrives hits.
+- **Missiles have no hit roll** against monsters: a missile that arrives hits
+  (assumes the monster stands in the missile's path; the engine hits only a monster
+  at the missile's position in the square, so a small monster in a group may be
+  passed).
   Only the fading with distance can make it vanish first.
 - **A shot's damage** depends on the launcher's class, not on the hero's Shoot
   skill. The original CSBwin sources (9.96.3, 11.0 and the 2023 archive) do the
-  same. The launcher power is its class minus 16 for damage and minus 32 for decay.
-- **A throw takes 4 ticks** (`ThrowByCharacter`); a shot takes the ticks of the
-  Shoot action. The 2 ticks of clicking per throw are an assumption; they were
+  same. The launcher power is its class minus 16 (bows, class 16-31) or minus 32 (slings,
+  class 32-47), used for both damage and decay.
+- **A throw takes 4 ticks** (`ThrowByCharacter`), plus the 2 ticks of clicking that
+  the tab adds (6 are shown); a shot takes the ticks of the Shoot action plus the
+  same clicking. The 2 ticks of clicking per throw are an assumption; they were
   measured only for swings.
 - **A negative action bonus** (a savegame can hold -800) is shown as it is; the
   sidebar tick "Count a negative action bonus as 0" makes the calculation use 0

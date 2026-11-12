@@ -76,7 +76,7 @@ ThrowPage::ThrowPage(Session *session, QWidget *parent) : Page(session, parent)
 
   auto *tiles = new FlowLayout(nullptr, 10);
   tiles->addWidget(tArrive_ = new Tile(tr("Arrive chance")));
-  tiles->addWidget(tDamage_ = new Tile(tr("Damage per throw")));
+  tiles->addWidget(tDamage_ = new Tile(tr("Damage per hit")));
   tiles->addWidget(tRange_ = new Tile(tr("Least – most")));
   tiles->addWidget(tDps_ = new Tile(tr("Damage per second")));
   tiles->addWidget(tKill_ = new Tile(tr("Time to kill")));
@@ -277,7 +277,8 @@ void ThrowPage::showRow()
   }
   tArrive_->set(percent(r.arriveChance));
   tDamage_->set(num(r.perHit), tr("%1 per throw").arg(num(r.perThrow, 2)));
-  tRange_->set(r.maxHit > 0 ? QStringLiteral("%1 – %2").arg(r.minHit).arg(r.maxHit) : QStringLiteral("–"));
+  tRange_->set(r.maxHit > 0 ? QStringLiteral("%1 – %2").arg(r.minHit).arg(r.maxHit) : QStringLiteral("–"),
+               t.hp > 0 && r.maxHit > 0 ? tr("kills in one throw: %1").arg(percent(r.killChance)) : QString());
   tDps_->set(num(r.dps, 2), tr("a throw takes %1 ticks").arg(num(r.ticks)));
   if (r.throwsToKill > 0)
     tKill_->set(duration(r.secondsToKill), tr("%1 throws for %2 hp").arg(num(r.throwsToKill)).arg(t.hp));
