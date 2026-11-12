@@ -38,7 +38,7 @@ QString duration(double seconds)
 QString ticksAndTime(double ticks)
 {
   return QStringLiteral("%1 ticks (%2)")
-    .arg(QString::number(ticks, 'f', 0), duration(ticks / calc::kTicksPerSecond));
+    .arg(QString::number(ticks, 'f', 0), duration(ticks / calc::ticksPerSecond()));
 }
 
 QLabel *mutedLabel(const QString &text)

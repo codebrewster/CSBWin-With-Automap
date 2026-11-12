@@ -62,7 +62,7 @@ double recoverySeconds(const Setup &s, RecoveryGoal RecoveryResult::*goal, int m
 {
   RecoveryResult r = recover(s.hero, mode, s.clock);
   const RecoveryGoal &g = r.*goal;
-  return g.reached ? g.ticks / kTicksPerSecond : 0;
+  return g.reached ? g.ticks / ticksPerSecond(mode == RestSleeping) : 0;
 }
 
 const std::vector<Variable> &variables()

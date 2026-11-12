@@ -45,7 +45,9 @@ RecoveryPage::RecoveryPage(Session *session, QWidget *parent) : Page(session, pa
 
   chart_ = new LineChart;
   chart_->setMinimumHeight(260);
-  chart_->setXFormat([](double ticks) { return duration(ticks / kTicksPerSecond); });
+  chart_->setXFormat([this](double ticks) {
+    return duration(ticks / ticksPerSecond(mode_->currentIndex() == RestSleeping));
+  });
   column()->addWidget(chart_, 2);
   foodNote_ = noteLabel();
   column()->addWidget(foodNote_);
@@ -61,11 +63,11 @@ RecoveryPage::RecoveryPage(Session *session, QWidget *parent) : Page(session, pa
 
 namespace {
 
-QString goalTime(const RecoveryGoal &g, const RecoveryResult &r)
+QString goalTime(const RecoveryGoal &g, const RecoveryResult &r, bool sleeping)
 {
   if (!g.needed) return QObject::tr("already full");
   if (!g.reached) return r.died ? QObject::tr("never: the hero dies first") : QObject::tr("never");
-  return QObject::tr("%1  ·  %2 ticks").arg(duration(g.ticks / kTicksPerSecond)).arg(g.ticks);
+  return QObject::tr("%1  ·  %2 ticks").arg(duration(g.ticks / ticksPerSecond(sleeping))).arg(g.ticks);
 }
 
 QString goalCost(const RecoveryGoal &g)
@@ -112,7 +114,7 @@ void RecoveryPage::recalculate()
     const RecoveryResult &r = res[m];
     const RecoveryGoal *goals[4] = {&r.hp, &r.stamina, &r.mana, &r.all};
     for (int k = 0; k < 4; k++) {
-      auto *time = textCell(goalTime(*goals[k], r));
+      auto *time = textCell(goalTime(*goals[k], r, m == RestSleeping));
       if (goals[k]->needed && !goals[k]->reached) time->setForeground(th.bad);
       table_->setItem(2 * k, m + 1, time);
       table_->setItem(2 * k + 1, m + 1, textCell(goalCost(*goals[k])));
@@ -135,7 +137,7 @@ void RecoveryPage::recalculate()
     notes << tr("The hero is hungry or thirsty: stamina only comes back while food and water are above zero.");
   for (int m = 0; m < RestModeCount; m++) {
     if (res[m].died)
-      notes << tr("%1: the hero starves to death after %2.").arg(tr(restModeName(m)), duration(res[m].ticksSimulated / kTicksPerSecond));
+      notes << tr("%1: the hero starves to death after %2.").arg(tr(restModeName(m)), duration(res[m].ticksSimulated / ticksPerSecond(m == RestSleeping)));
     else if (res[m].starving && !(h.food < 0 || h.water < 0))
       notes << tr("%1: food or water runs out on the way.").arg(tr(restModeName(m)));
     if (res[m].hpLostToExhaustion > 0 && !res[m].died)

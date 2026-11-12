@@ -126,13 +126,13 @@ MonsterAttackResult monsterAttack(const Hero &h, const Party &party, const Targe
   }
   // ---- over time
   r.interval = interval > 0 ? interval : monsterAttackInterval(m);
-  r.dps = r.stats.perTry * kTicksPerSecond / r.interval;
+  r.dps = r.stats.perTry * ticksPerSecond() / r.interval;
   r.attackers = std::max(1, t.count);
   r.groupDps = r.dps * r.attackers;
   if (h.hp > 0) {
     r.hpShare = r.stats.mean / h.hp;
     r.attacksToKill = meanTriesToReach(r.damage, h.hp);
-    r.secondsToKill = r.attacksToKill * r.interval / kTicksPerSecond / r.attackers;
+    r.secondsToKill = r.attacksToKill * r.interval / ticksPerSecond() / r.attackers;
     if (r.hitChance > 0) {
       int cap = int(std::min(20000.0, r.attacksToKill * 6 + 50));
       std::vector<double> curve = killCurve(r.damage, h.hp, cap);

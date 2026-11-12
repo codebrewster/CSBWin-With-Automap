@@ -110,7 +110,7 @@ void MonsterAttackPage::recalculate()
   if (t.type.poison != 0)
     tPoison_->set(percent(r.poisonChance),
                   tr("strength %1: %2 hp over %3").arg(r.poison.strength).arg(r.poison.totalDamage)
-                    .arg(duration(r.poison.ticks / kTicksPerSecond)));
+                    .arg(duration(r.poison.ticks / ticksPerSecond())));
   else
     tPoison_->set(tr("none"));
   double saved = r.bare.perTry > 0 ? 1.0 - r.stats.perTry / r.bare.perTry : 0;

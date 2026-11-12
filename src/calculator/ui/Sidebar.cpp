@@ -1,6 +1,7 @@
 #include "Sidebar.h"
 
 #include <QComboBox>
+#include <QDoubleSpinBox>
 #include <QGridLayout>
 #include <QLabel>
 #include <QScrollArea>
@@ -106,7 +107,12 @@ void Sidebar::buildHero(QVBoxLayout *column)
   g = attrs->addGrid();
   n = 0;
   for (int a : {Strength, Dexterity, Wisdom, Vitality, AntiMagic, AntiFire, Luck})
-    Card::addPair(g, n++, 2, tr(attributeName(a)), field(&h.attr[a], &b.attr[a], 0, 255));
+    Card::addPair(g, n++, 2, tr(attributeName(a)), field(&h.attr[a], &b.attr[a], 0, 255),
+                  a == Strength
+                    ? tr("Strength sets the throwing power (halved, at most 100) and the load the hero "
+                         "can carry. With a weapon the damage stops growing at a strength of about "
+                         "100, bare-handed at about 200: more strength does nothing")
+                    : QString());
   Card::addPair(g, n++, 2, tr("Luck min"), field(&h.attrMin[Luck], &b.attrMin[Luck], 0, 255),
                 tr("Luck moves by 2 with every luck roll, between these bounds"));
   Card::addPair(g, n++, 2, tr("Luck max"), field(&h.attrMax[Luck], &b.attrMax[Luck], 0, 255));
@@ -282,6 +288,26 @@ void Sidebar::buildRules(QVBoxLayout *column)
   auto *bias = new BoolField(tr("Dice as on the Atari"), s_, &r.moduloBias);
   bias->setToolTip(tr("The game's dice favour low numbers very slightly; off = perfectly even dice"));
   card->body()->addWidget(bias);
+  auto rate = [&](int row, const QString &label, double *value, const QString &tip) {
+    auto *box = new QDoubleSpinBox;
+    box->setRange(0.1, 1000.0);
+    box->setDecimals(1);
+    box->setSingleStep(0.1);
+    box->setSuffix(tr(" ticks/s"));
+    box->setValue(*value);
+    box->setFocusPolicy(Qt::StrongFocus);
+    Card::addPair(g, row, 1, label, box, tip);
+    connect(box, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, value](double v) {
+      *value = v;
+      s_->touch();
+    });
+  };
+  rate(1, tr("Speed awake"), &tickRates().awake,
+       tr("Game ticks per real second at your speed setting. Count the ticks over a stretch of time; "
+          "Normal speed is about 4.2"));
+  rate(2, tr("Speed asleep"), &tickRates().asleep,
+       tr("While the party sleeps the game ticks on every vertical blank, far faster than awake; "
+          "58.8 was measured"));
   column->addWidget(card);
   card->setCollapsed(true);
 }

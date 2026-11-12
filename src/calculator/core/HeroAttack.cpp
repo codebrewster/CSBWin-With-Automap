@@ -702,16 +702,16 @@ SwingResult heroAttack(const Hero &hero, const WeaponType &weapon, const ActionT
   r.minHit = tot.lo < 0 ? 0 : tot.lo;
   r.maxHit = tot.hi < 0 ? 0 : tot.hi;
   r.ticks = tot.eTicks / n;
-  r.dps = tot.eTicks > 0 ? kTicksPerSecond * tot.eDmg / tot.eTicks : 0;
+  r.dps = tot.eTicks > 0 ? ticksPerSecond() * tot.eDmg / tot.eTicks : 0;
   r.staminaPerSwing = tot.eCost / n;
   r.damagePerStamina = tot.eCost > 0 ? tot.eDmg / tot.eCost : 0;
   r.expPerSwing = tot.eXp / n;
-  r.expPerSecond = tot.eTicks > 0 ? kTicksPerSecond * tot.eXp / tot.eTicks : 0;
+  r.expPerSecond = tot.eTicks > 0 ? ticksPerSecond() * tot.eXp / tot.eTicks : 0;
   r.endStamina = tot.endSta;
   for (size_t d = 1; d < tot.dmg.size(); d++) r.damage.add(int(d), tot.dmg[d] / n);
   if (target.hp > 0) {
     r.swingsToKill = meanTriesToReach(r.damage, target.hp);
-    r.secondsToKill = r.swingsToKill * r.ticks / kTicksPerSecond;
+    r.secondsToKill = r.swingsToKill * r.ticks / ticksPerSecond();
   }
   return r;
 }

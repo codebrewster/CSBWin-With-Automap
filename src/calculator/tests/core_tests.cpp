@@ -156,6 +156,22 @@ static void heroAttacks(const GameData &g)
               return sampleSwing(d, hero, w, a, t, rules, false, st).damage;
             });
   }
+  // strength stops counting once the throwing power reaches its cap of 100
+  {
+    Hero hero = h;
+    Rules rules;
+    rules.luckDrift = false;
+    Target t = monster(g, 21, 5);
+    const ActionType &a = g.actions[2];
+    hero.attr[Strength] = 150;
+    double at150 = heroAttack(hero, g.weapons[18], a, t, rules, SwingOptions()).perSwing;
+    hero.attr[Strength] = 255;
+    double at255 = heroAttack(hero, g.weapons[18], a, t, rules, SwingOptions()).perSwing;
+    expect(at150 == at255, "an axe does no more damage at strength 255 than at 150");
+    hero.attr[Strength] = 30;
+    expect(heroAttack(hero, g.weapons[18], a, t, rules, SwingOptions()).perSwing < at150,
+           "but a weak hero does less");
+  }
   // a fight: stamina drains and luck drifts from swing to swing
   {
     Rules rules;

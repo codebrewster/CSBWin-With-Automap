@@ -63,7 +63,17 @@ struct Rules {
   bool luckDrift = true;            // IsCharacterLucky moves Luck by 2 each call
 };
 
-// Game speed: the clock runs at 6 ticks a second at normal speed
-constexpr double kTicksPerSecond = 6.0;
+// Real time per game tick, measured by the player.  Normal speed gives about
+// 4.2 ticks a second; while the party sleeps the game sets its speed to 0 and
+// ticks on every vertical blank, which is far faster (58.8 measured).
+struct TickRates {
+  double awake = 4.2;
+  double asleep = 58.8;
+};
+inline TickRates &tickRates() { static TickRates r; return r; }
+inline double ticksPerSecond(bool sleeping = false)
+{
+  return sleeping ? tickRates().asleep : tickRates().awake;
+}
 
 }  // namespace calc
