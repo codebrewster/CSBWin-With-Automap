@@ -149,6 +149,8 @@ static void heroAttacks(const GameData &g)
     Target t = monster(g, c.monster, c.level);
     t.attacking = c.attacking;
     SwingResult r = heroAttack(hero, w, a, t, rules, SwingOptions());
+    // a swing at a monster lasts the full delay plus 2 clicking ticks, hit or miss
+    expect(std::fabs(r.ticks - swingPeriod(a.ticks)) < 1e-9, "hero: swing period " + a.name);
     Draw d{rng, c.bias};
     compare("hero: " + w.name.substr(0, 14) + " " + a.name + " / " + t.type.name.substr(0, 12),
             r.damage, [&] {
@@ -156,6 +158,9 @@ static void heroAttacks(const GameData &g)
               return sampleSwing(d, hero, w, a, t, rules, false, st).damage;
             });
   }
+  // measured in the game with a key held down: Eye of Time 1 + 2, Hardcleave 8 + 2 ticks
+  expect(swingPeriod(1) == 3 && swingPeriod(8) == 10, "swing period: delay plus 2");
+  expect(swingPeriod(1, true) == 2 && swingPeriod(8, true) == 6, "swing period: halved delay, integer");
   // strength stops counting once the throwing power reaches its cap of 100
   {
     Hero hero = h;

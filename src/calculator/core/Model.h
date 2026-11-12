@@ -76,4 +76,25 @@ inline double ticksPerSecond(bool sleeping = false)
   return sleeping ? tickRates().asleep : tickRates().awake;
 }
 
+// What a swing costs beyond the weapon's own delay.  The game handles one mouse
+// click per tick and a swing takes two (the first opens the action panel, the
+// second picks the action), and the hand only becomes ready after that tick's
+// click has been handled, so even a perfect clicker swings once per
+// delay + 2 ticks (measured: Eye of Time 1 + 2 = 3, Hardcleave 8 + 2 = 10).
+// extra is the player's own slowness, ticks lost per swing.
+struct SwingTiming {
+  double input = 2.0;
+  double extra = 0.0;
+};
+inline SwingTiming &swingTiming() { static SwingTiming t; return t; }
+// Ticks from one swing to the next.  A swing at a monster keeps the full delay
+// whether it hits or misses (measured: 96 swings at a pain rat, 43 hits, every
+// one 1 + 2 ticks).  Only a swing that attacks no monster at all, or a Disrupt
+// on a monster that is not non-material, gets the delay halved by integer
+// division.
+inline double swingPeriod(int delay, bool halved = false)
+{
+  return (halved ? delay / 2 : delay) + swingTiming().input + swingTiming().extra;
+}
+
 }  // namespace calc

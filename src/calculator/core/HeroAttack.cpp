@@ -225,7 +225,7 @@ class Model {
     for (int r = 0; r < 2; r++)
       for (int k = 2; k <= 3; k++) missCost_.push_back({a.energy + r + k, 0.25});
     missM_.eCost = a.energy + 0.5 + 2.5;
-    missM_.eTicks = a.ticks / 2.0;
+    missM_.eTicks = swingPeriod(a.ticks);  // the monster was attacked: full delay
     missM_.eXp = missXp_;
     // luck: IsCharacterLucky(75 - P7)
     need_ = 75 - a.hitChance;
@@ -282,7 +282,7 @@ class Model {
           for (int k = 2; k <= 3; k++) c.costPass.push_back({energy + r + k, 0.25});
         c.pass.eCost = energy + 0.5 + 2.5;
       }
-      c.pass.eTicks = a.ticks / 2.0;
+      c.pass.eTicks = swingPeriod(a.ticks, disrupt && !m.nonMaterial);  // Disrupt on a material monster attacks nothing
       c.pass.eXp = missXp_;
       return c;
     }
@@ -438,7 +438,7 @@ class Model {
     }
     c.pass.pHit = pHit;
     c.pass.eDmg = eD;
-    c.pass.eTicks = a.ticks * pHit + a.ticks / 2.0 * (1.0 - pHit);
+    c.pass.eTicks = swingPeriod(a.ticks);
     c.pass.eXp = eXp + (1.0 - pHit) * missXp_;
     // cost: hit -> energy + R2 + 4..7, miss -> energy + R2 + 2..3
     std::map<int, double> cm;

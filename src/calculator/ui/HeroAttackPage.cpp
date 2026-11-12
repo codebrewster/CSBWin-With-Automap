@@ -204,7 +204,7 @@ void HeroAttackPage::showRow()
   tHit_->set(percent(r.hitChance));
   tDamage_->set(num(r.perHit), tr("%1 per swing").arg(num(r.perSwing, 2)));
   tRange_->set(QStringLiteral("%1 – %2").arg(r.minHit).arg(r.maxHit));
-  tDps_->set(num(r.dps, 2), tr("a swing takes %1 ticks").arg(num(r.ticks)));
+  tDps_->set(num(r.dps, 2), tr("a swing takes %1 ticks, the weapon's delay plus the clicking").arg(num(r.ticks)));
   if (r.swingsToKill > 0)
     tKill_->set(duration(r.secondsToKill), tr("%1 swings for %2 hp").arg(num(r.swingsToKill)).arg(t.hp));
   else

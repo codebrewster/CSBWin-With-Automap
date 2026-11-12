@@ -304,10 +304,28 @@ void Sidebar::buildRules(QVBoxLayout *column)
   };
   rate(1, tr("Speed awake"), &tickRates().awake,
        tr("Game ticks per real second at your speed setting. Count the ticks over a stretch of time; "
-          "Normal speed is about 4.2"));
+          "Normal speed is about 4.2 with no input, but 5.6 measured while fighting with a key held down"));
   rate(2, tr("Speed asleep"), &tickRates().asleep,
        tr("While the party sleeps the game ticks on every vertical blank, far faster than awake; "
           "58.8 was measured"));
+  {
+    auto *box = new QDoubleSpinBox;
+    box->setRange(0.0, 20.0);
+    box->setDecimals(1);
+    box->setSingleStep(0.5);
+    box->setSuffix(tr(" ticks"));
+    box->setValue(swingTiming().extra);
+    box->setFocusPolicy(Qt::StrongFocus);
+    Card::addPair(g, 3, 1, tr("Slowness per swing"), box,
+                  tr("Ticks you lose per swing on top of the game's own cost. The game handles one click per "
+                     "tick and a swing takes two clicks, so every swing already costs the weapon's delay plus "
+                     "2 ticks, even holding a key. 0 is a perfect clicker; a human reacting to the hand being "
+                     "ready loses about 1 more"));
+    connect(box, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this](double v) {
+      swingTiming().extra = v;
+      s_->touch();
+    });
+  }
   column->addWidget(card);
   card->setCollapsed(true);
 }
