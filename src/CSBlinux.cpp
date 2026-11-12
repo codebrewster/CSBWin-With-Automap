@@ -2687,8 +2687,9 @@ static void DrawReplayControls(bool &was_active)
                          PlaybackControl_RewindPending() ? PlaybackControl_RewindTarget() : PlaybackControl_SkipTarget());
   }
   {
-    // Pause at the number typed (Enter): a tick ahead when the counter reaches it, a tick behind
-    // after going back to it, the tick it stands at now. Empty or 0 takes a pause ahead away.
+    // Go to the number typed (Enter) and pause there: ahead at max (over snapshots where the
+    // replay has been), behind back to it, the tick it stands at now. Empty or 0 takes a pause
+    // ahead away.
     static char target[16] = "";
     ImGui::SetNextItemWidth(70);
     if (ImGui::InputTextWithHint("##pauseAt", _("pause at"), target, sizeof target, ImGuiInputTextFlags_EnterReturnsTrue))
@@ -2699,12 +2700,13 @@ static void DrawReplayControls(bool &was_active)
       int now = (int)d.Time;
       if (tick > 0 && tick < now) PlaybackControl_GoBackAndPause(now, tick, ReplaySpeedIndex());
       else if (tick > 0 && tick == now) PlaybackControl_SetPaused(true);
-      else PlaybackControl_SetPauseTarget(now, tick);
+      else if (tick > 0) PlaybackControl_GoAheadAndPause(now, tick, ReplaySpeedIndex());
+      else PlaybackControl_SetPauseTarget(now, 0);
       target[0] = 0;
     }
     if (ImGui::IsItemHovered())
-      ImGui::SetTooltip("%s", _("Pause at this tick (type a number, Enter): ahead when the replay gets there, "
-                                "behind after going back to it. 0 or empty clears a pause ahead."));
+      ImGui::SetTooltip("%s", _("Go to this tick and pause there (type a number, Enter), ahead or behind. "
+                                "0 or empty clears a pause ahead."));
     if (PlaybackControl_PauseTarget() >= 0)
     {
       ImGui::TextDisabled(_("pause at %d"), PlaybackControl_PauseTarget());

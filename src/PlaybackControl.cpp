@@ -215,6 +215,26 @@ bool PlaybackControl_GoBackAndPause(int now, int tick, int speedBefore)
   return true;
 }
 
+bool PlaybackControl_GoAheadAndPause(int now, int tick, int speedBefore)
+{
+  // Not while a way back waits: that passes breakpoints, a way ahead must stop at them
+  if (tick <= now || rewindTarget >= 0) return false;
+  if (skipTarget < 0)
+  {
+    skipSpeed = Clamped(speedBefore);
+    skipWasPaused = paused;
+  }
+  skipTarget = tick;
+  skipIsRewind = false;
+  if (totalTicks > 0 && skipTarget > totalTicks) skipTarget = totalTicks;
+  // The pause comes with the skip's end, at the speed it came from
+  pauseTarget = tick;
+  speedIndex = PLAYBACK_SPEED_MAX;
+  paused = false;
+  speedSyncDue = true;
+  return true;
+}
+
 int PlaybackControl_JumpLimit(void)
 {
   if (skipTarget < 0 || rewindTarget >= 0 || !breakpoints.empty()) return -1;

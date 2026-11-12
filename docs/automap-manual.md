@@ -482,8 +482,10 @@ go back with it, your own marks on the map stay. No replay pause on a cell stops
 back. The snapshots stay: running ahead again over ticks the replay has been at before jumps
 to the latest snapshot on the way at once, unless a replay pause is set on a cell (the jump
 would pass it). It never jumps past a pause at a tick. Pressing again while it runs counts from where it heads. In the box beside them, type a
-tick number and press **Enter**: for a tick ahead the replay pauses when the counter reaches
-it, for a tick behind it goes back there and pauses, for the tick it is at it pauses now.
+tick number and press **Enter** to go there and pause: a tick ahead runs at max speed like
+**>>** (jumping over the snapshots of ticks the replay has been at, stopping at a replay
+pause on a cell), a tick behind goes back like **<<**, the tick it is at pauses now. After the
+pause it goes on at the speed it had.
 **x**, 0 or an empty box takes a pause ahead away. From the automap window, Page Up and Page Down still change
 the level.
 

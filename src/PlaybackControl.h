@@ -62,6 +62,10 @@ bool PlaybackControl_RewindBy(int now, int n, int speedBefore);
 // paused there, whatever the replay did before (the speed stays). A pause target ahead goes.
 // False when the tick is not behind.
 bool PlaybackControl_GoBackAndPause(int now, int tick, int speedBefore);
+// The pause-at field with a tick ahead: there at max as a fast forward goes (jumping over
+// snapshots of ticks the replay has been at), then paused, at the speed it had (speedBefore).
+// False when the tick is not ahead.
+bool PlaybackControl_GoAheadAndPause(int now, int tick, int speedBefore);
 // A fast forward over ticks the replay has been at before need not run them again: the engine
 // may put back a snapshot on the way (ReplaySnapshot.h). The furthest tick it may jump to: the
 // skip's target, or a pause target before it; -1 when no skip runs, a rewind waits, or a
