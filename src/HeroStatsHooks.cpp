@@ -171,6 +171,11 @@ static HeroStatsLiveItem LiveItemOf(int slot, RN rn, bool inChest)
     item.charges = GetRecordAddressDB10(rn)->value();
     item.gulps = true;
   }
+  // What it feeds: the game's own values (Character.cpp, eating and drinking). A waterskin gives 800 a
+  // gulp and nothing once empty, a water flask 1600, food what d.FoodValue says.
+  if (basicType >= objNI_Apple && basicType <= objNI_DragonSteak) item.food = d.FoodValue[basicType - objNI_Apple];
+  if (basicType >= objNI_Waterskin && basicType <= objNI_Water) item.water = item.charges > 0 ? 800 : 0;
+  else if (rn.dbType() == dbPOTION && GetRecordAddressDB8(rn)->potionType() == potion_WaterFlask) item.water = 1600;
   return item;
 }
 

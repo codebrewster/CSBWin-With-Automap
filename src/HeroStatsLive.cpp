@@ -57,7 +57,7 @@ const HeroStatsLiveChampion *HeroStatsLive_Find(const HeroStatsLiveParty &party,
 
 HeroStatsLiveItem HeroStatsLive_Item(int slot, const std::string &name, bool inChest)
 {
-  HeroStatsLiveItem item = {slot, name, inChest, -1, 0, 0, -1, false, false};
+  HeroStatsLiveItem item = {slot, name, inChest, -1, 0, 0, -1, false, false, 0, 0};
   return item;
 }
 
@@ -119,6 +119,8 @@ static void SortPlaces(const std::vector<HeroStatsLiveItem> &items, std::vector<
     return;
   }
   std::stable_sort(places->begin(), places->end(), [&](size_t a, size_t b) {
+    if (by == HeroLiveByFood) return descending ? items[a].food > items[b].food : items[a].food < items[b].food;
+    if (by == HeroLiveByWater) return descending ? items[a].water > items[b].water : items[a].water < items[b].water;
     if (by == HeroLiveByWeight) return descending ? items[a].weight > items[b].weight : items[a].weight < items[b].weight;
     return descending ? items[a].name > items[b].name : items[a].name < items[b].name;
   });

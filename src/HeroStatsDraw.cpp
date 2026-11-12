@@ -2519,13 +2519,16 @@ static void SlotTooltip(const std::vector<HeroStatsLiveItem> &items, int index, 
     ImGui::TextColored(Colour(BAD_RGB), " %s wounded", MIDDLE_DOT);
   }
   ImGui::TextColored(Colour(PART_RGB), "%s", WeightAndCharges(item, held).c_str());
+  if (item.food > 0) ImGui::TextColored(Colour(FOOD_RGB + 0x303030), "Food +%d", item.food);
+  if (item.water > 0)
+    ImGui::TextColored(Colour(WATER_RGB), item.gulps ? "Water +%d per gulp" : "Water +%d", item.water);
   ImGui::EndGroup();
   if (held > 0)
   {
     ImGui::Dummy(ImVec2(0, 2));
     ImGui::Separator();
     ImGui::TextColored(Colour(DIM_RGB), "Holds %d %s", held, held == 1 ? "item" : "items");
-    if (ImGui::BeginTable("##held", 2, ImGuiTableFlags_SizingFixedFit))
+    if (ImGui::BeginTable("##held", 3, ImGuiTableFlags_SizingFixedFit))
     {
       for (int i = 0; i < held; i++)
       {
@@ -2544,6 +2547,12 @@ static void SlotTooltip(const std::vector<HeroStatsLiveItem> &items, int index, 
         }
         ImGui::TableNextColumn();
         ImGui::TextColored(Colour(PART_RGB), "%s", HeroStatsLive_WeightText(inside.weight, false).c_str());
+        // What eating or drinking it adds, as for an item in a slot
+        ImGui::TableNextColumn();
+        if (inside.food > 0) ImGui::TextColored(Colour(FOOD_RGB + 0x303030), "Food +%d", inside.food);
+        if (inside.food > 0 && inside.water > 0) ImGui::SameLine();
+        if (inside.water > 0)
+          ImGui::TextColored(Colour(WATER_RGB), inside.gulps ? "Water +%d/gulp" : "Water +%d", inside.water);
       }
       ImGui::EndTable();
     }
@@ -2851,14 +2860,17 @@ static void LiveList(const HeroStatsLiveChampion &live)
     ImGui::TextColored(Colour(DIM_RGB), "Carries nothing.");
     return;
   }
-  if (!BeginPageTable("##items", 3, true)) return;
+  if (!BeginPageTable("##items", 5, true)) return;
   TextColumn("Slot", true, true);
   LabelColumn("Item", true);
   NumberColumn("Weight");
+  NumberColumn("Food");
+  NumberColumn("Water");
   HeaderRow(std::vector<int>(), std::vector<HeroStatsColumn>());
   // By slot as the game numbers them, by name or by weight; a chest keeps what it holds under it
   TableSort sort = CurrentSort();
-  HeroStatsLiveOrder by = sort.column == 1 ? HeroLiveByName : sort.column == 2 ? HeroLiveByWeight : HeroLiveBySlot;
+  HeroStatsLiveOrder by = sort.column == 1 ? HeroLiveByName : sort.column == 2 ? HeroLiveByWeight
+                          : sort.column == 3 ? HeroLiveByFood : sort.column == 4 ? HeroLiveByWater : HeroLiveBySlot;
   std::vector<size_t> order = HeroStatsLive_Order(live.items, by, sort.descending);
   for (size_t k = 0; k < order.size(); k++)
   {
@@ -2891,6 +2903,11 @@ static void LiveList(const HeroStatsLiveChampion &live)
     if (indent > 0) ImGui::Unindent(indent);
     ImGui::TableSetColumnIndex(2);
     RightText(HeroStatsLive_WeightText(item.weight, false), item.inChest ? PART_RGB : TEXT_RGB);
+    // What eating or drinking it adds (a waterskin: per gulp); blank for what is neither
+    ImGui::TableSetColumnIndex(3);
+    if (item.food > 0) RightText(std::to_string(item.food), item.inChest ? PART_RGB : TEXT_RGB);
+    ImGui::TableSetColumnIndex(4);
+    if (item.water > 0) RightText(std::to_string(item.water), item.inChest ? PART_RGB : TEXT_RGB);
   }
   ImGui::EndTable();
 }

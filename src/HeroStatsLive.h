@@ -38,6 +38,8 @@ struct HeroStatsLiveItem
   int charges;         // -1: this kind of item holds none
   bool gulps;          // the charges are a waterskin's gulps
   bool torch;          // the charges are a torch's fuel
+  int food;            // what eating it adds to a champion's food, 0: it is no food
+  int water;           // what a drink of it adds to the water (a waterskin: per gulp), 0: none
 };
 // An item with no icon, no weight and no charges
 HeroStatsLiveItem HeroStatsLive_Item(int slot, const std::string &name, bool inChest);
@@ -105,7 +107,7 @@ int HeroStatsLive_CarriedCount(const std::vector<HeroStatsLiveItem> &items);
 // The order the inventory list shows the items in: their places in items, sorted by slot (the
 // order they come in), name or weight. What a chest holds stays under its chest, sorted the same
 // way; by slot it keeps its own order.
-enum HeroStatsLiveOrder { HeroLiveBySlot, HeroLiveByName, HeroLiveByWeight };
+enum HeroStatsLiveOrder { HeroLiveBySlot, HeroLiveByName, HeroLiveByWeight, HeroLiveByFood, HeroLiveByWater };
 std::vector<size_t> HeroStatsLive_Order(const std::vector<HeroStatsLiveItem> &items, HeroStatsLiveOrder by, bool descending);
 // The champion of the party with this fingerprint, or NULL
 const HeroStatsLiveChampion *HeroStatsLive_Find(const HeroStatsLiveParty &party, HeroStatsChampion who);

@@ -78,6 +78,23 @@ static void AChestCountsWhatFollowsIt(void)
   CHECK(HeroStatsLive_CarriedCount(items) == 3);  // the chest, the apple, the rock
 }
 
+static void ItemsSortByWhatTheyFeed(void)
+{
+  std::vector<HeroStatsLiveItem> items;
+  items.push_back(HeroStatsLive_Item(1, "SWORD", false));
+  items.push_back(HeroStatsLive_Item(2, "BREAD", false));
+  items.push_back(HeroStatsLive_Item(3, "WATERSKIN", false));
+  items.push_back(HeroStatsLive_Item(4, "APPLE", false));
+  items[1].food = 600;
+  items[2].water = 800;
+  items[3].food = 200;
+  CHECK(items[0].food == 0 && items[0].water == 0);
+  std::vector<size_t> byFood = HeroStatsLive_Order(items, HeroLiveByFood, true);
+  std::vector<size_t> byWater = HeroStatsLive_Order(items, HeroLiveByWater, true);
+  CHECK(byFood.size() == 4 && byFood[0] == 1 && byFood[1] == 3 && byFood[2] == 0 && byFood[3] == 2);
+  CHECK(byWater.size() == 4 && byWater[0] == 2 && byWater[1] == 0 && byWater[2] == 1 && byWater[3] == 3);
+}
+
 static HeroStatsLiveItem Weighing(int slot, const char *name, bool inChest, int weight)
 {
   HeroStatsLiveItem item = HeroStatsLive_Item(slot, name, inChest);
@@ -116,6 +133,7 @@ void TestHeroStatsLive(void)
   AnItemWithoutAnIconHasNoKey();
   TheBodySlotsHaveTheirPlaces();
   AChestCountsWhatFollowsIt();
+  ItemsSortByWhatTheyFeed();
   SlotsAreNamedAsTheGameNumbersThem();
   WoundsAttributesAndTenthsRead();
   AChampionIsFoundByFingerprint();
