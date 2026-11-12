@@ -45,6 +45,12 @@ most, damage per second, stamina, experience, and how long the monster lasts.
 "Swings in a fight" above 1 gives the average over a fight in which luck drifts
 and, if ticked, stamina drains.
 
+**Throw & shoot.** A weapon thrown by hand, or ammunition shot from a launcher,
+at a target some squares away (optionally in the back row): the chance the
+missile arrives, damage per throw and per hit, least and most, damage per
+second, stamina, experience and the time to kill. Choose the weapon in hand or
+every weapon; in shot mode each row is a launcher with an ammunition that fits it.
+
 **Monster attacks.** One blow of the monster on the hero: the chance it lands,
 the damage, which body part it is aimed at and that part's armour value, the
 chance of a wound and of poison, what the armour saves compared with the bare
@@ -108,7 +114,7 @@ hero-attack numbers agree with the earlier Python calculator.
 |--------|---------------|
 | `core/` | The formulas, each as an exact table and as a dice version; no Qt |
 | `io/` | Readers for savegames, Amiga disk images, `graphics.dat`, `csb.cfg`; no Qt |
-| `ui/` | The window: theme, side panel, the five tabs, charts |
+| `ui/` | The window: theme, side panel, the six tabs, charts |
 | `cli/` | `calc_dump` and `calc_save` |
 | `tests/` | `calc_tests` |
 

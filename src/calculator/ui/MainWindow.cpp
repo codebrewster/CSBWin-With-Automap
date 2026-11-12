@@ -69,6 +69,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
   tabs_ = new QTabWidget;
   tabs_->setDocumentMode(true);
   tabs_->addTab(new HeroAttackPage(&session_), tr("Hero attacks"));
+  tabs_->addTab(new ThrowPage(&session_), tr("Throw && shoot"));
   tabs_->addTab(new MonsterAttackPage(&session_), tr("Monster attacks"));
   tabs_->addTab(new SpellPage(&session_), tr("Spells"));
   tabs_->addTab(new RecoveryPage(&session_), tr("Recovery"));

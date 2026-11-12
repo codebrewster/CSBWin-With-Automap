@@ -18,7 +18,7 @@ int main(int argc, char **argv)
   parser.setApplicationDescription(QStringLiteral("Dungeon Master / Chaos Strikes Back calculator"));
   parser.addHelpOption();
   parser.addPositionalArgument(QStringLiteral("savegame"), QStringLiteral("A savegame to open"));
-  QCommandLineOption tab(QStringLiteral("tab"), QStringLiteral("Tab to show first (1-5)"), QStringLiteral("n"));
+  QCommandLineOption tab(QStringLiteral("tab"), QStringLiteral("Tab to show first (1-6)"), QStringLiteral("n"));
   QCommandLineOption dark(QStringLiteral("dark"), QStringLiteral("Dark colours"));
   QCommandLineOption light(QStringLiteral("light"), QStringLiteral("Light colours"));
   QCommandLineOption size(QStringLiteral("size"), QStringLiteral("Window size"), QStringLiteral("WxH"));

@@ -43,7 +43,7 @@ if(QT_FOUND)
   add_executable(dm_calculator WIN32 MACOSX_BUNDLE
     ui/main.cpp ui/MainWindow.cpp ui/MainWindow.h ui/Session.cpp ui/Session.h
     ui/Sidebar.cpp ui/Sidebar.h ui/Theme.cpp ui/Theme.h ui/Widgets.cpp ui/Widgets.h
-    ui/Pages.h ui/Page.cpp ui/HeroAttackPage.cpp ui/MonsterAttackPage.cpp ui/SpellPage.cpp
+    ui/Pages.h ui/Page.cpp ui/HeroAttackPage.cpp ui/ThrowPage.cpp ui/MonsterAttackPage.cpp ui/SpellPage.cpp
     ui/RecoveryPage.cpp ui/WhatIfPage.cpp)
   target_link_libraries(dm_calculator calc_core Qt${QT_VERSION_MAJOR}::Widgets Threads::Threads)
 else()

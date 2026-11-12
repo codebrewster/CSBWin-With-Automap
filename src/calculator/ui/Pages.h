@@ -1,4 +1,4 @@
-// The five tabs.  Each listens to the session and recalculates, shortly
+// The six tabs.  Each listens to the session and recalculates, shortly
 // after the last change and only while it is the one on show.
 #pragma once
 #include <QTimer>
@@ -10,6 +10,7 @@
 #include "../core/MonsterAttack.h"
 #include "../core/Recovery.h"
 #include "../core/Spells.h"
+#include "../core/Thrown.h"
 #include "Session.h"
 #include "Widgets.h"
 
@@ -64,6 +65,27 @@ class HeroAttackPage : public Page {
   QLabel *note_;
   std::vector<calc::SwingResult> rows_;
   QString picked_;   // "weapon/action" of the row to keep selected
+};
+
+class ThrowPage : public Page {
+  Q_OBJECT
+ public:
+  explicit ThrowPage(Session *session, QWidget *parent = nullptr);
+ protected:
+  void recalculate() override;
+ private:
+  void showRow();
+  QComboBox *mode_, *scope_;
+  QCheckBox *usable_, *backRow_;
+  QSpinBox *squares_;
+  QTableWidget *table_;
+  Tile *tArrive_, *tDamage_, *tRange_, *tDps_, *tKill_, *tStamina_;
+  Histogram *chart_;
+  QLabel *note_;
+  std::vector<calc::ThrowResult> rows_;
+  std::vector<int> needs_;    // skill level each row's action asks, -1 = none
+  QString empty_;             // why the table is empty
+  QString picked_;            // "object/launcher" of the row to keep selected
 };
 
 class MonsterAttackPage : public Page {
