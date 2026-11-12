@@ -236,38 +236,56 @@ that touches the game. That split is what makes the visibility rules testable
 without running the game. [docs/automap.md](docs/automap.md) describes the
 whole design.
 
+## The calculator
+
+`src/calculator/` is a program of its own, in C++ with Qt: it works out what
+heroes, monsters and spells do to each other, from the game's own formulas and
+with exact probabilities instead of trial runs.
+
+- **Hero attacks**: every weapon and action against a monster: hit chance,
+  damage, damage per second, stamina, experience, time to kill.
+- **Monster attacks**: a monster of a level against a hero: hit chance, least,
+  average and most damage, damage per second, wounds, poison, what the armour
+  saves, how long the hero lasts, and the missiles the monster throws.
+- **Spells**: every damage spell at every power from LO to MON: damage, chance
+  to kill, mana, chance that the cast works.
+- **Recovery**: how long hit points, stamina and mana take to come back when
+  walking, standing or sleeping, and the food and water that costs.
+- **What if**: any of these results plotted against one value of your choice.
+
+Open a savegame (Atari ST, Amiga, CSBwin or this port; also an Amiga save disk
+image) and the heroes, their equipment, the party's shields and the monsters of
+every level are filled in; every value can then be changed by hand. The numbers
+of monsters, weapons, armour and spells come from the `graphics.dat` beside the
+savegame, so a custom dungeon is calculated with its own.
+
+![The calculator: a hero from a savegame on the left, a monster's attack on him worked out on the right](docs/images/calculator.png)
+
+```sh
+cd src/calculator
+cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/Qt/6.x/gcc_64
+cmake --build build -j
+./build/dm_calculator
+```
+
+[docs/calculator.md](docs/calculator.md) explains what each number means and
+how the program is checked.
+
 ## Python tools
 
-`src/` also holds a few Python 3 scripts that grew out of the work on the
-engine. They need nothing beyond the standard library (Tkinter for the GUI) and
-are not part of the game build.
+`src/` also holds a few Python 3 scripts for converting savegames. They need
+nothing beyond the standard library and are not part of the game build.
 
-- **`damage_calc.py`**: a Monte-Carlo port of the game's physical-attack
-  maths. Set up a champion, weapons and a monster, and it prints hit chance,
-  damage per hit, damage per second, stamina cost and experience for each
-  weapon and attack.
-- **`damage_calc_gui.py`**: the same simulation in a window. Tick weapons and
-  attacks, pick and edit a monster, edit the champion or load one from a
-  DM/CSB savegame, even straight off an Amiga save disk image (`.adf`), then
-  sort the results. **Graph DPS vs Str** plots damage per second against
-  strength, barefoot and with Elven Boots.
-- **`dps_graph.py`**: that plot on its own, for one weapon and attack.
 - **`dm_save_to_csbwin.py`**: makes a classic Amiga *Dungeon Master* 2.0 save
   loadable by CSBwin.
 - **`convert-Amiga20-to-Amiga36.py`**: converts an Amiga 2.0 save to the 3.6
   layout.
-- `savefile.py`, `adf.py` and `dmitems.py` are the libraries behind them: the
-  savegame reader, a read-only Amiga disk image (ADF) reader, and the item
-  names, the latter generated from the item table of
+- `savefile.py` and `dmitems.py` are the libraries behind them: the savegame
+  reader and the item names, the latter generated from the item table of
   James Jacobs' Multi-game Character Editor (MCE).
-
-![The damage calculator: a champion loaded from a savegame, the weapons and attacks to compare, and the results sorted by damage per second](docs/images/damage-calculator.png)
-
-![DPS against strength for the diamond edge's chop against an Oitu: with Elven Boots the jump to the lighter weight class comes a few points of strength earlier](docs/images/dps-strength-graph.png)
 
 ```sh
 cd src
-python3 damage_calc_gui.py
 python3 dm_save_to_csbwin.py DMGame.dat
 ```
 

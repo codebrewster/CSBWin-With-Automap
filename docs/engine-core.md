@@ -68,8 +68,8 @@ character-creation path (`AddCharacter`, `Character.cpp:443`;
 `BringCharacterToLife`, `Character.cpp:791`), and the
 attribute rules used by combat — `IsCharacterLucky` (`Character.cpp:2148`),
 `Quickness` (`Character.cpp:2192`), `DetermineThrowingDistance`
-(`Character.cpp:2250`). These three are exactly the functions the Python
-`damage_calc.py` re-implements; see [python-tools.md](python-tools.md).
+(`Character.cpp:2250`). These three are exactly the functions the calculator
+re-implements (`src/calculator/core/HeroAttack.cpp`); see [calculator.md](calculator.md).
 
 ## Monster.cpp — monsters and movement
 
@@ -85,8 +85,8 @@ turns) are set up here as well (`Set_Monster_Timer`, `Monster.cpp:1351`).
 pipeline: strength, weapon, monster armour, luck, and the randomisation chain.
 `AttackWithPhysicalForce` (`Attack.cpp:1031`) resolves a melee/ranged attack,
 `AttackWithSpell` (`Attack.cpp:1289`) the spell variant, and filters let DSAs
-intercept attacks (`CallAttackFilter`, `Attack.cpp:407`). The `damage_calc.py`
-port follows this file closely.
+intercept attacks (`CallAttackFilter`, `Attack.cpp:407`). The calculator's
+`core/HeroAttack.cpp` follows this file closely.
 
 ## Magic.cpp — spells and skills
 

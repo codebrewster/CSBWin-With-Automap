@@ -50,9 +50,9 @@ The tables that decode the game data live where they are used:
   `data.cpp` (`DUNGEONDATINDEX`, referenced from `Data.h:300-330`).
 - **Item names** by RN are not in the C++ at all; they were taken from MCE's
   `dm.c` and live in `dmitems.py` — see [python-tools.md](python-tools.md).
-- **Attack parameters** (the 7-column attack table) are decoded by
-  `damage_calc.py`, mirroring `DeterminePhysicalAttackDamage`
-  (`Attack.cpp:484`).
+- **Attack parameters** (the 7-column attack table) and the other tables of
+  graphics items 0x22f, 0x230 and 0x232 are decoded by the calculator's
+  `src/calculator/io/GraphicsDat.cpp`; `calc_dump graphics.dat` lists them.
 
 Notes left by the porters sit in the repo root and `src/`: `MemoryMap.txt`
 (the original memory layout, referenced by the `d` struct's field names),

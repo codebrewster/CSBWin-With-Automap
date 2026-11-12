@@ -75,6 +75,25 @@ together with the game folder and its own copy of SDL2 into `<output folder>/Dun
 The application copies its game files to `~/Library/Application Support/CSB/Dungeon Master` on
 the first launch and keeps saved games and settings there.
 
+## The calculator
+
+The calculator in `src/calculator` is built on its own, with CMake. It needs a C++17 compiler and
+Qt 6 or Qt 5 (Widgets only); it does not need SDL2 or anything of the game build.
+
+```
+cd src/calculator
+cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/Qt/6.x/gcc_64
+cmake --build build -j8
+./build/dm_calculator
+ctest --test-dir build
+```
+
+Leave `CMAKE_PREFIX_PATH` out when Qt comes from the system's packages (`qt6-base-dev` on Debian
+and Ubuntu, `brew install qt` on macOS). On Windows, run the same commands from a prompt of the
+compiler that Qt was built for. Without Qt, CMake builds only the checks (`calc_tests`) and the
+two command-line tools, `calc_dump` (the tables of a `graphics.dat`) and `calc_save` (what the
+calculator reads out of a savegame).
+
 ## What was checked
 
 - macOS on Apple Silicon with Apple clang and SDL2 2.32 from Homebrew: both builds, the tests,

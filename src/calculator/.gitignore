@@ -1,0 +1,3 @@
+# The game sources ignore CMake files; the calculator is built with CMake
+!CMakeLists.txt
+build/

@@ -1,10 +1,10 @@
 # Python tools
 
-Eight Python scripts live in `src/`. They are not part of the game build — the
-`makefile` never touches them. Some were copied in from other projects because
-they already did something the port needed (the savegame format, the damage
-maths), and some are original tooling written here; all of them either read or
-reproduce the C++ engine. Each section below says what the script does, how to
+Four Python scripts live in `src/`. They are not part of the game build — the
+`makefile` never touches them. They convert savegames between the versions of
+the game. (The damage calculator that used to live here in Python is now a C++
+program of its own, with its own savegame reader: see
+[calculator.md](calculator.md).) Each section below says what the script does, how to
 run it, where it came from, and the C++ it mirrors.
 
 ## Common conventions
@@ -12,83 +12,19 @@ run it, where it came from, and the C++ it mirrors.
 - The classic savegames are **big-endian** (Atari ST, Amiga, X68000). The scripts
   default to that; `savefile.py` also handles the little-endian PC/CSBwin case.
 - `savefile.py` and `dmitems.py` are **libraries** (no `main`); the others are
-  run directly. `adf.py` and `dps_graph.py` are both: the GUI imports them, and
-  each also runs on its own.
-- No third-party packages: `struct`, `os`, `sys`, `argparse`, `random`, and
-  `tkinter` (for the GUI only) from the standard library.
+  run directly.
+- No third-party packages: `struct`, `os`, `sys` and `argparse` from the
+  standard library.
 - `__pycache__/` is git-ignored; `savefile.py` and `dmitems.py` may leave byte
   caches behind.
 - The line numbers in the scripts' own docstrings drift as the C++ changes. The
   refs in this document were checked against the current tree.
 
-## `damage_calc.py` — physical damage simulation
-
-A faithful Monte-Carlo port of the player→monster physical-attack pipeline. It
-configures a character, a weapon and a monster in a `CONFIG` block at the top and
-prints a table of hit %, damage per try/hit, DPS, stamina cost and XP for each
-weapon+attack combination.
-
-```
-python3 damage_calc.py
-```
-
-Mirrors, in order:
-- `Quickness` — `Character.cpp:2192`
-- `IsCharacterLucky` — `Character.cpp:2148` (in the script luck is held fixed;
-  the game itself drifts it ±2 per call)
-- `DetermineThrowingDistance` — `Character.cpp:2250`
-- `DeterminePhysicalAttackDamage` — `Attack.cpp:484`, including the D6≤1 graze
-  chain and the final randomize/shrink chain inside that function
-- `DamageMonster` — `Code11f52.cpp:1084` (plain HP subtraction)
-
-The attack numbers (`P7` = strength required, `P8` = damage factor) are the
-decoded 7-column attack table values; see [data-formats.md](data-formats.md).
-
-## `damage_calc_gui.py` — a Tkinter front end
-
-A GUI around `damage_calc.py`. It lets you tick weapons and their attack methods,
-pick and edit a monster, edit all character details or load a champion from a
-DM/CSB savegame, set the fight length, run the simulation, and sort the result
-table. Champion loading goes through `savefile.py`; a champion can also be loaded
-straight from an Amiga save disk image (`.adf`) through `adf.py`. **Graph DPS vs
-Str** opens the `dps_graph.py` plot for the selected weapon and attack.
-
-```
-python3 damage_calc_gui.py
-```
-
-## `dps_graph.py` — DPS against strength
-
-Plots damage per second against strength for one weapon and attack, barefoot and
-with Elven Boots. It shows how the boots' MaxLoad bonus moves the throw-weight
-branches of `DetermineThrowingDistance` (`Character.cpp:2250`), including the
-window where a higher MaxLoad briefly lowers the bonus. It runs the simulation of
-`damage_calc.py` and draws on a Tkinter canvas; the GUI calls it from its
-**Graph DPS vs Str** button.
-
-```
-python3 dps_graph.py axe chop
-python3 dps_graph.py morningstar melee --monster Dragon --str-lo 30 --str-hi 110
-python3 dps_graph.py axe chop --no-show   # print the table only
-```
-
-## `adf.py` — read files from an Amiga disk image
-
-A minimal, read-only reader for AmigaDOS disk images (ADF, 901120 bytes, OFS or
-FFS). It finds files by scanning for file-header blocks, which is enough for the
-flat save disks of the Amiga games, so the GUI can pull `DMGAME.DAT` off a save
-disk without extracting it first. The image is never modified.
-
-```
-python3 adf.py save.adf   # list the files on the disk
-```
-
 ## `savefile.py` — read champions from a savegame
 
 A library, not a program. It decodes a DM/CSB savegame and exposes the champion
 records: name, title, HP/mana/stamina, the seven attributes and the twenty skills.
-The `damage_calc_gui.py` "load a champion" feature and the two converter scripts
-both build on it.
+`dm_save_to_csbwin.py` builds on it.
 
 The format is documented in its docstring and in [data-formats.md](data-formats.md).
 It mirrors the engine's loader: `SaveGame.cpp`, the `Unscramble` decryptor

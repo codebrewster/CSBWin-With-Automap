@@ -147,7 +147,7 @@ Two decode tables are worth calling out because tools depend on them:
   from MCE's `dm.c` and mirrors its `writeitemgad()` lookup; it names objects in
   the `ITEM16` table above.
 - **Weapon attack parameters.** The 7-column attack table (P7 strength required,
-  P8 damage factor, …) is decoded by `damage_calc.py` and drives
+  P8 damage factor, …) is decoded by the calculator (`src/calculator/io/GraphicsDat.cpp`) and drives
   `DeterminePhysicalAttackDamage` (`Attack.cpp:484`).
 
 See [python-tools.md](python-tools.md) for how both are used.
