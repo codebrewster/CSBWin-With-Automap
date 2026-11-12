@@ -1102,7 +1102,7 @@ static AutoMapLevelSnapshot CorridorWithMissileAndCloud(void)
   missile.rangeRemaining = 150;
   missile.sizeShowsRange = true;
   snapshot.missiles.push_back(missile);
-  AutoMapCloudRecord cloud = {1, 1, 351};
+  AutoMapCloudRecord cloud = {1, 1, 351, false};
   snapshot.clouds.push_back(cloud);
   return snapshot;
 }
@@ -1121,6 +1121,18 @@ static void WithoutFogMissilesAndCloudsAreShown(void)
   CHECK(drawList.clouds.size() == 1);
   CHECK(drawList.clouds[0].x == 1);
   CHECK(drawList.clouds[0].picture == 351);
+  CHECK(!drawList.clouds[0].fluxCage);
+}
+
+static void AFluxCageStaysAFluxCageInTheDrawList(void)
+{
+  AutoMapLevelSnapshot snapshot = CorridorWithMissileAndCloud();
+  snapshot.clouds[0].fluxCage = true;
+  AutoMapExplored explored = NothingExplored();
+  AutoMapVisibleCells visibleNow;
+  AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
+  CHECK(drawList.clouds.size() == 1);
+  CHECK(drawList.clouds[0].fluxCage);
 }
 
 static void UnderFogMissilesAndCloudsShowOnlyWhereThePartySees(void)
@@ -7080,6 +7092,7 @@ void TestAutoMapScene(void)
   GlobalOffsetsReachTheDrawList();
   GlobalPositionAddsTheLevelOffset();
   WithoutFogMissilesAndCloudsAreShown();
+  AFluxCageStaysAFluxCageInTheDrawList();
   UnderFogMissilesAndCloudsShowOnlyWhereThePartySees();
   SpellFireShrinksWithItsRange();
   AFalseWallIsNotHighlighted();

@@ -1390,6 +1390,7 @@ static void ReadObjectsAt(int x, int y, AutoMapCellRecord *record, AutoMapLevelS
       cloud.x = x;
       cloud.y = y;
       cloud.picture = CloudPicture(GetRecordAddressDB15(object));
+      cloud.fluxCage = GetRecordAddressDB15(object)->cloudType() == CT_FLUXCAGE;
       snapshot->clouds.push_back(cloud);
     }
     else if (type == dbACTUATOR)

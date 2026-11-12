@@ -274,7 +274,7 @@ static void WriteDrawList(std::string &f, ExportPictures &sp, const AutoMapDrawL
             l.missiles[i].sizeShowsRange ? AutoMapScene_MissileScale(l.missiles[i].rangeRemaining) : 1.0f);
   Append(f, "],\"clouds\":[");
   for (size_t i = 0; i < l.clouds.size(); i++)
-    Append(f, "%s[%d,%d,%s]", i ? "," : "", l.clouds[i].x, l.clouds[i].y, JsonText(sp.Plain(l.clouds[i].picture, 10)).c_str());
+    Append(f, "%s[%d,%d,%s,%d]", i ? "," : "", l.clouds[i].x, l.clouds[i].y, JsonText(sp.Plain(l.clouds[i].picture, 10)).c_str(), l.clouds[i].fluxCage ? 1 : 0);
   Append(f, "],\"acts\":[");
   for (size_t i = 0; i < l.actuators.size(); i++)
   {

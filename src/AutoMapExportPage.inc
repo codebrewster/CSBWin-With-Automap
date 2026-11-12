@@ -328,7 +328,16 @@ function drawItems(c) {
   items.slice(0, 3).forEach((it, i) => { const sx = x + Math.floor(cs * i / n), sw = Math.floor(cs / n); if (!itemSpr(it[0], sx, y, sw, cs)) insetMark(sx, y, sw, cs, COL.item); });
   if (all > 3) { const p = Math.max(1, Math.floor(cs / 24)), s = String(all), w = textW(s, p) + 4 * p, h = 9 * p; rect(x + cs - w - 2, y + 2, w, h, '#0d0c0a'); frame(x + cs - w - 2, y + 2, w, h, COL.item); text(g, x + cs - w - 2 + 2 * p, y + 2 + 2 * p, s, COL.item, p); }
 }
-function drawClouds() { for (const [x, y, s] of V.clouds) if (!spr(s, px(x), py(y), cs, cs)) { g.fillStyle = 'rgba(80,200,120,.45)'; g.fillRect(px(x) + cs * .05, py(y) + cs * .05, cs * .9, cs * .9); } }
+function drawFlux(x, y) {
+  g.save(); g.beginPath(); g.rect(x, y, cs, cs); g.clip();
+  const q = Math.max(2, Math.round(cs / 14));
+  g.fillStyle = 'rgba(242,210,60,.59)';
+  for (let j = 0; j * q < cs; j++) for (let i = 0; i * q < cs; i++) if ((i + j) % 2 == 0) g.fillRect(x + i * q, y + j * q, q, q);
+  g.restore();
+  g.strokeStyle = '#f2d23c'; g.lineWidth = 1; g.strokeRect(x + 1.5, y + 1.5, cs - 3, cs - 3);
+  if (cs >= 16) g.strokeRect(x + 2.5, y + 2.5, cs - 5, cs - 5);
+}
+function drawClouds() { for (const [x, y, s, flux] of V.clouds) if (flux) drawFlux(px(x), py(y)); else if (!spr(s, px(x), py(y), cs, cs)) { g.fillStyle = 'rgba(80,200,120,.45)'; g.fillRect(px(x) + cs * .05, py(y) + cs * .05, cs * .9, cs * .9); } }
 // What flies crosses the upper three fifths of its cell, as the window's DrawMissiles
 function drawMissiles() { const n = {}; V.missiles.forEach(m => n[m[0] + ',' + m[1]] = (n[m[0] + ',' + m[1]] || 0) + 1); const k = {}; for (const [x, y, s, sc] of V.missiles) { const key = x + ',' + y, i = (k[key] = (k[key] || 0) + 1) - 1, cnt = n[key]; const airH = Math.floor(cs * 3 / 5), sx = px(x) + Math.floor(cs * i / cnt), sw = Math.floor(cs / cnt); if (!itemSpr(s, sx, py(y), sw, airH, sc)) insetMark(sx, py(y), sw, airH, '#ff6a2b'); } }
 function glimpseMark(pp, ax, ay, aw, ah) { const r = PUN['?']; const left = ax + (aw - 3 * pp) / 2, top = ay + (ah - 5 * pp) / 2; g.fillStyle = COL.item; for (let row = 0; row < 5; row++) for (let c = 0; c < 3; c++) if (r[row] & (1 << (2 - c))) g.fillRect(Math.round(left + c * pp), Math.round(top + row * pp), pp, pp); }

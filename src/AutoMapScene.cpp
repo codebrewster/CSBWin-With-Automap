@@ -864,6 +864,7 @@ static void AddClouds(const AutoMapLevelSnapshot &snapshot, const AutoMapFog &fo
     shown.x = cloud.x;
     shown.y = cloud.y;
     shown.picture = cloud.picture;
+    shown.fluxCage = cloud.fluxCage;
     drawList->clouds.push_back(shown);
   }
 }

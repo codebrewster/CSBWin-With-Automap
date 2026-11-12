@@ -443,6 +443,8 @@ struct AutoMapCloudRecord
   int x;
   int y;
   int picture;
+  // A fluxcage: the 3D view draws it as a shimmering field like a teleporter's, not as a puff
+  bool fluxCage;
 };
 
 // A floor actuator the 3D view may or may not show: pressure pads (of any operator type),
@@ -824,6 +826,7 @@ struct AutoMapShownCloud
   int x;
   int y;
   int picture;
+  bool fluxCage;
 };
 
 struct AutoMapDrawList

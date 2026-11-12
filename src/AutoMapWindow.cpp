@@ -87,6 +87,7 @@ static const SDL_Color INVISIBLE_TELEPORTER = {0x8a, 0x8a, 0x9a, 0xff};
 static const SDL_Color DORMANT_TELEPORTER = {0x5a, 0x5a, 0x66, 0xff};
 static const SDL_Color DORMANT_TELEPORT_LINE = {0x5a, 0x8a, 0x94, 0xff};
 static const SDL_Color SPINNER = {0x6a, 0xd8, 0xe8, 0xff};
+static const SDL_Color FLUXCAGE = {0xf2, 0xd2, 0x3c, 0xff};
 static const SDL_Color DORMANT_SPINNER = {0x40, 0x6e, 0x76, 0xff};
 static const SDL_Color PAD = {0xc8, 0x9a, 0x4a, 0xff};
 static const SDL_Color PAD_DORMANT = {0x8a, 0x84, 0x7a, 0xff};
@@ -2453,6 +2454,18 @@ static void DrawItems(const SDL_Rect &cell, const AutoMapShownCell &shown)
   else if (hasMoreItems) DrawMoreItemsMark(cell);
 }
 
+// A fluxcage, as the 3D view shows it: the shimmering field of a teleporter, here on the whole
+// cell inside a frame, as it closes the cell on every side
+static void DrawFluxCage(const SDL_Rect &cell)
+{
+  AutoMapRect field = {cell.x, cell.y, cell.w, cell.h};
+  AutoMapPaint_Dither(field, FLUXCAGE, 150, std::max(2, cell.w / 14));
+  SDL_Rect frame = {cell.x + 1, cell.y + 1, cell.w - 2, cell.h - 2};
+  Outline(frame, FLUXCAGE);
+  SDL_Rect inner = {cell.x + 2, cell.y + 2, cell.w - 4, cell.h - 4};
+  if (cell.w >= 16) Outline(inner, FLUXCAGE);
+}
+
 // A lingering cloud settles over the floor but under what lies on it
 static void DrawClouds(const SDL_Rect &cell, const AutoMapShownCell &shown,
                        const AutoMapDrawList &drawList)
@@ -2460,6 +2473,11 @@ static void DrawClouds(const SDL_Rect &cell, const AutoMapShownCell &shown,
   for (size_t i = 0; i < drawList.clouds.size(); i++)
   {
     if (drawList.clouds[i].x != shown.x || drawList.clouds[i].y != shown.y) continue;
+    if (drawList.clouds[i].fluxCage)
+    {
+      DrawFluxCage(cell);
+      continue;
+    }
     const AutoMapSprite *sprite = SpriteOfTheGame(drawList.clouds[i].picture);
     if (sprite == NULL)
     {
