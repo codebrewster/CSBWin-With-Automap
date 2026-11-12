@@ -95,4 +95,37 @@ int sampleDamageOnMonster(Draw &d, SampledLaunch l, const WeaponType &w, const T
   return std::max(0, int(sw(((64 * (str & 0xffff)) & 0xffff) / defense)));
 }
 
+bool canShoot(const WeaponType &launcher, const WeaponType &ammo)
+{
+  return (launcher.cls >= 16 && launcher.cls <= 31 && ammo.cls == 10) ||
+         (launcher.cls >= 32 && launcher.cls <= 47 && ammo.cls == 11);
+}
+
+// atk_SHOOT, Attack.cpp:1933-2005.  The strength is the launcher's class minus 16 (or 32), used for
+// damage AND decay: Attack.cpp:1986 sets damage = 2 * (attribute + Shoot mastery), but line 1987
+// overwrites it with D4W (= cls - 16/32) before LaunchObject(range, damage, damage), so the hero's
+// Shoot skill does not count.  17.6 check: the same two lines, in the same order, stand in the original
+// CSBwin sources 9.96.3 (CSBwin9963src.zip, Attack.cpp:1882-1883), 11.0 (CSBwin11_0src.zip,
+// Attack.cpp:1896-1897) and SRC_20230608 (Attack.cpp:1904-1905), downloaded from dianneandpaul.net.
+// So the port agrees with the original and there is no rule for it.  (The repo's own history only
+// has the line from its first commit f3af94d, so it says nothing.  Hero and rules are not read.)
+Launch shotLaunch(const WeaponType &launcher, const WeaponType &ammo, const Hero &, const Rules &)
+{
+  Launch l;
+  const int power = launcher.cls - (launcher.cls >= 32 ? 32 : 16);
+  l.range = Dist::point(launcher.distance + ammo.distance);
+  l.damage = Dist::point(power);
+  l.decay = power;
+  return l;
+}
+
+SampledLaunch sampleShotLaunch(Draw &, const WeaponType &launcher, const WeaponType &ammo,
+                               const Hero &, const Rules &)
+{
+  SampledLaunch l;
+  l.decay = l.damage = launcher.cls - (launcher.cls >= 32 ? 32 : 16);
+  l.range = launcher.distance + ammo.distance;
+  return l;
+}
+
 }  // namespace calc

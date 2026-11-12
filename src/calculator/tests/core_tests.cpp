@@ -496,6 +496,31 @@ static void thrown(const GameData &g)
   Target inv = t;
   inv.type.invincible = true;
   expect(damageOnMonster(l, dagger, inv, 3, false, 1, dice).mass() == 0, "an invincible monster is not hurt");
+  // Shots from a launcher
+  const WeaponType &bow = weaponNamed(g, "Claw Bow / Bow");
+  const WeaponType &arrow = weaponNamed(g, "Arrow");
+  const WeaponType &sling = weaponNamed(g, "Sling");
+  const WeaponType &rock = weaponNamed(g, "Rock");
+  expect(canShoot(bow, arrow) && !canShoot(bow, rock) && canShoot(sling, rock) && !canShoot(dagger, arrow),
+         "a bow takes arrows, a sling rocks, a dagger shoots nothing");
+  Rules shotRules;
+  Launch sl = shotLaunch(bow, arrow, h, shotRules);
+  expect(sl.range.minValue() == bow.distance + arrow.distance && sl.range.maxValue() == sl.range.minValue() &&
+           sl.decay == bow.cls - 16 && sl.damage.minValue() == bow.cls - 16 && sl.damage.maxValue() == bow.cls - 16,
+         "a shot: range = launcher + ammo distance, damage and decay = launcher class - 16");
+  for (int factor : {1, 4}) {
+    shotRules.shotDamageFactor = factor;
+    for (const auto &pair : {std::make_pair(&bow, &arrow), std::make_pair(&sling, &rock)}) {
+      Launch s = shotLaunch(*pair.first, *pair.second, h, shotRules);
+      SampledLaunch ss = sampleShotLaunch(d, *pair.first, *pair.second, h, shotRules);
+      expect(ss.range == s.range.minValue() && ss.damage == s.damage.minValue() && ss.decay == s.decay,
+             "sampled shot launch matches the table");
+      compare("shot " + pair.first->name + " factor " + std::to_string(factor),
+              damageOnMonster(s, *pair.second, t, 3, false, factor, dice),
+              [&] { return sampleDamageOnMonster(d, sampleShotLaunch(d, *pair.first, *pair.second, h, shotRules),
+                                                 *pair.second, t, 3, false, factor); });
+    }
+  }
 }
 
 int main(int argc, char **argv)

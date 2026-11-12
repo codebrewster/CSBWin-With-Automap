@@ -34,4 +34,10 @@ Dist damageOnMonster(const Launch &launch, const WeaponType &object, const Targe
 int sampleDamageOnMonster(Draw &d, SampledLaunch l, const WeaponType &object,
                           const Target &target, int squares, bool backRow, int shotFactor);
 
+// A shot from a launcher in one hand with ammunition in the other (atk_SHOOT, Attack.cpp:1933)
+bool canShoot(const WeaponType &launcher, const WeaponType &ammo);
+Launch shotLaunch(const WeaponType &launcher, const WeaponType &ammo, const Hero &hero, const Rules &rules);
+SampledLaunch sampleShotLaunch(Draw &d, const WeaponType &launcher, const WeaponType &ammo,
+                               const Hero &hero, const Rules &rules);
+
 }  // namespace calc
