@@ -169,8 +169,29 @@ void Sidebar::buildHero(QVBoxLayout *column)
   n = 0;
   Card::addPair(g, n++, 2, tr("Own shield"), field(&h.shield, &b.shield, 0, 999),
                 tr("Protection from a Ya potion or the Spellshield action, added to every body part"));
-  Card::addPair(g, n++, 2, tr("Action bonus"), field(&h.actionDefense, &b.actionDefense, -99, 99),
+  // The range is the whole 16-bit word: a savegame can hold an overflowed value, and a
+  // narrower box would show a clamped number while the calculation used the real one.
+  auto *actionField = field(&h.actionDefense, &b.actionDefense, -32768, 32767);
+  Card::addPair(g, n++, 2, tr("Action bonus"), actionField,
                 tr("Protection of the action under way: Parry +29, Block +36, Berzerk -10 …"));
+  auto *actionNote = mutedLabel(QString());
+  actionNote->setWordWrap(true);
+  actionNote->setVisible(false);
+  auto checkAction = [=] {
+    int v = actionField->value();
+    bool odd = v < -128 || v > 127;   // the game's action table holds signed bytes
+    actionNote->setVisible(odd);
+    if (odd)
+      actionNote->setText(tr("%1 is more than any action gives. The original game never took back the "
+                             "adjustment of attacks without recovery time, so it added up with every "
+                             "such attack (and could even overflow). It can wipe out all armour; "
+                             "set it to 0 to leave it out.")
+                            .arg(v));
+  };
+  connect(actionField, QOverload<int>::of(&QSpinBox::valueChanged), this, checkAction);
+  connect(s_, &Session::reloaded, this, checkAction);
+  checkAction();
+  gear->body()->addWidget(actionNote);
   auto *cross = new BoolField(tr("Ekkhard Cross worn (faster healing)"), s_, &h.ekkhardCross);
   gear->body()->addWidget(cross);
   auto *wounds = new QGridLayout;
