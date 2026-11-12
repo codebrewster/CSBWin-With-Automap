@@ -53,6 +53,12 @@ struct ShieldCast {
 // `current` = the shield the party already has: above 50 a new cast adds only a quarter
 ShieldCast castShield(ShieldSpell spell, int power, int current);
 
+// The tail of DetermineMagicDamage (Code11f52.cpp:1657), from the base roll on: the
+// strength of any missile that arrives, given what it has left.  `base` is the engine's D6
+// before (D6 + range) / 16 + 1.
+Dist finishMagic(const Dist &base, const MissileState &at, Dice &dice);
+int sampleFinishMagic(Draw &d, int base, const MissileState &at);
+
 // DetermineMagicDamage for a spell missile
 Dist magicDamage(int missile, const MissileState &at, Dice &dice);
 int sampleMagicDamage(Draw &d, int missile, const MissileState &at, int *poison = nullptr);

@@ -91,6 +91,8 @@ namespace {
 
 int16_t sw(int v) { return int16_t(v); }
 
+}  // namespace
+
 // The tail of DetermineMagicDamage, from the base roll on
 Dist finishMagic(const Dist &base, const MissileState &at, Dice &dice)
 {
@@ -110,6 +112,8 @@ int sampleFinishMagic(Draw &d, int d6, const MissileState &at)
   d1 = 32 - at.damage / 8;
   return std::max(d6 / 2, d6 - d1);
 }
+
+namespace {
 
 Dist fireBase(Dice &dice, int factor)
 {

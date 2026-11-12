@@ -12,6 +12,7 @@
 #include "../core/MonsterAttack.h"
 #include "../core/Recovery.h"
 #include "../core/Spells.h"
+#include "../core/Thrown.h"
 #include "../io/GraphicsDat.h"
 #include "../io/SaveGame.h"
 
@@ -436,6 +437,67 @@ static int checkFiles(int argc, char **argv)
   return failures ? 1 : 0;
 }
 
+static const WeaponType &weaponNamed(const GameData &g, const char *name)
+{
+  for (const WeaponType &w : g.weapons)
+    if (w.name == name) return w;
+  std::printf("FAIL no weapon %s\n", name);
+  failures++;
+  return g.weapons[0];
+}
+
+static void thrown(const GameData &g)
+{
+  Rng rng(7);
+  Dice dice(true);
+  Draw d{rng, true};
+  const WeaponType &dagger = weaponNamed(g, "Dagger");
+  const WeaponType &dart = weaponNamed(g, "Poison Dart");
+  Hero h = fighter(g);
+  h.mastery[SkillThrow] = 4;
+  Launch l4 = handLaunch(h, dagger, dice);
+  expect(l4.damage.minValue() == 40 && l4.damage.maxValue() == 63 &&
+           std::fabs(l4.damage.mass() - 1) < 1e-9 && l4.decay == 7,
+         "hand launch at Throw 4: damage 40..63, decay 7");
+  h.mastery[SkillThrow] = 8;
+  Launch l8 = handLaunch(h, dagger, dice);
+  expect(l8.decay == 5 && l8.damage.maxValue() == 95, "hand launch at Throw 8: decay 5, damage to 95");
+  expect(l8.range.maxValue() <= 255 && std::fabs(l8.range.mass() - 1) < 1e-9, "range within 255");
+  for (const WeaponType *w : {&dagger, &dart}) {
+    for (int m : {4, 8}) {
+      h.mastery[SkillThrow] = m;
+      Launch l = handLaunch(h, *w, dice);
+      std::string tag = w->name + " M" + std::to_string(m);
+      compare("hand launch range " + tag, l.range,
+              [&] { return sampleHandLaunch(d, h, *w).range; });
+      compare("hand launch damage " + tag, l.damage,
+              [&] { return sampleHandLaunch(d, h, *w).damage; });
+    }
+  }
+  for (const MissileState &at : {MissileState{true, 120, 90}, MissileState{true, 30, 50}})
+    compare("arrival strength r" + std::to_string(at.range), arrivalStrength(dagger, at, dice),
+            [&] { return sampleArrivalStrength(d, dagger, at); });
+  Target t = monster(g, 10, 3);
+  t.type.defense = 30;
+  h.mastery[SkillThrow] = 4;
+  Launch l = handLaunch(h, dagger, dice);
+  for (bool back : {false, true}) {
+    Dist hit = damageOnMonster(l, dagger, t, 3, back, 1, dice);
+    expect(hit.mass() > 0.5, "a dagger at 3 squares usually arrives");
+    compare(std::string("hand throw on monster") + (back ? " back row" : ""), hit,
+            [&] { return sampleDamageOnMonster(d, sampleHandLaunch(d, h, dagger), dagger, t, 3, back, 1); });
+  }
+  compare("hand throw with shot factor 3", damageOnMonster(l, dagger, t, 2, false, 3, dice),
+          [&] { return sampleDamageOnMonster(d, sampleHandLaunch(d, h, dagger), dagger, t, 2, false, 3); });
+  expect(damageOnMonster(l, dagger, t, 40, false, 1, dice).mass() == 0, "40 squares is out of range");
+  Target ghost = t;
+  ghost.type.nonMaterial = true;
+  expect(damageOnMonster(l, dagger, ghost, 3, false, 1, dice).mass() == 0, "passes through non-material");
+  Target inv = t;
+  inv.type.invincible = true;
+  expect(damageOnMonster(l, dagger, inv, 3, false, 1, dice).mass() == 0, "an invincible monster is not hurt");
+}
+
 int main(int argc, char **argv)
 {
   if (argc > 2 && std::string(argv[1]) == "--files") return checkFiles(argc, argv);
@@ -451,6 +513,7 @@ int main(int argc, char **argv)
   actionBonusTick(g);
   monsterAttacks(g);
   spells(g);
+  thrown(g);
   recovery();
   std::printf("%d checks, %d failed\n", checks, failures);
   return failures ? 1 : 0;

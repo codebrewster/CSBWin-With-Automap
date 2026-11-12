@@ -22,7 +22,7 @@ endif()
 # The formulas and the file readers: plain C++, no Qt
 add_library(calc_core STATIC
   core/Builtin.cpp core/Defense.cpp core/GameData.cpp core/HeroAttack.cpp
-  core/MonsterAttack.cpp core/Recovery.cpp core/Spells.cpp
+  core/MonsterAttack.cpp core/Recovery.cpp core/Spells.cpp core/Thrown.cpp
   io/Adf.cpp io/Config.cpp io/GraphicsDat.cpp io/SaveGame.cpp)
 
 add_executable(calc_tests tests/core_tests.cpp)
