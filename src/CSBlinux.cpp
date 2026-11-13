@@ -2791,15 +2791,37 @@ static void ContinueCheck(void)
 
 // After a replay ended or was stopped, while its snapshots are there: buttons to go back in it
 // (the keys are the game's again)
+static bool replayBackHidden = false; // not kept in csb.cfg; shown again with the next replay or game
+static bool replayBackConfirming = false; // its popup is open: the system pointer shows
+static int replayBackAsked = 0;       // the button asked for, while the player confirms
+
 static void DrawReplayBackControls(void)
 {
+  int played = (int)d.Time - PlayfileEndTick(); // what going back would throw away
   ImGui::TextDisabled("%s", _("Back in the replay:"));
-  if (ImGui::SmallButton("<<<##end")) ReplayBack(PLAYBACK_SKIP_LARGE);
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip(_("The replay opens again %d ticks before the tick it ended at (%d)"), PLAYBACK_SKIP_LARGE, PlayfileEndTick());
-  if (ImGui::SmallButton("<<##end")) ReplayBack(PLAYBACK_SKIP_SMALL);
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip(_("The replay opens again %d ticks before the tick it ended at (%d)"), PLAYBACK_SKIP_SMALL, PlayfileEndTick());
-  if (ImGui::SmallButton("<##end")) ReplayBack(PLAYBACK_SKIP_TINY);
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip(_("The replay opens again %d ticks before the tick it ended at (%d)"), PLAYBACK_SKIP_TINY, PlayfileEndTick());
+  ImGui::SameLine();
+  if (ImGui::SmallButton("x##hideback")) replayBackHidden = true;
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", _("Hide these buttons until the next replay"));
+  static const int steps[3] = {PLAYBACK_SKIP_LARGE, PLAYBACK_SKIP_SMALL, PLAYBACK_SKIP_TINY};
+  static const char *labels[3] = {"<<<##end", "<<##end", "<##end"};
+  for (int i = 0; i < 3; i++)
+  {
+    if (ImGui::SmallButton(labels[i]))
+    {
+      if (played > 0) { replayBackAsked = steps[i]; replayBackConfirming = true; ImGui::OpenPopup("##confirmback"); }
+      else ReplayBack(steps[i]);
+    }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip(_("The replay opens again %d ticks before the tick it ended at (%d)"), steps[i], PlayfileEndTick());
+  }
+  if (ImGui::BeginPopupModal("##confirmback", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar))
+  {
+    ImGui::Text(_("You have played %d ticks since the replay ended.\nGoing back discards them."), played);
+    ImGui::Separator();
+    if (ImGui::Button(_("Go back"), ImVec2(120, 0))) { ImGui::CloseCurrentPopup(); replayBackConfirming = false; ReplayBack(replayBackAsked); }
+    ImGui::SameLine();
+    if (ImGui::Button(_("Cancel"), ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) { ImGui::CloseCurrentPopup(); replayBackConfirming = false; }
+    ImGui::EndPopup();
+  }
 }
 
 void post_render() {
@@ -2893,7 +2915,7 @@ void post_render() {
 		// Impossible to insert an UI_MessageBox here, post_render can't loop on itself
 		cbAppDestroy();
 	    ImGui::EndMenu();
-	} else if (!fb_shown && !on_menubar && !fb2_shown && !fb3_shown && d.NumGraphic && !want_popup) {
+	} else if (!fb_shown && !on_menubar && !fb2_shown && !fb3_shown && d.NumGraphic && !want_popup && !replayBackConfirming) {
 	    imgui_active = false;
 	}
 
@@ -3023,7 +3045,8 @@ void post_render() {
 	    } else if (replayEndedAt != 0) {
 		ImGui::TextColored(ImVec4(0.6f, 0.9f, 0.6f, 1.0f), _("Replay ended at tick %d: you play on from here"), replayEndTick);
 	    }
-	    if (PlayfileCanGoBack()) DrawReplayBackControls();
+	    if (!PlayfileCanGoBack()) replayBackHidden = false;
+	    else if (!replayBackHidden) DrawReplayBackControls();
 	}
 	if (RecordfileIsOpen())
 	    ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), _("REC"));
@@ -3375,6 +3398,6 @@ void post_render() {
     }
     ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(),sdlRenderer);
     SDL_RenderPresent(sdlRenderer);
-    if (want_popup)
+    if (want_popup || replayBackConfirming)
 	imgui_active = 1;
 }
