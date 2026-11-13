@@ -10,6 +10,7 @@
 #include "Data.h"
 extern bool legacyAttackAfterDamage;
 extern bool legacyFluxcageCheck;
+extern bool legacyEarlyMonsterActivation;
 #include "AutoMapWindow.h"
 #include "HeroStatsWindow.h"
 #include "AutoMapHooks.h"
@@ -501,11 +502,14 @@ void PhysicalAttackFilter(ATTACKPARAMETERS *pParam, FILTER *pFilter, const char 
   };
   if (monsterDamageResult != NO_MONSTER_DIED) // If one or more of the monster group died.
   {
-    pParam->activateMonster = 1;
-    //ProcessTimers29to41(pParam->attackX,
-    //                    pParam->attackY,
-    //                    TT_M1,
-    //                    0);
+    if (legacyEarlyMonsterActivation)
+    {
+      ProcessTimers29to41(pParam->attackX, pParam->attackY, TT_M1, 0);
+    }
+    else
+    {
+      pParam->activateMonster = 1;
+    };
   };
 
 }

@@ -330,6 +330,12 @@ bool legacyFluxcageCheck = false;
 // where later versions (DM_rules) skip it.  Found with DMMovie8 (9.2): hero
 // 0's strength was 35 instead of 40.
 bool legacyReincarnatePenalty = false;
+// Set while replaying a playfile recorded by CSBwin before 9.9: a blow that killed a
+// monster of a group woke the group (ProcessTimers29to41, TT_M1) right inside the damage
+// code, before the attacker's re-enable timer was queued.  Later versions wake it at the end
+// of the attack.  The order decides which timer gets which slot, and equal timers run in slot
+// order.  Found with DMMovie8 (9.2).
+bool legacyEarlyMonsterActivation = false;
 // Set while replaying a playfile recorded by CSBwin before 11.0.  Those
 // versions had no timer sequence numbers: timers due at the same time were
 // ordered by their slot in the timer array (TIMER::operator <).
