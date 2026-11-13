@@ -885,13 +885,15 @@ static void HeaderRow(const std::vector<int> &columnOfHeader, const std::vector<
     bool isText = measuring != NULL && i < (int)measuring->kinds.size() && measuring->kinds[i] == ColumnText;
     bool guided = i > 0 && InMeasuredTable() && ImGui::TableGetHoveredColumn() == i;
     // Room for the sort arrow beside the name, so a sorted column's header is not cut short
-    if (!isText) NoteWidth(ImGui::CalcTextSize(name).x + (champion >= 0 ? spaceWidth * 2 : 0) + 22);
+    // (ImGui keeps the arrow's width at the right edge of a sortable header)
+    float arrow = ImTrunc(ImGui::GetFontSize() * 0.65f + ImGui::GetStyle().FramePadding.x);
+    if (!isText) NoteWidth(ImGui::CalcTextSize(name).x + (champion >= 0 ? spaceWidth * 2 : 0) + arrow + 12);
     if (!inSight) continue;
     bool isLabel = measuring != NULL && i < (int)measuring->kinds.size() && measuring->kinds[i] == ColumnLabel;
     if (i > 0 && !isText && !isLabel)
     {
       float textWidth = ImGui::CalcTextSize(name).x + (champion >= 0 ? spaceWidth * 2 : 0);
-      int spaces = (int)((ImGui::GetContentRegionAvail().x - textWidth - 14) / spaceWidth);
+      int spaces = (int)((ImGui::GetContentRegionAvail().x - textWidth - arrow - 4) / spaceWidth);
       if (spaces > 0) prefix = std::string(spaces, ' ');
     }
     std::string label = prefix + (champion >= 0 ? "  " : "") + name;
