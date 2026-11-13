@@ -60,17 +60,29 @@ void DescribeChampionBones(char *dest, const char *pName, const char *objName)
 }
 
 // A dead champion's bones named after the champion ("TIGGY BONES"), "" for any other object
-std::string ChampionBonesName(RN object)
+// The fingerprint of the champion whose bones these are, -1 for any other object
+int ChampionBonesFingerprint(RN object)
 {
-  if (object.NameIndex() != objNI_Bones_a) return "";
-  if (GetCommonAddress(object)->CastToDB10()->value() == 0) return "";
+  if (object.NameIndex() != objNI_Bones_a) return -1;
+  if (GetCommonAddress(object)->CastToDB10()->value() == 0) return -1;
   ui32 bonesRecord[1];
-  if (!expool.CopyChampionBonesRecord(object, bonesRecord)) return "";
+  if (!expool.CopyChampionBonesRecord(object, bonesRecord)) return -1;
+  return (int)(bonesRecord[0] & 0xffff);
+}
+
+// "TIGGY BONES" for the champion of that fingerprint, "" when no such champion is known
+std::string ChampionBonesNameOf(int fingerprint)
+{
   CHARDESC character;
-  if (!character.CopyCharacter(bonesRecord[0])) return "";
+  if (fingerprint < 0 || !character.CopyCharacter((ui32)fingerprint)) return "";
   char name[999];
   DescribeChampionBones(name, character.name, d.ObjectNames[objNI_Bones_a]);
   return name;
+}
+
+std::string ChampionBonesName(RN object)
+{
+  return ChampionBonesNameOf(ChampionBonesFingerprint(object));
 }
 
 // *********************************************************

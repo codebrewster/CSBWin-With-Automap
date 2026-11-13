@@ -130,6 +130,17 @@ static bool IsReadable(RN rn)
 // torch by its flame, a waterskin full or empty, Fury, Flamitt and the like charged or spent. The
 // icon, the name and the charges all come from this one read, so they cannot disagree.
 std::string ChampionBonesName(RN object);  // Code11f52.cpp
+int ChampionBonesFingerprint(RN object);
+std::string ChampionBonesNameOf(int fingerprint);
+
+// The statistics' Items page keeps a dead champion's bones apart by champion: the key is this
+// base plus the fingerprint (item types are below 256). Everything else is keyed by basic type.
+static const int BONES_KEY_BASE = 0x10000;
+static int ItemKeyOf(RN rn)
+{
+  int fingerprint = ChampionBonesFingerprint(rn);
+  return fingerprint >= 0 ? BONES_KEY_BASE + fingerprint : HeroStats_WeaponOf(rn);
+}
 
 static HeroStatsLiveItem LiveItemOf(int slot, RN rn, bool inChest)
 {
@@ -491,14 +502,14 @@ void HeroStats_OnItemPickedUp(int item)
 {
   RN rn;
   if (!IsItem(item, &rn) || !origins.MarkHeld(item)) return;
-  store.CountItem(PartyLevel(), HeroStats_WeaponOf(rn), HeroItemPickedUp);
+  store.CountItem(PartyLevel(), ItemKeyOf(rn), HeroItemPickedUp);
 }
 
 void HeroStats_OnItemTakenFromChest(int item)
 {
   RN rn;
   if (!IsItem(item, &rn) || !origins.MarkHeld(item)) return;
-  store.CountItem(PartyLevel(), HeroStats_WeaponOf(rn), HeroItemTakenFromChest);
+  store.CountItem(PartyLevel(), ItemKeyOf(rn), HeroItemTakenFromChest);
 }
 
 void HeroStats_OnItemHeld(int item)
@@ -518,7 +529,7 @@ void HeroStats_OnItemUsedInWall(int item)
 {
   RN rn;
   if (!IsItem(item, &rn)) return;
-  store.CountItem(PartyLevel(), HeroStats_WeaponOf(rn), HeroItemUsedInWall);
+  store.CountItem(PartyLevel(), ItemKeyOf(rn), HeroItemUsedInWall);
 }
 
 void HeroStats_OnItemFreed(int item)
@@ -842,6 +853,12 @@ static_assert(HERO_STATS_FIRESTAFF == objNI_TheFirestaff_a && HERO_STATS_FIRESTA
 
 std::string HeroStats_WeaponNameOf(int weapon)
 {
+  if (weapon >= BONES_KEY_BASE)
+  {
+    std::string bones = ChampionBonesNameOf(weapon - BONES_KEY_BASE);
+    if (!bones.empty()) return bones;
+    weapon = objNI_Bones_a;
+  }
   return HeroStats_WeaponName(weapon, d.ObjectNames, (int)(sizeof d.ObjectNames / sizeof d.ObjectNames[0]));
 }
 
