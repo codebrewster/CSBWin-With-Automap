@@ -624,6 +624,16 @@ void DebugMain(char *msg)
 //#define DEBUGMAIN(a) DebugMain(a);
 #define DEBUGMAIN(a)
 
+// The point StartCSB waits at, and the main loop made to wait for its next message, as it does
+// between two ticks (ReplaySnapshot.cpp)
+static i32 *mainLoopState = NULL;
+// Where StartCSB waits is not among the registered restart states of Dispatch.h: the replay
+// snapshots put it back with the call stack
+static i32 *startCSBState = NULL;
+i32 StartCSB_State(void) { return startCSBState != NULL ? *startCSBState : 0; }
+void StartCSB_SetState(i32 state) { if (startCSBState != NULL) *startCSBState = state; }
+void MainLoop_WaitForMessage(void) { if (mainLoopState != NULL) *mainLoopState = _8_; }
+
 //   TAG00068e
 RESTARTABLE _MainLoop(const CSB_UI_MESSAGE * /*msg*/)
 {//(void)
@@ -804,6 +814,7 @@ tag0007c8:
     if (d.clockTick    == 0) goto tag0007b4; // Usually 0
     // Between two ticks, the next one due: a replay's snapshot is taken or put back here
     // (ReplaySnapshot.h). A paused replay comes by here again and again.
+    mainLoopState = &mystate;
     ReplaySnapshot_AtTickBoundary();
     if (IsPlayFileOpen()) AutoMap_CheckBreakpoint();
     if (IsPlayFileOpen() && PlaybackControl_HoldsTicks()) goto tag0007b4; // A replay's pause is due
@@ -11620,6 +11631,7 @@ void playmidi(void);
 bool resetstartcsb;
 #define RESTARTMAP3 \
   static i32 mystate=_0_; \
+  static bool startCSBStateKnown = (startCSBState = &mystate, true); (void)startCSBStateKnown; \
 if (resetstartcsb) { mystate=0; resetstartcsb=false; } \
 switch (mystate) { case _0_: goto return_0_;
 

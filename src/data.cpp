@@ -2136,8 +2136,10 @@ void FreeIfNonNULL(void **pointer)
 }
 
 void CleanupGraphics(void);
+void ReplaySnapshot_Forget(void);
 void Cleanup(bool programTermination)
 {
+  ReplaySnapshot_Forget(); // the snapshots of a replay belong to the game it played
   int i;
   bool recording;
   recording = IsRecordFileRecording();

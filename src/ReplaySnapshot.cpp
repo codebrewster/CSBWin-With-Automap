@@ -41,6 +41,17 @@ extern ui8 LScreenBase[320][210];
 extern i32 NoSpeedLimit;
 extern ui32 graphicRandom;
 extern ui32 viewportRandom;
+extern i16 globalPalette[16];
+extern bool GameIsComplete;
+extern bool endSequencePlaying; // CSBlinux.cpp
+i32 StartCSB_State(void);          // CSBCode.cpp
+void StartCSB_SetState(i32 state);
+void MainLoop_WaitForMessage(void);
+bool PlayfileCanGoBack(void);       // Recording.cpp
+int PlayfileEndTick(void);
+bool PlayfileReopenForRewind(void);
+void PlayfileAwaitRestore(void);
+void PlayfileCloseAgain(void);
 
 const int SNAPSHOT_EVERY = REPLAY_SNAPSHOT_EVERY;
 
@@ -283,6 +294,7 @@ const size_t VIEWPORT_BMP_BYTES = 15232; // CSBCode.cpp: allocateMemory(15232, 1
 void SaveScreen(SnapshotBytes &b)
 {
   SnapshotPut(b, &videoMode, sizeof videoMode);
+  SnapshotPut(b, globalPalette, 32);
   SnapshotPut(b, LScreenBase, sizeof LScreenBase);
   PutFixed(b, d.pViewportBMP, VIEWPORT_BMP_BYTES);
 }
@@ -290,6 +302,7 @@ void SaveScreen(SnapshotBytes &b)
 void RestoreScreen(SnapshotReader &r)
 {
   r.Get(&videoMode, sizeof videoMode);
+  r.Get(globalPalette, 32); // the screens after a win fade to palettes of their own
   r.Get(LScreenBase, sizeof LScreenBase);
   GetFixed(r, d.pViewportBMP);
 }
@@ -371,6 +384,10 @@ void Take(Snapshot &s)
   for (int i = 0; i < KEPT_COUNT; i++) s.kept[i] = keptParts[i].keep();
 }
 
+// Set when the engine came from the screens after a win: they used the memory the level's wall
+// and floor bitmaps lived in, which d still points to
+bool graphicsLost = false;
+
 void Restore(const Snapshot &s)
 {
   i32 levelBefore = d.partyLevel;
@@ -381,7 +398,15 @@ void Restore(const Snapshot &s)
   }
   for (int i = 0; i < KEPT_COUNT && i < (int)s.kept.size(); i++) keptParts[i].restore(*s.kept[i]);
   // The level's walls and decorations, as on the way to another level (LoadPartyLevel)
-  if (d.partyLevel != levelBefore) ReadGraphicsForLevel();
+  if (graphicsLost)
+  {
+    // ReadGraphicsForLevel keeps the bitmaps it reads in the same buffers each time, and reads
+    // the walls and the floor again only for another set than the current one
+    d.CurrentWallGraphic = -1;
+    d.CurrentFloorAndCeilingGraphic = -1;
+  }
+  if (d.partyLevel != levelBefore || graphicsLost) ReadGraphicsForLevel();
+  graphicsLost = false;
   ForceScreenDraw();
 }
 
@@ -405,6 +430,11 @@ struct StoredSnapshot
 
 std::map<int, StoredSnapshot> store;
 size_t storeBytes = 0;
+// The engine's call stack between two ticks, where the snapshots are taken: the same every time.
+// From the screens after a win or a death it is put back to this, so that the main loop runs
+// again and comes to a tick boundary, where the snapshot is put back.
+SnapshotBytes mainLoopStack;
+i32 mainLoopStartCSB = 0;
 // The parts of the last snapshot taken, uncompressed, to see which are unchanged
 Snapshot lastTaken;
 std::vector<StoredPartRef> lastStored;
@@ -434,6 +464,7 @@ void Forget(void)
 {
   store.clear();
   storeBytes = 0;
+  mainLoopStack.clear();
   lastTaken.data.clear();
   lastStored.clear();
 }
@@ -448,6 +479,8 @@ void TakeStored(void)
     if (!lastStored.empty() && lastTaken.data[i] == s.data[i]) parts[i] = lastStored[i];
     else parts[i] = Compress(s.data[i]);
   }
+  CallStack_Take(mainLoopStack);
+  mainLoopStartCSB = StartCSB_State();
   store[s.tick].parts = parts;
   store[s.tick].kept = s.kept;
   lastTaken = s;
@@ -476,6 +509,13 @@ bool checking = false;
 std::vector<std::pair<int, int> > checkPresses; // tick, ticks back
 size_t nextCheckPress = 0;
 bool checkSawReplay = false;
+// "end:2500": at the end of the replay (or the win) go back that far, as the buttons do there,
+// and let it run to its end again
+int checkEndBack = 0;
+// "shot:135000": a fingerprint of the screen at that tick, every time the replay is there
+int checkShotTick = -1;
+bool checkEndPressDue = false;
+bool checkEndPressDone = false;
 
 void CheckEnd(void)
 {
@@ -506,11 +546,18 @@ void CheckAtTickBoundary(void)
 {
   if (!IsPlayFileOpen())
   {
-    if (checkSawReplay) CheckEnd();
+    if (checkSawReplay && !checkEndPressDue) CheckEnd();
     return;
   }
   checkSawReplay = true;
   int tick = (int)d.Time;
+  if (tick == checkShotTick)
+  {
+    uint64_t h = 1469598103934665603ULL;
+    for (size_t i = 0; i < sizeof LScreenBase; i++) h = (h ^ ((const unsigned char *)LScreenBase)[i]) * 1099511628211ULL;
+    printf("rewind-check: shot at tick %d: %016llx\n", tick, (unsigned long long)h);
+    fflush(stdout);
+  }
   if (nextCheckPress < checkPresses.size() && tick >= checkPresses[nextCheckPress].first
       && !PlaybackControl_RewindPending() && !PlaybackControl_IsSkipping())
   {
@@ -528,15 +575,17 @@ void CheckAtTickBoundary(void)
 void AtTickBoundary(void)
 {
   if (checking) CheckAtTickBoundary();
-  if (!IsPlayFileOpen())
-  {
-    if (!store.empty()) Forget();
-    return;
-  }
+  // The snapshots of a replay that ended stay: the game can go back in it (PlayfileCanGoBack)
+  // until another game starts (Cleanup) or another replay opens
+  if (!IsPlayFileOpen()) return;
   if (PlaybackControl_RewindPending())
   {
     int restored;
-    if (RestoreStored(PlaybackControl_RewindTarget(), &restored)) PlaybackControl_RewindStart(restored);
+    if (RestoreStored(PlaybackControl_RewindTarget(), &restored))
+    {
+      if (checking) printf("rewind-check: restored tick %d for target %d\n", restored, PlaybackControl_RewindTarget());
+      PlaybackControl_RewindStart(restored);
+    }
     else PlaybackControl_CancelRewind();
     return;
   }
@@ -783,7 +832,67 @@ bool ReplaySnapshot_TestIsRunning(void)
 void ReplaySnapshot_ReplayOver(void)
 {
   if (testing && testSawReplay) TestEnd();
-  if (checking && checkSawReplay) CheckEnd();
+  if (checking && checkSawReplay)
+  {
+    // The end: the press comes between two messages (BetweenMessages), the engine is in the middle of its code here
+    if (checkEndBack > 0 && !checkEndPressDone) checkEndPressDue = true;
+    else CheckEnd();
+  }
+}
+
+// How far back from where a replay ended or stopped: its snapshots reach (what ReplayBack asks)
+bool ReplaySnapshot_BackFromEnd(int n, int speedBefore)
+{
+  bool reopened = false;
+  if (!IsPlayFileOpen())
+  {
+    if (!PlayfileCanGoBack() || store.empty()) return false;
+    reopened = true;
+  }
+  int from = reopened ? PlayfileEndTick() : (int)d.Time;
+  int first = store.begin()->first;
+  if (n > from - first) n = from - first; // no snapshot reaches further back
+  if (n <= 0) return false;
+  if (reopened && !PlayfileReopenForRewind()) return false;
+  return PlaybackControl_RewindBy(from, n, speedBefore);
+}
+
+// The screens after a win or a death, and the end sequence of a win, wait in calls the main loop
+// never comes back to; and with them its tick boundary, where a snapshot is put back. A rewind
+// asked for there is given the call stack of the main loop again, which runs on from its wait for
+// a message to the next tick boundary.
+bool EndScreenIsUp(void)
+{
+  return CallStack_Contains(st_ShowCredits) || CallStack_Contains(st_FusionSequence);
+}
+
+void ReplaySnapshot_BetweenMessages(void)
+{
+  if (checking && checkEndPressDue)
+  {
+    checkEndPressDue = false;
+    checkEndPressDone = true;
+    printf("rewind-check: end at tick %d back %d%s\n", IsPlayFileOpen() ? (int)d.Time : PlayfileEndTick(), checkEndBack,
+           IsPlayFileOpen() ? "" : " (the replay's file was closed)");
+    fflush(stdout);
+    if (!ReplaySnapshot_BackFromEnd(checkEndBack, PLAYBACK_SPEED_MAX)) { printf("rewind-check: nothing to go back to\n"); CheckEnd(); }
+    PlaybackControl_SetSpeedIndex(PLAYBACK_SPEED_MAX);
+    NoSpeedLimit = 0x20000000;
+  }
+  if (!PlaybackControl_RewindPending() || !IsPlayFileOpen() || mainLoopStack.empty()) return;
+  if (!EndScreenIsUp()) return;
+  CallStack_Put(mainLoopStack);
+  StartCSB_SetState(mainLoopStartCSB);
+  MainLoop_WaitForMessage();
+  PlayfileAwaitRestore();
+  graphicsLost = true;
+  GameIsComplete = false;
+  endSequencePlaying = false;
+}
+
+bool ReplaySnapshot_EndScreenWaits(void)
+{
+  return IsPlayFileOpen() && PlaybackControl_RewindPending();
 }
 
 void ReplaySnapshot_AtTickBoundary(void)
@@ -804,8 +913,23 @@ void ReplaySnapshot_EnableCheck(const char *presses)
   checking = true;
   int tick, back, used;
   const char *p = presses;
-  while (sscanf(p, "%d:%d%n", &tick, &back, &used) == 2)
+  for (;;)
   {
+    if (strncmp(p, "shot:", 5) == 0 && sscanf(p + 5, "%d%n", &back, &used) == 1)
+    {
+      checkShotTick = back;
+      p += 5 + used;
+      if (*p == ',') p++;
+      continue;
+    }
+    if (strncmp(p, "end:", 4) == 0 && sscanf(p + 4, "%d%n", &back, &used) == 1)
+    {
+      checkEndBack = back;
+      p += 4 + used;
+      if (*p == ',') p++;
+      continue;
+    }
+    if (sscanf(p, "%d:%d%n", &tick, &back, &used) != 2) break;
     checkPresses.push_back(std::make_pair(tick, back));
     p += used;
     if (*p == ',') p++;

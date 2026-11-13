@@ -1273,6 +1273,8 @@ void post_render();
 static bool HandleReplayKey(const SDL_Event &event);
 extern bool saveRequestedFromMenu; // Mouse.cpp
 extern bool GameIsComplete;
+bool PlayfileCanGoBack(void);  // Recording.cpp
+int PlayfileEndTick(void);
 
 // my_Delay (Attack.cpp) sets it while it blocks inside the end sequence after a win. A reset or
 // load chosen then cannot run at once, under the live game stack: it is asked for here, my_Delay
@@ -1868,7 +1870,11 @@ static void reset_game() {
 void EndSequence_RunAbandonedRequest(void)
 {
     endSequencePlaying = false;
+    // Not a reset or load: a replay going back, which the engine's main loop carries out from its
+    // next message on (ReplaySnapshot_BetweenMessages)
+    if (!endSequenceAbandonRequested) return;
     endSequenceAbandonRequested = false;
+    PlaybackControl_CancelRewind();
     reset_game();
 }
 
@@ -2570,6 +2576,12 @@ static void ReplaySkip(int n)
 // tick boundary (ReplaySnapshot.h) and runs on at max to the tick
 static void ReplayBack(int n)
 {
+  if (!PlayfileIsOpen())
+  {
+    // A replay that ended or was stopped: it opens again at the tick it ended, to go back from there
+    ReplaySnapshot_BackFromEnd(n, ReplaySpeedIndex());
+    return;
+  }
   if (!PlaybackControl_RewindBy((int)d.Time, n, ReplaySpeedIndex()))
   {
     // Only a skip that heads less far
@@ -2775,6 +2787,19 @@ static void ContinueCheck(void)
 	fflush(stdout);
 	stage = 3;
     }
+}
+
+// After a replay ended or was stopped, while its snapshots are there: buttons to go back in it
+// (the keys are the game's again)
+static void DrawReplayBackControls(void)
+{
+  ImGui::TextDisabled("%s", _("Back in the replay:"));
+  if (ImGui::SmallButton("<<<##end")) ReplayBack(PLAYBACK_SKIP_LARGE);
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip(_("The replay opens again %d ticks before the tick it ended at (%d)"), PLAYBACK_SKIP_LARGE, PlayfileEndTick());
+  if (ImGui::SmallButton("<<##end")) ReplayBack(PLAYBACK_SKIP_SMALL);
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip(_("The replay opens again %d ticks before the tick it ended at (%d)"), PLAYBACK_SKIP_SMALL, PlayfileEndTick());
+  if (ImGui::SmallButton("<##end")) ReplayBack(PLAYBACK_SKIP_TINY);
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip(_("The replay opens again %d ticks before the tick it ended at (%d)"), PLAYBACK_SKIP_TINY, PlayfileEndTick());
 }
 
 void post_render() {
@@ -2992,10 +3017,13 @@ void post_render() {
 
 	if (PlayfileIsOpen()) {
 	    DrawReplayControls(was_active);
-	} else if (continueNewsAt != 0) {
-	    ImGui::TextColored(ImVec4(0.6f, 0.9f, 0.6f, 1.0f), "%s", _(continueNews));
-	} else if (replayEndedAt != 0) {
-	    ImGui::TextColored(ImVec4(0.6f, 0.9f, 0.6f, 1.0f), _("Replay ended at tick %d: you play on from here"), replayEndTick);
+	} else {
+	    if (continueNewsAt != 0) {
+		ImGui::TextColored(ImVec4(0.6f, 0.9f, 0.6f, 1.0f), "%s", _(continueNews));
+	    } else if (replayEndedAt != 0) {
+		ImGui::TextColored(ImVec4(0.6f, 0.9f, 0.6f, 1.0f), _("Replay ended at tick %d: you play on from here"), replayEndTick);
+	    }
+	    if (PlayfileCanGoBack()) DrawReplayBackControls();
 	}
 	if (RecordfileIsOpen())
 	    ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), _("REC"));

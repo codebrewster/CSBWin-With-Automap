@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "PlaybackControl.h"
+#include "ReplaySnapshot.h"
 #include "resource.h"
 
 #ifdef _MSVC_INTEL //001
@@ -1147,6 +1148,7 @@ i32 CSBUI(CSB_UI_MESSAGE *msg)
           return UI_STATUS_TERMINATE;
         };
         //printf("CSBUI calls DispatchCSB @ %d\n", (ui32)UI_GetSystemTime());
+        ReplaySnapshot_BetweenMessages(); // a replay going back from the screens after a win
         DispatchCSB(&msgStack[msgStackLen]);
       };
     } while (CallCheckVBL > 0);

@@ -16,6 +16,7 @@ extern bool legacyEarlyMonsterActivation;
 #include "AutoMapHooks.h"
 #include "ShotMissiles.h"
 #include "GameRules.h"
+#include "ReplaySnapshot.h"
 
 extern ui32 *pDSAparameters;
 extern bool overlayActive;
@@ -2347,7 +2348,7 @@ void my_Delay(int ms) {
 	AutoMapWindow_PaintIfDirty();
 	HeroStatsWindow_Paint();
 	// Reset, Load or Select dungeon was chosen: leave the sequence for good (CSBUI catches this)
-	if (endSequenceAbandonRequested) throw EndSequenceAbandoned();
+	if (endSequenceAbandonRequested || ReplaySnapshot_EndScreenWaits()) throw EndSequenceAbandoned();
     }
     endSequencePlaying = false;
 }

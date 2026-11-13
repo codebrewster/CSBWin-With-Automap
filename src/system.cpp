@@ -13,6 +13,7 @@
 #include "CSB.h"
 #include "Data.h"
 #include "PlaybackControl.h"
+#include "ReplaySnapshotParts.h"
 
 #if defined _LINUX || defined CSB_CLASSIC_MAC
 #include "LinuxFileName.inl" // class FILENAME
@@ -737,6 +738,54 @@ static std::vector<i32 *> &RestartStates(void)
 {
   static std::vector<i32 *> states;
   return states;
+}
+
+// The engine's call stack as one block of bytes, for the replay snapshots (ReplaySnapshot.h): the
+// calls that wait, with their parameters, and the point each restartable function waits at
+void CallStack_Take(SnapshotBytes &image)
+{
+  image.clear();
+  const std::vector<i32 *> &states = RestartStates();
+  i32 count = (i32)states.size();
+  const unsigned char *p = (const unsigned char *)&numState;
+  image.insert(image.end(), p, p + sizeof numState);
+  p = (const unsigned char *)stateStack;
+  image.insert(image.end(), p, p + sizeof stateStack);
+  p = (const unsigned char *)&count;
+  image.insert(image.end(), p, p + sizeof count);
+  for (i32 i = 0; i < count; i++)
+  {
+    p = (const unsigned char *)states[i];
+    image.insert(image.end(), p, p + sizeof(i32));
+  }
+}
+
+// A function that registered itself after the image was taken had left no mark on the stack: it
+// starts from its beginning
+void CallStack_Put(const SnapshotBytes &image)
+{
+  const std::vector<i32 *> &states = RestartStates();
+  size_t at = 0;
+  memcpy(&numState, &image[at], sizeof numState);
+  at += sizeof numState;
+  memcpy(stateStack, &image[at], sizeof stateStack);
+  at += sizeof stateStack;
+  i32 count;
+  memcpy(&count, &image[at], sizeof count);
+  at += sizeof count;
+  for (i32 i = 0; i < (i32)states.size(); i++)
+  {
+    if (i < count) memcpy(states[i], &image[at + i * sizeof(i32)], sizeof(i32));
+    else *states[i] = 0;
+  }
+}
+
+// Whether a call to that function waits on the stack
+bool CallStack_Contains(int state)
+{
+  for (i32 i = 0; i < numState; i++)
+    if ((int)stateStack[i].state == state) return true;
+  return false;
 }
 
 bool RememberRestartState(i32 *state)

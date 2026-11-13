@@ -5,6 +5,12 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WIN32
+#include <io.h>
+#include <fcntl.h>
+#else
+#include <unistd.h>
+#endif
 
 
 
@@ -75,10 +81,44 @@ bool firstDungeonWarning = true;
 
 RECORDFILE RecordFile;
 
+// The length of a file, -1 when it cannot be read; a file cut to a length
+static long FileSize(const char *path)
+{
+  FILE *f = fopen(path, "rb");
+  if (f == NULL) return -1;
+  fseek(f, 0, SEEK_END);
+  long size = ftell(f);
+  fclose(f);
+  return size;
+}
+
+static bool TruncateFile(const char *path, long size)
+{
+#ifdef _WIN32
+  int fd = _open(path, _O_RDWR | _O_BINARY);
+  if (fd < 0) return false;
+  bool ok = _chsize(fd, size) == 0;
+  _close(fd);
+  return ok;
+#else
+  return truncate(path, (off_t)size) == 0;
+#endif
+}
+
 // File > Continue recording: the replay of a recording runs to the end of the file, and the
 // recording goes on in that file from there. The game is then the one every replay of it
 // reaches, here and in CSBwin, so the file stays one plain stream of inputs.
 static std::string continuePath;      // the recording to continue, while its replay runs
+// The recording once its replay ended and it goes on: its path and how long it was, to cut off
+// what it took since when the replay goes back
+static std::string continuedPath;
+static long continuedSize = -1;
+// The replay that ran last, for going back in it after it ended: its file, its rules and the tick
+// it ended at (-1 while it runs)
+static std::string lastReplayPath;
+static GameRules lastReplayRules = GameRules_Classic();
+static bool lastReplayRulesKnown = false;
+static int replayEndedAtTick = -1;
 static bool replayReachedItsEnd = false;
 // For the menu bar (CSBlinux.cpp): what became of it. No message box: Close() is also called
 // from the menus, in the middle of drawing them.
@@ -119,6 +159,7 @@ static void ContinueRecording_Start(const GameRules &rules)
 {
   std::string path = continuePath;
   continuePath.clear();
+  long sizeBefore = FileSize(path.c_str());
   size_t slash = path.find_last_of("/\\");
   std::string name = slash == std::string::npos ? path : path.substr(slash + 1);
   if (!RecordFile.Append(path.c_str()))
@@ -127,7 +168,26 @@ static void ContinueRecording_Start(const GameRules &rules)
     return;
   }
   GameRules_KeepForRecording(rules);
+  continuedPath = path;
+  continuedSize = sizeBefore;
   ContinueRecording_Tell("The recording continues in " + name + ".");
+}
+
+// A replay that goes back after the recording went on: what the recording took since is cut off
+// again, and the replay's end continues it anew
+static bool ContinueRecording_TakeBack(void)
+{
+  if (continuedPath.empty()) return true;
+  RecordFile.Close();
+  bool cut = continuedSize >= 0 && TruncateFile(continuedPath.c_str(), continuedSize);
+  if (!cut)
+  {
+    ContinueRecording_Tell("Cannot cut the new part off the recording: it stays as it is.");
+    return false;
+  }
+  continuePath = continuedPath;
+  continuedPath.clear();
+  return true;
 }
 
 
@@ -305,6 +365,10 @@ void PLAYFILE::Open(void)
     GameRules_BeginReplay(GameRules_PortBefore(nostalgia_mode, monsters_vulnerable_on_attack));
   // A recording opened before the replay named the settings' rules: these come later and count
   RecordFile.Record(GameRules_RecordLines(*GameRules_Replay()).c_str());
+  lastReplayPath = PlayfileName;
+  lastReplayRules = *GameRules_Replay();
+  lastReplayRulesKnown = true;
+  replayEndedAtTick = -1;
   legacyUnsequencedTimers = PlayfileVersionBefore(versionLine+1, 11.0);
   legacyPitViewportRedraw = PlayfileVersionBefore(versionLine+1, 10.078);
   legacyMonsterAttackOrder = PlayfileVersionBefore(versionLine+1, 9.9);
@@ -336,6 +400,7 @@ void PLAYFILE::Open(void)
   ReplaySnapshot_Forget();
   PlaybackControl_SetTotalTicks(PlaybackControl_ScanTotalTicks(PlayfileName));
   m_eofEncountered = m_forceClose = false;
+  m_awaitingRestore = false;
   tableXYF.Clear();
   tableTXYF.Clear();
   tableTXYFR.Clear();
@@ -346,6 +411,13 @@ void PLAYFILE::Close(void)
 {
   if (!replayReachedItsEnd && (m_file >= 0))
     ContinueRecording_Cancel("The replay was stopped before its end: the recording was not continued.");
+  if (m_file >= 0 && GameRules_Replay() != NULL)
+  {
+    // Where the replay stopped and by what rules, for going back in it (PlayfileCanGoBack)
+    replayEndedAtTick = (int)d.Time;
+    lastReplayRules = *GameRules_Replay();
+    lastReplayRulesKnown = true;
+  };
   GameRules_EndReplay();
   if (m_file >= 0)
   {
@@ -354,6 +426,24 @@ void PLAYFILE::Close(void)
   };
   m_file = -1;
   m_time = -1;
+}
+
+// The replay opened again after it ended or was stopped, to go back in it: the same file, by the
+// rules it had. Where it stands in the file, and what it has read, comes back with the snapshot
+// (PlayFile_RestoreState).
+bool PLAYFILE::Reopen(const char *path)
+{
+  if (m_file >= 0) return true;
+  m_file = OPEN(path, "r");
+  if (m_file < 0) return false;
+  if (lastReplayRulesKnown) GameRules_BeginReplay(lastReplayRules);
+  STHideCursor(HC35);
+  PlaybackControl_Reset();
+  PlaybackControl_SetTotalTicks(PlaybackControl_ScanTotalTicks(path));
+  m_eofEncountered = m_forceClose = false;
+  m_awaitingRestore = true;
+  m_time = -1;
+  return true;
 }
 
 bool PLAYFILE::IsOpen(void)
@@ -378,6 +468,7 @@ bool PLAYFILE::Play(MouseQueueEnt *ent)
   ui32 deltatime;
   i32 numfield;
   if (m_file < 0) return false;
+  if (m_awaitingRestore) return false;
   while ((m_time == -1) || m_forceClose)
   { // Must read another record from file.
     i32 len;
@@ -1078,7 +1169,10 @@ void PlayFile_RestoreState(SnapshotReader &r)
 {
   long position;
   r.Get(&position, sizeof position);
+  // The file is open again under another number when the replay ended since the snapshot
+  i16 handle = PlayFile.FileHandle();
   r.Get(&PlayFile, sizeof PlayFile);
+  PlayFile.SetFileHandle(handle);
   FILE *f = PlayFile.File();
   if (f != NULL && position >= 0) fseek(f, position, SEEK_SET);
   tableXYF.RestoreState(r);
@@ -1092,6 +1186,47 @@ void PlayFile_RestoreState(SnapshotReader &r)
   r.Get(&f5, sizeof f5);
   r.Get(&checkDungeonSignature, sizeof checkDungeonSignature);
 }
+// Going back in a replay that ended or was stopped: the snapshots of it are still there while the
+// game is the same. Not while a recording of the player's own runs beside it, as going back
+// would write it twice; a recording continued after its replay is cut back to its replay.
+bool IsRecordFileRecording(void);
+bool PlayfileCanGoBack(void)
+{
+  return !PlayFile.IsOpen() && replayEndedAtTick >= 0 && !lastReplayPath.empty()
+         && ReplaySnapshot_Count() > 0 && (!IsRecordFileRecording() || !continuedPath.empty());
+}
+
+// The tick the replay ended or was stopped at: going back counts from there
+int PlayfileEndTick(void)
+{
+  return replayEndedAtTick;
+}
+
+bool PlayfileReopenForRewind(void)
+{
+  if (PlayFile.IsOpen()) return true;
+  if (!PlayfileCanGoBack()) return false;
+  if (!ContinueRecording_TakeBack()) return false;
+  return PlayFile.Reopen(lastReplayPath.c_str());
+}
+
+// A rewind from the screens after a win: the main loop runs a little before the snapshot is put
+// back, and the reader must not run off the end of the file meanwhile
+void PlayfileAwaitRestore(void)
+{
+  PlayFile.AwaitRestore();
+}
+
+// The snapshot to go back to was not there: the replay closes again as it was
+void PlayfileCloseAgain(void)
+{
+  int ended = replayEndedAtTick;
+  replayReachedItsEnd = true; // what it was before: not a replay stopped by the player
+  PlayFile.Close();
+  replayReachedItsEnd = false;
+  replayEndedAtTick = ended;
+}
+
 void PlayfileOpen(bool open)
 {
   if (open)

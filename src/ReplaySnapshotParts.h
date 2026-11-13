@@ -41,6 +41,13 @@ private:
   size_t m_at;
 };
 
+// The engine's call stack (system.cpp): the calls that wait with their parameters, and the point
+// each restartable function waits at. A snapshot is taken between two ticks, where it is always
+// the same; from the screens after a win it is put back to that.
+void CallStack_Take(SnapshotBytes &image);
+void CallStack_Put(const SnapshotBytes &image);
+bool CallStack_Contains(int state); // a call to that function (a CODESTATE) waits
+
 // The playfile reader (Recording.cpp): where it stands in the file and what it has read so far
 void PlayFile_SaveState(SnapshotBytes &b);
 void PlayFile_RestoreState(SnapshotReader &r);

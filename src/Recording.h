@@ -102,13 +102,20 @@ private:
   i32 m_time, m_x, m_y, m_num, m_oldTime, m_oldCallCount;
   ui32 m_ran;
   bool m_eofEncountered, m_forceClose;
+  // Opened again to go back (Reopen): reads nothing until the snapshot is put back, which
+  // brings the reader as it was
+  bool m_awaitingRestore;
   i16 m_file;
 public:
-  PLAYFILE(void) {m_file=-1; m_time=-1;m_eofEncountered=false;m_forceClose=false;};
+  PLAYFILE(void) {m_file=-1; m_time=-1;m_eofEncountered=false;m_forceClose=false;m_awaitingRestore=false;};
   ~PLAYFILE(void) {if (m_file >= 0) CLOSE(m_file);};
   bool IsOpen(void);
   void Open(void);
   void Close(void);
+  void AwaitRestore(void) {m_awaitingRestore = true;};
+  bool Reopen(const char *path); // after Close, to go back in the replay (ReplaySnapshot.h)
+  i16 FileHandle(void) {return m_file;};
+  void SetFileHandle(i16 handle) {m_file = handle;};
   bool Play(MouseQueueEnt *);
   void Backspace(MouseQueueEnt *);
   void ReadEOF(void); //Force file close at EOF without
