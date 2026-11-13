@@ -34,7 +34,7 @@ uint32_t HeroStats_RuneSpellKey(const void *incantation)
 struct HeroStatsTwin { int type; const char *name; const char *detail; };
 static const HeroStatsTwin heroStatsTwins[] = {
   { HERO_STATS_FIRESTAFF,          "THE FIRESTAFF", "" },
-  { HERO_STATS_FIRESTAFF_WITH_GEM, "THE FIRESTAFF", " (with Power Gem)" },
+  { HERO_STATS_FIRESTAFF_WITH_GEM, "THE FIRESTAFF", " (COMPLETE)" },
   { 0x43, "ROBE",        " (torso)" },        // DM only; CSB has a TATTERED SHIRT here
   { 0x53, "ROBE",        " (legs)" },
   { 0x44, "FINE ROBE",   " (torso)" },

@@ -223,8 +223,8 @@ A gulp from an empty waterskin or flask does not count.
 - **Picked up**: from the floor, an alcove, a torch holder, an alcove that swaps one item for
   another, a gift from the gods, or an open chest. An item counts only **the first time** the party
   holds it, so dropping a dagger and picking it up again does not count twice. An item changed
-  into another one is a new item: the Firestaff that takes the Power Gem is **THE FIRESTAFF (with
-  Power Gem)**, with its own line here and in Weapons. Two kinds of item that share a name in a
+  into another one is a new item: the Firestaff that takes the Power Gem is **THE FIRESTAFF (COMPLETE)**,
+  with its own line here and in Weapons. Two kinds of item that share a name in a
   custom dungeon are told apart by a number, "(2)". A charged item that runs out of charges, or
   is recharged on an altar of Vi, stays the same item. What the champions
   carried when they joined is not counted.

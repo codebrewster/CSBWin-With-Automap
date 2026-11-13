@@ -823,7 +823,7 @@ static void WeaponNamesComeFromTheItemNames(void)
   CHECK(HeroStats_WeaponName(4, twins, 30) == "AMULET (2)");
   CHECK(HeroStats_WeaponName(6, twins, 30) == "AMULET (3)");
   CHECK(HeroStats_WeaponName(HERO_STATS_FIRESTAFF, twins, 30) == "THE FIRESTAFF");
-  CHECK(HeroStats_WeaponName(HERO_STATS_FIRESTAFF_WITH_GEM, twins, 30) == "THE FIRESTAFF (with Power Gem)");
+  CHECK(HeroStats_WeaponName(HERO_STATS_FIRESTAFF_WITH_GEM, twins, 30) == "THE FIRESTAFF (COMPLETE)");
   // A dungeon that names them apart keeps its names
   twins[HERO_STATS_FIRESTAFF_WITH_GEM] = "GEMSTAFF";
   CHECK(HeroStats_WeaponName(HERO_STATS_FIRESTAFF_WITH_GEM, twins, 30) == "GEMSTAFF");
