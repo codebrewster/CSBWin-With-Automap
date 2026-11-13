@@ -836,18 +836,18 @@ static void WeaponNamesComeFromTheItemNames(void)
   game[0x84] = game[0x85] = "MAGICAL BOX";
   game[0x93] = game[0xc6] = "BONES";
   game[0x94] = game[0x9f] = "MON POTION";
-  CHECK(HeroStats_WeaponName(0x43, game, 199) == "ROBE (torso)");
-  CHECK(HeroStats_WeaponName(0x53, game, 199) == "ROBE (legs)");
-  CHECK(HeroStats_WeaponName(0x44, game, 199) == "FINE ROBE (torso)");
-  CHECK(HeroStats_WeaponName(0x54, game, 199) == "FINE ROBE (legs)");
-  CHECK(HeroStats_WeaponName(0x84, game, 199) == "MAGICAL BOX (blue)");
-  CHECK(HeroStats_WeaponName(0x85, game, 199) == "MAGICAL BOX (green)");
-  CHECK(HeroStats_WeaponName(0x93, game, 199) == "BONES (champion's)");
+  CHECK(HeroStats_WeaponName(0x43, game, 199) == "ROBE (TORSO)");
+  CHECK(HeroStats_WeaponName(0x53, game, 199) == "ROBE (LEGS)");
+  CHECK(HeroStats_WeaponName(0x44, game, 199) == "FINE ROBE (TORSO)");
+  CHECK(HeroStats_WeaponName(0x54, game, 199) == "FINE ROBE (LEGS)");
+  CHECK(HeroStats_WeaponName(0x84, game, 199) == "MAGICAL BOX (BLUE)");
+  CHECK(HeroStats_WeaponName(0x85, game, 199) == "MAGICAL BOX (GREEN)");
+  CHECK(HeroStats_WeaponName(0x93, game, 199) == "BONES (CHAMPION'S)");
   CHECK(HeroStats_WeaponName(0xc6, game, 199) == "BONES");
-  CHECK(HeroStats_WeaponName(0x94, game, 199) == "MON POTION (no effect)");
+  CHECK(HeroStats_WeaponName(0x94, game, 199) == "MON POTION (NO EFFECT)");
   CHECK(HeroStats_WeaponName(0x9f, game, 199) == "MON POTION");
   // The automap's names take the same detail, and nothing for any other type
-  CHECK(std::string(HeroStats_TwinDetail(0x84, game, 199)) == " (blue)");
+  CHECK(std::string(HeroStats_TwinDetail(0x84, game, 199)) == " (BLUE)");
   CHECK(std::string(HeroStats_TwinDetail(0x9f, game, 199)) == "");
   CHECK(std::string(HeroStats_TwinDetail(0x10, game, 199)) == "");
   CHECK(std::string(HeroStats_TwinDetail(-1, game, 199)) == "");

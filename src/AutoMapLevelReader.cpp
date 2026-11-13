@@ -858,7 +858,7 @@ static int ResidueDescriptor(i16 entry)
 }
 
 // The translated name of an object type for the tooltip footer. "" when unknown. Item types that
-// share a name are told apart as the statistics do: "MAGICAL BOX (blue)", "FINE ROBE (legs)".
+// share a name are told apart as the statistics do: "MAGICAL BOX (BLUE)", "FINE ROBE (LEGS)" (lower case when the name is translated to lower case).
 const char *AutoMapLevelReader_ItemName(int nameIndex)
 {
   const int names = (int)(sizeof(d.ObjectNames) / sizeof(d.ObjectNames[0]));
@@ -869,7 +869,15 @@ const char *AutoMapLevelReader_ItemName(int nameIndex)
   if (detail[0] == 0) return TranslateLanguage(name);
   // One string per type, so the pointer stays good for whoever keeps it
   static std::string withDetail[names];
-  std::string full = std::string(TranslateLanguage(name)) + detail;
+  // The suffix is upper case like the game's names; a translation in lower case gets it lower case too
+  std::string translated = TranslateLanguage(name);
+  std::string tail = detail;
+  bool hasUpper = false;
+  for (size_t i = 0; i < translated.size(); i++)
+    if (isupper((unsigned char)translated[i])) hasUpper = true;
+  if (!hasUpper)
+    for (size_t i = 0; i < tail.size(); i++) tail[i] = (char)tolower((unsigned char)tail[i]);
+  std::string full = translated + tail;
   if (withDetail[nameIndex] != full) withDetail[nameIndex] = full;
   return withDetail[nameIndex].c_str();
 }

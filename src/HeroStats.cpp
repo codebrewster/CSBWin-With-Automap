@@ -35,15 +35,15 @@ struct HeroStatsTwin { int type; const char *name; const char *detail; };
 static const HeroStatsTwin heroStatsTwins[] = {
   { HERO_STATS_FIRESTAFF,          "THE FIRESTAFF", "" },
   { HERO_STATS_FIRESTAFF_WITH_GEM, "THE FIRESTAFF", " (COMPLETE)" },
-  { 0x43, "ROBE",        " (torso)" },        // DM only; CSB has a TATTERED SHIRT here
-  { 0x53, "ROBE",        " (legs)" },
-  { 0x44, "FINE ROBE",   " (torso)" },
-  { 0x54, "FINE ROBE",   " (legs)" },
-  { 0x84, "MAGICAL BOX", " (blue)" },         // Freeze Life for 30 ticks (Attack.cpp)
-  { 0x85, "MAGICAL BOX", " (green)" },        // for 125
-  { 0x93, "BONES",       " (champion's)" },   // a dead champion's, to resurrect
+  { 0x43, "ROBE",        " (TORSO)" },        // DM only; CSB has a TATTERED SHIRT here
+  { 0x53, "ROBE",        " (LEGS)" },
+  { 0x44, "FINE ROBE",   " (TORSO)" },
+  { 0x54, "FINE ROBE",   " (LEGS)" },
+  { 0x84, "MAGICAL BOX", " (BLUE)" },         // Freeze Life for 30 ticks (Attack.cpp)
+  { 0x85, "MAGICAL BOX", " (GREEN)" },        // for 125
+  { 0x93, "BONES",       " (CHAMPION'S)" },   // a dead champion's, to resurrect
   { 0xc6, "BONES",       "" },
-  { 0x94, "MON POTION",  " (no effect)" },    // potion type 0: drinking it does nothing
+  { 0x94, "MON POTION",  " (NO EFFECT)" },    // potion type 0: drinking it does nothing
   { 0x9f, "MON POTION",  "" },                // potion type 11: the stamina potion
 };
 
