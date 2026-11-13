@@ -1969,6 +1969,7 @@ static void DrawHiddenSwitchMark(const SDL_Rect &cell, const SDL_Rect &slot, int
 }
 
 static void DrawTooltipIcon(const SDL_Rect &slot, const AutoMapItem &item);
+static void DrawFluxCage(const SDL_Rect &cell);
 
 // What a face holds and wants, in the corners of its slot: the first item in the alcove (lower
 // right) and the key its lock takes (lower left, gold frame; empty while the key is unknown).
@@ -2366,6 +2367,11 @@ static void DrawTooltipIcon(const SDL_Rect &slot, const AutoMapItem &item)
     int height = (int)(tile.h * scale);
     SDL_Rect area = {box.x + (box.w - width) / 2, box.y + (box.h - height) / 2, width, height};
     DrawSpriteTile(*icon, area, tile);
+    return;
+  }
+  if (item.isFluxCage)
+  {
+    DrawFluxCage(Inset(slot, 8));
     return;
   }
   const AutoMapSprite *sprite = SpriteOfTheGame(item.worldPicture);
@@ -3833,6 +3839,7 @@ static std::vector<AutoMapTooltipSlot> BuildTooltipSlots(int x, int y)
     {
       AutoMapItem cloud;
       cloud.worldPicture = shownDrawList.clouds[i].picture;
+      cloud.isFluxCage = shownDrawList.clouds[i].fluxCage;
       MergeTooltipItem(&slots, cloud, 1);
     }
   }
@@ -3930,8 +3937,8 @@ static std::vector<std::string> BuildTooltipNameLines(const std::vector<TooltipC
   std::vector<std::string> lines;
   for (size_t i = 0; i < cells.size(); i++)
   {
-    if (cells[i].item.nameIndex < 0) continue;
-    const char *name = AutoMapLevelReader_ItemName(cells[i].item.nameIndex);
+    if (cells[i].item.nameIndex < 0 && !cells[i].item.isFluxCage) continue;
+    const char *name = cells[i].item.isFluxCage ? "FLUXCAGE" : AutoMapLevelReader_ItemName(cells[i].item.nameIndex);
     if (name == NULL || name[0] == '\0') continue;
     char line[64];
     // "COPPER COIN X5", "NEEDS ON PAD COIN X2": the count follows the name; "UM VEN POTION": a

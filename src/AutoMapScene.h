@@ -119,7 +119,8 @@ struct AutoMapItem
 {
   AutoMapItem(void)
     : worldPicture(AUTOMAP_NO_PICTURE), hasIcon(false),
-      iconGraphic(AUTOMAP_NO_PICTURE), iconTile(0), nameIndex(-1), descIndex(-1), potionPower(0)
+      iconGraphic(AUTOMAP_NO_PICTURE), iconTile(0), nameIndex(-1), descIndex(-1), potionPower(0),
+      isFluxCage(false)
   {
   }
   int worldPicture;
@@ -135,6 +136,8 @@ struct AutoMapItem
   // A brewed potion's power, its strength / 40 the way the inventory picks its rune: 1 LO .. 6 MON;
   // 0 for everything else, water and empty flasks included
   int potionPower;
+  // A fluxcage cloud in the tooltip: drawn as the yellow field of the map, named FLUXCAGE
+  bool isFluxCage;
 };
 
 inline bool operator==(const AutoMapItem &left, const AutoMapItem &right)
@@ -142,7 +145,8 @@ inline bool operator==(const AutoMapItem &left, const AutoMapItem &right)
   return left.worldPicture == right.worldPicture && left.hasIcon == right.hasIcon
       && (!left.hasIcon || (left.iconGraphic == right.iconGraphic
                             && left.iconTile == right.iconTile))
-      && left.nameIndex == right.nameIndex && left.potionPower == right.potionPower;
+      && left.nameIndex == right.nameIndex && left.potionPower == right.potionPower
+      && left.isFluxCage == right.isFluxCage;
 }
 
 // The power rune of a potion, as the inventory shows it before the name: "LO", "UM", "ON", "EE",
