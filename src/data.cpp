@@ -336,6 +336,12 @@ bool legacyReincarnatePenalty = false;
 // of the attack.  The order decides which timer gets which slot, and equal timers run in slot
 // order.  Found with DMMovie8 (9.2).
 bool legacyEarlyMonsterActivation = false;
+// Set while replaying a playfile recorded by CSBwin before 9.9: a character's attack adds its
+// defense adjustment to word64 and the end of the attack subtracts the one of the attack type
+// last recorded, instead of setting and clearing it.  An action that is not an attack leaves
+// the difference behind, and it counts in the damage the character takes (word64 was -10 on
+// hero 3 in DMMovie8, 9.2).
+bool legacyAdditiveAttackDefense = false;
 // Set while replaying a playfile recorded by CSBwin before 11.0.  Those
 // versions had no timer sequence numbers: timers due at the same time were
 // ordered by their slot in the timer array (TIMER::operator <).

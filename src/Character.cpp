@@ -10,6 +10,7 @@
 #include "CSB.h"
 #include "Data.h"
 extern bool legacyWoundPenalty;
+extern bool legacyAdditiveAttackDefense;
 #include "AutoMapHooks.h"
 
 extern ui32 *pDSAparameters;
@@ -5057,7 +5058,10 @@ RESTARTABLE _ExecuteAttack(const i32 P1)
     attackType = (ATTACKTYPE)(UI8)(d.PossibleAttackTypes[P1]);
     //pChar->word64 = sw(pChar->word64 + sb(d.Byte20090[attackType]));
     // See the definition of word64 for explanation
-    pChar->word64 = d.Byte20090[attackType]; // Set attack resistance adjustment
+    if (legacyAdditiveAttackDefense)
+      pChar->word64 = sw(pChar->word64 + sb(d.Byte20090[attackType]));
+    else
+      pChar->word64 = d.Byte20090[attackType]; // Set attack resistance adjustment
     pChar->charFlags |= CHARFLAG_statsChanged;
     Attack(_1_,d.AttackingCharacterOrdinal-1,attackType);
     successfulAttack = intResult;

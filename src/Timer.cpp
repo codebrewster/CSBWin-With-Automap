@@ -21,6 +21,7 @@ int MissileEncounterFilter(int type, LOCATIONREL locr, RN missile, RN projectile
 extern i32 deleteDuplicateTimers;
 extern bool legacyUnsequencedTimers;
 extern bool legacyDoubleShooter;
+extern bool legacyAdditiveAttackDefense;
 extern i32 timerTypeModifier[3];
 
 #ifdef _MSVC_INTEL
@@ -2684,7 +2685,10 @@ void EnableCharacterAction(i32 chIdx)
     //pChar->word64
     //     = sw(pChar->word64 - d.Byte20090[(UI8)(pChar->attackType)]);
     // See definition of word64 for explanation.
-    pChar->word64 = 0;  // Clear attack resistance adjustment
+    if (legacyAdditiveAttackDefense)
+      pChar->word64 = sw(pChar->word64 - d.Byte20090[(UI8)(pChar->attackType)]);
+    else
+      pChar->word64 = 0;  // Clear attack resistance adjustment
   };
   if (pChar->HP() != 0)
   {
