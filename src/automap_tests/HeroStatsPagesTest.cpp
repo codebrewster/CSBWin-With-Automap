@@ -276,13 +276,13 @@ static void ExportHoldsTheChampionsAsTheyWere(void)
   info.live.champions.push_back(halk);
   info.live.cursor.name = "TORCH";
   json = HeroStatsExport_Json(stats, Columns(stats), NAMES, info);
-  CHECK(json.find("\"cursor\":[-1,\"TORCH\",false,null,0,-1,false]") != std::string::npos);
+  CHECK(json.find("\"cursor\":[-1,\"TORCH\",false,null,0,-1,false,0,0]") != std::string::npos);
   CHECK(json.find("{\"hero\":0,\"name\":\"HALK\"") != std::string::npos);
   CHECK(json.find("\"hp\":[80,120]") != std::string::npos);
   CHECK(json.find("\"wounds\":\"Head\"") != std::string::npos);
   CHECK(json.find("[\"Fighter\",\"Neophyte\",0]") != std::string::npos);
   CHECK(json.find("\"woundBits\":4") != std::string::npos && json.find("\"portrait\":null") != std::string::npos);
-  CHECK(json.find("\"items\":[[0,\"DAGGER\",false,null,0,-1,false]]") != std::string::npos);
+  CHECK(json.find("\"items\":[[0,\"DAGGER\",false,null,0,-1,false,0,0]]") != std::string::npos);
 }
 
 // An item of the Champions tab: its slot, name, whether it is in a chest, its icon (a place in the
@@ -306,12 +306,14 @@ static void TheExportCarriesIconsWeightAndCharges(void)
   apple.iconGraphic = 1;
   apple.iconTile = 45;  // key 301
   apple.weight = 4;
+  apple.food = 500;
   HeroStatsLiveItem second = apple;
   second.slot = 14;
   second.inChest = false;
   HeroStatsLiveItem skin = HeroStatsLive_Item(15, "WATERSKIN", false);
   skin.charges = 3;
   skin.gulps = true;
+  skin.water = 800;
   halk.items.push_back(staff);
   halk.items.push_back(chest);
   halk.items.push_back(apple);
@@ -324,9 +326,9 @@ static void TheExportCarriesIconsWeightAndCharges(void)
   info.inventoryList = true;
   std::string json = HeroStatsExport_Json(stats, Columns(stats), NAMES, info);
   CHECK(json.find("\"icons\":[\"data:image/png;base64,AAA\",\"data:image/png;base64,BBB\"]") != std::string::npos);
-  CHECK(json.find("[1,\"STAFF OF CLAWS\",false,0,9,9,false]") != std::string::npos);
-  CHECK(json.find("[13,\"CHEST\",false,null,51,-1,false],[13,\"APPLE\",true,1,4,-1,false],[14,\"APPLE\",false,1,4,-1,false]") != std::string::npos);
-  CHECK(json.find("[15,\"WATERSKIN\",false,null,0,3,true]") != std::string::npos);
+  CHECK(json.find("[1,\"STAFF OF CLAWS\",false,0,9,9,false,0,0]") != std::string::npos);
+  CHECK(json.find("[13,\"CHEST\",false,null,51,-1,false,0,0],[13,\"APPLE\",true,1,4,-1,false,500,0],[14,\"APPLE\",false,1,4,-1,false,500,0]") != std::string::npos);
+  CHECK(json.find("[15,\"WATERSKIN\",false,null,0,3,true,0,800]") != std::string::npos);
   CHECK(json.find("\"list\":true") != std::string::npos);
   CHECK(json.find("\"portrait\":\"data:image/png;base64,PPP\"") != std::string::npos);
 }
@@ -350,8 +352,8 @@ static void AnItemWithoutAPictureStillExports(void)
   halk.items.push_back(lost);
   info.live.champions.push_back(halk);
   std::string json = HeroStatsExport_Json(stats, Columns(stats), NAMES, info);
-  CHECK(json.find("[13,\"ODD THING\",false,null,5,-1,false]") != std::string::npos);
-  CHECK(json.find("[14,\"LOST PICTURE\",false,null,0,-1,false]") != std::string::npos);
+  CHECK(json.find("[13,\"ODD THING\",false,null,5,-1,false,0,0]") != std::string::npos);
+  CHECK(json.find("[14,\"LOST PICTURE\",false,null,0,-1,false,0,0]") != std::string::npos);
   CHECK(json.find("\"icons\":[]") != std::string::npos);
   CHECK(json.find("\"portrait\":null") != std::string::npos && json.find("\"cursor\":null") != std::string::npos);
 }

@@ -35,7 +35,7 @@
 //     "attrs": [[name, current, max], ...], "ranks": [[class, rank, % to next], ...], "poison", "wounds"
 //     (as words), "woundBits" (bit n: slot n is wounded), "items": [[slot (the game's number, -1 the
 //     cursor), name, in a chest, icon (a place in "icons" or null), weight (tenths of a kilogram),
-//     charges (-1 holds none), charges are gulps], ...]}, ...]}
+//     charges (-1 holds none), charges are gulps, food it gives, water it gives (a drink, a waterskin's gulp)], ...]}, ...]}
 // [by hero] is empty except on the party's page.
 
 // ---------------------------------------------------------------------------------------------
@@ -298,7 +298,7 @@ static std::string Pair(int a, int b)
   return "[" + Number(a) + "," + Number(b) + "]";
 }
 
-// One item of the Champions tab: [slot, name, in a chest, icon, weight, charges, gulps]. icon: its
+// One item of the Champions tab: [slot, name, in a chest, icon, weight, charges, gulps, food, water]. icon: its
 // place in the icons written so far, added on first use; null without a picture.
 static std::string LiveItemJson(const HeroStatsLiveItem &item, const std::map<int, std::string> &pictures,
                                 std::vector<int> *iconKeys)
@@ -312,7 +312,8 @@ static std::string LiveItemJson(const HeroStatsLiveItem &item, const std::map<in
     icon = Number((int)at);
   }
   return "[" + Number(item.slot) + "," + HeroStatsExport_JsonString(item.name) + "," + Bool(item.inChest) + "," + icon + "," +
-         Number(item.weight) + "," + Number(item.charges) + "," + Bool(item.gulps) + "]";
+         Number(item.weight) + "," + Number(item.charges) + "," + Bool(item.gulps) + "," + Number(item.food) + "," +
+         Number(item.water) + "]";
 }
 
 static std::string LiveJson(const HeroStatsExportInfo &info, const std::vector<HeroStatsColumn> &columns)
@@ -527,7 +528,7 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   #tip { position:fixed; z-index:20; pointer-events:none; background:var(--panel); border:1px solid #4a4e5a; border-radius:4px; padding:8px 10px;
     font:12.5px/1.45 "DejaVu Sans Mono","Bitstream Vera Sans Mono",Menlo,Consolas,monospace; color:var(--text); max-width:320px; box-shadow:0 6px 18px rgba(0,0,0,.5) }
   #tip .h { display:flex; gap:10px; align-items:center } #tip .h img { width:48px; height:48px; image-rendering:pixelated; flex:none }
-  #tip .n { color:#fff } #tip .s { color:var(--dim) } #tip .x { color:var(--part) } #tip .bad { color:var(--bad) }
+  #tip .n { color:#fff } #tip .s { color:var(--dim) } #tip .x { color:var(--part) } #tip .bad { color:var(--bad) } #tip .food { color:#c99a6c } #tip .water { color:#4a8fe0 }
   #tip .in { border-top:1px solid var(--line); margin-top:8px; padding-top:7px; display:grid; grid-template-columns:1fr 1fr; gap:4px 14px }
   #tip .in div { display:flex; gap:6px; align-items:center; white-space:nowrap } #tip .in img { width:16px; height:16px; image-rendering:pixelated }
   #tip .in .cap { grid-column:1 / -1; color:var(--dim); font-size:inherit; text-transform:none; letter-spacing:0 }
@@ -1003,7 +1004,7 @@ function nourished(label, v, colour, empty) {
 const tenths = t => (t < 0 ? '-' : '') + Math.floor(Math.abs(t) / 10) + '.' + (Math.abs(t) % 10);
 // The Champions tab: a card per champion for the Party; for one champion the inventory laid out
 // as the game's own screen, a slot's tooltip with name, weight and charges, a chest's with what
-// it holds. An item is [slot, name, in a chest, icon, weight, charges, gulps].
+// it holds. An item is [slot, name, in a chest, icon, weight, charges, gulps, food, water].
 const SLOT_NAMES = ['Ready hand', 'Action hand', 'Head', 'Torso', 'Legs', 'Feet', 'Pouch 2', 'Quiver 2', 'Quiver 3', 'Quiver 4', 'Neck', 'Pouch 1', 'Quiver 1'];
 const slotName = s => s < 0 ? 'On the cursor' : SLOT_NAMES[s] || 'Backpack ' + (s - 12);
 // The place of a body slot on the picture's grid of five by five: [column, row]
@@ -1012,6 +1013,9 @@ const PART = {0: 'hand', 1: 'hand', 2: 'head', 3: 'torso', 4: 'legs', 5: 'feet',
 const iconOf = it => it[3] === null || !LIVE.icons[it[3]] ? '<span class="noicon">?</span>' : `<img src="${LIVE.icons[it[3]]}" alt="">`;
 const chargesOf = it => it[5] < 0 ? '' : it[6] ? (it[5] === 0 ? 'empty' : it[5] + (it[5] === 1 ? ' gulp left' : ' gulps left')) :
   it[5] === 0 ? 'no charges' : it[5] + (it[5] === 1 ? ' charge' : ' charges');
+// What eating or drinking an item adds, as the window's tooltip says it
+const gives = it => (it[7] > 0 ? `<span class="food">Food +${it[7]}</span>` : '') +
+  (it[8] > 0 ? `<span class="water">${it[7] > 0 ? ' ' : ''}Water +${it[8]}${it[6] ? ' per gulp' : ''}</span>` : '');
 const heldIn = (items, i) => { const held = []; if (i < 0 || items[i][2]) return held; for (let k = i + 1; k < items.length && items[k][2]; k++) held.push(items[k]); return held; };
 let TIPS = [];
 function tipOf(html) { TIPS.push(html); return ` data-tip="${TIPS.length - 1}"`; }
@@ -1020,9 +1024,9 @@ function slotTip(items, i, slot, wounded) {
   if (i < 0) return `<div class="s">${slotName(slot)} · empty${hurt}</div>`;
   const it = items[i], held = heldIn(items, i), charges = chargesOf(it);
   let html = `<div class="h">${iconOf(it)}<div><div class="n">${esc(it[1])}</div><div class="s">${slotName(slot)}${hurt}</div>` +
-    `<div class="x">${tenths(it[4])} kg${held.length ? ' with contents' : ''}${charges ? ' · ' + charges : ''}</div></div></div>`;
+    `<div class="x">${tenths(it[4])} kg${held.length ? ' with contents' : ''}${charges ? ' · ' + charges : ''}</div>${gives(it) ? `<div class="x">${gives(it)}</div>` : ''}</div></div>`;
   if (held.length) html += `<div class="in"><div class="cap">Holds ${held.length} ${held.length === 1 ? 'item' : 'items'}</div>` +
-    held.map(h => `<div>${iconOf(h)}${esc(h[1])}</div>`).join('') + '</div>';
+    held.map(h => `<div>${iconOf(h)}${esc(h[1])}${gives(h) ? ' &nbsp;' + gives(h) : ''}</div>`).join('') + '</div>';
   return html;
 }
 function slotHtml(items, slot, wounded, part) {
@@ -1059,7 +1063,7 @@ function liveCard(c) {
 }
 // The places of the items in the order the list shows them (HeroStatsLive_Order in the game)
 function listOrder(items, col, desc) {
-  const key = col === 3 ? (it => it[4]) : col === 2 ? (it => it[1]) : null;
+  const key = col === 3 ? (it => it[4]) : col === 4 ? (it => it[7]) : col === 5 ? (it => it[8]) : col === 2 ? (it => it[1]) : null;
   const sorted = places => {
     if (!key) return desc ? places.reverse() : places;
     return places.sort((a, b) => { const x = key(items[a]), y = key(items[b]), c = x < y ? -1 : x > y ? 1 : 0; return (desc ? -c : c) || a - b; });
@@ -1078,11 +1082,11 @@ function liveInventory(c) {
   const s = st.sort.ilist || {col: 0, desc: false};
   const th = (col, label, num, cls) => `<th class="sort${cls}" onclick="sortBy('ilist',${col},${num})">${label}` +
     (s.col === col ? ` <span class="arrow">${s.desc ? '&#9660;' : '&#9650;'}</span>` : '') + '</th>';
-  if (st.list) return '<div class="wide"><table class="ilist"><tr>' + th(0, 'Slot', 0, '') + '<th></th>' + th(2, 'Item', 0, ' l') + th(3, 'Weight', 1, '') + '</tr>' +
+  if (st.list) return '<div class="wide"><table class="ilist"><tr>' + th(0, 'Slot', 0, '') + '<th></th>' + th(2, 'Item', 0, ' l') + th(3, 'Weight', 1, '') + th(4, 'Food', 1, '') + th(5, 'Water', 1, '') + '</tr>' +
     listOrder(c.items, s.col, s.desc).map(i => c.items[i]).map(it => {
     const charges = chargesOf(it);
     return `<tr class="${it[2] ? 'in' : ''}"><td class="nt">${it[2] ? '' : slotName(it[0])}</td><td class="ic">${it[2] ? '' : iconOf(it)}</td>` +
-      `<td class="l nm">${it[2] ? `<span class="inl">${iconOf(it)}${esc(it[1])}</span>` : esc(it[1])}${charges ? ` <span class="none">· ${charges}</span>` : ''}</td><td>${tenths(it[4])} kg</td></tr>`;
+      `<td class="l nm">${it[2] ? `<span class="inl">${iconOf(it)}${esc(it[1])}</span>` : esc(it[1])}${charges ? ` <span class="none">· ${charges}</span>` : ''}</td><td>${tenths(it[4])} kg</td><td>${it[7] > 0 ? it[7] : ''}</td><td>${it[8] > 0 ? it[8] : ''}</td></tr>`;
   }).join('') + '</table></div>';
   let doll = '';
   for (const s in DOLL) doll += `<div style="grid-column:${DOLL[s][0]};grid-row:${DOLL[s][1]}">${slotHtml(c.items, +s, isWounded(c, +s), PART[s])}</div>`;
