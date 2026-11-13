@@ -45,6 +45,7 @@ extern bool legacyThrowStamina;
 extern bool legacyKeyWeightKept;
 extern bool legacyNoEkkhardCross;
 extern bool legacyFluxcageCheck;
+extern bool legacyReincarnatePenalty;
 extern bool legacyUnsequencedTimers;
 extern bool legacyPitViewportRedraw;
 extern bool legacyMonsterAttackOrder;
@@ -290,6 +291,7 @@ void PLAYFILE::Open(void)
                           && !PlayfileVersionBefore(versionLine+1, 9.6);
   legacyNoEkkhardCross   = PlayfileVersionBefore(versionLine+1, 10.056);
   legacyFluxcageCheck    = PlayfileVersionBefore(versionLine+1, 9.9);
+  legacyReincarnatePenalty = PlayfileVersionBefore(versionLine+1, 9.6);
   // The replay plays by the rules of its recording (GameRules): CSBwin's for a playfile of the
   // original CSBwin (any numbered version, or none). The port's own playfiles name their rules
   // in # lines; those from before played by the settings, with the launcher bonus always on.

@@ -72,6 +72,7 @@ extern char *helpMessage;
 extern unsigned char *encipheredDataFile;
 extern bool simpleEncipher;
 extern i32 trace;
+extern bool legacyReincarnatePenalty;
 extern ui8 reincarnateAttributePenalty, reincarnateStatPenalty, randomPoints;
 extern i32 numGlobalVariables;
 extern ui32 *globalVariables;
@@ -6809,7 +6810,7 @@ RESTARTABLE _ResurrectReincarnateCancel(const i32 button)
     {
       ReIncarnate(_2_, pcA3);
       ClearMemory((ui8 *)pcA3->skills92,120);
-      if (!DM_rules)
+      if (!DM_rules || legacyReincarnatePenalty)
       {
         for (D6W=1; D6W<=6; D6W++)
         {
@@ -6830,7 +6831,7 @@ RESTARTABLE _ResurrectReincarnateCancel(const i32 button)
 //
         };
       };
-      if (!DM_rules)
+      if (!DM_rules || legacyReincarnatePenalty)
       {
         pcA3->HP(pcA3->HP() * (16 - reincarnateStatPenalty) / 16);
         pcA3->MaxHP(pcA3->MaxHP() * (16 - reincarnateStatPenalty) / 16);

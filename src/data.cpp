@@ -324,6 +324,12 @@ bool legacyNoEkkhardCross = false;
 // woke him at once (TT_M3) when the count was 2; 9.95 counts differently,
 // needs 3 and wakes him after the action (TT_M1).  (FluxCage)
 bool legacyFluxcageCheck = false;
+// Set while replaying a playfile recorded by CSBwin before 9.6, which knew no
+// DM rules (added in 9.6): reincarnating a champion always cost it the
+// attribute and HP/stamina/mana penalty, also in the Dungeon Master dungeon
+// where later versions (DM_rules) skip it.  Found with DMMovie8 (9.2): hero
+// 0's strength was 35 instead of 40.
+bool legacyReincarnatePenalty = false;
 // Set while replaying a playfile recorded by CSBwin before 11.0.  Those
 // versions had no timer sequence numbers: timers due at the same time were
 // ordered by their slot in the timer array (TIMER::operator <).
