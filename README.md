@@ -140,6 +140,8 @@ A legend behind the **?** button explains every mark on the map.
   fireball, which pit, whose friendly fire), healing, deaths with their causes, food and drink,
   items, monsters killed, experience by source and ranks gained, and records such as the
   biggest hit, the closest call and the longest kill streak.
+- A **Champions** tab shows the party as it is now, like the game's inventory screen: each
+  champion's items with icons, weight and charges.
 - **Whole run**, any single level, or **Per level**: one row per level, for the party's totals
   or one number with the champions side by side.
 - One click switches between the **Party** and each champion; the topic stays.
@@ -158,6 +160,10 @@ A legend behind the **?** button explains every mark on the map.
 - **Pause** and resume with **Space**, at any moment.
 - **Nine speeds**, 0.5x, 1x, 2x, 4x, 8x, 16x, 32x, 64x and max (as fast as the computer can),
   with **+** and **-** or from the **Replay** menu. The speed never changes what happens in the replay; nothing is skipped.
+- **Fast forward and back**: jump 25, 250 or 2500 ticks ahead or back, pause at a tick you type,
+  and go back in time even after the replay has ended or from the win and death screens.
+- **File → Continue recording...** replays a recording to its end at full speed and records on into
+  the same file; **Misc → Nostalgia Mode** plays by the rules of CSBwin 17.6, so such a recording replays there too.
 - **Old recordings play too**: playfiles made with Paul Stevens' CSBwin 17.6, such as
   Antman's Dungeon Master run, replay to their end, so runs shared on the forum can be watched
   again with the `dungeon.dat` they were recorded with.

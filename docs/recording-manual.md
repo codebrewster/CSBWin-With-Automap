@@ -135,6 +135,15 @@ to answer, and the Map and Statistics windows, with their exports, stay open and
 A replay that reaches the win shows the end as the game did, and the Statistics window opens
 by itself, as after a win you played; both exports work there too.
 
+### Going back after the end
+
+The replay's snapshots stay after the replay ends, after you stopped it, and on the win and
+death screens, so you can go back in time from there. The same **<** **<<** **<<<** buttons as
+during the replay (see the [map manual](automap-manual.md#fast-forward-going-back-time-and-a-pause-at-a-tick))
+appear on the menu bar under **Back in the replay:**. If you played ticks after the replay
+ended, going back would throw them away, so a popup asks first. The **x** beside **Back in the
+replay:** hides the buttons until the next replay or game starts (this is not saved in `csb.cfg`).
+
 ## For developers
 
 The rules where the port and 17.6 differ, and which ones are in force, live in

@@ -544,6 +544,7 @@ most of them for you; only `map_debug` needs editing by hand.
 |---|---|---|
 | `map_window` | `1` opens the map window with the game | `0` |
 | `map_x`, `map_y`, `map_width`, `map_height` | The window's last position and size | set by the game |
+| `window_x`, `window_y` | The game window's last position (the map and the statistics keep theirs the same way) | set by the game |
 | `map_vision` | `0` fog of war, `1` explored, live, `2` whole level | `0` |
 | `map_spoilers` | `0` seen, `1` learned, `2` all | `1` |
 | `map_follow` | `1` follows the party's level | `1` |
