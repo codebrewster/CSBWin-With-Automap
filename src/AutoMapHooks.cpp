@@ -1826,7 +1826,7 @@ static void RunVisibilityTest(void)
         isInSnapshot ? &snapshot.cells[(size_t)snapshotY * snapshot.width + snapshotX] : NULL;
     // Inside rock the 3D view draws what the party could never see
     if (cell == NULL || cell->isOutsideLevel || cell->kind == AutoMapCellWall
-        || cell->kind == AutoMapCellFalseWall)
+        || (cell->kind == AutoMapCellFalseWall && !cell->falseWallIsPassable))
     {
       printf("visibility: line %d: the party cannot stand on L%d (%d,%d)\n", visibilityCase.lineNumber,
              visibilityCase.level, visibilityCase.x, visibilityCase.y);

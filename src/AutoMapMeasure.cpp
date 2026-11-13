@@ -521,7 +521,9 @@ static const AutoMapCellRecord *CellOf(const AutoMapLevelSnapshot &snapshot, int
 
 static bool PartyCanStandOn(const AutoMapCellRecord &cell)
 {
-  return cell.kind != AutoMapCellWall && cell.kind != AutoMapCellFalseWall && !cell.isOutsideLevel;
+  if (cell.isOutsideLevel || cell.kind == AutoMapCellWall) return false;
+  // An illusionary wall can be walked through
+  return cell.kind != AutoMapCellFalseWall || cell.falseWallIsPassable;
 }
 
 // The map's own coordinates, as on its rulers: a cell's place in the snapshot (the level

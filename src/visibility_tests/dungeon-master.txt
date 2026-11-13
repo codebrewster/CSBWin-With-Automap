@@ -685,6 +685,31 @@ at L9 (15,22) facing W light 0 OhEwRa
   tile (14,22) seen
   tile (15,23) seen
   tile (15,21) seen
+at L2 (12,19) facing S light 0
+  monster (11,22) not seen                 # 0 standing out of 0, patch 0
+  item (12,20) "WOODEN SHIELD" seen        # 305 standing out of 362, patch 304
+  item (12,20) "CHEESE" seen               # 128 standing out of 128, patch 128
+  tile (14,23) not seen
+  tile (10,23) not seen
+  tile (14,22) not seen
+  tile (10,22) not seen
+  tile (13,23) not seen
+  tile (11,23) not seen
+  tile (12,23) not seen
+  tile (13,22) not seen
+  tile (11,22) not seen
+  tile (12,22) not seen
+  tile (14,21) not seen
+  tile (10,21) not seen
+  tile (13,21) not seen
+  tile (11,21) not seen
+  tile (12,21) seen
+  tile (13,20) seen
+  tile (11,20) seen
+  tile (12,20) seen
+  tile (13,19) seen
+  tile (11,19) seen
+
 
 
 
