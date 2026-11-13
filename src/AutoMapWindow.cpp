@@ -3938,7 +3938,9 @@ static std::vector<std::string> BuildTooltipNameLines(const std::vector<TooltipC
   for (size_t i = 0; i < cells.size(); i++)
   {
     if (cells[i].item.nameIndex < 0 && !cells[i].item.isFluxCage) continue;
-    const char *name = cells[i].item.isFluxCage ? "FLUXCAGE" : AutoMapLevelReader_ItemName(cells[i].item.nameIndex);
+    const char *name = cells[i].item.isFluxCage ? "FLUXCAGE"
+                     : !cells[i].item.ownName.empty() ? cells[i].item.ownName.c_str()
+                     : AutoMapLevelReader_ItemName(cells[i].item.nameIndex);
     if (name == NULL || name[0] == '\0') continue;
     char line[64];
     // "COPPER COIN X5", "NEEDS ON PAD COIN X2": the count follows the name; "UM VEN POTION": a

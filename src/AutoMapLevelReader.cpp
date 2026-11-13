@@ -722,6 +722,8 @@ static AutoMapItem ItemForDescriptor(int descIndex)
   return item;
 }
 
+std::string ChampionBonesName(RN object);  // Code11f52.cpp
+
 static AutoMapItem ItemForRN(RN object)
 {
   AutoMapItem item = ItemForDescriptor(object.DescIndex());
@@ -734,6 +736,7 @@ static AutoMapItem ItemForRN(RN object)
   int names = (int)(sizeof(d.ObjectNames) / sizeof(d.ObjectNames[0]));
   if (displayType < 0 || displayType >= names) return item;
   item.nameIndex = displayType;
+  if (displayType == objNI_Bones_a) item.ownName = ChampionBonesName(object);
   // The inventory names a potion with its power rune in front (Character.cpp), flasks without
   if (object.dbType() == dbPOTION && displayType != objNI_WaterFlask && displayType != objNI_EmptyFlask)
   {
@@ -825,7 +828,8 @@ std::vector<AutoMapFloorItemPlace> AutoMapLevelReader_FloorItemPlacesAt(int x, i
     if (type < dbWEAPON || type > dbMISC) continue;
     AutoMapItem item = ItemForRN(object);
     if (item.worldPicture == AUTOMAP_NO_PICTURE) continue;
-    AutoMapFloorItemPlace place = {RecordIdOf(object), AutoMapLevelReader_ItemName(item.nameIndex),
+    AutoMapFloorItemPlace place = {RecordIdOf(object), item.ownName.empty()
+                                       ? AutoMapLevelReader_ItemName(item.nameIndex) : item.ownName.c_str(),
                                    object.pos()};
     places.push_back(place);
   }

@@ -1517,6 +1517,7 @@ static std::vector<AutoMapAlcoveEntry> AlcoveItemsAt(int x, int y)
 
 static std::string AlcoveItemName(const AutoMapAlcoveEntry &entry)
 {
+  if (!entry.item.ownName.empty()) return entry.item.ownName;
   const char *name = AutoMapLevelReader_ItemName(entry.item.nameIndex);
   return name == NULL ? std::string() : std::string(name);
 }

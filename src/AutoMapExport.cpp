@@ -150,7 +150,8 @@ struct ExportPictures
 
 static std::string ItemArr(ExportPictures &sp, const AutoMapItem &item)
 {
-  const char *name = item.nameIndex >= 0 ? AutoMapLevelReader_ItemName(item.nameIndex) : NULL;
+  const char *name = !item.ownName.empty() ? item.ownName.c_str()
+                   : item.nameIndex >= 0 ? AutoMapLevelReader_ItemName(item.nameIndex) : NULL;
   // A potion's power rune goes first, as in the window's tooltip
   std::string named = name ? name : "";
   const char *rune = AutoMapScene_PotionPowerName(item.potionPower);

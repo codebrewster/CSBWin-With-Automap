@@ -129,6 +129,8 @@ static bool IsReadable(RN rn)
 // One item as the inventory shows it now. The look is the game's own choice (RN::NameIndex): a
 // torch by its flame, a waterskin full or empty, Fury, Flamitt and the like charged or spent. The
 // icon, the name and the charges all come from this one read, so they cannot disagree.
+std::string ChampionBonesName(RN object);  // Code11f52.cpp
+
 static HeroStatsLiveItem LiveItemOf(int slot, RN rn, bool inChest)
 {
   HeroStatsLiveItem item = HeroStatsLive_Item(slot, "", inChest);
@@ -140,6 +142,11 @@ static HeroStatsLiveItem LiveItemOf(int slot, RN rn, bool inChest)
   if (displayType == basicType || displayType < 0 || displayType >= nameCount || d.ObjectNames[displayType] == NULL)
     item.name = HeroStats_WeaponNameOf(basicType);
   else item.name = d.ObjectNames[displayType];
+  if (displayType == objNI_Bones_a)
+  {
+    std::string bones = ChampionBonesName(rn);
+    if (!bones.empty()) item.name = bones;
+  }
   // The inventory names a potion with its power rune in front (Character.cpp), flasks without
   if (rn.dbType() == dbPOTION && displayType != objNI_WaterFlask && displayType != objNI_EmptyFlask)
   {

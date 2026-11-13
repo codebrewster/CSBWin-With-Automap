@@ -59,6 +59,20 @@ void DescribeChampionBones(char *dest, const char *pName, const char *objName)
   dest[colDst] = 0;
 }
 
+// A dead champion's bones named after the champion ("TIGGY BONES"), "" for any other object
+std::string ChampionBonesName(RN object)
+{
+  if (object.NameIndex() != objNI_Bones_a) return "";
+  if (GetCommonAddress(object)->CastToDB10()->value() == 0) return "";
+  ui32 bonesRecord[1];
+  if (!expool.CopyChampionBonesRecord(object, bonesRecord)) return "";
+  CHARDESC character;
+  if (!character.CopyCharacter(bonesRecord[0])) return "";
+  char name[999];
+  DescribeChampionBones(name, character.name, d.ObjectNames[objNI_Bones_a]);
+  return name;
+}
+
 // *********************************************************
 //
 // *********************************************************

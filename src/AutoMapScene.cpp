@@ -1482,6 +1482,7 @@ const char *AutoMapScene_PotionPowerName(int power)
 
 static std::string RequiredObjectName(AutoMapItemNameFn nameForIndex, const AutoMapItem &object)
 {
+  if (!object.ownName.empty()) return object.ownName;
   if (nameForIndex != NULL && object.nameIndex >= 0)
   {
     const char *name = nameForIndex(object.nameIndex);

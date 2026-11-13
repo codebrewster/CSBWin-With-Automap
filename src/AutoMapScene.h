@@ -138,6 +138,9 @@ struct AutoMapItem
   int potionPower;
   // A fluxcage cloud in the tooltip: drawn as the yellow field of the map, named FLUXCAGE
   bool isFluxCage;
+  // The item's own name where the type's does not tell it: a dead champion's bones, "TIGGY BONES";
+  // "" for every other item
+  std::string ownName;
 };
 
 inline bool operator==(const AutoMapItem &left, const AutoMapItem &right)
@@ -146,7 +149,7 @@ inline bool operator==(const AutoMapItem &left, const AutoMapItem &right)
       && (!left.hasIcon || (left.iconGraphic == right.iconGraphic
                             && left.iconTile == right.iconTile))
       && left.nameIndex == right.nameIndex && left.potionPower == right.potionPower
-      && left.isFluxCage == right.isFluxCage;
+      && left.isFluxCage == right.isFluxCage && left.ownName == right.ownName;
 }
 
 // The power rune of a potion, as the inventory shows it before the name: "LO", "UM", "ON", "EE",
