@@ -2322,10 +2322,11 @@ extern void cbAppDestroy(void); // also
 extern void post_render();
 extern void ProcessMenuEvent(const SDL_Event &event); // also
 extern bool endSequencePlaying; // also
+extern bool endSequenceAbandonRequested; // also
 void my_Delay(int ms) {
     SDL_Event ev;
-    // The menu stays usable here, but without Reset, Load or Select dungeon: this loop blocks
-    // inside the end sequence, which must not lose its game under it
+    // The menu stays usable here; Reset, Load and Select dungeon end the sequence by an
+    // exception, as this loop blocks inside it
     endSequencePlaying = true;
     for (int t=0; t<ms; t+=100) {
 	SDL_Delay(100);
@@ -2345,6 +2346,8 @@ void my_Delay(int ms) {
 	AutoMap_OnClockStopped(); // the map's level and settings still change meanwhile
 	AutoMapWindow_PaintIfDirty();
 	HeroStatsWindow_Paint();
+	// Reset, Load or Select dungeon was chosen: leave the sequence for good (CSBUI catches this)
+	if (endSequenceAbandonRequested) throw EndSequenceAbandoned();
     }
     endSequencePlaying = false;
 }

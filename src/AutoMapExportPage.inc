@@ -328,14 +328,15 @@ function drawItems(c) {
   items.slice(0, 3).forEach((it, i) => { const sx = x + Math.floor(cs * i / n), sw = Math.floor(cs / n); if (!itemSpr(it[0], sx, y, sw, cs)) insetMark(sx, y, sw, cs, COL.item); });
   if (all > 3) { const p = Math.max(1, Math.floor(cs / 24)), s = String(all), w = textW(s, p) + 4 * p, h = 9 * p; rect(x + cs - w - 2, y + 2, w, h, '#0d0c0a'); frame(x + cs - w - 2, y + 2, w, h, COL.item); text(g, x + cs - w - 2 + 2 * p, y + 2 + 2 * p, s, COL.item, p); }
 }
-function drawFlux(x, y) {
-  g.save(); g.beginPath(); g.rect(x, y, cs, cs); g.clip();
-  const q = Math.max(2, Math.round(cs / 14));
+function drawFlux(x, y, n) {
+  n = n || cs;
+  g.save(); g.beginPath(); g.rect(x, y, n, n); g.clip();
+  const q = Math.max(2, Math.round(n / 14));
   g.fillStyle = 'rgba(242,210,60,.59)';
-  for (let j = 0; j * q < cs; j++) for (let i = 0; i * q < cs; i++) if ((i + j) % 2 == 0) g.fillRect(x + i * q, y + j * q, q, q);
+  for (let j = 0; j * q < n; j++) for (let i = 0; i * q < n; i++) if ((i + j) % 2 == 0) g.fillRect(x + i * q, y + j * q, q, q);
   g.restore();
-  g.strokeStyle = '#f2d23c'; g.lineWidth = 1; g.strokeRect(x + 1.5, y + 1.5, cs - 3, cs - 3);
-  if (cs >= 16) g.strokeRect(x + 2.5, y + 2.5, cs - 5, cs - 5);
+  g.strokeStyle = '#f2d23c'; g.lineWidth = 1; g.strokeRect(x + 1.5, y + 1.5, n - 3, n - 3);
+  if (n >= 16) g.strokeRect(x + 2.5, y + 2.5, n - 5, n - 5);
 }
 function drawClouds() { for (const [x, y, s, flux] of V.clouds) if (flux) drawFlux(px(x), py(y)); else if (!spr(s, px(x), py(y), cs, cs)) { g.fillStyle = 'rgba(80,200,120,.45)'; g.fillRect(px(x) + cs * .05, py(y) + cs * .05, cs * .9, cs * .9); } }
 // What flies crosses the upper three fifths of its cell, as the window's DrawMissiles
@@ -702,7 +703,7 @@ function drawTooltip(L) {
     const [item, count, nested, predicted, required] = icons[i];
     const inset = nested ? 6 : 0; rect(tx + inset, ty + inset, T - 2 * inset, T - 2 * inset, predicted ? '#24221f' : '#3a3733');
     frame(tx + inset, ty + inset, T - 2 * inset, T - 2 * inset, required ? '#e0b64a' : nested && !predicted ? COL.item : '#5a554c');
-    spr(item[1] || item[0], tx + inset + 2, ty + inset + 2, T - 2 * inset - 4, T - 2 * inset - 4, predicted ? .5 : 1);
+    if (item[4]) drawFlux(tx + inset + 8, ty + inset + 8, T - 2 * inset - 16); else spr(item[1] || item[0], tx + inset + 2, ty + inset + 2, T - 2 * inset - 4, T - 2 * inset - 4, predicted ? .5 : 1);
     if (count > 1) { const s = String(count), bw = textW(s, 2) + 4; rect(tx + T - bw - 1, ty + T - 15, bw, 14, '#0d0c0a'); text(g, tx + T - bw + 1, ty + T - 13, s, COL.item, 2); }
   }
   shown.forEach((l, i) => { const muted = l.s === undefined && /^(WOULD|DORMANT)/.test(l.t); richText(x + 5, y + gridH + 6 + i * lh, l.t, l.s === undefined ? (muted ? '#a8b8bc' : '#fff') : TIPCOL[l.s] || '#fff', p, l.i); });

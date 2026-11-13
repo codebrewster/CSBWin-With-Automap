@@ -1274,9 +1274,11 @@ static bool HandleReplayKey(const SDL_Event &event);
 extern bool saveRequestedFromMenu; // Mouse.cpp
 extern bool GameIsComplete;
 
-// my_Delay (Attack.cpp) sets it while it blocks inside the end sequence after a win: resetting
-// or loading a game there would pull the game out from under that sequence
+// my_Delay (Attack.cpp) sets it while it blocks inside the end sequence after a win. A reset or
+// load chosen then cannot run at once, under the live game stack: it is asked for here, my_Delay
+// throws EndSequenceAbandoned, and CSBUI calls EndSequence_RunAbandonedRequest after the unwinding
 bool endSequencePlaying = false;
+bool endSequenceAbandonRequested = false;
 
 // Once the game is won or lost nothing can be saved: a save is only written by the game's own
 // mouse handling, which no longer runs
@@ -1841,6 +1843,7 @@ extern i32 numState;
 i32 launcher_power;
 
 static void reset_game() {
+    if (endSequencePlaying) { endSequenceAbandonRequested = true; return; }
     saveRequestedFromMenu = false; // a save asked for in the last game is not for this one
     numState = 0; // reset the "stackState" from system.cpp
 		  // because we are creating a new one here.
@@ -1859,6 +1862,14 @@ static void reset_game() {
 	PostQuitMessage(0);
     }
     gameFrozen = false;
+}
+
+// CSBUI, after it caught EndSequenceAbandoned: the reset the menu asked for
+void EndSequence_RunAbandonedRequest(void)
+{
+    endSequencePlaying = false;
+    endSequenceAbandonRequested = false;
+    reset_game();
 }
 
 static bool fb_shown,fb2_shown,fb3_shown,fb4_shown;
@@ -2819,14 +2830,14 @@ void post_render() {
 	{
 	    imgui_active = true;
 	    was_active = true;
-	    if (ImGui::MenuItem("Reset", NULL,false,d.partyLevel != 255 && d.NumGraphic > 0 && !endSequencePlaying)) {
+	    if (ImGui::MenuItem("Reset", NULL,false,d.partyLevel != 255 && d.NumGraphic > 0)) {
 		skipLogo = true;
 		reset_game();
 		// _CALL0 (_4_,st_ReadEntireGame);
 	    }
-	    if (ImGui::MenuItem(_("Select dungeon.dat..."),NULL,false,!endSequencePlaying))
+	    if (ImGui::MenuItem(_("Select dungeon.dat..."),NULL,false,true))
 		open_dungeon = true;
-	    if (ImGui::MenuItem(_("Load saved game"),NULL,false,d.NumGraphic>0 && !endSequencePlaying))
+	    if (ImGui::MenuItem(_("Load saved game"),NULL,false,d.NumGraphic>0))
 		open = true;
 	    if (ImGui::MenuItem(_("Save game"),NULL,false,d.partyLevel != 255 && d.NumGraphic>0
 				&& d.NumCharacter > 0 && d.PotentialCharacterOrdinal == 0 && !GameIsOver()))

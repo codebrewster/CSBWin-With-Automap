@@ -332,6 +332,10 @@ return##n: ;};
   return DoesNotExist;   \
 return##n: ;};
 
+// Thrown by my_Delay (Attack.cpp) when Reset, Load or Select dungeon is chosen from the menu while the
+// end sequence blocks there: it unwinds the game's stack up to CSBUI, which then runs the request
+struct EndSequenceAbandoned {};
+
 #define RETURN {mystate=0; _RETURN(); return DoesNotExist;};
 #define RETURN_RN(a) {mystate=0; _RETURN_RN(a); return DoesNotExist;};
 #define RETURN_int(a) {mystate=0; _RETURN_int(a); return DoesNotExist;};

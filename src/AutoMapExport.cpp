@@ -157,7 +157,7 @@ static std::string ItemArr(ExportPictures &sp, const AutoMapItem &item)
   if (rune[0] != '\0' && !named.empty()) named = std::string(rune) + " " + named;
   // The kind last, for the mockup's show choices (an AutoMapItemKind)
   return "[" + JsonText(sp.Plain(item.worldPicture, 10)) + "," + JsonText(sp.Icon(item)) + "," +
-         JsonText(named) + "," + std::to_string((int)AutoMapScene_KindOfItem(item)) + "]";
+         JsonText(named) + "," + std::to_string((int)AutoMapScene_KindOfItem(item)) + (item.isFluxCage ? ",1" : "") + "]";
 }
 
 // Tooltip lines as {"t":text,"s":style,"i":[item pictures]}; the text keeps its glyph codes

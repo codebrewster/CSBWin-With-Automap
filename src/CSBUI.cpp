@@ -130,6 +130,7 @@ extern HDC hdc;
 #define maxMessageStack 20
 CSB_UI_MESSAGE msgStack[maxMessageStack];
 i32 msgStackLen = 0;
+void EndSequence_RunAbandonedRequest(void); // CSBlinux.cpp
 i32 messageMask = 1; //Right now just 0 or 1
 
 i32 latestScanp1 = 0;
@@ -1155,6 +1156,13 @@ i32 CSBUI(CSB_UI_MESSAGE *msg)
 //      fprintf(f," Exit NORMAL\n");
 //      fclose(f);
 //    };
+    return UI_STATUS_NORMAL;
+  }
+  catch (EndSequenceAbandoned &)
+  {
+    // The win's end sequence was left from the menu: nothing of the old call stack is kept
+    msgStackLen = 0;
+    EndSequence_RunAbandonedRequest();
     return UI_STATUS_NORMAL;
   }
   catch (i32 )
