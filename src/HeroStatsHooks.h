@@ -59,7 +59,7 @@ void HeroStats_OnPartyTurned(void);
 void HeroStats_OnPartyTeleported(int level, int x, int y);
 // The party went down the pit on level: climbed down with a rope (the engine suppresses the
 // pit's damage) or fell. Each pit of a chain counts.
-void HeroStats_OnPartyWentDownPit(int level);
+void HeroStats_OnPartyWentDownPit(int level, int x, int y);
 // MoveParty: the party bumped into a wall, a closed door or a solid false wall
 void HeroStats_OnPartyBumped(void);
 // Before the numbers are shown or exported: the explored tiles and the wall texts read, from the

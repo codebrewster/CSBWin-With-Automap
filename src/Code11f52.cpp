@@ -3221,7 +3221,7 @@ i16 MoveObject(const RN        object,
           fprintf(GETFILE(TraceFile),"Object %04x falls from %02x(%02x,%02x)",
                  object.ConvertToInteger(),curLevel,newX,newY);
           AutoMap_OnFellThroughPit(curLevel, newX, newY, objD7 == RNnul);
-          if (objD7 == RNnul) HeroStats_OnPartyWentDownPit(curLevel);
+          if (objD7 == RNnul) HeroStats_OnPartyWentDownPit(curLevel, newX, newY);
           curLevel = IncrementLevel(curLevel, 1, &newX, &newY);
           if (TimerTraceActive)
           fprintf(GETFILE(TraceFile),"to %02x(%02x,%02x)\n",

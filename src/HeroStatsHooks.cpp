@@ -708,10 +708,12 @@ void HeroStats_OnPartyTeleported(int level, int x, int y)
   store.Records().CountTeleport(level, (uint32_t)d.Time);
 }
 
-void HeroStats_OnPartyWentDownPit(int level)
+void HeroStats_OnPartyWentDownPit(int level, int x, int y)
 {
   if (d.partyLevel == LEVEL_OF_THE_PRISON_SCREEN) return;
   store.MarkLevelVisited(level);
+  // The pit the party stepped onto is walked too: it never stands there for a tick
+  store.MarkTileWalked(level, x, y);
   // The rope's Climb Down sets it for the first pit only; the pits below are falls
   if (d.SupressPitDamage != 0) store.CountPitClimb(level);
   else
