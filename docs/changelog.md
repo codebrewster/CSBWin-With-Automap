@@ -39,3 +39,54 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 **Calculator**
 - A program of its own in C++ with Qt (replaces the Python one): exact results for hero and monster attacks, spells, recovery, thrown weapons and launcher shots, chance to kill, damage against distance, What if graphs; reads savegames.
+
+## 1.3.0 (2026-11-08)
+
+**Replay**
+- File > Record writes every input into logs/RecordNNNNN.log (red REC on the menu bar); File > Playback.. replays it tick by tick with the same fights, deaths and win.
+- Pause with Space; nine speeds, 0.5x to 64x and max, with + and - or the Replay menu; from 4x on the sounds are thinned out.
+- Pause when the party steps onto a cell.
+- CSBwin 7.x to 14.3 playfiles replay with the rules of the version that made them; CSBwin 17.6 playfiles (Antman's DM run) replay to their end on the same tick.
+- Stop the replay and play on; no more "End Of PlaybackFile" box; map and statistics fill up during the replay.
+
+**Map**
+- A new look, drawn pixel for pixel, with its settings on a bar in the map window and a level list; the game menu keeps only Window.
+- Zoom towards the pointer, left-drag pans; WALKED tints the cells the party stood on.
+- Monsters stand in formation with facing marks; tooltips group what is on a tile; Shift shows a press's whole route; links are drawn as fans.
+- Search finds monsters, generators and stairs; EXPORT writes the map into one offline .html file with level and vision/spoiler limits; Controls help replaces the legend.
+- .map files are zipped (about a sixth of the size), format version 23.
+
+**Statistics**
+- Two new topics, nine in all: Experience and Records.
+- A Champions tab (vitals, ranks, food and water bars, poison, wounds), also in the export.
+- New counts and records (poisonings, wounds, items taken out of chests); zoom with Ctrl and the wheel; one row per weapon; csb.cfg chooses the tiles; fixes for poison cloud damage, mana spent and resurrections.
+
+## 1.2.0 (2026-10-31)
+
+**Statistics**
+- A Statistics window (Misc > Statistics > Window) that counts while you play, opens by itself on a win and is kept in the .map file.
+- Seven topics: Overview, Combat, Magic, Survival, Food & items, Exploration, Monsters; whole run, one level or per level; Party or a champion; a Who bar in every table.
+- Hardship (deaths, party wipes, reloads) survives loading an earlier save; Export as HTML writes the window into one file.
+
+**Fixes**
+- The menu works after a win and after a loss; Reset, Load and Save are kept out of the end sequence.
+- Loading after a win: the next FUSE works again.
+- File > Reset clears the map at once; Page Up/Down while zoomed no longer makes the old level jump.
+- .map format version 20.
+
+## 1.1.0 (2026-10-29)
+
+**Map**
+- Wall decorations sit in a small square against their face (switch back with Small wall decorations).
+- Show menu: hide weapons, armour, potions, scrolls, chests, food, keys, other items, monsters, wall decorations, writing or floor decorations.
+- Page Up/Down changes levels in the map window, Ctrl+Page Up/Down in the game window.
+- Spoils less: floor pictures and stairs, wall writing, champion mirrors and alcove items appear only once the 3D view really shows them.
+
+**Fixes**
+- File > Save game no longer crashes on Windows after a new game; it keeps a .BAK backup.
+- HINT on the title screen no longer crashes; TrueType save names sit on their buttons again.
+- .map format version 12.
+
+## 1.0.0 (2026-10-28)
+
+- The first release of CSBwin with the automap: a live, spoiler-aware map beside the game, with fog of war, explored and whole-level vision, three spoiler levels (seen, learned, all), tooltips for items, monsters, doors and triggers, the full chain behind a switch at spoiler level all, search with / or Ctrl+F, your own notes, and a .map file beside each saved game.
