@@ -3097,7 +3097,7 @@ i16 MoveObject(const RN        object,
         if (monsterPartyOther == MPO_party && DB1A2 != pretendTeleporter)
         {
           AutoMap_OnPartyTeleported(curLevel, newX, newY);
-          HeroStats_OnPartyTeleported(curLevel);
+          HeroStats_OnPartyTeleported(curLevel, newX, newY);
         }
         else if (DB1A2 != pretendTeleporter)
         { // A missile, item or monster that the party can watch gets taken or turned

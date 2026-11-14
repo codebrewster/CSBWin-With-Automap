@@ -698,10 +698,12 @@ void HeroStats_OnPartyTurned(void)
   store.Records().CountMove();
 }
 
-void HeroStats_OnPartyTeleported(int level)
+void HeroStats_OnPartyTeleported(int level, int x, int y)
 {
   if (d.partyLevel == LEVEL_OF_THE_PRISON_SCREEN) return;
   store.MarkLevelVisited(level);
+  // The pad the party stepped into is walked too: the party never stands on it for a tick
+  store.MarkTileWalked(level, x, y);
   store.CountTeleport(level);
   store.Records().CountTeleport(level, (uint32_t)d.Time);
 }

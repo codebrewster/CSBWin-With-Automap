@@ -56,7 +56,7 @@ void HeroStats_OnFusionTick(void);
 void HeroStats_OnPartyStepped(void);
 void HeroStats_OnPartyTurned(void);
 // A teleporter on level took the party (each teleporter of a chain counts)
-void HeroStats_OnPartyTeleported(int level);
+void HeroStats_OnPartyTeleported(int level, int x, int y);
 // The party went down the pit on level: climbed down with a rope (the engine suppresses the
 // pit's damage) or fell. Each pit of a chain counts.
 void HeroStats_OnPartyWentDownPit(int level);

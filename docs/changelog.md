@@ -15,6 +15,9 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 - Tooltips on rows, column headers and tiles say what a value counts and what it does not (Food wasted, kills by doors and falls, Tries against Attacks ...); they wrap instead of being cut off and have an edge that sets them apart from the rows.
 - The HTML export has them too: the column headers and the tiles show the explanations the rows already had.
 
+**Map**
+- WALKED also tints the teleporters the party stepped into (the party is carried off at once, so it never stood on them for a tick).
+
 ## 1.4.0 (2026-11-14)
 
 **Replay**
