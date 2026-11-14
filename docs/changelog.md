@@ -18,6 +18,9 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 **Map**
 - WALKED also tints the teleporters and pits the party stepped into (it is carried off or falls at once, so it never stood on them for a tick).
 
+**Game window**
+- The party position in the top bar reads "L12 (32,43)" instead of "Party 12,32,43" and is right-aligned by its real width, so it is no longer cut off.
+
 ## 1.4.0 (2026-11-14)
 
 **Replay**
