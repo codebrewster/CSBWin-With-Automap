@@ -1212,7 +1212,7 @@ static void DrawNumbers(const HeroStatsTopicPage &page, const HeroStatsDrawState
     NumberColumn(columns[champion].name.c_str());
     headerColumns.push_back((int)champion);
   }
-  NumberColumn("Party");
+  NumberColumn("Total");
   BarColumn(isParty ? "Share" : "Share of party");
   HeaderHelps helps(headerColumns.size(), "");
   helps.push_back("All the champions together; for a record, the best of them.");
@@ -1883,7 +1883,7 @@ static void DrawXpSources(HeroStatsDrawState *state, const std::vector<HeroStats
     else
     {
       NumberColumn(champion < columns.size() ? columns[champion].name.c_str() : "");
-      NumberColumn("Party");
+      NumberColumn("Total");
     }
     BarColumn(isParty ? "Who: Experience" : "Share of party");
     std::vector<int> headerColumns(1, -1);
@@ -2427,7 +2427,7 @@ static void DrawPerLevel(HeroStatsDrawState *state, const HeroStats &stats, cons
   if (grid)
   {
     for (size_t c = 0; c < columns.size(); c++) labels.push_back(columns[c].name);
-    labels.push_back("Party");
+    labels.push_back("Total");
     if (table.hasShare) labels.push_back("Share");
   }
   else

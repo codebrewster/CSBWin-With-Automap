@@ -695,8 +695,8 @@ function numbersTable(t) {
   const party = rec(N, st.level), one = !isParty();
   const rows = TOP[t].rows.filter(([n]) => applies(n, st.who, st.level));
   let head = '<tr><th></th>';
-  if (one) head += `<th class="${H[st.who].left ? 'left' : ''}">${dotOf(st.who)} ${esc(H[st.who].name)}</th><th title="${PARTY_HELP}">Party</th><th>Share of party</th>`;
-  else head += H.map((h, i) => `<th class="${h.left ? 'left' : ''}">${dotOf(i)} ${esc(h.name)}</th>`).join('') + `<th title="${PARTY_HELP}">Party</th><th>Share</th>`;
+  if (one) head += `<th class="${H[st.who].left ? 'left' : ''}">${dotOf(st.who)} ${esc(H[st.who].name)}</th><th title="${PARTY_HELP}">Total</th><th>Share of party</th>`;
+  else head += H.map((h, i) => `<th class="${h.left ? 'left' : ''}">${dotOf(i)} ${esc(h.name)}</th>`).join('') + `<th title="${PARTY_HELP}">Total</th><th>Share</th>`;
   let body = '';
   for (const [n, depth] of rows) {
     const info = NUM[n], summable = !info.ratio && !info.party && !info.rec;
@@ -872,7 +872,7 @@ function xpSources(p) {
   const lines = p.xp.sources;
   let head = '<tr><th>Source</th>';
   head += isParty() ? '<th>Experience</th><th>Who: Experience</th>'
-    : `<th>${dotOf(st.who)} ${esc(H[st.who].name)}</th><th>Party</th><th>Share of party</th>`;
+    : `<th>${dotOf(st.who)} ${esc(H[st.who].name)}</th><th>Total</th><th>Share of party</th>`;
   let body = '', hideBelow = -1, top = '';
   lines.forEach((l, i) => {
     // [name, note, depth, experience, [by hero; a hero's page: the party's], has children]
@@ -974,7 +974,7 @@ function perLevel() {
     html += '<div class="choices"><span class="lab">Number</span><div class="seg">' + grid.map(g =>
       `<button class="ch${g === n ? ' on' : ''}" onclick="st.grid[${t}]=${g};draw()">${esc(NUM[g].label)}</button>`).join('') + '</div></div>';
     const share = !NUM[n].rec;
-    cols = [nameCol('Level')].concat(H.map((h, i) => heroCol(i)), [numCol('Party')], share ? [numCol('Share')] : []);
+    cols = [nameCol('Level')].concat(H.map((h, i) => heroCol(i)), [numCol('Total')], share ? [numCol('Share')] : []);
     rowOf = l => {
       const by = H.map((h, i) => NUM[n].party ? null : rec(i, l)[n]);
       return [levelTd(l)].concat(by.map((v, i) => td(v, numCell(n, v, H[i].left ? 'gone' : ''))),

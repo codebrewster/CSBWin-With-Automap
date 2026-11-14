@@ -72,8 +72,8 @@ Every topic is built the same way:
 
 1. **Tiles** at the top: the topic's main numbers.
 2. **Numbers**: every number of the topic. For the Party there is one column per champion, the
-   Party column, and a **Share** bar that splits the number in the champions' colours. For a
-   champion there is their column, the Party column, and **Share of party**, a bar of their part.
+   **Total** column (all the champions together), and a **Share** bar that splits the number in the champions' colours. For a
+   champion there is their column, the Total column, and **Share of party**, a bar of their part.
    Numbers kept only for the party as a whole (steps, chests opened ...) show for the Party only.
    A row indented further and greyed is a part of the row above it. Hover a number's name for a
    word on what it counts, where there is one.
@@ -262,7 +262,7 @@ new game, before the first champion joins.
 
 ## Monsters
 
-The numbers: **Kills** (by the champions), **Crushed by doors**, **Killed by falls** and
+The numbers: **Kills** (by the champions), then **Crushed by doors**, **Killed by falls** and
 **Other causes** (clouds nobody is known to have made, traps, other monsters, the game removing them).
 
 **Monsters killed** has one row per kind of monster. For the Party: one column per champion,
