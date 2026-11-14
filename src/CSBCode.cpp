@@ -8433,6 +8433,7 @@ MOVEBUTN *MoveParty(const i32 button)
           };
           if (D5W != 0)
           {
+            HeroStats_OnPartyBumpedMonster();
             ProcessTimers29to41(newX, newY, TT_M1, 0);
           };
         };

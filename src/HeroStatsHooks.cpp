@@ -729,6 +729,12 @@ void HeroStats_OnPartyBumped(void)
   store.CountBump(PartyLevel());
 }
 
+void HeroStats_OnPartyBumpedMonster(void)
+{
+  if (d.partyLevel == LEVEL_OF_THE_PRISON_SCREEN) return;
+  store.CountMonsterBump(PartyLevel());
+}
+
 static HeroStatsBlow HeroBlow(int slot, HeroDamageKind kind, int weapon, bool thrown, int option,
                               uint32_t spell)
 {

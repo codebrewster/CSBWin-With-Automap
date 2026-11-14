@@ -95,12 +95,13 @@ struct HeroStatsSpellRow { uint32_t spell; int casts, mana, failed, wasted, dama
 
 // What the party did on its own feet: steps and turns the player made, teleporters passed,
 // engine ticks spent on the level (and how many of them asleep), pits fallen into, pits climbed
-// down with a rope, and bumps into walls and closed doors. tilesWalked: the different cells the
+// down with a rope, and bumps into walls and closed doors (bumps) and into monsters (monsterBumps). tilesWalked: the different cells the
 // party stood on; tilesExplored: the cells the map shows as explored that are no solid wall
 // (from the automap, see SetExploredTiles).
 struct HeroStatsMovement
 {
   int steps, turns, teleports, ticks, sleepTicks, pitFalls, pitClimbs, bumps;
+  int monsterBumps; // moves that ran into a monster standing on the next cell
   int tilesWalked, tilesExplored;
 };
 
@@ -207,6 +208,7 @@ public:
   void CountPitFall(int level);
   void CountPitClimb(int level);
   void CountBump(int level);
+  void CountMonsterBump(int level);
   // The party stands on the cell (any number of times: it counts once)
   void MarkTileWalked(int level, int x, int y);
   // Every cell stood on, as (level, x, y): the automap highlights them
@@ -281,7 +283,7 @@ public:
   // outcomes are taken from the rune spells' rows, on the level of the cast; 21 has a table of
   // rune mana per level, which is skipped), 22 no experience and no records, 23 no items taken
   // from chests (none counted), 24 no poisonings, wounds or stretches of poison.
-  static const int LAYOUT = 25;
+  static const int LAYOUT = 26;
   static const int FIRST_LAYOUT_WITH_MOVEMENT = 14;
   static const int FIRST_LAYOUT_WITH_PITS_AND_SLEEP = 15;
   static const int FIRST_LAYOUT_WITH_ITEMS = 16;
@@ -294,7 +296,9 @@ public:
   static const int FIRST_LAYOUT_WITH_EXPERIENCE = 23;
   static const int FIRST_LAYOUT_WITH_CHEST_ITEMS = 24;
   static const int FIRST_LAYOUT_WITH_POISON = 25;
-  void Serialize(std::vector<uint8_t> *out) const;
+  static const int FIRST_LAYOUT_WITH_MONSTER_BUMPS = 26;
+  // layout: an older one leaves out what it does not have (the tests write old files with it)
+  void Serialize(std::vector<uint8_t> *out, int layout = LAYOUT) const;
   bool Deserialize(const uint8_t *data, size_t size, int layout = LAYOUT);
   // Experience and ranks (HeroStatsExperience.h): no hardship, they go with the file
   HeroStatsExperience &Experience(void) { return m_experience; }

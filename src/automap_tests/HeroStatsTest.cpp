@@ -227,10 +227,23 @@ static void MovementIsKeptPerLevel(void)
   stats.CountPitClimb(4);
   stats.CountPitClimb(5);
   stats.CountBump(1);
+  stats.CountMonsterBump(1);
+  stats.CountMonsterBump(5);
+  stats.CountMonsterBump(5);
   HeroStatsMovement run = stats.Movement(HERO_STATS_WHOLE_RUN);
   CHECK(run.steps == 3 && run.turns == 1 && run.teleports == 1 && run.ticks == 30 && run.sleepTicks == 10);
   CHECK(run.pitFalls == 1 && run.pitClimbs == 2 && run.bumps == 1);
   CHECK(stats.Movement(1).bumps == 1 && stats.Movement(5).pitClimbs == 1);
+  CHECK(run.monsterBumps == 3 && stats.Movement(1).monsterBumps == 1 && stats.Movement(5).monsterBumps == 2);
+  // Kept in the file; layout 25 has none
+  std::vector<uint8_t> bytes, old;
+  stats.Serialize(&bytes);
+  stats.Serialize(&old, 25);
+  CHECK(bytes.size() > old.size() && (bytes.size() - old.size()) % 4 == 0); // an int more per level
+  HeroStats read, readOld;
+  CHECK(read.Deserialize(bytes.data(), bytes.size()) && read.Movement(HERO_STATS_WHOLE_RUN).monsterBumps == 3);
+  CHECK(readOld.Deserialize(old.data(), old.size(), 25) && readOld.Movement(HERO_STATS_WHOLE_RUN).monsterBumps == 0);
+  CHECK(readOld.Movement(HERO_STATS_WHOLE_RUN).bumps == 1);
   CHECK(stats.Movement(2).steps == 0);
 }
 
@@ -291,7 +304,7 @@ static void LayoutFourteenIsStillRead(void)
   written.CountTick(1, true);
   written.CountBump(1);
   std::vector<uint8_t> bytes;
-  written.Serialize(&bytes);
+  written.Serialize(&bytes, 25);
   // Two empty tables, the attack count, then the record: 2 + 4 + 4 + 1 + 4 bytes of key, four
   // counts, the uses
   size_t uses = 3 * 4 + 15 + 16;
@@ -372,7 +385,7 @@ static void LayoutFifteenIsStillRead(void)
   HeroStats written;
   written.CountStep(1);
   std::vector<uint8_t> bytes;
-  written.Serialize(&bytes);
+  written.Serialize(&bytes, 25);
   bytes.erase(bytes.end() - (36 + Layout23Tail()), bytes.end());
   HeroStats read;
   CHECK(read.Deserialize(bytes.data(), bytes.size(), 15));

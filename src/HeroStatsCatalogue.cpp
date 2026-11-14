@@ -54,6 +54,7 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Tiles explored", "The squares the map shows as explored that are not solid wall.", true, false, false, false, false},
     {"Turns", "", true, false, false, false, false},
     {"Wall bumps", "Moves that ran into a wall, a closed door or a solid false wall.", true, false, false, false, false},
+    {"Monster bumps", "Moves that were stopped by a monster on the next square.", true, false, false, false, false},
     {"Teleports", "", true, false, false, false, false},
     {"Pit falls", "", true, false, false, false, false},
     {"Pit climbs", "", true, false, false, false, false},
@@ -119,7 +120,7 @@ static const char *const KEYS[] = {
     "deaths", "resurrected", "wipes", "reloads",
     "eaten", "drunk", "food_gained", "food_wasted", "water_gained", "water_wasted",
     "picked_up", "used_in_walls",
-    "steps", "tiles_walked", "tiles_explored", "turns", "wall_bumps", "teleports",
+    "steps", "tiles_walked", "tiles_explored", "turns", "wall_bumps", "monster_bumps", "teleports",
     "pit_falls", "pit_climbs", "ticks", "sleep_ticks",
     "doors_bashed", "doors_smashed", "doors_shot", "doors_by_spell", "doors_by_zo",
     "doors_button_opened", "doors_button_closed", "chests", "scrolls", "wall_texts",
@@ -169,7 +170,7 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
                                {HeroNumEaten, HeroNumDrunk, HeroNumFoodWasted, HeroNumPickedUp}};
   topics[HeroTopicExploration] = {"Exploration",
                                   {{HeroNumSteps, 0}, {HeroNumTilesWalked, 0}, {HeroNumTilesExplored, 0}, {HeroNumTurns, 0},
-                                   {HeroNumBumps, 0}, {HeroNumTeleports, 0}, {HeroNumPitFalls, 0}, {HeroNumPitClimbs, 0},
+                                   {HeroNumBumps, 0}, {HeroNumMonsterBumps, 0}, {HeroNumTeleports, 0}, {HeroNumPitFalls, 0}, {HeroNumPitClimbs, 0},
                                    {HeroNumTicks, 0}, {HeroNumSleepTicks, 1}, {HeroNumDoorsBashed, 0}, {HeroNumDoorsSmashed, 1},
                                    {HeroNumDoorsShot, 1}, {HeroNumDoorsBySpell, 1}, {HeroNumDoorsByZo, 0},
                                    {HeroNumDoorsButtonOpened, 0}, {HeroNumDoorsButtonClosed, 0}, {HeroNumChests, 0},
@@ -458,6 +459,7 @@ static void FillMovement(const HeroStats &stats, HeroStatsChampion, int level, i
   v[HeroNumTilesExplored] = move.tilesExplored;
   v[HeroNumTurns] = move.turns;
   v[HeroNumBumps] = move.bumps;
+  v[HeroNumMonsterBumps] = move.monsterBumps;
   v[HeroNumTeleports] = move.teleports;
   v[HeroNumPitFalls] = move.pitFalls;
   v[HeroNumPitClimbs] = move.pitClimbs;
@@ -540,7 +542,8 @@ static FillGroup GroupOf(HeroStatsNumber number)
   case HeroNumWaterWasted: return FillFood;
   case HeroNumPickedUp: case HeroNumUsedInWalls: return FillItems;
   case HeroNumSteps: case HeroNumTilesWalked: case HeroNumTilesExplored: case HeroNumTurns: case HeroNumBumps:
-  case HeroNumTeleports: case HeroNumPitFalls: case HeroNumPitClimbs: case HeroNumTicks: case HeroNumSleepTicks:
+  case HeroNumMonsterBumps: case HeroNumTeleports: case HeroNumPitFalls: case HeroNumPitClimbs: case HeroNumTicks:
+  case HeroNumSleepTicks:
     return FillMovement;
   case HeroNumDoorsBashed: case HeroNumDoorsSmashed: case HeroNumDoorsShot: case HeroNumDoorsBySpell:
   case HeroNumDoorsByZo: return FillDoors;

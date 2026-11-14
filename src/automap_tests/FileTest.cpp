@@ -1249,7 +1249,16 @@ static HeroStatsOrigins FilledOrigins(void)
 // A map file as version 25 wrote it, the statistics inside
 static std::string FileWithStatistics(const HeroStats &stats, const HeroStatsOrigins &origins)
 {
-  std::string bytes = WrittenFile() + StatisticsBlock(stats, origins);
+  std::vector<uint8_t> statsBytes, originsBytes;
+  stats.Serialize(&statsBytes, 25);
+  origins.Serialize(&originsBytes);
+  std::string block;
+  AppendNumber(&block, (uint32_t)statsBytes.size(), 4);
+  block.append((const char *)statsBytes.data(), statsBytes.size());
+  block.append((const char *)originsBytes.data(), originsBytes.size());
+  std::string length;
+  AppendNumber(&length, (uint32_t)block.size(), 4);
+  std::string bytes = WrittenFile() + length + block;
   bytes[VERSION_OFFSET] = 25;
   return bytes;
 }

@@ -62,6 +62,8 @@ void HeroStats_OnPartyTeleported(int level, int x, int y);
 void HeroStats_OnPartyWentDownPit(int level, int x, int y);
 // MoveParty: the party bumped into a wall, a closed door or a solid false wall
 void HeroStats_OnPartyBumped(void);
+// MoveParty: the party's move was stopped by a monster on the next cell
+void HeroStats_OnPartyBumpedMonster(void);
 // Before the numbers are shown or exported: the explored tiles and the wall texts read, from the
 // automap (at most twice a second unless forced)
 void HeroStats_RefreshMapCounts(bool force);

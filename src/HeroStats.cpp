@@ -641,7 +641,7 @@ std::vector<HeroStatsSpellRow> HeroStats::Spells(HeroStatsChampion who, int leve
 
 static HeroStatsMovement NoMovement(void)
 {
-  HeroStatsMovement none = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  HeroStatsMovement none = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
   return none;
 }
 
@@ -687,6 +687,11 @@ void HeroStats::CountBump(int level)
   m_movement.insert(std::make_pair(level, NoMovement())).first->second.bumps++;
 }
 
+void HeroStats::CountMonsterBump(int level)
+{
+  m_movement.insert(std::make_pair(level, NoMovement())).first->second.monsterBumps++;
+}
+
 void HeroStats::MarkTileWalked(int level, int x, int y)
 {
   m_tilesWalked.insert(std::make_tuple(level, x, y));
@@ -715,6 +720,7 @@ HeroStatsMovement HeroStats::Movement(int level) const
     sum.pitFalls += at->second.pitFalls;
     sum.pitClimbs += at->second.pitClimbs;
     sum.bumps += at->second.bumps;
+    sum.monsterBumps += at->second.monsterBumps;
   }
   return sum;
 }
@@ -1039,7 +1045,7 @@ void HeroStats::TakeFromFile(const HeroStats &fromFile)
 }
 
 // The layout is documented in AutoMapFile.h. Every map is a count and then its records.
-void HeroStats::Serialize(std::vector<uint8_t> *out) const
+void HeroStats::Serialize(std::vector<uint8_t> *out, int layout) const
 {
   HeroBytes_Put(out, (uint32_t)m_champions.size(), 4);
   for (size_t i = 0; i < m_champions.size(); i++)
@@ -1161,6 +1167,7 @@ void HeroStats::Serialize(std::vector<uint8_t> *out) const
     HeroBytes_PutInt(out, it->second.pitFalls);
     HeroBytes_PutInt(out, it->second.pitClimbs);
     HeroBytes_PutInt(out, it->second.bumps);
+    if (layout >= FIRST_LAYOUT_WITH_MONSTER_BUMPS) HeroBytes_PutInt(out, it->second.monsterBumps);
   }
   HeroBytes_Put(out, (uint32_t)m_items.size(), 4);
   for (std::map<std::pair<int, int>, ItemCounts>::const_iterator it = m_items.begin(); it != m_items.end(); ++it)
@@ -1255,6 +1262,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
 {
   bool hasMovement = layout >= FIRST_LAYOUT_WITH_MOVEMENT;
   bool hasPitsAndSleep = layout >= FIRST_LAYOUT_WITH_PITS_AND_SLEEP;
+  bool hasMonsterBumps = layout >= FIRST_LAYOUT_WITH_MONSTER_BUMPS;
   HeroBytesReader in(data, size);
   HeroStats read;
   uint32_t count = in.GetCount(3);
@@ -1392,7 +1400,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
   }
   read.m_partyWipes = in.GetInt();
   read.m_reloads = in.GetInt();
-  count = hasMovement ? in.GetCount((hasPitsAndSleep ? 9 : 5) * 4) : 0;
+  count = hasMovement ? in.GetCount((hasMonsterBumps ? 10 : hasPitsAndSleep ? 9 : 5) * 4) : 0;
   for (uint32_t i = 0; i < count && in.ok; i++)
   {
     int level = in.GetInt();
@@ -1407,6 +1415,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
       movement.pitFalls = in.GetInt();
       movement.pitClimbs = in.GetInt();
       movement.bumps = in.GetInt();
+      if (hasMonsterBumps) movement.monsterBumps = in.GetInt();
     }
     read.m_movement[level] = movement;
   }
