@@ -103,6 +103,7 @@ struct HeroStatsMovement
   int steps, turns, teleports, ticks, sleepTicks, pitFalls, pitClimbs, bumps;
   int monsterBumps; // moves that ran into a monster standing on the next cell
   int telefrags; // teleports that ended on a cell with monsters, which they killed
+  int telefragKills; // the monsters those teleports killed
   int tilesWalked, tilesExplored;
 };
 
@@ -210,7 +211,7 @@ public:
   void CountPitClimb(int level);
   void CountBump(int level);
   void CountMonsterBump(int level);
-  void CountTelefrag(int level);
+  void CountTelefrag(int level, int monsters);
   // The party stands on the cell (any number of times: it counts once)
   void MarkTileWalked(int level, int x, int y);
   // Every cell stood on, as (level, x, y): the automap highlights them
@@ -285,7 +286,7 @@ public:
   // outcomes are taken from the rune spells' rows, on the level of the cast; 21 has a table of
   // rune mana per level, which is skipped), 22 no experience and no records, 23 no items taken
   // from chests (none counted), 24 no poisonings, wounds or stretches of poison.
-  static const int LAYOUT = 27;
+  static const int LAYOUT = 28;
   static const int FIRST_LAYOUT_WITH_MOVEMENT = 14;
   static const int FIRST_LAYOUT_WITH_PITS_AND_SLEEP = 15;
   static const int FIRST_LAYOUT_WITH_ITEMS = 16;
@@ -300,6 +301,7 @@ public:
   static const int FIRST_LAYOUT_WITH_POISON = 25;
   static const int FIRST_LAYOUT_WITH_MONSTER_BUMPS = 26;
   static const int FIRST_LAYOUT_WITH_TELEFRAGS = 27;
+  static const int FIRST_LAYOUT_WITH_TELEFRAG_KILLS = 28;
   // layout: an older one leaves out what it does not have (the tests write old files with it)
   void Serialize(std::vector<uint8_t> *out, int layout = LAYOUT) const;
   bool Deserialize(const uint8_t *data, size_t size, int layout = LAYOUT);

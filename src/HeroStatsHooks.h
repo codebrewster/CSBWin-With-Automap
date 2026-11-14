@@ -65,7 +65,7 @@ void HeroStats_OnPartyBumped(void);
 // MoveParty: the party's move was stopped by a monster on the next cell
 void HeroStats_OnPartyBumpedMonster(void);
 // MoveObject: the party was teleported onto a cell of this level with monsters, which are killed
-void HeroStats_OnPartyTelefragged(int level);
+void HeroStats_OnPartyTelefragged(int level, int monsters);
 // Before the numbers are shown or exported: the explored tiles and the wall texts read, from the
 // automap (at most twice a second unless forced)
 void HeroStats_RefreshMapCounts(bool force);

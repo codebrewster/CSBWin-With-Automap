@@ -3489,7 +3489,7 @@ i16 MoveObject(const RN        object,
     if (objD7 != RNeof)
     {
       DELETEMONSTERPARAMETERS dmp(DMW_Movement2, -1);
-      if (partyTeleported) HeroStats_OnPartyTelefragged(curLevel);
+      if (partyTeleported) HeroStats_OnPartyTelefragged(curLevel, GetRecordAddressDB4(objD7)->numMonM1() + 1);
       ProcessMonsterDeleteFilter(d.partyX, d.partyY, &dmp, -1);
       DropMonsterRemains(d.partyX, d.partyY, objD7, 1, d.LoadedLevel, dmp.dropResidue<2);
       DeleteMonster(d.partyX, d.partyY, pmmr);

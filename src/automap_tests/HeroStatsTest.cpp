@@ -230,8 +230,8 @@ static void MovementIsKeptPerLevel(void)
   stats.CountMonsterBump(1);
   stats.CountMonsterBump(5);
   stats.CountMonsterBump(5);
-  stats.CountTelefrag(4);
-  stats.CountTelefrag(4);
+  stats.CountTelefrag(4, 1);
+  stats.CountTelefrag(4, 3);
   HeroStatsMovement run = stats.Movement(HERO_STATS_WHOLE_RUN);
   CHECK(run.steps == 3 && run.turns == 1 && run.teleports == 1 && run.ticks == 30 && run.sleepTicks == 10);
   CHECK(run.pitFalls == 1 && run.pitClimbs == 2 && run.bumps == 1);
@@ -248,10 +248,15 @@ static void MovementIsKeptPerLevel(void)
   CHECK(readOld.Movement(HERO_STATS_WHOLE_RUN).bumps == 1);
   // Telefrags: kept per level, none before layout 27 (26 has the monster bumps)
   CHECK(run.telefrags == 2 && stats.Movement(4).telefrags == 2 && stats.Movement(1).telefrags == 0);
-  CHECK(read.Movement(HERO_STATS_WHOLE_RUN).telefrags == 2);
+  CHECK(read.Movement(HERO_STATS_WHOLE_RUN).telefrags == 2 && read.Movement(HERO_STATS_WHOLE_RUN).telefragKills == 4);
   std::vector<uint8_t> v26;
   stats.Serialize(&v26, 26);
   CHECK(v26.size() > old.size() && v26.size() < bytes.size() && (bytes.size() - v26.size()) % 4 == 0);
+  std::vector<uint8_t> v27;
+  stats.Serialize(&v27, 27);
+  HeroStats read27;
+  CHECK(v27.size() > v26.size() && v27.size() < bytes.size());
+  CHECK(read27.Deserialize(v27.data(), v27.size(), 27) && read27.Movement(HERO_STATS_WHOLE_RUN).telefrags == 2 && read27.Movement(HERO_STATS_WHOLE_RUN).telefragKills == 0);
   HeroStats read26;
   CHECK(read26.Deserialize(v26.data(), v26.size(), 26) && read26.Movement(HERO_STATS_WHOLE_RUN).telefrags == 0);
   CHECK(read26.Movement(HERO_STATS_WHOLE_RUN).monsterBumps == 3);
