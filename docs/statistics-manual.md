@@ -246,6 +246,7 @@ Most of these are the party's, not a champion's; a champion's Exploration shows 
 | **Wall bumps** | Moves that ran into a wall, a closed door or a solid false wall |
 | **Monster bumps** | Moves that were stopped by a monster standing on the next square |
 | **Teleports** | Teleporters that moved the party. Each teleporter in a chain counts. |
+| **Telefrags** | Teleports that ended on a square with monsters, which they killed at once. Counted on the level of the destination; a chain counts once, for its last square. |
 | **Pit falls** | Pits the party fell into. Each pit of a chain counts, on the level of the pit. |
 | **Pit climbs** | Pits the party climbed down with a rope (its CLIMB DOWN action), so nobody was hurt. Pits further down the same shaft are falls. |
 | **Time (ticks)** | Game ticks spent on the level, by the game's own clock, with **Asleep (ticks)** below it. How long a tick lasts in real time depends on the game speed. |
@@ -582,7 +583,7 @@ closed: the game writes `csb.cfg` again when you leave it.
 | Magic | `mana_generated`, `mana_regeneration`, `mana_potions`, `mana_spent`, `mana_on_spells`, `mana_successful`, `mana_wasted`, `runes_cleared`, `runes_not_cast`, `casts`, `casts_successful`, `casts_failed` |
 | Survival | `taken`, `healed`, `heal_regeneration`, `heal_potions`, `heal_action`, `healing_given`, `deaths`, `resurrected`, `wipes`, `reloads` |
 | Food & items | `eaten`, `drunk`, `food_gained`, `food_wasted`, `water_gained`, `water_wasted`, `picked_up`, `used_in_walls` |
-| Exploration | `steps`, `tiles_walked`, `tiles_explored`, `turns`, `wall_bumps`, `monster_bumps`, `teleports`, `pit_falls`, `pit_climbs`, `ticks`, `sleep_ticks`, `doors_bashed`, `doors_smashed`, `doors_shot`, `doors_by_spell`, `doors_by_zo`, `doors_button_opened`, `doors_button_closed`, `chests`, `scrolls`, `wall_texts`, `champions_seen`, `champions_viewed` |
+| Exploration | `steps`, `tiles_walked`, `tiles_explored`, `turns`, `wall_bumps`, `monster_bumps`, `teleports`, `telefrags`, `pit_falls`, `pit_climbs`, `ticks`, `sleep_ticks`, `doors_bashed`, `doors_smashed`, `doors_shot`, `doors_by_spell`, `doors_by_zo`, `doors_button_opened`, `doors_button_closed`, `chests`, `scrolls`, `wall_texts`, `champions_seen`, `champions_viewed` |
 | Monsters | `kills`, `door_kills`, `pit_kills`, `other_kills` |
 | Experience | `experience`, `fighter`, `ninja`, `priest`, `wizard`, `ranks_gained` |
 | Records | `biggest_melee_hit`, `biggest_ranged_hit`, `biggest_spell_hit`, `biggest_spell_total`, `most_kills_at_once`, `kill_streak`, `biggest_hit_taken`, `biggest_spell_hit_taken`, `closest_call`, `biggest_heal`, `most_mana_on_spell`, `biggest_experience_gain`, `heaviest_load`, `longest_fall`, `longest_teleport_chain`, `longest_sleep`, `most_poison`, `most_poison_doses`, `most_poison_per_36_ticks`, `longest_poisoned`, `most_poisonings`, `poison_doses_suffered`, `most_wounds`, `most_wounds_one_blow`, `wounds_suffered` |

@@ -708,6 +708,12 @@ void HeroStats_OnPartyTeleported(int level, int x, int y)
   store.Records().CountTeleport(level, (uint32_t)d.Time);
 }
 
+void HeroStats_OnPartyTelefragged(int level)
+{
+  if (d.partyLevel == LEVEL_OF_THE_PRISON_SCREEN) return;
+  store.CountTelefrag(level);
+}
+
 void HeroStats_OnPartyWentDownPit(int level, int x, int y)
 {
   if (d.partyLevel == LEVEL_OF_THE_PRISON_SCREEN) return;

@@ -641,7 +641,7 @@ std::vector<HeroStatsSpellRow> HeroStats::Spells(HeroStatsChampion who, int leve
 
 static HeroStatsMovement NoMovement(void)
 {
-  HeroStatsMovement none = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  HeroStatsMovement none = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
   return none;
 }
 
@@ -692,6 +692,11 @@ void HeroStats::CountMonsterBump(int level)
   m_movement.insert(std::make_pair(level, NoMovement())).first->second.monsterBumps++;
 }
 
+void HeroStats::CountTelefrag(int level)
+{
+  m_movement.insert(std::make_pair(level, NoMovement())).first->second.telefrags++;
+}
+
 void HeroStats::MarkTileWalked(int level, int x, int y)
 {
   m_tilesWalked.insert(std::make_tuple(level, x, y));
@@ -721,6 +726,7 @@ HeroStatsMovement HeroStats::Movement(int level) const
     sum.pitClimbs += at->second.pitClimbs;
     sum.bumps += at->second.bumps;
     sum.monsterBumps += at->second.monsterBumps;
+    sum.telefrags += at->second.telefrags;
   }
   return sum;
 }
@@ -1168,6 +1174,7 @@ void HeroStats::Serialize(std::vector<uint8_t> *out, int layout) const
     HeroBytes_PutInt(out, it->second.pitClimbs);
     HeroBytes_PutInt(out, it->second.bumps);
     if (layout >= FIRST_LAYOUT_WITH_MONSTER_BUMPS) HeroBytes_PutInt(out, it->second.monsterBumps);
+    if (layout >= FIRST_LAYOUT_WITH_TELEFRAGS) HeroBytes_PutInt(out, it->second.telefrags);
   }
   HeroBytes_Put(out, (uint32_t)m_items.size(), 4);
   for (std::map<std::pair<int, int>, ItemCounts>::const_iterator it = m_items.begin(); it != m_items.end(); ++it)
@@ -1263,6 +1270,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
   bool hasMovement = layout >= FIRST_LAYOUT_WITH_MOVEMENT;
   bool hasPitsAndSleep = layout >= FIRST_LAYOUT_WITH_PITS_AND_SLEEP;
   bool hasMonsterBumps = layout >= FIRST_LAYOUT_WITH_MONSTER_BUMPS;
+  bool hasTelefrags = layout >= FIRST_LAYOUT_WITH_TELEFRAGS;
   HeroBytesReader in(data, size);
   HeroStats read;
   uint32_t count = in.GetCount(3);
@@ -1400,7 +1408,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
   }
   read.m_partyWipes = in.GetInt();
   read.m_reloads = in.GetInt();
-  count = hasMovement ? in.GetCount((hasMonsterBumps ? 10 : hasPitsAndSleep ? 9 : 5) * 4) : 0;
+  count = hasMovement ? in.GetCount((hasTelefrags ? 11 : hasMonsterBumps ? 10 : hasPitsAndSleep ? 9 : 5) * 4) : 0;
   for (uint32_t i = 0; i < count && in.ok; i++)
   {
     int level = in.GetInt();
@@ -1416,6 +1424,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
       movement.pitClimbs = in.GetInt();
       movement.bumps = in.GetInt();
       if (hasMonsterBumps) movement.monsterBumps = in.GetInt();
+      if (hasTelefrags) movement.telefrags = in.GetInt();
     }
     read.m_movement[level] = movement;
   }

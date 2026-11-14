@@ -25,7 +25,7 @@ enum HeroStatsNumber {
   HeroNumDeaths, HeroNumResurrected, HeroNumWipes, HeroNumReloads,
   HeroNumEaten, HeroNumDrunk, HeroNumFoodGained, HeroNumFoodWasted, HeroNumWaterGained, HeroNumWaterWasted,
   HeroNumPickedUp, HeroNumUsedInWalls,
-  HeroNumSteps, HeroNumTilesWalked, HeroNumTilesExplored, HeroNumTurns, HeroNumBumps, HeroNumMonsterBumps, HeroNumTeleports,
+  HeroNumSteps, HeroNumTilesWalked, HeroNumTilesExplored, HeroNumTurns, HeroNumBumps, HeroNumMonsterBumps, HeroNumTeleports, HeroNumTelefrags,
   HeroNumPitFalls, HeroNumPitClimbs, HeroNumTicks, HeroNumSleepTicks,
   HeroNumDoorsBashed, HeroNumDoorsSmashed, HeroNumDoorsShot, HeroNumDoorsBySpell, HeroNumDoorsByZo,
   HeroNumDoorsButtonOpened, HeroNumDoorsButtonClosed, HeroNumChests, HeroNumScrolls, HeroNumWallTexts,

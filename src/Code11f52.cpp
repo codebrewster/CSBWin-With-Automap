@@ -2985,6 +2985,7 @@ i16 MoveObject(const RN        object,
   i16 LOCAL_20=0;
   i16 LOCAL_18=0;
   bool item16Attached=false;//LOCAL_16 = false;
+  bool partyTeleported=false; // a teleporter moved the party in this call
   i16 LOCAL_14=0;
   MPO monsterPartyOther=MPO_unknown;//LOCAL_12=0;//1 if monster; 2 if party; else 3
   i16 objectPosition=0;
@@ -3098,6 +3099,7 @@ i16 MoveObject(const RN        object,
         {
           AutoMap_OnPartyTeleported(curLevel, newX, newY);
           HeroStats_OnPartyTeleported(curLevel, newX, newY);
+          partyTeleported = true;
         }
         else if (DB1A2 != pretendTeleporter)
         { // A missile, item or monster that the party can watch gets taken or turned
@@ -3487,6 +3489,7 @@ i16 MoveObject(const RN        object,
     if (objD7 != RNeof)
     {
       DELETEMONSTERPARAMETERS dmp(DMW_Movement2, -1);
+      if (partyTeleported) HeroStats_OnPartyTelefragged(curLevel);
       ProcessMonsterDeleteFilter(d.partyX, d.partyY, &dmp, -1);
       DropMonsterRemains(d.partyX, d.partyY, objD7, 1, d.LoadedLevel, dmp.dropResidue<2);
       DeleteMonster(d.partyX, d.partyY, pmmr);
