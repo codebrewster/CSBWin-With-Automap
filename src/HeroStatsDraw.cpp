@@ -2054,7 +2054,7 @@ static void DrawRecords(HeroStatsDrawState *state, const std::vector<HeroStatsRe
         if (ImGui::IsItemHovered())
         {
           if (clickable) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-          if (!line.when.empty()) TooltipWithSymbols(clickable ? line.when + "\nClick: put tick " + HeroStatsView_Number(line.tick) + " into the replay's pause at box" : line.when);
+          if (!line.when.empty()) TooltipWithSymbols(clickable ? line.when + "\nClick: go to tick " + HeroStatsView_Number(line.tick) + " in the replay and pause there" : line.when);
           if (clickable && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) tickSink(line.tick);
         }
       }

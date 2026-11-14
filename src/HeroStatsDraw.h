@@ -52,7 +52,7 @@ struct HeroStatsDrawPictures
 };
 
 // Where a click on a record's value sends its game tick (NULL: a click does nothing). The game
-// window puts it into the replay's "pause at" box.
+// window goes to and pauses at, as its "pause at" box does.
 void HeroStatsDraw_SetTickSink(void (*sink)(int tick));
 void HeroStatsDraw_ApplyStyle(void);
 // The font for text bigger than the body text, when the body font is a bitmap (NULL: none)

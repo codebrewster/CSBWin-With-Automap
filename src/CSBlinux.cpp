@@ -310,14 +310,12 @@ extern bool BeginRecordOK;
 extern bool ItemsRemain;
 extern bool PlayfileIsOpen(void);
 
-// A click on a record in the Statistics window puts its tick into the replay's "pause at" box
-// (the text only: Enter there does the going)
-static char pauseAtText[16] = "";
-static bool pauseAtTextNew = false;
+// A click on a record in the Statistics window goes to its tick and pauses there, as the replay's
+// "pause at" box does on Enter (DrawReplayControls does it, with the game time at hand)
+static int pauseAtClicked = 0;
 static void PauseAtSink(int tick)
 {
-  snprintf(pauseAtText, sizeof pauseAtText, "%d", tick);
-  pauseAtTextNew = true;
+  pauseAtClicked = tick;
 }
 static void PaintStatisticsWindow(void)
 {
@@ -2729,20 +2727,25 @@ static void DrawReplayControls(bool &was_active)
     // Go to the number typed (Enter) and pause there: ahead at max (over snapshots where the
     // replay has been), behind back to it, the tick it stands at now. Empty or 0 takes a pause
     // ahead away.
-    char *target = pauseAtText;
-    if (pauseAtTextNew) { ImGui::SetKeyboardFocusHere(); pauseAtTextNew = false; }
+    static char target[16] = "";
     ImGui::SetNextItemWidth(70);
-    if (ImGui::InputTextWithHint("##pauseAt", _("pause at"), target, sizeof pauseAtText, ImGuiInputTextFlags_EnterReturnsTrue))
+    bool entered = ImGui::InputTextWithHint("##pauseAt", _("pause at"), target, sizeof target, ImGuiInputTextFlags_EnterReturnsTrue);
+    int tick = 0;
+    if (entered)
     {
-      int tick = 0;
       for (const char *c = target; *c; c++)
         if (*c >= '0' && *c <= '9' && tick < 100000000) tick = tick * 10 + (*c - '0');
+      target[0] = 0;
+    }
+    else if (pauseAtClicked > 0) { tick = pauseAtClicked; entered = true; }
+    pauseAtClicked = 0;
+    if (entered)
+    {
       int now = (int)d.Time;
       if (tick > 0 && tick < now) PlaybackControl_GoBackAndPause(now, tick, ReplaySpeedIndex());
       else if (tick > 0 && tick == now) PlaybackControl_SetPaused(true);
       else if (tick > 0) PlaybackControl_GoAheadAndPause(now, tick, ReplaySpeedIndex());
       else PlaybackControl_SetPauseTarget(now, 0);
-      target[0] = 0;
     }
     if (ImGui::IsItemHovered())
       ImGui::SetTooltip("%s", _("Go to this tick and pause there (type a number, Enter), ahead or behind. "
