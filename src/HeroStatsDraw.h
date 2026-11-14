@@ -52,6 +52,8 @@ struct HeroStatsDrawPictures
 };
 
 void HeroStatsDraw_ApplyStyle(void);
+// The font for text bigger than the body text, when the body font is a bitmap (NULL: none)
+void HeroStatsDraw_SetScalableFont(struct ImFont *font);
 // The whole window: the title strip, who, the level, the topic tabs and the page. live is the
 // party now, for the Champions tab.
 void HeroStatsDraw_Frame(HeroStatsDrawState *state, const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,

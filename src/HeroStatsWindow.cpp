@@ -173,7 +173,14 @@ static void LoadFont(void)
 {
   std::string path = std::string(pwd) + "/fonts/VeraMono.ttf";
   FILE *file = fopen(path.c_str(), "rb");
-  if (file == NULL) return;
+  if (file == NULL)
+  {
+    // ImGui's own font is a bitmap at 13 px, crisp there and blocky when scaled up for the tiles'
+    // big numbers: the body text keeps it and the big text gets the scalable one
+    ImGui::GetIO().Fonts->AddFontDefaultBitmap();
+    HeroStatsDraw_SetScalableFont(ImGui::GetIO().Fonts->AddFontDefaultVector());
+    return;
+  }
   fclose(file);
   ImGui::GetIO().Fonts->AddFontFromFileTTF(path.c_str(), FONT_SIZE);
 }

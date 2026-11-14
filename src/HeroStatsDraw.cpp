@@ -84,9 +84,23 @@ static float SymbolWidth(float fontSize, bool star)
   return fontSize * (star ? 0.75f : 0.9f);
 }
 
+// Text bigger than the body text is drawn with the scalable font when the body font is a bitmap:
+// scaled up, a bitmap font shows its pixels
+static ImFont *scalableFont = NULL;
+
+void HeroStatsDraw_SetScalableFont(ImFont *font)
+{
+  scalableFont = font;
+}
+
+static ImFont *FontFor(float fontSize)
+{
+  return scalableFont != NULL && fontSize > ImGui::GetFontSize() + 0.5f ? scalableFont : ImGui::GetFont();
+}
+
 static float TextPieceWidth(float fontSize, const std::string &text, size_t from, size_t end)
 {
-  return ImGui::GetFont()->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, text.c_str() + from, text.c_str() + end).x;
+  return FontFor(fontSize)->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, text.c_str() + from, text.c_str() + end).x;
 }
 
 static float TextWidthWithSymbols(float fontSize, const std::string &text)
@@ -134,7 +148,7 @@ static void TextWithSymbols(ImDrawList *drawList, float fontSize, ImVec2 at, ImU
   {
     size_t symbol = NextSymbol(text, from);
     size_t end = symbol == std::string::npos ? text.size() : symbol;
-    drawList->AddText(ImGui::GetFont(), fontSize, at, colour, text.c_str() + from, text.c_str() + end);
+    drawList->AddText(FontFor(fontSize), fontSize, at, colour, text.c_str() + from, text.c_str() + end);
     at.x += TextPieceWidth(fontSize, text, from, end);
     if (symbol == std::string::npos) return;
     bool star = IsStar(text, symbol);
