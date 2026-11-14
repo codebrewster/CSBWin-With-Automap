@@ -1020,7 +1020,9 @@ void ProcessMonsterDeleteFilter(i32 mapX, i32 mapY, DELETEMONSTERPARAMETERS *pdm
     {
       pRecord[subtype]++;
     };
-    HeroStats_OnMonsterDied(mt, subtype, pdmp->why);
+    // The party arriving on a cell kills its whole group at once (a telefrag)
+    int members = (pdmp->why == DMW_Movement2) ? pMonster->numMonM1() + 1 : 1;
+    for (int member = 0; member < members; member++) HeroStats_OnMonsterDied(mt, subtype, pdmp->why);
   };
   //
   //

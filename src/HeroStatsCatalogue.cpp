@@ -172,7 +172,7 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
                                {HeroNumEaten, HeroNumDrunk, HeroNumFoodWasted, HeroNumPickedUp}};
   topics[HeroTopicExploration] = {"Exploration",
                                   {{HeroNumSteps, 0}, {HeroNumTilesWalked, 0}, {HeroNumTilesExplored, 0}, {HeroNumTurns, 0},
-                                   {HeroNumBumps, 0}, {HeroNumMonsterBumps, 0}, {HeroNumTeleports, 0}, {HeroNumTelefrags, 0}, {HeroNumTelefragKills, 1}, {HeroNumPitFalls, 0}, {HeroNumPitClimbs, 0},
+                                   {HeroNumBumps, 0}, {HeroNumMonsterBumps, 0}, {HeroNumTeleports, 0}, {HeroNumTelefrags, 0}, {HeroNumPitFalls, 0}, {HeroNumPitClimbs, 0},
                                    {HeroNumTicks, 0}, {HeroNumSleepTicks, 1}, {HeroNumDoorsBashed, 0}, {HeroNumDoorsSmashed, 1},
                                    {HeroNumDoorsShot, 1}, {HeroNumDoorsBySpell, 1}, {HeroNumDoorsByZo, 0},
                                    {HeroNumDoorsButtonOpened, 0}, {HeroNumDoorsButtonClosed, 0}, {HeroNumChests, 0},
@@ -180,7 +180,8 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
                                    {HeroNumChampionsViewed, 0}},
                                   {HeroNumTilesExplored, HeroNumSteps, HeroNumTicks, HeroNumDoorsBashed}};
   topics[HeroTopicMonsters] = {"Monsters",
-                               {{HeroNumKills, 0}, {HeroNumDoorKills, 0}, {HeroNumPitKills, 0}, {HeroNumOtherKills, 0}},
+                               {{HeroNumKills, 0}, {HeroNumDoorKills, 0}, {HeroNumPitKills, 0}, {HeroNumOtherKills, 0},
+                                {HeroNumTelefragKills, 0}},
                                {HeroNumKills, HeroNumDoorKills, HeroNumPitKills, HeroNumOtherKills}};
   topics[HeroTopicExperience] = {"Experience",
                                  {{HeroNumExperience, 0}, {HeroNumXpFighter, 1}, {HeroNumXpNinja, 1}, {HeroNumXpPriest, 1},

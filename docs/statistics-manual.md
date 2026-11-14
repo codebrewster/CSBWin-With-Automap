@@ -246,8 +246,7 @@ Most of these are the party's, not a champion's; a champion's Exploration shows 
 | **Wall bumps** | Moves that ran into a wall, a closed door or a solid false wall |
 | **Monster bumps** | Moves that were stopped by a monster standing on the next square |
 | **Teleports** | Teleporters that moved the party. Each teleporter in a chain counts. |
-| **Telefrags** | Teleports that ended on a square with monsters, which they killed at once. Counted on the level of the destination; a chain counts once, for its last square. |
-| **Telefrag kills** | The monsters those teleports killed: a group counts with all its members. |
+| **Telefrags** | Teleports that ended on a square with monsters, which they killed at once. Counted on the level of the destination; a chain counts once, for its last square. The monsters they killed are the Telefrag kills on the Monsters tab. |
 | **Pit falls** | Pits the party fell into. Each pit of a chain counts, on the level of the pit. |
 | **Pit climbs** | Pits the party climbed down with a rope (its CLIMB DOWN action), so nobody was hurt. Pits further down the same shaft are falls. |
 | **Time (ticks)** | Game ticks spent on the level, by the game's own clock, with **Asleep (ticks)** below it. How long a tick lasts in real time depends on the game speed. |
@@ -266,7 +265,8 @@ new game, before the first champion joins.
 ## Monsters
 
 The numbers: **Kills** (by the champions), then **Crushed by doors**, **Killed by falls** and
-**Other causes** (clouds nobody is known to have made, traps, other monsters, the game removing them).
+**Other causes** (clouds nobody is known to have made, traps, other monsters, the game removing them,
+telefrags) and **Telefrag kills**, the part of the Other causes that teleports onto a monster made.
 
 **Monsters killed** has one row per kind of monster. For the Party: one column per champion,
 **Door**, **Pit** and **Other** when something was killed that way, **All**, and a **Who** bar.
