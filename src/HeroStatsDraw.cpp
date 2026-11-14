@@ -21,6 +21,7 @@
 static const ImU32 BACKGROUND_RGB = 0x1e1f24;
 static const ImU32 PANEL_RGB = 0x272930;
 static const ImU32 PANEL_HOVERED_RGB = 0x2e3139;
+static const ImU32 TOOLTIP_BORDER_RGB = 0x7a8294;  // a tooltip is told from the rows by its edge
 static const ImU32 TITLE_RGB = 0x294a7a;
 static const ImU32 CRUMB_RGB = 0xb9c9e4;
 static const ImU32 WHITE_RGB = 0xffffff;
@@ -159,10 +160,37 @@ static void TextColoredWithSymbols(ImU32 rgb, const std::string &text)
   TextPackedWithSymbols(Packed(rgb), text);
 }
 
-// SetTooltip for text that may hold a symbol
+// The explanations of rows, columns and tiles show when the pointer rests on them
+// A tooltip window: room around the text, so that its first letters are not cut off, and an edge
+// light enough to tell it from the rows under it
+static bool BeginTip(void)
+{
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 5));
+  ImGui::PushStyleColor(ImGuiCol_Border, Colour(TOOLTIP_BORDER_RGB));
+  bool open = ImGui::BeginTooltip();
+  ImGui::PopStyleColor();
+  ImGui::PopStyleVar();
+  return open;
+}
+
+// A tooltip that wraps instead of running out of the window
+static void WrappedTooltip(const char *text)
+{
+  if (!BeginTip()) return;
+  ImGui::PushTextWrapPos(std::min(ImGui::GetFontSize() * 24.0f, ImGui::GetIO().DisplaySize.x - 24.0f));
+  ImGui::TextUnformatted(text);
+  ImGui::PopTextWrapPos();
+  ImGui::EndTooltip();
+}
+
+static void HelpTooltip(const char *text)
+{
+  if (text[0] != 0 && ImGui::IsItemHovered()) WrappedTooltip(text);
+}
+
 static void TooltipWithSymbols(const std::string &text)
 {
-  ImGui::BeginTooltip();
+  if (!BeginTip()) return;
   TextPackedWithSymbols(ImGui::GetColorU32(ImGuiCol_Text), text);
   ImGui::EndTooltip();
 }
@@ -181,6 +209,7 @@ void HeroStatsDraw_ApplyStyle(void)
   style.Colors[ImGuiCol_WindowBg] = Colour(BACKGROUND_RGB);
   style.Colors[ImGuiCol_ChildBg] = Colour(BACKGROUND_RGB);
   style.Colors[ImGuiCol_PopupBg] = Colour(PANEL_RGB);
+  style.PopupBorderSize = 1;
   style.Colors[ImGuiCol_Text] = Colour(TEXT_RGB);
   style.Colors[ImGuiCol_TextDisabled] = Colour(DIM_RGB);
   style.Colors[ImGuiCol_Border] = Colour(BORDER_RGB);
@@ -320,6 +349,7 @@ static void DrawTitle(const HeroStatsDrawState &state, const std::vector<HeroSta
     drawList->AddText(ImVec2(exportX - 12 - ImGui::CalcTextSize(shown.c_str()).x, origin.y + 4), Packed(CRUMB_RGB), shown.c_str());
   ImGui::SetCursorScreenPos(ImVec2(exportX, origin.y + 2));
   ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(ImGui::GetStyle().FramePadding.x, 1));
+  ImGui::SetCursorScreenPos(ImVec2(exportX, origin.y + 2));
   if (ImGui::Button(exportLabel)) exportStatistics();
   ImGui::PopStyleVar();
   ImGui::SetCursorScreenPos(origin);
@@ -867,8 +897,10 @@ static void NextGuidedRow(void)
 // The header row: the label left, numbers right-aligned; a champion's name after their dot
 // (columnOfHeader[i]: the champion column of table column i, or -1), dimmed when they left.
 // lastLabel, when given, names the last column instead of its setup name ("Who: Damage").
+// helps: a tooltip per table column (empty or missing: none), for what a header does not say.
+typedef std::vector<const char *> HeaderHelps;
 static void HeaderRow(const std::vector<int> &columnOfHeader, const std::vector<HeroStatsColumn> &columns,
-                      const std::string &lastLabel = "")
+                      const std::string &lastLabel = "", const HeaderHelps &helps = HeaderHelps())
 {
   ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
   int count = ImGui::TableGetColumnCount();
@@ -902,6 +934,7 @@ static void HeaderRow(const std::vector<int> &columnOfHeader, const std::vector<
     ImGui::TableHeader(label.c_str());
     ImGui::PopID();
     ImGui::PopStyleColor();
+    if (i < (int)helps.size() && helps[i] != NULL) HelpTooltip(helps[i]);
     if (guided)
     {
       ImRect cell = ImGui::TableGetCellBgRect(ImGui::GetCurrentTable(), i);
@@ -990,7 +1023,7 @@ static void LabelCell(const std::string &text, int depth, ImU32 rgb, const char 
   if (wraps) ImGui::PushTextWrapPos(0.0f);
   ImGui::TextColored(Colour(Hot(rgb)), "%s", text.c_str());
   if (wraps) ImGui::PopTextWrapPos();
-  if (help[0] != 0 && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", help);
+  HelpTooltip(help);
   if (depth > 0) ImGui::Unindent(14.0f * depth);
 }
 
@@ -1127,6 +1160,11 @@ static void DrawTiles(const HeroStatsTopicPage &page, const HeroStatsDrawState &
       TextWithSymbols(drawList, ImGui::GetFontSize(), ImVec2(x, y), Packed(tile.hasBar ? FAINT_RGB : TEXT_RGB), tile.sub);
     }
     drawList->PopClipRect();
+    // What the number counts, and what it does or does not contain
+    const char *help = HeroStatsCatalogue_Info(page.tiles[i]).help;
+    if (help[0] != 0 && ImGui::IsWindowHovered() &&
+        ImGui::IsMouseHoveringRect(min, ImVec2(min.x + tileWidth, min.y + height)))
+      WrappedTooltip(help);
   }
   int rows = (count + perRow - 1) / perRow;
   ImGui::Dummy(ImVec2(width, rows * (height + gap) - gap + 4));
@@ -1162,7 +1200,9 @@ static void DrawNumbers(const HeroStatsTopicPage &page, const HeroStatsDrawState
   }
   NumberColumn("Party");
   BarColumn(isParty ? "Share" : "Share of party");
-  HeaderRow(headerColumns, columns);
+  HeaderHelps helps(headerColumns.size(), "");
+  helps.push_back("All the champions together; for a record, the best of them.");
+  HeaderRow(headerColumns, columns, "", helps);
   for (size_t r = 0; r < page.numbers.size(); r++)
   {
     const HeroStatsNumbersRow &row = page.numbers[r];
@@ -1211,7 +1251,7 @@ static void WhoCell(const std::vector<int> &byColumn, const std::vector<HeroStat
   std::string text;
   for (size_t c = 0; c < byColumn.size() && c < columns.size(); c++)
     if (byColumn[c] != 0) text += (text.empty() ? "" : "\n") + columns[c].name + "  " + HeroStatsView_Number(byColumn[c]);
-  if (!text.empty()) ImGui::SetTooltip("%s", text.c_str());
+  if (!text.empty()) WrappedTooltip(text.c_str());
 }
 
 // What the Who bar splits: the column the table is sorted by when it can be split among the
@@ -1326,7 +1366,10 @@ static void DrawWeapons(HeroStatsDrawState *state, const HeroStatsHeroPage &page
     TableSort sort = CurrentSort();
     static const char *const LABELS[7] = {"Weapon", "Tries", "Hits", "Rate", "Avg", "Damage", "Kills"};
     int measure = WhoMeasure(sort, {1, 2, 5, 6}, 5);
-    HeaderRow(std::vector<int>(), columns, isParty ? MeasureLabel(LABELS, measure) : "");
+    static const HeaderHelps HELPS = {
+        "", "Blows and missiles, and the actions that cannot hit (War Cry, Calm...). The Combat page's Attacks leaves those out; its Other actions counts them.",
+        "", "Hits out of the tries that can hit; actions that cannot hit are left out."};
+    HeaderRow(std::vector<int>(), columns, isParty ? MeasureLabel(LABELS, measure) : "", HELPS);
     std::vector<HeroStatsWeaponLine> weapons = page.weapons;
     SortRows(&weapons, sort, CompareAttacks<HeroStatsWeaponLine>);
     for (size_t w = 0; w < weapons.size(); w++)
@@ -1420,7 +1463,10 @@ static void DrawSpells(HeroStatsDrawState *state, const HeroStatsHeroPage &page,
     TableSort sort = CurrentSort();
     static const char *const LABELS[7] = {"Spell", "Casts", "Failed", "Mana", "Wasted", "Damage", "Kills"};
     int measure = WhoMeasure(sort, {1, 2, 3, 4, 5, 6}, 3);
-    HeaderRow(std::vector<int>(), columns, isParty ? MeasureLabel(LABELS, measure) : "");
+    static const HeaderHelps HELPS = {
+        "", "Casts of the spell, the failed ones included.", "",
+        "The mana of the runes, the mana wasted on failed casts included."};
+    HeaderRow(std::vector<int>(), columns, isParty ? MeasureLabel(LABELS, measure) : "", HELPS);
     std::vector<HeroStatsSpellLine> spells = page.spells;
     SortRows(&spells, sort, [](const HeroStatsSpellLine &a, const HeroStatsSpellLine &b, int column) {
       if (column == 0) return a.name.compare(b.name);
@@ -1552,7 +1598,8 @@ static void DrawConsumed(HeroStatsDrawState *state, const HeroStatsHeroPage &pag
     TableSort sort = CurrentSort();
     static const char *const LABELS[3] = {"Item", "Eaten", "Drunk"};
     int measure = WhoMeasure(sort, {1, 2}, 1);
-    HeaderRow(std::vector<int>(), columns, isParty ? MeasureLabel(LABELS, measure) : "");
+    static const HeaderHelps HELPS = {"", "", "Times the item was drunk; the fountain counts as a drink."};
+    HeaderRow(std::vector<int>(), columns, isParty ? MeasureLabel(LABELS, measure) : "", HELPS);
     SortRows(&lines, sort, [](const ConsumedLine &a, const ConsumedLine &b, int c) {
       if (c == 0) return a.name.compare(b.name);
       if (c == 1) return Compare(a.eaten, b.eaten);
@@ -1602,7 +1649,8 @@ static void DrawItems(HeroStatsDrawState *state, const std::vector<HeroStatsItem
     NumberColumn("Picked up", true);
     NumberColumn("From chest");
     NumberColumn("Used in walls");
-    HeaderRow(std::vector<int>(), columns);
+    static const HeaderHelps HELPS = {"", "", "Included in Picked up: the ones taken out of a chest."};
+    HeaderRow(std::vector<int>(), columns, "", HELPS);
     SortRows(&lines, CurrentSort(), [](const HeroStatsItemLine &a, const HeroStatsItemLine &b, int c) {
       if (c == 0) return a.name.compare(b.name);
       if (c == 1) return Compare(a.pickedUp, b.pickedUp);
@@ -1663,7 +1711,16 @@ static void DrawMonsters(HeroStatsDrawState *state, const std::vector<HeroStatsM
       BarColumn("Who");
     }
     else NumberColumn("Kills", true);
-    HeaderRow(headerColumns, columns, isParty ? "Who: Kills" : "");
+    HeaderHelps helps(1, "");
+    if (isParty)
+    {
+      for (size_t c = 0; c < champions; c++) helps.push_back("");
+      if (door) helps.push_back("");
+      if (pit) helps.push_back("");
+      if (other) helps.push_back("Killed by clouds, traps, other monsters or a cause not known.");
+      helps.push_back("The champions, doors, pits and other causes added up: every kill.");
+    }
+    HeaderRow(headerColumns, columns, isParty ? "Who: Kills" : "", helps);
     // The values of a line in table order after the name
     auto values = [&](const HeroStatsMonsterLine &line) {
       std::vector<int> v;
@@ -1850,7 +1907,7 @@ static void DrawXpSources(HeroStatsDrawState *state, const std::vector<HeroStats
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetTreeNodeToLabelSpacing());
         ImGui::TextColored(Colour(line.depth > 0 ? DIM_RGB : TEXT_RGB), "%s", line.name.c_str());
       }
-      if (!line.help.empty() && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", line.help.c_str());
+      HelpTooltip(line.help.c_str());
       if (!line.note.empty())
       {
         ImGui::SameLine();
@@ -1900,7 +1957,9 @@ static void DrawRankUps(HeroStatsDrawState *state, const std::vector<HeroStatsRa
     TextColumn("Rank");
     TextColumn("With");
     NumberColumn("Lv");
-    HeaderRow(std::vector<int>(), columns);
+    static const HeaderHelps PARTY_HELPS = {"", "", "", "What gave the experience that made the rank: an action, a spell or a kill."};
+    static const HeaderHelps CHAMPION_HELPS = {"", "", "What gave the experience that made the rank: an action, a spell or a kill."};
+    HeaderRow(std::vector<int>(), columns, "", isParty ? PARTY_HELPS : CHAMPION_HELPS);
     for (size_t i = 0; i < lines.size(); i++)
     {
       const HeroStatsRankUpLine &line = lines[i];
@@ -2008,7 +2067,7 @@ static void DrawRecords(HeroStatsDrawState *state, const std::vector<HeroStatsRe
             ImVec2 at = ImGui::GetCursorScreenPos();
             ChampionDot(ImVec2(at.x + 4, at.y + ImGui::GetTextLineHeight() / 2), c, columns[c].hasLeft);
             ImGui::Dummy(ImVec2(8, ImGui::GetTextLineHeight()));
-            if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", columns[c].name.c_str());
+            if (ImGui::IsItemHovered()) WrappedTooltip(columns[c].name.c_str());
           }
         }
       }
@@ -2121,7 +2180,7 @@ static int DrawTopicTiles(const std::vector<std::string> &summaries)
     drawList->PopClipRect();
     // Only a summary cut off at the tile's edge needs the whole of it on hover
     bool cutOff = 10 + ImGui::CalcTextSize(summaries[t].c_str()).x > tileWidth - 8;
-    if (hovered && cutOff) ImGui::SetTooltip("%s", summaries[t].c_str());
+    if (hovered && cutOff) WrappedTooltip(summaries[t].c_str());
   }
   ImGui::SetCursorScreenPos(origin);
   ImGui::Dummy(ImVec2(width, ((shown + perRow - 1) / perRow) * (height + gap) + 4));
@@ -2334,7 +2393,7 @@ static void LevelCell(HeroStatsDrawState *state, int level)
     state->level = level;
   }
   ImGui::PopStyleColor();
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Show %s on its own", LevelLabel(level).c_str());
+  if (ImGui::IsItemHovered()) WrappedTooltip(("Show " + LevelLabel(level) + " on its own").c_str());
   ImGui::PopID();
 }
 
@@ -2492,7 +2551,9 @@ static void SlotTooltip(const std::vector<HeroStatsLiveItem> &items, int index, 
 {
   // Room around the picture: the window's own tooltips are text and need none
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 8));
+  ImGui::PushStyleColor(ImGuiCol_Border, Colour(TOOLTIP_BORDER_RGB));
   bool open = ImGui::BeginTooltip();
+  ImGui::PopStyleColor();
   ImGui::PopStyleVar();
   if (!open) return;
   if (index < 0)
@@ -2689,8 +2750,8 @@ static void LiveVitals(const HeroStatsLiveChampion &live, ImU32 rgb, float width
                        live.poisonCount == 1 ? "dose" : "doses", perTick);
     ImGui::PopTextWrapPos();
     if (ImGui::IsItemHovered())
-      ImGui::SetTooltip("The poison still to tick, all doses added up. A dose of strength v hurts max(1, v / 64) HP\n"
-                        "every 36 ticks and gets weaker by 1 each time; a Cure Poison removes every dose.");
+      WrappedTooltip("The poison still to tick, all doses added up. A dose of strength v hurts max(1, v / 64) HP "
+                     "every 36 ticks and gets weaker by 1 each time; a Cure Poison removes every dose.");
     // The doses fold away (30 and more can work on one champion); the fold is kept per champion
     if (!live.poisonDoses.empty())
     {
@@ -2803,7 +2864,7 @@ static void LiveRanks(const HeroStatsLiveChampion &live, ImU32 rgb, float width)
     if (live.percentToNext[cls] > 0)
       drawList->AddRectFilled(top, ImVec2(top.x + barWidth * live.percentToNext[cls] / 100.0f, bottom.y), Packed(rgb), 2.0f);
     ImGui::Dummy(ImVec2(barWidth, lineHeight));
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%d%% of the way to the next rank", live.percentToNext[cls]);
+    if (ImGui::IsItemHovered()) WrappedTooltip((std::to_string(live.percentToNext[cls]) + "% of the way to the next rank").c_str());
   }
 }
 
