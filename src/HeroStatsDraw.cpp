@@ -2161,7 +2161,12 @@ static int DrawTopicTiles(const std::vector<std::string> &summaries)
   float width = ImGui::GetContentRegionAvail().x;
   int perRow = width >= 2 * 260 + gap ? 2 : 1;
   float tileWidth = (width - gap * (perRow - 1)) / perRow;
-  float height = ImGui::GetTextLineHeight() * 2 + 18;
+  // A summary too long for one line wraps onto a second; the tiles all have the height that takes
+  float wrapWidth = tileWidth - 20;
+  int lines = 1;
+  for (int t = HeroTopicOverview + 1; t < HERO_TOPIC_COUNT && t < (int)summaries.size(); t++)
+    lines = std::max(lines, (int)(ImGui::CalcTextSize(summaries[t].c_str(), NULL, false, wrapWidth).y / ImGui::GetTextLineHeight() + 0.5f));
+  float height = ImGui::GetTextLineHeight() * (1 + lines) + 18;
   ImDrawList *drawList = ImGui::GetWindowDrawList();
   ImVec2 origin = ImGui::GetCursorScreenPos();
   int shown = 0;
@@ -2176,11 +2181,9 @@ static int DrawTopicTiles(const std::vector<std::string> &summaries)
     drawList->AddRectFilled(min, ImVec2(min.x + tileWidth, min.y + height), Packed(hovered ? PANEL_HOVERED_RGB : PANEL_RGB), 4.0f);
     drawList->PushClipRect(min, ImVec2(min.x + tileWidth - 8, min.y + height), true);
     drawList->AddText(ImVec2(min.x + 10, min.y + 7), Packed(WHITE_RGB), HeroStatsCatalogue_Topic(t).label);
-    drawList->AddText(ImVec2(min.x + 10, min.y + 9 + ImGui::GetTextLineHeight()), Packed(DIM_RGB), summaries[t].c_str());
+    drawList->AddText(ImGui::GetFont(), ImGui::GetFontSize(), ImVec2(min.x + 10, min.y + 9 + ImGui::GetTextLineHeight()),
+                      Packed(DIM_RGB), summaries[t].c_str(), NULL, wrapWidth);
     drawList->PopClipRect();
-    // Only a summary cut off at the tile's edge needs the whole of it on hover
-    bool cutOff = 10 + ImGui::CalcTextSize(summaries[t].c_str()).x > tileWidth - 8;
-    if (hovered && cutOff) WrappedTooltip(summaries[t].c_str());
   }
   ImGui::SetCursorScreenPos(origin);
   ImGui::Dummy(ImVec2(width, ((shown + perRow - 1) / perRow) * (height + gap) + 4));
