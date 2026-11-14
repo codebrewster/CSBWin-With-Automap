@@ -8,6 +8,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 ## Unreleased
 
 **Statistics**
+- During a replay, a click on a value in the Records table puts its tick into the "pause at" box of the game window (Enter there goes to it).
 - The Party column of the Numbers tables is called Total (it adds up the champions).
 - The big numbers and names in the tiles at the top of a tab (Champion, Experience, Whole run ...) are drawn sharp instead of blocky.
 - The summary on an Overview tile (Records: biggest melee hit, biggest spell in all ...) wraps onto a second line instead of being cut off at the tile's edge.

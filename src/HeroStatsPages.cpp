@@ -787,6 +787,7 @@ static std::vector<HeroStatsRecordLine> RecordLines(const HeroStats &stats, cons
     line.group = RecordGroup(kind);
     line.label = HeroStatsCatalogue_Info((HeroStatsNumber)(HeroNumRecFirst + k)).label;
     line.level = -1;
+    line.tick = -1;
     line.held = false;
     line.partyHolder = HERO_STATS_NOBODY;
     HeroRecordEntry entry;
@@ -796,6 +797,7 @@ static std::vector<HeroStatsRecordLine> RecordLines(const HeroStats &stats, cons
     {
       line.who = ChampionName(columns, entry.who);
       line.level = entry.level;
+      line.tick = (int)entry.time;
       line.when = "tick " + HeroStatsView_Number((int)entry.time);
       // A streak or chain: where and when it began and ended
       if (kind == HeroRecKillStreak || kind == HeroRecLongestFall || kind == HeroRecLongestTeleportChain || kind == HeroRecLongestSleep ||

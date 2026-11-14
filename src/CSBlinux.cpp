@@ -18,6 +18,7 @@
 #endif
 #include "AutoMapHooks.h"
 #include "AutoMapWindow.h"
+#include "HeroStatsDraw.h"
 #include "HeroStatsWindow.h"
 #include "PlaybackControl.h"
 #include "ReplaySnapshot.h"
@@ -308,6 +309,21 @@ i32 trace=-1;
 extern bool BeginRecordOK;
 extern bool ItemsRemain;
 extern bool PlayfileIsOpen(void);
+
+// A click on a record in the Statistics window puts its tick into the replay's "pause at" box
+// (the text only: Enter there does the going)
+static char pauseAtText[16] = "";
+static bool pauseAtTextNew = false;
+static void PauseAtSink(int tick)
+{
+  snprintf(pauseAtText, sizeof pauseAtText, "%d", tick);
+  pauseAtTextNew = true;
+}
+static void PaintStatisticsWindow(void)
+{
+  HeroStatsDraw_SetTickSink(PlayfileIsOpen() ? PauseAtSink : NULL);
+  HeroStatsWindow_Paint();
+}
 extern bool RecordfileIsOpen(void);
 extern bool TimerTraceActive;
 extern bool AttackTraceActive;
@@ -1721,7 +1737,7 @@ int main(int argc, char* argv[])
 
     // Everything for the statistics window goes to its own ImGui context, nothing to the game
     if (HeroStatsWindow_HandleEvent(evert)) {
-	HeroStatsWindow_Paint();
+	PaintStatisticsWindow();
 	continue;
     }
     if (AutoMapWindow_HandlePointerEvent(evert)) {
@@ -1818,7 +1834,7 @@ int main(int argc, char* argv[])
     // the map on its ticks or while the game is frozen: the map's level and settings still change
     if ((PlayfileIsOpen() && PlaybackControl_IsPaused()) || GameIsOver()) AutoMap_OnClockStopped();
     AutoMapWindow_PaintIfDirty();
-    HeroStatsWindow_Paint();
+    PaintStatisticsWindow();
 
   } /* Eof Lord Message Loop */
 
@@ -2713,9 +2729,10 @@ static void DrawReplayControls(bool &was_active)
     // Go to the number typed (Enter) and pause there: ahead at max (over snapshots where the
     // replay has been), behind back to it, the tick it stands at now. Empty or 0 takes a pause
     // ahead away.
-    static char target[16] = "";
+    char *target = pauseAtText;
+    if (pauseAtTextNew) { ImGui::SetKeyboardFocusHere(); pauseAtTextNew = false; }
     ImGui::SetNextItemWidth(70);
-    if (ImGui::InputTextWithHint("##pauseAt", _("pause at"), target, sizeof target, ImGuiInputTextFlags_EnterReturnsTrue))
+    if (ImGui::InputTextWithHint("##pauseAt", _("pause at"), target, sizeof pauseAtText, ImGuiInputTextFlags_EnterReturnsTrue))
     {
       int tick = 0;
       for (const char *c = target; *c; c++)

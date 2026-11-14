@@ -120,6 +120,7 @@ struct HeroStatsRecordLine
   HeroRecordKind kind;
   std::string group, label, value, who, how, whom, when;
   int level;
+  int tick;                 // the game tick of the record (where a streak ended), -1 without one
   bool has, held;
   std::string partyValue;
   HeroStatsChampion partyHolder;

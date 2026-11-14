@@ -209,6 +209,9 @@ static void TooltipWithSymbols(const std::string &text)
   ImGui::EndTooltip();
 }
 
+static void (*tickSink)(int tick) = NULL;
+void HeroStatsDraw_SetTickSink(void (*sink)(int tick)) { tickSink = sink; }
+
 void HeroStatsDraw_ApplyStyle(void)
 {
   ImGui::StyleColorsDark();
@@ -2047,7 +2050,13 @@ static void DrawRecords(HeroStatsDrawState *state, const std::vector<HeroStatsRe
       else
       {
         TextColoredWithSymbols(line.held ? GOLD_RGB : WHITE_RGB, line.value + (line.held ? std::string(" ") + STAR : ""));
-        if (ImGui::IsItemHovered() && !line.when.empty()) TooltipWithSymbols(line.when);
+        bool clickable = tickSink && line.tick >= 0;
+        if (ImGui::IsItemHovered())
+        {
+          if (clickable) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+          if (!line.when.empty()) TooltipWithSymbols(clickable ? line.when + "\nClick: put tick " + HeroStatsView_Number(line.tick) + " into the replay's pause at box" : line.when);
+          if (clickable && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) tickSink(line.tick);
+        }
       }
       if (isParty)
       {

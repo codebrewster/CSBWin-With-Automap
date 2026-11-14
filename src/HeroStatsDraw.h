@@ -51,6 +51,9 @@ struct HeroStatsDrawPictures
   ImTextureID (*portrait)(HeroStatsChampion who, int *width, int *height);
 };
 
+// Where a click on a record's value sends its game tick (NULL: a click does nothing). The game
+// window puts it into the replay's "pause at" box.
+void HeroStatsDraw_SetTickSink(void (*sink)(int tick));
 void HeroStatsDraw_ApplyStyle(void);
 // The font for text bigger than the body text, when the body font is a bitmap (NULL: none)
 void HeroStatsDraw_SetScalableFont(struct ImFont *font);
