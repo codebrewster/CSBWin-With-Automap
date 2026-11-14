@@ -9,6 +9,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 **Statistics**
 - New number Monster bumps (Exploration): moves that were stopped by a monster on the next square, next to Wall bumps.
+- A champion's card on the Overview shows Experience instead of Healed (too close to Damage taken); Healed is still in the Key numbers.
 - During a replay, a click on a value in the Records table goes to that tick in the game window and pauses there, as if typed into its "pause at" box.
 - The Party column of the Numbers tables is called Total (it adds up the champions).
 - The big numbers and names in the tiles at the top of a tab (Champion, Experience, Whole run ...) are drawn sharp instead of blocky.

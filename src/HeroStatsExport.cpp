@@ -446,7 +446,7 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:12px }
   .card { background:var(--panel); border-radius:4px; padding:7px 10px 9px; border-top:3px solid; cursor:pointer; display:grid; gap:3px }
   .card:hover { background:var(--hover) } .card .nm { color:#fff; display:flex; justify-content:space-between } .card .nm span { color:var(--dim) }
-  .cr { display:grid; grid-template-columns:58px 1fr 54px; align-items:center; gap:6px } .cr .l { color:var(--dim) } .cr .n { text-align:right }
+  .cr { display:grid; grid-template-columns:11ch 1fr 9ch; align-items:center; gap:6px } .cr .l { color:var(--dim) } .cr .n { text-align:right }
   .mini { height:6px; background:var(--track); border-radius:2px; overflow:hidden } .mini i { display:block; height:100% }
   .topics { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px }
   .topic { background:var(--panel); border-radius:4px; padding:7px 10px; cursor:pointer; overflow:hidden; white-space:nowrap; text-overflow:ellipsis }
@@ -831,9 +831,9 @@ function monsters() {
 }
 
 function cards() {
-  const ROWS = [[0, 'Damage'], [4, 'Kills'], [-1, 'Taken'], [-2, 'Healed'], [-3, 'Mana'], [-4, 'Deaths']];
+  const ROWS = [[0, 'Damage'], [4, 'Kills'], [-1, 'Taken'], [-2, 'Experience'], [-3, 'Mana'], [-4, 'Deaths']];
   const index = label => NUM.findIndex(n => n.label === label);
-  const ids = ROWS.map(([, l], k) => [index(['Damage dealt', 'Kills', 'Damage taken', 'Healed', 'Mana spent', 'Deaths'][k]), l]);
+  const ids = ROWS.map(([, l], k) => [index(['Damage dealt', 'Kills', 'Damage taken', 'Experience gained', 'Mana spent', 'Deaths'][k]), l]);
   const party = rec(N, st.level)[ids[0][0]];
   const largest = ids.map(([n]) => Math.max(1, ...H.map((h, i) => rec(i, st.level)[n])));
   return '<div class="cards">' + H.map((h, i) => {
@@ -1235,7 +1235,7 @@ function fit() {
   }
   fitTables(view);
   view.querySelectorAll('.tiles').forEach(g => { g.style.gridTemplateColumns = `repeat(${across(g.children.length, width, 150, 8)},1fr)`; });
-  view.querySelectorAll('.cards').forEach(g => { g.style.gridTemplateColumns = `repeat(${across(g.children.length, width, 190, 8)},minmax(0,480px))`; });
+  view.querySelectorAll('.cards').forEach(g => { g.style.gridTemplateColumns = `repeat(${across(g.children.length, width, 230, 8)},minmax(0,480px))`; });
   view.querySelectorAll('.lcards').forEach(g => { g.style.gridTemplateColumns = `repeat(${across(g.children.length, width, 290, 10)},minmax(0,480px))`; });
   view.querySelectorAll('.topics').forEach(g => { g.style.gridTemplateColumns = width >= 528 ? '1fr 1fr' : '1fr'; });
 }

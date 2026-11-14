@@ -2113,14 +2113,22 @@ static bool DrawCards(const std::vector<HeroStatsCard> &cards, HeroStatsChampion
 {
   bool anyClicked = false;
   if (cards.empty()) return false;
-  static const HeroStatsNumber ROWS[6] = {HeroNumDamage, HeroNumKills, HeroNumTaken, HeroNumHealed, HeroNumManaSpent, HeroNumDeaths};
-  static const char *const LABELS[6] = {"Damage", "Kills", "Taken", "Healed", "Mana", "Deaths"};
+  static const HeroStatsNumber ROWS[6] = {HeroNumDamage, HeroNumKills, HeroNumTaken, HeroNumExperience, HeroNumManaSpent, HeroNumDeaths};
+  static const char *const LABELS[6] = {"Damage", "Kills", "Taken", "Experience", "Mana", "Deaths"};
   int largest[6] = {0};
   for (size_t c = 0; c < cards.size(); c++)
     for (int r = 0; r < 6; r++) largest[r] = std::max(largest[r], cards[c].record.value[ROWS[r]]);
+  // The label and number columns are as wide as the widest label and number of any card
+  float labelWidth = 0, numberWidth = ImGui::CalcTextSize("00,000").x;
+  for (int r = 0; r < 6; r++)
+  {
+    labelWidth = std::max(labelWidth, ImGui::CalcTextSize(LABELS[r]).x);
+    for (size_t c = 0; c < cards.size(); c++)
+      numberWidth = std::max(numberWidth, ImGui::CalcTextSize(HeroStatsView_Number(cards[c].record.value[ROWS[r]]).c_str()).x);
+  }
   float gap = 8;
   float width = ImGui::GetContentRegionAvail().x;
-  int perRow = HeroStatsLayout_Across((int)cards.size(), width, OVERVIEW_CARD_SMALLEST, gap);
+  int perRow = HeroStatsLayout_Across((int)cards.size(), width, std::max(OVERVIEW_CARD_SMALLEST, 20 + labelWidth + 8 + 40 + 6 + numberWidth), gap);
   // A lone champion's card does not stretch across the window: its bars would be very long
   float cardWidth = std::min(HERO_LAYOUT_CARD_WIDEST, (width - gap * (perRow - 1)) / perRow);
   float line = ImGui::GetTextLineHeight() + 4;
@@ -2157,8 +2165,8 @@ static bool DrawCards(const std::vector<HeroStatsCard> &cards, HeroStatsChampion
       ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
       if (bad) PillBehind(drawList, ImVec2(max.x - 10 - textSize.x, y), textSize);
       drawList->AddText(ImVec2(max.x - 10 - textSize.x, y), Packed(bad ? BAD_RGB : value == 0 ? FAINT_RGB : TEXT_RGB), text.c_str());
-      float barLeft = min.x + 10 + ImGui::CalcTextSize("Damage").x + 8;
-      float barRight = max.x - 10 - ImGui::CalcTextSize("00,000").x - 6;
+      float barLeft = min.x + 10 + labelWidth + 8;
+      float barRight = max.x - 10 - numberWidth - 6;
       float mid = y + ImGui::GetTextLineHeight() / 2;
       if (barRight > barLeft)
       {
