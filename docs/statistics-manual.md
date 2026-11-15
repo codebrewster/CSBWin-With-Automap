@@ -421,12 +421,30 @@ stays in step with its recording. The level picker is hidden on this tab; it has
   many more items they carry;
 - the rank in each class with the way to the next rank.
 
+**In a big window the cards show more.** When all the cards stand in one row, each shows the most
+that fits without scrolling:
+
+1. the **attributes** (each with its bar, see below) and the **whole inventory** as a picture: the
+   body with pouch and quiver, then the backpack, in place of the row of icons;
+2. a little less room: the inventory without the attributes;
+3. otherwise the card as described above.
+
+With four champions the first needs a window of about 1300 x 980. The slots are the same as on a
+champion's page: point at one for the item. The cards always show the picture, never the list.
+
 Above the cards is the item on the cursor, or "nothing" when the cursor is empty. Click a card to see that champion.
 
 ![A champion on the Champions tab: the bars, attributes and ranks, and the inventory as in the game with a chest's contents under the pointer](images/statistics-champions.png)
 
 **A champion** shows the same bars, then **Attributes** (current and max; drained in red, raised
-above the max in gold), **Ranks** and the **Inventory**. Click a title to fold its section, as on
+above the max in gold), **Ranks** and the **Inventory**.
+
+Each attribute has a bar **against the best** champion of the party: the full length is the
+highest value anyone in the party has. The solid part is what the champion has now. When the
+attribute is drained, the missing part up to the max is hatched in red; when it is raised, the bar
+goes on in gold past the max. So the end of the bar compares the champion with the best, and its
+filling shows the present state. Point at a bar for the numbers and the percent of the best.
+In a narrow window the bar is the first thing the table gives up. Click a title to fold its section, as on
 the topics.
 
 The inventory is laid out as on the game's screen, with the game's own icons: head, neck, torso,
@@ -436,13 +454,22 @@ with or without the Power Gem.
 
 - **Point at a slot** for the item's name, its weight and its charges ("9 charges", "no charges";
   a waterskin's gulps). The game never shows the charges; here you can see them.
+- A **weapon** also says "Damage 49 · kinetic energy 33" (an Axe). Damage is the weapon's own
+  strength in a blow; kinetic energy is how far and how hard it flies when thrown. What **shoots**
+  (a bow, a sling) has no blow of its own and says "Kinetic energy 50 · shoot damage 50": what it
+  adds to the flight and to the damage of what it shoots. **Armor** says "Armor 20 · sharp
+  resistance 3": its strength, and how much of it holds against sharp attacks (0 to 7; at 0 a
+  sharp attack ignores the armor). These are the values of the item's kind from the dungeon's own
+  tables, so a custom dungeon shows its own; they do not change with the champion.
 - **Point at a chest** for what it holds. The small number in the chest's corner is how many
   items; its weight includes them.
 - A **red frame** marks a wounded part of the body.
 - **Picture / List** under the title switches to a list of every slot with its item, the charges
-  after the name and the weight in a column, a chest's contents under the chest. Click **Slot**,
-  **Item** or **Weight** to sort the list by it; what a chest holds stays under its chest. The
-  window remembers Picture or List.
+  after the name, a chest's contents under the chest. Its columns: **Damage**, **Kinetic** and
+  **Armor** (blank for what has none; Damage is blank for what shoots), then **Food**, **Water**
+  and last **Weight**. Click a column's title to sort the list by it; what a chest holds stays
+  under its chest. A list too narrow gives up Kinetic first, then Damage and Armor (they stay in
+  the slot's hovertext); Food, Water and Weight always show. The window remembers Picture or List.
 
 The HTML export has the tab too, with the champions as they were when it was written. There a
 click on a chest keeps its contents open until the next click, for touch screens.
