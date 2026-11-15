@@ -3056,13 +3056,48 @@ static void LiveHead(const HeroStatsLiveChampion &live, ImU32 rgb, float width)
   ImGui::Dummy(ImVec2(0, 4));
 }
 
-// The attributes, current and max: drained below the max in red, raised above it in gold
-static void LiveAttributes(const HeroStatsLiveChampion &live)
+// An attribute's bar against the best of the party: the track is the largest value any champion
+// has. Solid in the champion's colour up to what they have now; a drained part hatched in red up
+// to the max; a raised part in gold past the max, after a small gap so that gold reads beside a
+// yellow champion. Hovered: the numbers and the percent of the best.
+static void AttributeBar(const HeroStatsLiveParty &party, const HeroStatsLiveChampion &live, int attribute, ImU32 rgb, float width)
 {
-  if (!BeginPageTable("##attributes", 3, false)) return;
+  float lineHeight = ImGui::GetTextLineHeight();
+  ImVec2 at = ImGui::GetCursorScreenPos();
+  ImVec2 top(at.x, at.y + lineHeight / 2 - 4), bottom(at.x + width, at.y + lineHeight / 2 + 5);
+  ImDrawList *drawList = ImGui::GetWindowDrawList();
+  drawList->AddRectFilled(top, bottom, Packed(TRACK_RGB), 2.0f);
+  HeroStatsAttributeBar bar = HeroStatsLive_AttributeBar(live.attributeNow[attribute], live.attributeMax[attribute],
+                                                         HeroStatsLive_AttributeTop(party, attribute));
+  float solidEnd = top.x + width * bar.solid;
+  if (bar.solid > 0) drawList->AddRectFilled(top, ImVec2(solidEnd, bottom.y), Packed(rgb), 2.0f);
+  if (bar.lost > 0)
+  {
+    float lostEnd = solidEnd + width * bar.lost, height = bottom.y - top.y;
+    drawList->PushClipRect(ImVec2(solidEnd, top.y), ImVec2(lostEnd, bottom.y), true);
+    for (float x = solidEnd - height; x < lostEnd; x += 4)
+      drawList->AddLine(ImVec2(x, bottom.y), ImVec2(x + height, top.y), Packed(BAD_RGB), 1.5f);
+    drawList->PopClipRect();
+  }
+  if (bar.raised > 0)
+  {
+    float raisedEnd = solidEnd + width * bar.raised;
+    float from = raisedEnd - solidEnd > 4 ? solidEnd + 2 : solidEnd;
+    drawList->AddRectFilled(ImVec2(from, top.y), ImVec2(raisedEnd, bottom.y), Packed(GOLD_RGB));
+  }
+  ImGui::Dummy(ImVec2(width, lineHeight));
+  if (ImGui::IsItemHovered()) WrappedTooltip(HeroStatsLive_AttributeHelp(party, live, attribute).c_str());
+}
+
+// The attributes, current and max: drained below the max in red, raised above it in gold; the
+// bar against the best of the party is the first the table gives up when it is narrow
+static void LiveAttributes(const HeroStatsLiveParty &party, const HeroStatsLiveChampion &live, ImU32 rgb)
+{
+  if (!BeginPageTable("##attributes", 4, false)) return;
   LabelColumn("Attribute");
   NumberColumn("Current");
   NumberColumn("Max");
+  BarColumn("Against the best");
   HeaderRow(std::vector<int>(), std::vector<HeroStatsColumn>());
   for (int a = 0; a < HERO_LIVE_ATTRIBUTE_COUNT; a++)
   {
@@ -3073,8 +3108,46 @@ static void LiveAttributes(const HeroStatsLiveChampion &live)
     RightText(std::to_string(now), now < most ? BAD_RGB : (now > most ? GOLD_RGB : TEXT_RGB));
     ImGui::TableSetColumnIndex(2);
     RightText(std::to_string(most), TEXT_RGB);
+    if (ImGui::TableSetColumnIndex(3)) AttributeBar(party, live, a, rgb, ImGui::GetContentRegionAvail().x);
   }
   EndPageTable();
+}
+
+// A thin line between the parts of a Party card
+static void CardRule(float width)
+{
+  ImGui::Dummy(ImVec2(0, 3));
+  ImVec2 at = ImGui::GetCursorScreenPos();
+  ImGui::GetWindowDrawList()->AddLine(at, ImVec2(at.x + width, at.y), Packed(LINE_RGB));
+  ImGui::Dummy(ImVec2(0, 5));
+}
+
+// The attributes on a Party card, as its vitals stand: the name, the bar against the best of the
+// party taking the room left, then current / max with the current red when drained, gold when raised
+static void CardAttributes(const HeroStatsLiveParty &party, const HeroStatsLiveChampion &live, ImU32 rgb, float width)
+{
+  float labels = 0, numbers = 0;
+  for (int a = 0; a < HERO_LIVE_ATTRIBUTE_COUNT; a++)
+  {
+    labels = std::max(labels, ImGui::CalcTextSize(HeroStatsLive_AttributeName(a)).x);
+    numbers = std::max(numbers, ImGui::CalcTextSize(OutOf(live.attributeNow[a], live.attributeMax[a]).c_str()).x);
+  }
+  labels += 10;
+  float barWidth = std::max(30.0f, width - labels - 10 - numbers);
+  float left = ImGui::GetCursorPosX();
+  for (int a = 0; a < HERO_LIVE_ATTRIBUTE_COUNT; a++)
+  {
+    int now = live.attributeNow[a], most = live.attributeMax[a];
+    ImGui::TextColored(Colour(DIM_RGB), "%s", HeroStatsLive_AttributeName(a));
+    ImGui::SameLine(left + labels);
+    AttributeBar(party, live, a, rgb, barWidth);
+    std::string nowText = std::to_string(now), rest = " / " + std::to_string(most);
+    float textWidth = ImGui::CalcTextSize((nowText + rest).c_str()).x;
+    ImGui::SameLine(left + labels + barWidth + 10 + numbers - textWidth);
+    ImGui::TextColored(Colour(now < most ? BAD_RGB : now > most ? GOLD_RGB : TEXT_RGB), "%s", nowText.c_str());
+    ImGui::SameLine(0, 0);
+    ImGui::TextColored(Colour(TEXT_RGB), "%s", rest.c_str());
+  }
 }
 
 // The four classes: the rank, and a bar of the way to the next that takes the room left
@@ -3121,23 +3194,25 @@ static void SmallCaption(ImVec2 at, const char *text)
   ImGui::GetWindowDrawList()->AddText(ImGui::GetFont(), small, at, Packed(FAINT_RGB), upper.c_str());
 }
 
-static void LivePicture(const HeroStatsLiveChampion &live, bool packBeside)
+// size: of a slot, the page's SLOT_SIZE or the smaller one of a Party card
+static void LivePicture(const HeroStatsLiveChampion &live, bool packBeside, float size = SLOT_SIZE)
 {
   static const char *const CAPTION[13] = {"hand", "hand", "head", "torso", "legs", "feet", "", "", "", "", "neck", "", ""};
   ImVec2 origin = ImGui::GetCursorScreenPos();
-  float step = SLOT_SIZE + SLOT_GAP;
+  float step = size + SLOT_GAP;
+  float dollWidth = HERO_LIVE_DOLL_COLUMNS * step - SLOT_GAP, packWidth = HERO_LIVE_BACKPACK_ACROSS * step - SLOT_GAP;
   for (int slot = 0; slot < HERO_LIVE_FIRST_BACKPACK_SLOT; slot++)
   {
     int column = 0, row = 0;
     if (!HeroStatsLive_DollCell(slot, &column, &row)) continue;
     ImGui::SetCursorScreenPos(ImVec2(origin.x + (column - 1) * step, origin.y + (row - 1) * step));
-    DrawSlot(live.items, ItemIn(live.items, slot), HeroStatsLive_SlotName(slot), SLOT_SIZE, IsWounded(live, slot), CAPTION[slot]);
+    DrawSlot(live.items, ItemIn(live.items, slot), HeroStatsLive_SlotName(slot), size, IsWounded(live, slot), CAPTION[slot]);
   }
   float captionY = origin.y + 3 * step - ImGui::GetFontSize() * 0.78f - 5;
   SmallCaption(ImVec2(origin.x, captionY), "Pouch");
   SmallCaption(ImVec2(origin.x + 3 * step, captionY), "Quiver");
   float dollHeight = HERO_LIVE_DOLL_ROWS * step - SLOT_GAP;
-  ImVec2 pack = packBeside ? ImVec2(origin.x + DOLL_WIDTH + PICTURE_GAP, origin.y) : ImVec2(origin.x, origin.y + dollHeight + 14);
+  ImVec2 pack = packBeside ? ImVec2(origin.x + dollWidth + PICTURE_GAP, origin.y) : ImVec2(origin.x, origin.y + dollHeight + 14);
   SmallCaption(pack, "Backpack");
   float packTop = pack.y + ImGui::GetFontSize() * 0.78f + 6;
   int count = HERO_LIVE_SLOT_COUNT - HERO_LIVE_FIRST_BACKPACK_SLOT;
@@ -3145,12 +3220,12 @@ static void LivePicture(const HeroStatsLiveChampion &live, bool packBeside)
   {
     int slot = HERO_LIVE_FIRST_BACKPACK_SLOT + i;
     ImGui::SetCursorScreenPos(ImVec2(pack.x + (i % HERO_LIVE_BACKPACK_ACROSS) * step, packTop + (i / HERO_LIVE_BACKPACK_ACROSS) * step));
-    DrawSlot(live.items, ItemIn(live.items, slot), HeroStatsLive_SlotName(slot), SLOT_SIZE, false, NULL);
+    DrawSlot(live.items, ItemIn(live.items, slot), HeroStatsLive_SlotName(slot), size, false, NULL);
   }
   int packRows = (count + HERO_LIVE_BACKPACK_ACROSS - 1) / HERO_LIVE_BACKPACK_ACROSS;
   float packBottom = packTop + packRows * step - SLOT_GAP;
   ImGui::SetCursorScreenPos(origin);
-  ImGui::Dummy(ImVec2(packBeside ? DOLL_WIDTH + PICTURE_GAP + PACK_WIDTH : std::max(DOLL_WIDTH, PACK_WIDTH),
+  ImGui::Dummy(ImVec2(packBeside ? dollWidth + PICTURE_GAP + packWidth : std::max(dollWidth, packWidth),
                       std::max(origin.y + dollHeight, packBottom) - origin.y));
 }
 
@@ -3249,9 +3324,13 @@ static void LiveInventory(HeroStatsDrawState *state, const HeroStatsLiveChampion
   SectionGap();
 }
 
-// A card of the Party's page: who, how they are, what they hold and wear, and their ranks. True
-// when the card itself was clicked (not a slot or a fold in it).
-static bool LiveCard(const HeroStatsLiveChampion &live, ImU32 rgb, float width)
+// A card of the Party's page: who, how they are, what they hold and wear, and their ranks. With
+// room for it (step), the attributes and the whole inventory stand in place of the strip of what
+// is held and worn. True when the card itself was clicked (not a slot or a fold in it).
+// *frame: the card's height without that middle part, the same at every step; *middle: the
+// middle part's height as drawn.
+static bool LiveCard(const HeroStatsLiveParty &party, const HeroStatsLiveChampion &live, ImU32 rgb, float width,
+                     HeroStatsPartyStep step, float *frame, float *middle)
 {
   bool clicked = false;
   ImGui::PushStyleColor(ImGuiCol_ChildBg, Colour(PANEL_RGB));
@@ -3265,11 +3344,23 @@ static bool LiveCard(const HeroStatsLiveChampion &live, ImU32 rgb, float width)
     LiveHead(live, rgb, inner);
     LiveVitals(live, rgb, inner);
     ImGui::Dummy(ImVec2(0, 4));
+    float middleTop = ImGui::GetCursorPosY();
     // What is held and worn: both hands, head, neck, torso, legs, feet
     static const int STRIP[7] = {0, 1, 2, 10, 3, 4, 5};
     const float size = 36;
     float left = ImGui::GetCursorPosX();
-    for (int i = 0; i < 7; i++)
+    if (step != HeroPartyPlain)
+    {
+      // The whole inventory holds the strip's items: the body, pouch and quiver, the backpack under them
+      if (step == HeroPartyAttributesAndInventory)
+      {
+        CardRule(inner);
+        CardAttributes(party, live, rgb, inner);
+      }
+      CardRule(inner);
+      LivePicture(live, false, size);
+    }
+    for (int i = 0; i < 7 && step == HeroPartyPlain; i++)
     {
       if (i > 0)
       {
@@ -3283,7 +3374,7 @@ static bool LiveCard(const HeroStatsLiveChampion &live, ImU32 rgb, float width)
       DrawSlot(live.items, ItemIn(live.items, STRIP[i]), HeroStatsLive_SlotName(STRIP[i]), size, IsWounded(live, STRIP[i]), NULL);
     }
     int carried = HeroStatsLive_CarriedCount(live.items);
-    if (carried > 0)
+    if (carried > 0 && step == HeroPartyPlain)
     {
       std::string more = "+" + std::to_string(carried) + " carried";
       ImGui::SameLine(0, 10);
@@ -3291,8 +3382,12 @@ static bool LiveCard(const HeroStatsLiveChampion &live, ImU32 rgb, float width)
       else ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (size - ImGui::GetTextLineHeight()) / 2);
       ImGui::TextColored(Colour(DIM_RGB), "%s", more.c_str());
     }
-    ImGui::Dummy(ImVec2(0, 4));
+    if (step != HeroPartyPlain) CardRule(inner);
+    else ImGui::Dummy(ImVec2(0, 4));
+    *middle = ImGui::GetCursorPosY() - middleTop;
     LiveRanks(live, rgb, inner);
+    // From the content, not from the card's size: that follows its content a frame late
+    *frame = ImGui::GetCursorPosY() + ImGui::GetStyle().WindowPadding.y - *middle;
     clicked = ImGui::IsWindowHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !ImGui::IsAnyItemHovered();
   }
   ImGui::EndChild();
@@ -3304,7 +3399,7 @@ static bool LiveCard(const HeroStatsLiveChampion &live, ImU32 rgb, float width)
 
 // One champion's page: the champion, attributes and ranks one under the other, the inventory in
 // a column of its own beside them, or last when the window is narrow
-static void DrawLiveChampion(HeroStatsDrawState *state, const HeroStatsLiveChampion &live, ImU32 rgb)
+static void DrawLiveChampion(HeroStatsDrawState *state, const HeroStatsLiveParty &party, const HeroStatsLiveChampion &live, ImU32 rgb)
 {
   const float COLUMN_GAP = 36, LEFT_SMALLEST = 300;
   float available = ImGui::GetContentRegionAvail().x;
@@ -3328,7 +3423,7 @@ static void DrawLiveChampion(HeroStatsDrawState *state, const HeroStatsLiveChamp
     ImGui::Dummy(ImVec2(0, 8));
     if (SectionHeader(state, HERO_STATS_ATTRIBUTES_SECTION, "Attributes", ""))
     {
-      LiveAttributes(live);
+      LiveAttributes(party, live, rgb);
       SectionGap();
     }
     if (SectionHeader(state, HERO_STATS_RANKS_SECTION, "Ranks", "way to the next rank"))
@@ -3387,6 +3482,25 @@ static void DrawChampionsPage(HeroStatsDrawState *state, const HeroStatsLivePart
       int count = (int)live.champions.size();
       int across = HeroStatsLayout_Across(count, available, HERO_LAYOUT_CARD_SMALLEST, gap);
       float width = std::min(HERO_LAYOUT_CARD_WIDEST, (available - gap * (across - 1)) / across);
+      // With all the cards in one row, each shows the most that fits in the page's height without
+      // scrolling: attributes and inventory, the inventory alone, or the card as it is. The
+      // heights are the last frame's: a card's frame (the same at every step, the tallest card's
+      // counts) and the middle part of each step as it was last drawn; until a step was drawn, a
+      // guess on the low side, so that it is drawn once and measured.
+      static float frameSeen[8] = {0}, middleSeen[3] = {0, 0, 0};
+      float line = ImGui::GetTextLineHeightWithSpacing(), tallest = 0;
+      bool framesKnown = true;
+      for (int i = 0; i < count && i < 8; i++)
+      {
+        framesKnown = framesKnown && frameSeen[i] > 0;
+        tallest = std::max(tallest, frameSeen[i]);
+      }
+      float pictureGuess = 8 * 40.0f + 30, attributesGuess = HERO_LIVE_ATTRIBUTE_COUNT * line + 8;
+      float withInventory = tallest + (middleSeen[HeroPartyInventory] > 0 ? middleSeen[HeroPartyInventory] : pictureGuess);
+      float withBoth = tallest + (middleSeen[HeroPartyAttributesAndInventory] > 0 ? middleSeen[HeroPartyAttributesAndInventory]
+                                                                                 : pictureGuess + attributesGuess);
+      HeroStatsPartyStep step = framesKnown && count <= 8
+          ? HeroStatsLayout_PartyStep(count, across, withBoth, withInventory, ImGui::GetContentRegionAvail().y) : HeroPartyPlain;
       HeroStatsChampion picked = HERO_STATS_PARTY;
       bool anyPicked = false;
       ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(gap, gap));
@@ -3395,7 +3509,10 @@ static void DrawChampionsPage(HeroStatsDrawState *state, const HeroStatsLivePart
         const HeroStatsLiveChampion &champion = live.champions[i];
         if (i % across != 0) ImGui::SameLine(0, gap);
         ImGui::PopStyleVar();
-        bool clicked = LiveCard(champion, ChampionRgb(ColumnOf(columns, champion.who)), width);
+        float frame = 0, middle = 0;
+        bool clicked = LiveCard(live, champion, ChampionRgb(ColumnOf(columns, champion.who)), width, step, &frame, &middle);
+        if (i < 8 && frame > 0) frameSeen[i] = frame;
+        if (middle > 0) middleSeen[step] = middle;
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(gap, gap));
         if (clicked)
         {
@@ -3409,7 +3526,7 @@ static void DrawChampionsPage(HeroStatsDrawState *state, const HeroStatsLivePart
     else if (!isParty)
     {
       const HeroStatsLiveChampion *champion = HeroStatsLive_Find(live, state->who);
-      if (champion != NULL) DrawLiveChampion(state, *champion, ChampionRgb(ColumnOf(columns, champion->who)));
+      if (champion != NULL) DrawLiveChampion(state, live, *champion, ChampionRgb(ColumnOf(columns, champion->who)));
     }
   }
   ImGui::EndChild();
