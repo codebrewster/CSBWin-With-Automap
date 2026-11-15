@@ -230,8 +230,9 @@ static void MovementIsKeptPerLevel(void)
   stats.CountMonsterBump(1);
   stats.CountMonsterBump(5);
   stats.CountMonsterBump(5);
-  stats.CountTelefrag(4, 1);
-  stats.CountTelefrag(4, 3);
+  stats.CountTelefrag(4);
+  stats.CountTelefrag(4);
+  stats.SetLegacyTelefragKills(4, 4);  // as a layout 28 file has them
   HeroStatsMovement run = stats.Movement(HERO_STATS_WHOLE_RUN);
   CHECK(run.steps == 3 && run.turns == 1 && run.teleports == 1 && run.ticks == 30 && run.sleepTicks == 10);
   CHECK(run.pitFalls == 1 && run.pitClimbs == 2 && run.bumps == 1);
@@ -261,6 +262,26 @@ static void MovementIsKeptPerLevel(void)
   CHECK(read26.Deserialize(v26.data(), v26.size(), 26) && read26.Movement(HERO_STATS_WHOLE_RUN).telefrags == 0);
   CHECK(read26.Movement(HERO_STATS_WHOLE_RUN).monsterBumps == 3);
   CHECK(stats.Movement(2).steps == 0);
+  // Layout 29: landings, and telefrags and landings as causes of a kill
+  HeroStats arrivals;
+  arrivals.CountTelefrag(4);
+  arrivals.CountLanding(5);
+  arrivals.CountLanding(5);
+  arrivals.CountMonsterKill(4, 7, 0, HeroStatsBlow_Nobody(HeroBlowByTelefrag));
+  arrivals.CountMonsterKill(5, 9, 0, HeroStatsBlow_Nobody(HeroBlowByLanding));
+  CHECK(arrivals.Movement(4).telefrags == 1 && arrivals.Movement(5).landings == 2 && arrivals.Movement(4).telefragKills == 0);
+  std::vector<uint8_t> v29;
+  arrivals.Serialize(&v29);
+  HeroStats read29;
+  CHECK(read29.Deserialize(v29.data(), v29.size()));
+  CHECK(read29.Movement(HERO_STATS_WHOLE_RUN).landings == 2);
+  std::vector<HeroStatsMonsterRow> kills29 = read29.MonsterKills(HERO_STATS_WHOLE_RUN);
+  CHECK(kills29.size() == 2 && kills29[0].by == HeroBlowByTelefrag && kills29[1].by == HeroBlowByLanding);
+  // An older file: no landings; its telefrag kills stay as they were stored
+  CHECK(read.Movement(HERO_STATS_WHOLE_RUN).landings == 0);
+  // A layout 28 file knows no such cause: it is refused, not misread
+  HeroStats read28;
+  CHECK(!read28.Deserialize(v29.data(), v29.size(), 28));
 }
 
 // The layout of version 13: harm rows without the missile kind, no movement table. A store with

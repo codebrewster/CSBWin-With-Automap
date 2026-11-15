@@ -641,7 +641,7 @@ std::vector<HeroStatsSpellRow> HeroStats::Spells(HeroStatsChampion who, int leve
 
 static HeroStatsMovement NoMovement(void)
 {
-  HeroStatsMovement none = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  HeroStatsMovement none = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
   return none;
 }
 
@@ -692,11 +692,19 @@ void HeroStats::CountMonsterBump(int level)
   m_movement.insert(std::make_pair(level, NoMovement())).first->second.monsterBumps++;
 }
 
-void HeroStats::CountTelefrag(int level, int monsters)
+void HeroStats::CountTelefrag(int level)
 {
-  HeroStatsMovement &move = m_movement.insert(std::make_pair(level, NoMovement())).first->second;
-  move.telefrags++;
-  move.telefragKills += monsters;
+  m_movement.insert(std::make_pair(level, NoMovement())).first->second.telefrags++;
+}
+
+void HeroStats::CountLanding(int level)
+{
+  m_movement.insert(std::make_pair(level, NoMovement())).first->second.landings++;
+}
+
+void HeroStats::SetLegacyTelefragKills(int level, int kills)
+{
+  m_movement.insert(std::make_pair(level, NoMovement())).first->second.telefragKills = kills;
 }
 
 void HeroStats::MarkTileWalked(int level, int x, int y)
@@ -730,6 +738,7 @@ HeroStatsMovement HeroStats::Movement(int level) const
     sum.monsterBumps += at->second.monsterBumps;
     sum.telefrags += at->second.telefrags;
     sum.telefragKills += at->second.telefragKills;
+    sum.landings += at->second.landings;
   }
   return sum;
 }
@@ -1179,6 +1188,7 @@ void HeroStats::Serialize(std::vector<uint8_t> *out, int layout) const
     if (layout >= FIRST_LAYOUT_WITH_MONSTER_BUMPS) HeroBytes_PutInt(out, it->second.monsterBumps);
     if (layout >= FIRST_LAYOUT_WITH_TELEFRAGS) HeroBytes_PutInt(out, it->second.telefrags);
     if (layout >= FIRST_LAYOUT_WITH_TELEFRAG_KILLS) HeroBytes_PutInt(out, it->second.telefragKills);
+    if (layout >= FIRST_LAYOUT_WITH_LANDINGS) HeroBytes_PutInt(out, it->second.landings);
   }
   HeroBytes_Put(out, (uint32_t)m_items.size(), 4);
   for (std::map<std::pair<int, int>, ItemCounts>::const_iterator it = m_items.begin(); it != m_items.end(); ++it)
@@ -1276,6 +1286,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
   bool hasMonsterBumps = layout >= FIRST_LAYOUT_WITH_MONSTER_BUMPS;
   bool hasTelefrags = layout >= FIRST_LAYOUT_WITH_TELEFRAGS;
   bool hasTelefragKills = layout >= FIRST_LAYOUT_WITH_TELEFRAG_KILLS;
+  bool hasLandings = layout >= FIRST_LAYOUT_WITH_LANDINGS;
   HeroBytesReader in(data, size);
   HeroStats read;
   uint32_t count = in.GetCount(3);
@@ -1340,7 +1351,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
     int by = in.GetInt();
     HeroStatsChampion who = (HeroStatsChampion)in.Get(2);
     int number = in.GetInt();
-    if (by < 0 || by > (int)HeroBlowByOther) return false;
+    if (by < 0 || by > (int)(hasLandings ? HeroBlowByLanding : HeroBlowByOther)) return false;
     read.m_monsterKills[MonsterKey(level, type, variant, by, who)] = number;
   }
   count = in.GetCount(2 + 4 + 4 + 2 + 4 + 4 + (hasMovement ? 4 : 0));
@@ -1413,7 +1424,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
   }
   read.m_partyWipes = in.GetInt();
   read.m_reloads = in.GetInt();
-  count = hasMovement ? in.GetCount((hasTelefragKills ? 12 : hasTelefrags ? 11 : hasMonsterBumps ? 10 : hasPitsAndSleep ? 9 : 5) * 4) : 0;
+  count = hasMovement ? in.GetCount((hasLandings ? 13 : hasTelefragKills ? 12 : hasTelefrags ? 11 : hasMonsterBumps ? 10 : hasPitsAndSleep ? 9 : 5) * 4) : 0;
   for (uint32_t i = 0; i < count && in.ok; i++)
   {
     int level = in.GetInt();
@@ -1431,6 +1442,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
       if (hasMonsterBumps) movement.monsterBumps = in.GetInt();
       if (hasTelefrags) movement.telefrags = in.GetInt();
       if (hasTelefragKills) movement.telefragKills = in.GetInt();
+      if (hasLandings) movement.landings = in.GetInt();
     }
     read.m_movement[level] = movement;
   }
