@@ -1,4 +1,6 @@
 #include "TestSupport.h"
+#include <cstdio>
+#include <cstdlib>
 #include "../HeroStatsExport.h"
 #include "../HeroStatsPages.h"
 #include "../HeroStatsCatalogue.h"
@@ -411,6 +413,13 @@ static void ExportHoldsEveryLevel(void)
   size_t closings = 0;
   for (size_t at = html.find("</script>"); at != std::string::npos; at = html.find("</script>", at + 1)) closings++;
   CHECK(closings == 3);
+  // The new look: no title strip, and the export has no export
+  CHECK(html.find("class=\"title\"") == std::string::npos);
+  CHECK(html.find("Export as HTML") == std::string::npos);
+  CHECK(html.find("'Exp'") != std::string::npos);                       // the card's label
+  CHECK(html.find("By champions") != std::string::npos);
+  CHECK(html.find("'nobar', 'dots', 'tight', 'noder', 'wrap', 'short'") != std::string::npos);  // what a table gives up, in order
+  CHECK(html.find("title=\"${esc(") == std::string::npos);            // hovertexts are the page's own tip box
   // The Who buttons are .who: a table cell with that class would get their border and padding
   CHECK(html.find("class=\"who\">") == std::string::npos);
 }
@@ -884,8 +893,61 @@ static void PagesCarryTheGroups(void)
   CHECK(level.groups.size() == 3 && level.groups[2].title == "Deaths");
 }
 
+// With HERO_STATS_EXPORT_OUT naming a file: an export of a party of four with big numbers,
+// telefrags and landings, to look at in a browser
+static void WriteASampleExport(void)
+{
+  const char *path = getenv("HERO_STATS_EXPORT_OUT");
+  if (path == NULL || path[0] == 0) return;
+  HeroStats stats;
+  const char *const names[4] = {"SONJA", "STAMM", "BORIS", "TIGGY"};
+  const int damage[4] = {26100, 1264600, 51700, 15700};
+  for (int c = 0; c < 4; c++) stats.MeetChampion(7 + c, names[c]);
+  for (int level = 0; level < 3; level++)
+  {
+    stats.MarkLevelVisited(level);
+    for (int i = 0; i < 300 + 40 * level; i++) stats.CountStep(level);
+    for (int i = 0; i < 120; i++) stats.CountTurn(level);
+    stats.CountTick(level, false);
+    stats.CountTeleport(level);
+    stats.CountPitFall(level);
+    for (int c = 0; c < 4; c++)
+    {
+      HeroStatsBlow blow = ChampionBlow(7 + c, c < 2 ? 5 : HERO_STATS_UNARMED, 1);
+      for (int i = 0; i < 3 + c + level; i++)
+      {
+        stats.CountAttackTry(level, blow);
+        stats.CountAttackHit(level, blow);
+        stats.CountMonsterKill(level, i % 2 == 0 ? 6 : 25, 0, blow);
+      }
+      stats.CreditMonsterDamage(level, blow, damage[c] / 3);
+      stats.CreditHarm(7 + c, level, HeroHarmMonster, HeroStatsBlow_Nobody(HeroBlowByMonster), 14 + 9 * c);
+      stats.Experience().Credit(7 + c, level, c, XpSource(HeroXpAttack, 5, 1, 0, -1), 401626 * (c + 1) / (level + 1));
+    }
+  }
+  stats.CreditHarm(9, 2, HeroHarmWall, HeroStatsBlow_Nobody(HeroBlowByOther), 3);
+  stats.CountTelefrag(1);
+  for (int i = 0; i < 3; i++) stats.CountMonsterKill(1, 6, 0, HeroStatsBlow_Nobody(HeroBlowByTelefrag));
+  stats.CountLanding(2);
+  for (int i = 0; i < 2; i++) stats.CountMonsterKill(2, 30, 0, HeroStatsBlow_Nobody(HeroBlowByLanding));
+  stats.CountMonsterKill(2, 25, 0, HeroStatsBlow_Nobody(HeroBlowByCloud));
+  stats.CountMonsterKill(0, 25, 0, HeroStatsBlow_Nobody(HeroBlowByDoor));
+  stats.CountDoorBashed(8, 1, HeroDoorSmashed);
+  stats.CountChestOpened(1);
+  stats.CountScrollRead(0);
+  std::vector<HeroStatsChampion> party;
+  for (int c = 0; c < 4; c++) party.push_back(7 + c);
+  HeroStatsExportInfo info = {"dungeon.dat", "2026-11-15 12:00"};
+  std::string html = HeroStatsExport_Html(stats, HeroStatsView_Columns(stats, party), NAMES, info);
+  FILE *file = fopen(path, "wb");
+  if (file == NULL) return;
+  fwrite(html.data(), 1, html.size(), file);
+  fclose(file);
+}
+
 void TestHeroStatsPages(void)
 {
+  WriteASampleExport();
   MonstersKnowTelefragsAndLandings();
   PagesCarryTheGroups();
   ExportHasExperienceAndRecords();

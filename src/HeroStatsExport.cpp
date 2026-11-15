@@ -436,14 +436,12 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   .about { color:#999; margin-bottom:12px }
   .im { max-width:1500px; background:var(--bg); color:var(--text); font:12.5px/1.45 "DejaVu Sans Mono","Bitstream Vera Sans Mono",Menlo,Consolas,monospace;
     border:1px solid var(--line); border-radius:6px; overflow:hidden }
-  .title { background:#294a7a; color:#fff; padding:4px 10px; display:flex; gap:12px; white-space:nowrap }
-  .title span:last-child { margin-left:auto; color:#b9c9e4; overflow:hidden; text-overflow:ellipsis; min-width:0 }
   .bar1 { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 10px 0 }
   .whos, .seg { display:flex; gap:4px; flex-wrap:wrap; align-items:center }
   .seg { gap:1px }
   button { font:inherit; cursor:pointer }
-  .who { background:transparent; color:var(--text); border:1px solid #3a3d46; border-radius:4px; padding:3px 9px; display:flex; gap:6px; align-items:center }
-  .who:hover { background:var(--hover) } .who.on { background:var(--panel); border-color:#6b7080; color:#fff } .who.left { color:var(--dim) }
+  .who { background:transparent; color:var(--text); border:1px solid #3a3d46; border-radius:999px; padding:2px 11px; display:flex; gap:6px; align-items:center }
+  .who:hover { background:var(--hover) } .who.on { background:#2a3a57; border-color:#5b8fd9; color:#fff } .who.left { color:var(--dim) }
   .dot { width:8px; height:8px; border-radius:50%; display:inline-block; flex:none } .left .dot, th.left .dot { opacity:.45 }
   .ch { background:var(--panel); color:var(--dim); border:0; border-radius:3px; padding:3px 8px }
   .ch:hover { background:var(--hover) } .ch.on { background:var(--on); color:#fff } .ch:disabled { opacity:.35; cursor:default }
@@ -453,16 +451,19 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   .tab { background:none; border:0; color:var(--dim); padding:5px 10px 6px; border-bottom:2px solid transparent; margin-bottom:-1px }
   .tab:hover { color:#fff } .tab.on { color:#fff; border-bottom-color:var(--on) }
   #view { max-height:680px; overflow:auto; padding:10px 12px 14px }
-  .tiles { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:12px }
-  .tile { background:var(--panel); border-radius:4px; padding:7px 10px }
-  .tile .v { font-size:20px; color:#fff } .tile.bad .v { color:var(--bad) } .tile .l { color:var(--dim) }
+  /* The headline numbers: a strip, each behind a thin line, no boxes */
+  .tiles { display:grid; grid-template-columns:repeat(4,1fr); gap:14px 0; margin:4px 0 16px }
+  .tile { border-left:1px solid var(--line); padding:0 14px; min-width:0 }
+  .tile .v { font-size:22px; line-height:1.2; color:#fff; white-space:nowrap } .tile.bad .v { color:var(--bad) } .tile .l { color:var(--dim) }
   .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:12px }
-  .card { background:var(--panel); border-radius:4px; padding:7px 10px 9px; border-top:3px solid; cursor:pointer; display:grid; gap:3px }
+  .card { background:var(--panel); border-radius:6px; padding:8px 12px 10px; border-top:2px solid; cursor:pointer; display:grid; gap:3px }
   .card:hover { background:var(--hover) } .card .nm { color:#fff; display:flex; justify-content:space-between } .card .nm span { color:var(--dim) }
-  .cr { display:grid; grid-template-columns:11ch 1fr 9ch; align-items:center; gap:6px } .cr .l { color:var(--dim) } .cr .n { text-align:right }
+  /* Every bar starts at the same x and is as long on every card: the label column is as wide as
+     the widest label, the number column as the widest number of any card */
+  .cr { display:grid; grid-template-columns:6ch 1fr var(--nw,9ch); align-items:center; gap:10px } .cr .n { white-space:nowrap } .cr .l { color:var(--dim) } .cr .n { text-align:right }
   .mini { height:6px; background:var(--track); border-radius:2px; overflow:hidden } .mini i { display:block; height:100% }
   .topics { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px }
-  .topic { background:var(--panel); border-radius:4px; padding:7px 10px; cursor:pointer; overflow:hidden; white-space:nowrap; text-overflow:ellipsis }
+  .topic { background:var(--panel); border-radius:6px; padding:7px 10px; cursor:pointer }
   .topic:hover { background:var(--hover) } .topic .t { color:#fff } .topic .s { color:var(--dim) }
   .sec { margin-bottom:10px } .sech { display:flex; align-items:baseline; gap:8px; padding:3px 0 5px; border-bottom:1px solid var(--line); cursor:pointer; user-select:none }
   .sech .t { text-transform:uppercase; color:var(--text) } .sech:hover .t { color:#fff }
@@ -471,13 +472,18 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   table { border-collapse:collapse; width:100% }
   /* No column has a width of its own: a number column is as wide as its widest text, a bar takes
      a share of the table, the label the rest. A table too wide for the page gives up its bar,
-     then the columns worked out from others, then lets its labels wrap, and at last scrolls on
+     then the champions' names, half its padding, the columns worked out from others, then lets
+     its labels wrap, shortens its big numbers, and at last scrolls on
      its own (fitTables in the script decides, as HeroStatsLayout_FitTable does for the window). */
   td, th { padding:3px 8px; text-align:right; white-space:nowrap; border-bottom:1px solid var(--row); width:1% }
   td:first-child, th:first-child { width:auto }
   th { color:var(--dim); font-weight:normal; border-bottom-color:var(--line); position:sticky; top:-10px; background:var(--bg); z-index:1 }
   .c-bar { width:26%; min-width:110px }
   .nobar .c-bar, .noder .c-der { display:none }
+  /* then the champions' names in the header (their dots stay), half the padding, and at the end
+     the long form of big numbers */
+  .dots .hn { display:none } .tight td, .tight th { padding:3px 4px }
+  .sh { display:none } .short .sh { display:inline } .short .fu { display:none }
   .wrap td:first-child { white-space:normal; min-width:120px }
   .scrolls { overflow-x:auto } .scrolls th { position:static }
   .scrolls td:first-child, .scrolls th:first-child { position:sticky; left:0; background:var(--bg) }
@@ -497,6 +503,18 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   tr.wrow { cursor:pointer } tr.wrow:hover td { background:var(--hover) }
   tr.opt td { color:var(--part) } tr.opt td:first-child { padding-left:26px; color:var(--dim) }
   tr.grp td { color:var(--dim); text-transform:uppercase; letter-spacing:.05em; font-size:11px; padding-top:9px }
+  tr.grp:hover td { background:none; color:var(--dim) } tr.grp:hover td:first-child { box-shadow:none }
+  /* A part of the number above it: behind a thin line */
+  tr.g1 td, tr.g2 td { color:var(--part) } tr.g1 td:first-child { padding-left:13px } tr.g2 td:first-child { padding-left:29px }
+  .ind { display:inline-block; border-left:1px solid var(--faint); padding-left:9px }
+  /* A label with a hovertext says so */
+  .tip { border-bottom:1px dotted var(--faint); cursor:help }
+  /* The numbers only the party has: a panel per group */
+  .facts { display:grid; gap:10px; margin:8px 0 4px }
+  .fact { background:var(--panel); border-radius:6px; padding:8px 12px 9px }
+  .fact h4 { margin:0 0 4px; font:inherit; font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:var(--dim) }
+  .fr { display:flex; justify-content:space-between; gap:12px; padding:2px 0 } .fr .v { white-space:nowrap }
+  .fr.g1 .k, .fr.g2 .k { color:var(--part) }
   tr.xrow { cursor:pointer } tr.xrow:hover td { background:var(--hover) }
   .gold { color:#e0b54a } .tile .sub { color:var(--text); font-size:11.5px; margin-top:3px } .tile .sub.f { color:var(--faint) }
   .prog { height:5px; background:var(--track); border-radius:2px; overflow:hidden; margin-top:5px } .prog i { display:block; height:100% }
@@ -556,7 +574,7 @@ const H = D.heroes, N = H.length, NUM = D.numbers, TOP = D.topics;
 const COLOUR = i => `var(--c${i % 4})`;
 const DETAIL = {WEAPONS: 0, SPELLS: 1, HARM: 2, HEALING: 3, DEATHS: 4, CONSUMED: 5, ITEMS: 6, MONSTERS: 7,
                 SKILLS: 8, XP_SOURCES: 9, RANK_UPS: 10, RECORDS: 11};
-const TOPIC_RECORDS = 8;
+const TOPIC_MONSTERS = 6, TOPIC_RECORDS = 8;
 // The tab after the topics: the champions when the page was written
 const CHAMPIONS = TOP.length, LIVE = D.live || {cursor: null, list: false, icons: [], champions: []};
 const NUMBERS_SECTION = 'numbers', KEY_SECTION = 'key';
@@ -584,7 +602,16 @@ function cell(v, bad, ratio, label, cls) {
   if (v === null || v === undefined) return `<td${c}></td>`;
   if (v === 0) return `<td class="z">·</td>`;
   if (ratio && v < 0) return `<td class="z">-</td>`;
+  // A plain number from 10,000 on has a short form, for a table that fits no other way
+  if (typeof v === 'number' && v >= 10000 && label === fmt(v)) label = `<span class="fu">${label}</span><span class="sh"${tipOf(label)}>${shortNum(v)}</span>`;
   return bad && v > 0 ? `<td${c}><span class="pill">${label}</span></td>` : `<td${c}>${label}</td>`;
+}
+// 86300 -> 86k, 1204880 -> 1.2M (HeroStatsView_ShortNumber)
+function shortNum(v) {
+  const k = Math.floor((v + 500) / 1000);
+  if (k < 1000) return k + 'k';
+  const tenths = Math.floor((v + 50000) / 100000);
+  return Math.floor(tenths / 10) + '.' + (tenths % 10) + 'M';
 }
 const numCell = (n, v, cls) => cell(v, NUM[n].bad, NUM[n].ratio, v === null ? '' : text(n, v), cls);
 const plain = (v, bad, cls) => cell(v, bad, false, fmt(v), cls);
@@ -615,7 +642,7 @@ function sortTable(id, cols, rows, foot, defaultCol) {
   const whoCol = cols.find(c => c.who);
   const measure = whoCol ? (whoCol.who.split.includes(s.col) ? s.col : whoCol.who.fallback) : null;
   const label = c => c.who ? 'Who: ' + cols[measure].label : c.label;
-  const head = cols.map((c, i) => `<th class="sort${c.cls ? ' ' + c.cls : ''}"${c.help ? ` title="${esc(c.help)}"` : ''} onclick="sortBy('${id}',${i},${c.num ? 1 : 0})">` +
+  const head = cols.map((c, i) => `<th class="sort${c.cls ? ' ' + c.cls : ''}"${c.help ? tipOf(esc(c.help)) : ''}${c.hero !== undefined ? ` data-name="${esc(H[c.hero].name)}"` : ''} onclick="sortBy('${id}',${i},${c.num ? 1 : 0})">` +
     (c.html || esc(label(c))) + (s.col === i ? ` <span class="arrow">${s.desc ? '&#9660;' : '&#9650;'}</span>` : '') + '</th>').join('');
   const html = c => c.by ? whoBar(c.by(measure)) : c.html;
   const line = r => `<tr${r.cls ? ` class="${r.cls}"` : ''}${r.act ? ` onclick="${r.act}"` : ''}>` + r.cells.map(html).join('') + '</tr>';
@@ -632,9 +659,14 @@ function sortBy(id, col, num) {
 const nameCol = (label, help) => ({label, help});
 const whoColumn = (split, fallback) => ({label: 'Who', num: true, who: {split, fallback}});
 // Each champion's part as a bar; hovered, their numbers
-const whoBar = by => `<td class="whobar" title="${esc(by.map((v, i) => v ? H[i].name + ' ' + fmt(v) : '').filter(x => x).join('\n'))}">${shareBar(by)}</td>`;
+const whoBar = by => {
+  const parts = by.map((v, i) => v ? esc(H[i].name) + ' ' + fmt(v) : '').filter(x => x);
+  return `<td class="whobar"${parts.length ? tipOf(parts.join('<br>')) : ''}>${shareBar(by)}</td>`;
+};
 const numCol = (label, help) => ({label, num: true, help});
-const heroCol = i => ({label: H[i].name, html: dotOf(i) + ' ' + esc(H[i].name), num: true, cls: H[i].left ? 'left' : ''});
+// hn: the name, which a table too wide leaves out (the dot stays)
+const heroHead = i => `${dotOf(i)} <span class="hn">${esc(H[i].name)}</span>`;
+const heroCol = i => ({label: H[i].name, html: heroHead(i), num: true, cls: H[i].left ? 'left' : '', hero: i});
 const td = (v, html) => ({v, html});
 const nameTd = name => td(name, `<td>${esc(name)}</td>`);
 
@@ -663,8 +695,6 @@ function frame() {
   document.getElementById('top').innerHTML = `<div class="whos">${whos}</div>${onChampions ? '' : picker()}`;
   document.getElementById('tabs').innerHTML = TOP.map(t => t.label).concat(['Champions']).map((label, i) =>
     `<button class="tab${st.topic === i ? ' on' : ''}" onclick="set({topic:${i}})">${esc(label)}</button>`).join('');
-  document.getElementById('where').textContent = onChampions ? [whoName(st.who), 'Champions'].join(' · ') :
-    [whoName(st.who), TOP[st.topic].label, st.per ? 'Per level' : lvName(st.level)].join(' · ');
 }
 
 // A tile: the number and its label; on the Experience and Records pages the rank or the record's
@@ -674,6 +704,8 @@ function tiles(numbers) {
   const shown = numbers.filter(n => applies(n, st.who, st.level)).slice(0, 4);
   return '<div class="tiles">' + shown.map(n => {
     let v = text(n, r[n]), l = esc(NUM[n].label), sub = '', cls = NUM[n].bad && r[n] > 0 ? ' bad' : '';
+    // Beside Monsters killed, the champions' kills are a part of it
+    if (st.topic === TOPIC_MONSTERS && isParty() && NUM[n].label === 'Kills') l = 'By champions';
     const k = n - D.xpFirst, line = k >= 0 && k < 4 ? p.xp.classes[k] : null;
     if (line) {
       // [name, rank now, at the start, % to next, next rank, experience, ranks gained, best hero, ...]
@@ -699,31 +731,65 @@ function tiles(numbers) {
       else if (record[11]) sub = `<div class="sub f">party: ${esc(record[11])} ${record[12] >= 0 ? esc(whoName(record[12])) : ''}</div>`;
     }
     const tipText = NUM[n].help;
-    return `<div class="tile${cls}"${tipText ? ` title="${esc(tipText)}"` : ''}><div class="v${cls.includes('goldv') ? ' gold' : ''}">${v}</div><div class="l">${l}</div>${sub}</div>`;
+    return `<div class="tile${cls}"><div class="v${cls.includes('goldv') ? ' gold' : ''}">${v}</div><div class="l">${tipText ? `<span class="tip"${tipOf(esc(tipText))}>${l}</span>` : l}</div>${sub}</div>`;
   }).join('') + '</div>';
 }
 
 const PARTY_HELP = 'All the champions together; for a record, the best of them.';
+// The topic's groups with the rows that apply to who and the level: [{title, panel, rows: [{n, depth, label}]}].
+// A part whose sum does not apply stands on its own under the number's own name (HeroStatsPages_Topic).
+function groupsOf(t) {
+  const out = [];
+  for (const g of TOP[t].groups) {
+    const applied = [false, false, false], rows = [];
+    for (const [n, d, own] of g.rows) {
+      const depth = Math.max(0, Math.min(2, d));
+      applied[depth] = applies(n, st.who, st.level);
+      if (!applied[depth]) continue;
+      if (depth > 0 && !applied[depth - 1]) { applied[0] = true; rows.push({n, depth: 0, label: NUM[n].label}); }
+      else rows.push({n, depth, label: own || NUM[n].label});
+    }
+    if (rows.length) out.push({title: g.title, panel: g.panel, rows});
+  }
+  return out;
+}
+const labelOf = row => {
+  const help = NUM[row.n].help, label = help ? `<span class="tip"${tipOf(esc(help))}>${esc(row.label)}</span>` : esc(row.label);
+  return row.depth ? `<span class="ind">${label}</span>` : label;
+};
 function numbersTable(t) {
   const party = rec(N, st.level), one = !isParty();
-  const rows = TOP[t].rows.filter(([n]) => applies(n, st.who, st.level));
+  const groups = groupsOf(t).filter(g => !g.panel);
   let head = '<tr><th></th>';
-  if (one) head += `<th class="${H[st.who].left ? 'left' : ''}">${dotOf(st.who)} ${esc(H[st.who].name)}</th><th title="${PARTY_HELP}">Total</th><th>Share of party</th>`;
-  else head += H.map((h, i) => `<th class="${h.left ? 'left' : ''}">${dotOf(i)} ${esc(h.name)}</th>`).join('') + `<th title="${PARTY_HELP}">Total</th><th>Share</th>`;
+  if (one) head += `<th class="${H[st.who].left ? 'left' : ''}" data-name="${esc(H[st.who].name)}">${heroHead(st.who)}</th><th${tipOf(PARTY_HELP)}>Total</th><th>Share of party</th>`;
+  else head += H.map((h, i) => `<th class="${h.left ? 'left' : ''}" data-name="${esc(h.name)}">${heroHead(i)}</th>`).join('') + `<th${tipOf(PARTY_HELP)}>Total</th><th>Share</th>`;
+  const columns = (one ? 1 : N) + 3;
   let body = '';
-  for (const [n, depth] of rows) {
-    const info = NUM[n], summable = !info.ratio && !info.party && !info.rec;
-    body += `<tr class="d${depth}"><td${info.help ? ` title="${esc(info.help)}"` : ''}>${esc(info.label)}</td>`;
-    if (one) {
-      const mine = rec(st.who, st.level)[n];
-      body += numCell(n, mine) + numCell(n, party[n]) + `<td class="bar">${summable && party[n] > 0 ? partBar(mine, party[n], st.who) : ''}</td>`;
-    } else {
-      for (let i = 0; i < N; i++) body += numCell(n, info.party ? null : rec(i, st.level)[n], H[i].left ? 'gone' : '');
-      body += numCell(n, party[n]) + `<td class="bar">${summable ? shareBar(H.map((h, i) => rec(i, st.level)[n])) : ''}</td>`;
+  for (const g of groups) {
+    // The groups have a small heading each, unless there is only the one (the section is named after it)
+    if (groups.length > 1 && g.title) body += `<tr class="grp"><td colspan="${columns}">${esc(g.title)}</td></tr>`;
+    for (const row of g.rows) {
+      const n = row.n, info = NUM[n], summable = !info.ratio && !info.party && !info.rec;
+      body += `<tr class="g${row.depth}"><td>${labelOf(row)}</td>`;
+      if (one) {
+        const mine = rec(st.who, st.level)[n];
+        body += numCell(n, mine) + numCell(n, party[n]) + `<td class="bar">${summable && party[n] > 0 ? partBar(mine, party[n], st.who) : ''}</td>`;
+      } else {
+        for (let i = 0; i < N; i++) body += numCell(n, info.party ? null : rec(i, st.level)[n], H[i].left ? 'gone' : '');
+        body += numCell(n, party[n]) + `<td class="bar">${summable ? shareBar(H.map((h, i) => rec(i, st.level)[n])) : ''}</td>`;
+      }
+      body += '</tr>';
     }
-    body += '</tr>';
   }
   return `<div class="wide"><table>${head}</tr>${body}</table></div>`;
+}
+// The numbers only the party has (steps, teleports, chests ...): a panel per group
+function panels(t) {
+  const groups = groupsOf(t).filter(g => g.panel), party = rec(N, st.level);
+  if (!groups.length) return '';
+  return section('panels', 'The party', '', '<div class="facts">' + groups.map(g => `<div class="fact"><h4>${esc(g.title)}</h4>` +
+    g.rows.map(row => `<div class="fr g${row.depth}"><span class="k">${labelOf(row)}</span>` +
+      `<span class="v${party[row.n] === 0 ? ' z' : ''}">${party[row.n] === 0 ? '·' : text(row.n, party[row.n])}</span></div>`).join('') + '</div>').join('') + '</div>');
 }
 
 const attackCells = (l, cls) => {
@@ -845,12 +911,14 @@ function monsters() {
 }
 
 function cards() {
-  const ROWS = [[0, 'Damage'], [4, 'Kills'], [-1, 'Taken'], [-2, 'Experience'], [-3, 'Mana'], [-4, 'Deaths']];
+  // Exp: "Experience" would take the room of the bars
+  const ROWS = [[0, 'Damage'], [4, 'Kills'], [-1, 'Taken'], [-2, 'Exp'], [-3, 'Mana'], [-4, 'Deaths']];
   const index = label => NUM.findIndex(n => n.label === label);
   const ids = ROWS.map(([, l], k) => [index(['Damage dealt', 'Kills', 'Damage taken', 'Experience gained', 'Mana spent', 'Deaths'][k]), l]);
   const party = rec(N, st.level)[ids[0][0]];
   const largest = ids.map(([n]) => Math.max(1, ...H.map((h, i) => rec(i, st.level)[n])));
-  return '<div class="cards">' + H.map((h, i) => {
+  const widest = Math.max(1, ...ids.map(([n]) => Math.max(...H.map((h, i) => fmt(rec(i, st.level)[n]).length))));
+  return `<div class="cards" style="--nw:${widest}ch">` + H.map((h, i) => {
     const r = rec(i, st.level);
     return `<div class="card${h.left ? ' left' : ''}" style="border-top-color:${COLOUR(i)}" onclick="set({who:${i}})">` +
       `<div class="nm">${esc(h.name)}<span>${party ? Math.round(100 * r[ids[0][0]] / party) : 0}% of damage</span></div>` +
@@ -900,7 +968,7 @@ function xpSources(p) {
     if (kids && !open) hideBelow = depth;
     const arrow = kids ? (open ? '&#9662; ' : '&#9656; ') : '';
     const act = kids ? ` onclick="st.open[${JSON.stringify(key).replace(/"/g, '&quot;')}]=${!open};draw()"` : '';
-    body += `<tr class="d${Math.min(depth, 2)}${kids ? ' xrow' : ''}"${act}><td${help ? ` title="${esc(help)}"` : ''}>${arrow}${esc(name)}${note ? ` <span class="nt">${esc(note)}</span>` : ''}</td>`;
+    body += `<tr class="d${Math.min(depth, 2)}${kids ? ' xrow' : ''}"${act}><td${help ? tipOf(esc(help)) : ''}>${arrow}${esc(name)}${note ? ` <span class="nt">${esc(note)}</span>` : ''}</td>`;
     if (isParty()) body += plain(amount) + `<td class="whobar">${shareBar(by)}</td>`;
     else body += plain(amount) + plain(by[0] || 0) + `<td class="bar">${by[0] > 0 ? partBar(amount, by[0], st.who) : ''}</td>`;
     body += '</tr>';
@@ -927,7 +995,7 @@ function records(p) {
   for (const l of lines) {
     // [kind, group, label, value, who, how, whom, when, level, has, held, party value, party's hero]
     if (l[1] !== group) { group = l[1]; body += `<tr class="grp"><td colspan="${span}">${esc(group)}</td></tr>`; }
-    const value = l[9] ? `<td${l[10] ? ' class="gold"' : ''} title="${esc(l[7])}">${esc(l[3])}${l[10] ? ' &#9733;' : ''}</td>` : '<td class="z">-</td>';
+    const value = l[9] ? `<td${l[10] ? ' class="gold"' : ''}${l[7] ? tipOf(esc(l[7])) : ''}>${esc(l[3])}${l[10] ? ' &#9733;' : ''}</td>` : '<td class="z">-</td>';
     body += `<tr><td>${esc(l[2])}</td>${value}`;
     if (isParty()) body += `<td class="l">${l[9] && l[4] !== 'party' && l[12] >= 0 && l[12] < N ? dotOf(l[12]) + ' ' : ''}${esc(l[9] ? l[4] : '')}</td>`;
     body += `<td class="l nt">${esc(l[5])}</td><td class="l nt">${esc(l[6])}</td><td>${l[9] ? l[8] : ''}</td>`;
@@ -940,7 +1008,7 @@ function records(p) {
 function topicTiles() {
   const sums = view(st.level).summaries[st.who];
   return '<div class="topics">' + TOP.map((t, i) => i === 0 ? '' :
-    `<div class="topic" onclick="set({topic:${i}})" title="${esc(sums[i])}"><div class="t">${esc(t.label)}</div><div class="s">${esc(sums[i])}</div></div>`).join('') + '</div>';
+    `<div class="topic" onclick="set({topic:${i}})"><div class="t">${esc(t.label)}</div><div class="s">${esc(sums[i])}</div></div>`).join('') + '</div>';
 }
 
 function topicPage() {
@@ -949,10 +1017,12 @@ function topicPage() {
     const body = tiles(isParty() ? TOP[0].tiles : D.heroTiles) + (isParty() ? cards() : topicTiles());
     return body + section(KEY_SECTION, 'Key numbers', isParty() ? 'one row from each topic' : 'compared with the party', numbersTable(0));
   }
-  let html = tiles(TOP[t].tiles) + '<div class="secs">';
-  // The Records table is the page's numbers
-  if (t !== TOPIC_RECORDS)
-    html += section(NUMBERS_SECTION, 'Numbers', isParty() ? 'each champion and the party' : esc(H[st.who].name) + ' and the party', numbersTable(t));
+  let html = tiles(TOP[t].tiles) + panels(t) + '<div class="secs">';
+  // The Records table is the page's numbers. A page whose table rows are one named group
+  // (Exploration's Doors) names the section after it.
+  const tableGroups = groupsOf(t).filter(g => !g.panel);
+  if (t !== TOPIC_RECORDS && tableGroups.length)
+    html += section(NUMBERS_SECTION, tableGroups.length === 1 && tableGroups[0].title ? tableGroups[0].title : 'Numbers', '', numbersTable(t));
   for (const d of isParty() ? TOP[t].details : TOP[t].heroDetails) {
     if (d === DETAIL.WEAPONS) html += weapons(p);
     else if (d === DETAIL.SPELLS) html += spells(p);
@@ -995,7 +1065,8 @@ function perLevel() {
         [td(rec(N, l)[n], numCell(n, rec(N, l)[n]))], share ? [td(rec(N, l)[n], `<td class="bar">${shareBar(by)}</td>`)] : []);
     };
   } else {
-    const numbers = TOP[t].rows.filter(([n, depth]) => depth === 0 && applies(n, st.who, 0)).map(([n]) => n);
+    // Monsters: the causes are parts of Monsters killed, and each is worth its column
+    const numbers = TOP[t].rows.filter(([n, depth]) => depth <= (t === TOPIC_MONSTERS ? 1 : 0) && applies(n, st.who, 0)).map(([n]) => n);
     const share = isParty() ? numbers.find(n => !NUM[n].party && !NUM[n].ratio) : undefined;
     cols = [nameCol('Level')].concat(numbers.map(n => numCol(NUM[n].label)));
     if (share !== undefined) cols.push(numCol('Who: ' + NUM[share].label));
@@ -1070,7 +1141,7 @@ function liveHead(c, colour) {
     `<div class="ti">${esc(c.title)}</div></div>${status ? `<span class="pill">${status}</span>` : ''}</div>`;
 }
 const liveRanks = (c, colour) => '<div class="lranks">' + c.ranks.map(r => `<span class="l">${esc(r[0])}</span><span class="${r[1] ? '' : 'none'}">${r[1] ? esc(r[1]) : '-'}</span>` +
-  `<div class="vbar" title="${r[2]}% of the way to the next rank"><i style="width:${r[2]}%;background:${colour}"></i></div>`).join('') + '</div>';
+  `<div class="vbar"${tipOf(r[2] + '% of the way to the next rank')}><i style="width:${r[2]}%;background:${colour}"></i></div>`).join('') + '</div>';
 function liveCard(c) {
   const colour = c.hero >= 0 ? COLOUR(c.hero) : 'var(--text)';
   const carried = c.items.filter(it => !it[2] && !(it[0] >= 0 && it[0] <= 5) && it[0] !== 10).length;
@@ -1212,11 +1283,17 @@ function fitTables(view) {
   view.querySelectorAll('.wide').forEach(w => {
     const table = w.querySelector('table');
     if (!table) return;
-    w.classList.remove('nobar', 'noder', 'wrap', 'scrolls');
-    for (const step of ['nobar', 'noder', 'wrap', 'scrolls']) {
+    // What a table too wide gives up, in this order (HeroStatsLayout_FitTable): its bar, the
+    // champions' names, half its padding, the worked-out columns, the label's single line, the
+    // long form of big numbers; then it scrolls
+    const steps = ['nobar', 'dots', 'tight', 'noder', 'wrap', 'short', 'scrolls'];
+    w.classList.remove(...steps);
+    for (const step of steps) {
       if (table.offsetWidth <= w.clientWidth + 1) break;
       w.classList.add(step);
     }
+    // A header that shows the dot alone names its champion when hovered
+    table.querySelectorAll('th[data-name]').forEach(th => { if (w.classList.contains('dots')) th.title = th.dataset.name; else th.removeAttribute('title'); });
   });
 }
 function fit() {
@@ -1251,6 +1328,7 @@ function fit() {
   view.querySelectorAll('.tiles').forEach(g => { g.style.gridTemplateColumns = `repeat(${across(g.children.length, width, 150, 8)},1fr)`; });
   view.querySelectorAll('.cards').forEach(g => { g.style.gridTemplateColumns = `repeat(${across(g.children.length, width, 230, 8)},minmax(0,480px))`; });
   view.querySelectorAll('.lcards').forEach(g => { g.style.gridTemplateColumns = `repeat(${across(g.children.length, width, 290, 10)},minmax(0,480px))`; });
+  view.querySelectorAll('.facts').forEach(g => { g.style.gridTemplateColumns = `repeat(${across(g.children.length, width, 230, 10)},minmax(0,1fr))`; });
   view.querySelectorAll('.topics').forEach(g => { g.style.gridTemplateColumns = width >= 528 ? '1fr 1fr' : '1fr'; });
 }
 let fitTimer = 0;
@@ -1310,7 +1388,7 @@ std::string HeroStatsExport_Html(const HeroStats &stats, const std::vector<HeroS
 {
   std::string html = PAGE_HEAD;
   html += "<h1>Statistics</h1>\n<div class=\"about\" id=\"about\"></div>\n";
-  html += "<div class=\"im\">\n  <div class=\"title\"><span>Statistics</span><span id=\"where\"></span></div>\n";
+  html += "<div class=\"im\">\n";
   html += "  <div class=\"bar1\" id=\"top\"></div>\n  <div class=\"tabs\" id=\"tabs\"></div>\n  <div id=\"view\"></div>\n</div>\n";
   html += "<script type=\"application/json\" id=\"stats\">" + HeroStatsExport_Json(stats, columns, names, info) +
           "</script>\n";
