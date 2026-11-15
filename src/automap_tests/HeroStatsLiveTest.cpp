@@ -126,8 +126,123 @@ static void TheListSortsWithAChestsContentsUnderIt(void)
   CHECK(HeroStatsLive_Order(std::vector<HeroStatsLiveItem>(), HeroLiveByName, false).empty());
 }
 
+// A weapon, what shoots, and armor, by the numbers the dungeon gives their kind
+static HeroStatsLiveItem Weapon(int slot, const char *name, bool inChest, int damage, int kinetic, int shootDamage)
+{
+  HeroStatsLiveItem item = HeroStatsLive_Item(slot, name, inChest);
+  item.damage = damage;
+  item.kinetic = kinetic;
+  item.shootDamage = shootDamage;
+  return item;
+}
+
+static HeroStatsLiveItem Armor(int slot, const char *name, int armor, int sharpResistance)
+{
+  HeroStatsLiveItem item = HeroStatsLive_Item(slot, name, false);
+  item.armor = armor;
+  item.sharpResistance = sharpResistance;
+  return item;
+}
+
+static void AWeaponSaysItsDamageAndKineticEnergy(void)
+{
+  HeroStatsLiveItem axe = Weapon(1, "AXE", false, 49, 33, 0), bow = Weapon(1, "BOW", false, 1, 50, 50);
+  HeroStatsLiveItem wand = Weapon(1, "WAND", false, 0, 0, 0), apple = HeroStatsLive_Item(0, "APPLE", false);
+  CHECK(apple.damage == -1 && apple.kinetic == -1 && apple.shootDamage == -1 && apple.armor == -1 && apple.sharpResistance == -1);
+  CHECK(HeroStatsLive_WeaponText(axe) == "Damage 49 \xC2\xB7 kinetic energy 33");
+  CHECK(HeroStatsLive_WeaponText(bow) == "Kinetic energy 50 \xC2\xB7 shoot damage 50");
+  CHECK(HeroStatsLive_WeaponText(Weapon(1, "ODD", false, 0, 12, 0)) == "Damage 0 \xC2\xB7 kinetic energy 12");
+  CHECK(HeroStatsLive_WeaponText(wand).empty() && HeroStatsLive_WeaponText(apple).empty());
+  CHECK(HeroStatsLive_ListDamage(axe) == 49 && HeroStatsLive_ListDamage(bow) == -1 && HeroStatsLive_ListDamage(apple) == -1);
+  CHECK(HeroStatsLive_ListDamage(wand) == -1);
+  CHECK(HeroStatsLive_ListKinetic(axe) == 33 && HeroStatsLive_ListKinetic(bow) == 50);
+  CHECK(HeroStatsLive_ListKinetic(wand) == -1 && HeroStatsLive_ListKinetic(apple) == -1);
+}
+
+static void ArmorSaysItsStrengthAndSharpResistance(void)
+{
+  CHECK(HeroStatsLive_ArmorText(Armor(0, "WOODEN SHIELD", 20, 3)) == "Armor 20 \xC2\xB7 sharp resistance 3");
+  CHECK(HeroStatsLive_ArmorText(Armor(0, "RAGS", 0, 0)) == "Armor 0 \xC2\xB7 sharp resistance 0");
+  CHECK(HeroStatsLive_ArmorText(Weapon(1, "AXE", false, 49, 33, 0)).empty());
+  CHECK(HeroStatsLive_WeaponText(Armor(0, "WOODEN SHIELD", 20, 3)).empty());
+}
+
+static void TheListSortsByDamageKineticAndArmor(void)
+{
+  std::vector<HeroStatsLiveItem> items;
+  items.push_back(Weapon(1, "AXE", false, 49, 33, 0));
+  items.push_back(Weapon(0, "BOW", false, 1, 50, 50));
+  items.push_back(HeroStatsLive_Item(11, "APPLE", false));
+  items.push_back(Armor(3, "WOODEN SHIELD", 20, 3));
+  items.push_back(HeroStatsLive_Item(13, "CHEST", false));
+  items.push_back(Weapon(13, "DAGGER", true, 10, 19, 0));
+  items.push_back(Weapon(13, "CLUB", true, 19, 10, 0));
+  // What has no value is the lowest and keeps its order; a chest's contents stay under it, sorted the same way
+  CHECK(HeroStatsLive_Order(items, HeroLiveByDamage, true) == (std::vector<size_t>{0, 1, 2, 3, 4, 6, 5}));
+  CHECK(HeroStatsLive_Order(items, HeroLiveByDamage, false) == (std::vector<size_t>{1, 2, 3, 4, 5, 6, 0}));
+  CHECK(HeroStatsLive_Order(items, HeroLiveByKinetic, true) == (std::vector<size_t>{1, 0, 2, 3, 4, 5, 6}));
+  CHECK(HeroStatsLive_Order(items, HeroLiveByArmor, true) == (std::vector<size_t>{3, 0, 1, 2, 4, 5, 6}));
+}
+
+static bool Near(float a, float b)
+{
+  return a - b < 0.0005f && b - a < 0.0005f;
+}
+
+static void AnAttributesBarShowsNowAgainstMaxAndTheBest(void)
+{
+  HeroStatsAttributeBar even = HeroStatsLive_AttributeBar(41, 41, 55);
+  CHECK(Near(even.solid, 41 / 55.0f) && even.lost == 0 && even.raised == 0);
+  HeroStatsAttributeBar drained = HeroStatsLive_AttributeBar(38, 41, 55);
+  CHECK(Near(drained.solid, 38 / 55.0f) && Near(drained.lost, 3 / 55.0f) && drained.raised == 0);
+  HeroStatsAttributeBar raised = HeroStatsLive_AttributeBar(55, 52, 55);
+  CHECK(Near(raised.solid, 52 / 55.0f) && raised.lost == 0 && Near(raised.raised, 3 / 55.0f));
+  HeroStatsAttributeBar none = HeroStatsLive_AttributeBar(0, 0, 1);
+  CHECK(none.solid == 0 && none.lost == 0 && none.raised == 0);
+  // A track too short never overflows; a now below 0 is 0; a track of nothing is no division by zero
+  HeroStatsAttributeBar over = HeroStatsLive_AttributeBar(90, 40, 50);
+  CHECK(Near(over.solid, 40 / 50.0f) && Near(over.raised, 10 / 50.0f));
+  HeroStatsAttributeBar beyond = HeroStatsLive_AttributeBar(90, 80, 50);
+  CHECK(Near(beyond.solid, 1.0f) && beyond.raised == 0 && beyond.lost == 0);
+  HeroStatsAttributeBar below = HeroStatsLive_AttributeBar(-5, 40, 50);
+  CHECK(below.solid == 0 && Near(below.lost, 40 / 50.0f));
+  HeroStatsAttributeBar nothing = HeroStatsLive_AttributeBar(10, 10, 0);
+  CHECK(nothing.solid + nothing.lost + nothing.raised <= 1.0001f);
+}
+
+static HeroStatsLiveChampion WithAttribute(HeroStatsChampion who, const char *name, int attribute, int now, int most)
+{
+  HeroStatsLiveChampion champion = HeroStatsLiveChampion();
+  champion.who = who;
+  champion.name = name;
+  for (int a = 0; a < HERO_LIVE_ATTRIBUTE_COUNT; a++) champion.attributeNow[a] = champion.attributeMax[a] = 0;
+  champion.attributeNow[attribute] = now;
+  champion.attributeMax[attribute] = most;
+  return champion;
+}
+
+static void TheBestOfThePartyIsTheTrack(void)
+{
+  HeroStatsLiveParty party;
+  party.champions.push_back(WithAttribute(7, "HALK", 0, 55, 55));
+  party.champions.push_back(WithAttribute(9, "SYRA", 0, 38, 41));
+  party.champions.push_back(WithAttribute(11, "TIGGY", 0, 60, 55));   // raised above the best max
+  CHECK(HeroStatsLive_AttributeTop(party, 0) == 60);
+  CHECK(HeroStatsLive_AttributeTop(party, 2) == 1);                    // nobody has any: never 0
+  CHECK(HeroStatsLive_AttributeTop(HeroStatsLiveParty(), 0) == 1);
+  CHECK(HeroStatsLive_AttributeHelp(party, party.champions[1], 0) == "SYRA: 38 now, 41 max \xC2\xB7 75% of the best (HALK 55)");
+  CHECK(HeroStatsLive_AttributeHelp(party, party.champions[0], 0) == "HALK: 55 \xC2\xB7 100% of the best (HALK 55)");
+  CHECK(HeroStatsLive_AttributeHelp(party, party.champions[2], 0) == "TIGGY: 60 now, 55 max \xC2\xB7 100% of the best (HALK 55)");
+  CHECK(HeroStatsLive_AttributeHelp(party, party.champions[0], 2) == "HALK: 0 \xC2\xB7 0% of the best (HALK 0)");
+}
+
 void TestHeroStatsLive(void)
 {
+  AWeaponSaysItsDamageAndKineticEnergy();
+  ArmorSaysItsStrengthAndSharpResistance();
+  TheListSortsByDamageKineticAndArmor();
+  AnAttributesBarShowsNowAgainstMaxAndTheBest();
+  TheBestOfThePartyIsTheTrack();
   TheListSortsWithAChestsContentsUnderIt();
   WeightAndChargesRead();
   AnItemWithoutAnIconHasNoKey();

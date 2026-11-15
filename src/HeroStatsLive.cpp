@@ -57,7 +57,7 @@ const HeroStatsLiveChampion *HeroStatsLive_Find(const HeroStatsLiveParty &party,
 
 HeroStatsLiveItem HeroStatsLive_Item(int slot, const std::string &name, bool inChest)
 {
-  HeroStatsLiveItem item = {slot, name, inChest, -1, 0, 0, -1, false, false, 0, 0};
+  HeroStatsLiveItem item = {slot, name, inChest, -1, 0, 0, -1, false, false, 0, 0, -1, -1, -1, -1, -1};
   return item;
 }
 
@@ -77,6 +77,74 @@ std::string HeroStatsLive_ChargesText(int charges, bool gulps, bool torch)
   if (gulps) return charges == 0 ? "empty" : std::to_string(charges) + (charges == 1 ? " gulp left" : " gulps left");
   if (charges == 0) return torch ? "burnt out" : "no charges";
   return std::to_string(charges) + (charges == 1 ? " charge" : " charges");
+}
+
+static const char *const DOT = " \xC2\xB7 ";
+
+static bool HasWeaponLine(const HeroStatsLiveItem &item)
+{
+  return item.damage >= 0 && (item.damage > 0 || item.kinetic > 0 || item.shootDamage > 0);
+}
+
+std::string HeroStatsLive_WeaponText(const HeroStatsLiveItem &item)
+{
+  if (!HasWeaponLine(item)) return "";
+  if (item.shootDamage > 0)
+    return "Kinetic energy " + std::to_string(item.kinetic) + DOT + "shoot damage " + std::to_string(item.shootDamage);
+  return "Damage " + std::to_string(item.damage) + DOT + "kinetic energy " + std::to_string(item.kinetic);
+}
+
+std::string HeroStatsLive_ArmorText(const HeroStatsLiveItem &item)
+{
+  if (item.armor < 0) return "";
+  return "Armor " + std::to_string(item.armor) + DOT + "sharp resistance " + std::to_string(std::max(0, item.sharpResistance));
+}
+
+int HeroStatsLive_ListDamage(const HeroStatsLiveItem &item)
+{
+  return HasWeaponLine(item) && item.shootDamage <= 0 ? item.damage : -1;
+}
+
+int HeroStatsLive_ListKinetic(const HeroStatsLiveItem &item)
+{
+  return HasWeaponLine(item) ? item.kinetic : -1;
+}
+
+int HeroStatsLive_AttributeTop(const HeroStatsLiveParty &party, int attribute)
+{
+  int top = 1;
+  if (attribute < 0 || attribute >= HERO_LIVE_ATTRIBUTE_COUNT) return top;
+  for (size_t i = 0; i < party.champions.size(); i++)
+    top = std::max(top, std::max(party.champions[i].attributeNow[attribute], party.champions[i].attributeMax[attribute]));
+  return top;
+}
+
+HeroStatsAttributeBar HeroStatsLive_AttributeBar(int now, int most, int top)
+{
+  top = std::max(1, top);
+  now = std::min(top, std::max(0, now));
+  most = std::min(top, std::max(0, most));
+  HeroStatsAttributeBar bar = {(float)std::min(now, most) / top, 0, 0};
+  if (now < most) bar.lost = (float)(most - now) / top;
+  if (now > most) bar.raised = (float)(now - most) / top;
+  return bar;
+}
+
+std::string HeroStatsLive_AttributeHelp(const HeroStatsLiveParty &party, const HeroStatsLiveChampion &who, int attribute)
+{
+  if (attribute < 0 || attribute >= HERO_LIVE_ATTRIBUTE_COUNT) return "";
+  int now = who.attributeNow[attribute], most = who.attributeMax[attribute], best = most;
+  std::string holder = who.name;
+  for (size_t i = 0; i < party.champions.size(); i++) best = std::max(best, party.champions[i].attributeMax[attribute]);
+  for (size_t i = 0; i < party.champions.size(); i++)
+    if (party.champions[i].attributeMax[attribute] == best)
+    {
+      holder = party.champions[i].name;
+      break;
+    }
+  int percent = best > 0 ? (most * 200 + best) / (2 * best) : 0;
+  std::string own = now == most ? std::to_string(most) : std::to_string(now) + " now, " + std::to_string(most) + " max";
+  return who.name + ": " + own + DOT + std::to_string(percent) + "% of the best (" + holder + " " + std::to_string(best) + ")";
 }
 
 bool HeroStatsLive_DollCell(int slot, int *column, int *row)
@@ -119,6 +187,12 @@ static void SortPlaces(const std::vector<HeroStatsLiveItem> &items, std::vector<
     return;
   }
   std::stable_sort(places->begin(), places->end(), [&](size_t a, size_t b) {
+    if (by == HeroLiveByDamage || by == HeroLiveByKinetic || by == HeroLiveByArmor)
+    {
+      int x = by == HeroLiveByDamage ? HeroStatsLive_ListDamage(items[a]) : by == HeroLiveByKinetic ? HeroStatsLive_ListKinetic(items[a]) : items[a].armor;
+      int y = by == HeroLiveByDamage ? HeroStatsLive_ListDamage(items[b]) : by == HeroLiveByKinetic ? HeroStatsLive_ListKinetic(items[b]) : items[b].armor;
+      return descending ? x > y : x < y;
+    }
     if (by == HeroLiveByFood) return descending ? items[a].food > items[b].food : items[a].food < items[b].food;
     if (by == HeroLiveByWater) return descending ? items[a].water > items[b].water : items[a].water < items[b].water;
     if (by == HeroLiveByWeight) return descending ? items[a].weight > items[b].weight : items[a].weight < items[b].weight;

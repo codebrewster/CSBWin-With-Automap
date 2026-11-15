@@ -194,6 +194,29 @@ static HeroStatsLiveItem LiveItemOf(int slot, RN rn, bool inChest)
   if (basicType >= objNI_Apple && basicType <= objNI_DragonSteak) item.food = d.FoodValue[basicType - objNI_Apple];
   if (basicType >= objNI_Waterskin && basicType <= objNI_Water) item.water = item.charges > 0 ? 800 : 0;
   else if (rn.dbType() == dbPOTION && GetRecordAddressDB8(rn)->potionType() == potion_WaterFlask) item.water = 1600;
+  // What the dungeon's tables give the item's kind (only read: Attack.cpp uses the same fields).
+  // A weapon that shoots has its shoot damage in the low byte of the attribute (the bits above
+  // it are the look of what it shoots, Code51a4.cpp); uByte1 is its class, not a damage.
+  if (rn.dbType() == dbWEAPON)
+  {
+    int kind = GetRecordAddressDB5(rn)->weaponType();
+    if (kind >= 0 && kind < (int)(sizeof d.weapons / sizeof d.weapons[0]))
+    {
+      const WEAPONDESC &weapon = d.weapons[kind];
+      item.damage = weapon.damage;
+      item.kinetic = weapon.distance;
+      item.shootDamage = weapon.attribute & 0xff;
+    }
+  }
+  else if (rn.dbType() == dbCLOTHING)
+  {
+    int kind = GetRecordAddressDB6(rn)->clothingType();
+    if (kind >= 0 && kind < (int)(sizeof d.ClothingDesc / sizeof d.ClothingDesc[0]))
+    {
+      item.armor = d.ClothingDesc[kind].Defense();
+      item.sharpResistance = d.ClothingDesc[kind].pierceResistance() & 7;  // the bits above are no resistance (Character.cpp)
+    }
+  }
   return item;
 }
 

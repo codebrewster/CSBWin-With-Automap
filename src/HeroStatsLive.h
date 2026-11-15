@@ -40,8 +40,13 @@ struct HeroStatsLiveItem
   bool torch;          // the charges are a torch's fuel
   int food;            // what eating it adds to a champion's food, 0: it is no food
   int water;           // what a drink of it adds to the water (a waterskin: per gulp), 0: none
+  // What the dungeon gives the item's kind, each -1 for a kind that has none. A weapon: damage
+  // (its strength in a blow), kinetic (the energy it flies with when thrown, or adds to a shot)
+  // and shootDamage (above 0: it shoots, a bow or a sling). Clothing: armor and sharpResistance.
+  int damage, kinetic, shootDamage;
+  int armor, sharpResistance;
 };
-// An item with no icon, no weight and no charges
+// An item with no icon, no weight, no charges and no values
 HeroStatsLiveItem HeroStatsLive_Item(int slot, const std::string &name, bool inChest);
 
 struct HeroStatsLiveChampion
@@ -107,8 +112,30 @@ int HeroStatsLive_CarriedCount(const std::vector<HeroStatsLiveItem> &items);
 // The order the inventory list shows the items in: their places in items, sorted by slot (the
 // order they come in), name or weight. What a chest holds stays under its chest, sorted the same
 // way; by slot it keeps its own order.
-enum HeroStatsLiveOrder { HeroLiveBySlot, HeroLiveByName, HeroLiveByWeight, HeroLiveByFood, HeroLiveByWater };
+// By damage, kinetic energy or armor: as the list's columns show them; what has none is the lowest.
+enum HeroStatsLiveOrder { HeroLiveBySlot, HeroLiveByName, HeroLiveByWeight, HeroLiveByFood, HeroLiveByWater,
+                          HeroLiveByDamage, HeroLiveByKinetic, HeroLiveByArmor };
 std::vector<size_t> HeroStatsLive_Order(const std::vector<HeroStatsLiveItem> &items, HeroStatsLiveOrder by, bool descending);
+// "Damage 49 · kinetic energy 33"; what shoots: "Kinetic energy 50 · shoot damage 50"; "" for what
+// is no weapon, and for a weapon whose damage, kinetic energy and shoot damage are all 0 (a wand)
+std::string HeroStatsLive_WeaponText(const HeroStatsLiveItem &item);
+// "Armor 20 · sharp resistance 3"; "" for what is no armor
+std::string HeroStatsLive_ArmorText(const HeroStatsLiveItem &item);
+// What the list's Damage column holds: the damage; -1 (blank) for what shoots, for a weapon
+// without a line of its own and for what is no weapon. Its Kinetic column: the kinetic energy of
+// every weapon that has a line, else -1.
+int HeroStatsLive_ListDamage(const HeroStatsLiveItem &item);
+int HeroStatsLive_ListKinetic(const HeroStatsLiveItem &item);
+// An attribute's bar against the best of the party, as shares of its track (0 to 1, together
+// never more than 1): solid from 0 to the smaller of now and max; lost from now up to max when
+// the attribute is drained; raised from max up to now when it is raised above its max
+struct HeroStatsAttributeBar { float solid, lost, raised; };
+// The track's whole length: the largest now or max any champion of the party has; never below 1
+int HeroStatsLive_AttributeTop(const HeroStatsLiveParty &party, int attribute);
+HeroStatsAttributeBar HeroStatsLive_AttributeBar(int now, int most, int top);
+// "SYRA: 38 now, 41 max · 75% of the best (HALK 55)"; now as max: "HALK: 55 · 100% of the best
+// (HALK 55)". The percent is the max against the best max of the party, whose first holder is named.
+std::string HeroStatsLive_AttributeHelp(const HeroStatsLiveParty &party, const HeroStatsLiveChampion &who, int attribute);
 // The champion of the party with this fingerprint, or NULL
 const HeroStatsLiveChampion *HeroStatsLive_Find(const HeroStatsLiveParty &party, HeroStatsChampion who);
 
