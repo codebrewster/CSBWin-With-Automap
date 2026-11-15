@@ -175,7 +175,7 @@ private:
 // door methods and no food and water, layout 18 no tiles walked, layout 19 no scrolls read,
 // layouts 20 and 21 no rune outcomes (taken from the rune spells' rows), layout 22 no experience
 // and no records, layout 23 no items taken from chests, layout 24 no poisonings, wounds or
-// stretches of poison, layout 25 no bumps into monsters, layout 26 no telefrags, layout 27 no count of their kills, layout 29 no climbs down a rope onto monsters, layout 28 no landings and no monster kills by telefrag or landing (a telefrag's kills are among the "other" kills and counted with the movement). These older layouts come only inside map files of those versions.
+// stretches of poison, layout 25 no bumps into monsters, layout 26 no telefrags, layout 27 no count of their kills, layout 28 no landings and no monster kills by telefrag or landing (a telefrag's kills are among the "other" kills and counted with the movement), layout 29 no climbs down a rope onto monsters. These older layouts come only inside map files of those versions.
 class AutoMapStatsFile
 {
 public:

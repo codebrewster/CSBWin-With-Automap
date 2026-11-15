@@ -1032,7 +1032,7 @@ function topicTiles() {
 function topicPage() {
   const t = st.topic, p = page();
   if (t === 0) {
-    const body = tiles(isParty() ? TOP[0].tiles : D.heroTiles) + (isParty() ? cards() : topicTiles());
+    const body = tiles(isParty() ? TOP[0].tiles : D.heroTiles, TOP[0].rows) + (isParty() ? cards() : topicTiles());
     return body + section(KEY_SECTION, 'Key numbers', isParty() ? 'one row from each topic' : 'compared with the party', numbersTable(0));
   }
   let html = tiles(TOP[t].tiles, TOP[t].rows) + panels(t) + '<div class="secs">';
@@ -1212,11 +1212,13 @@ function listOrder(items, col, desc) {
 }
 function liveInventory(c) {
   if (!c.items.length) return '<div class="note">Carries nothing.</div>';
-  // The list sorts by slot, name or weight; a chest keeps what it holds under it
+  // The list sorts by slot, name or a column's number; a chest keeps what it holds under it
   const s = st.sort.ilist || {col: 0, desc: false};
-  const th = (col, label, num, cls) => `<th class="sort${cls}" onclick="sortBy('ilist',${col},${num})">${label}` +
+  const th = (col, label, num, cls, help) => `<th class="sort${cls}" onclick="sortBy('ilist',${col},${num})"${help ? tipOf(help) : ''}>${label}` +
     (s.col === col ? ` <span class="arrow">${s.desc ? '&#9660;' : '&#9650;'}</span>` : '') + '</th>';
-  if (st.list) return '<div class="wide"><table class="ilist"><tr>' + th(0, 'Slot', 0, '') + '<th></th>' + th(2, 'Item', 0, ' l') + th(6, 'Damage', 1, ' c-der') + th(7, 'Kinetic', 1, ' c-kin') + th(8, 'Armor', 1, ' c-der') +
+  if (st.list) return '<div class="wide"><table class="ilist"><tr>' + th(0, 'Slot', 0, '') + '<th></th>' + th(2, 'Item', 0, ' l') + th(6, 'Damage', 1, ' c-der', 'The weapon\'s own strength in a blow. Blank for what shoots: see its hovertext.') +
+    th(7, 'Kinetic', 1, ' c-kin', 'Kinetic energy: how far and how hard it flies when thrown, or what a bow or sling adds to a shot.') +
+    th(8, 'Armor', 1, ' c-der', 'The armor\'s strength. Its sharp resistance is in its hovertext.') +
     th(4, 'Food', 1, '') + th(5, 'Water', 1, '') + th(3, 'Weight', 1, '') + '</tr>' +
     listOrder(c.items, s.col, s.desc).map(i => c.items[i]).map(it => {
     const charges = chargesOf(it);
@@ -1339,7 +1341,8 @@ function fitTables(view) {
     // champions' names, half its padding, the worked-out columns, the label's single line, the
     // long form of big numbers; then it scrolls
     // (the inventory list's Kinetic goes before anything else)
-    const steps = ['nokin', 'nobar', 'dots', 'tight', 'noder', 'wrap', 'short', 'scrolls'];
+    const steps = [...(table.querySelector('.c-kin') ? ['nokin'] : []), 'nobar', 'dots', 'tight', 'noder', 'wrap', 'short', 'scrolls'];
+    w.classList.remove('nokin');
     w.classList.remove(...steps);
     for (const step of steps) {
       if (table.offsetWidth <= w.clientWidth + 1) break;

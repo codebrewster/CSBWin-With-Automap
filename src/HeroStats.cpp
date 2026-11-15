@@ -1432,7 +1432,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
   }
   read.m_partyWipes = in.GetInt();
   read.m_reloads = in.GetInt();
-  count = hasMovement ? in.GetCount((hasLandings ? 13 : hasTelefragKills ? 12 : hasTelefrags ? 11 : hasMonsterBumps ? 10 : hasPitsAndSleep ? 9 : 5) * 4) : 0;
+  count = hasMovement ? in.GetCount((hasClimbLandings ? 14 : hasLandings ? 13 : hasTelefragKills ? 12 : hasTelefrags ? 11 : hasMonsterBumps ? 10 : hasPitsAndSleep ? 9 : 5) * 4) : 0;
   for (uint32_t i = 0; i < count && in.ok; i++)
   {
     int level = in.GetInt();

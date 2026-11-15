@@ -196,7 +196,9 @@ static HeroStatsLiveItem LiveItemOf(int slot, RN rn, bool inChest)
   else if (rn.dbType() == dbPOTION && GetRecordAddressDB8(rn)->potionType() == potion_WaterFlask) item.water = 1600;
   // What the dungeon's tables give the item's kind (only read: Attack.cpp uses the same fields).
   // A weapon that shoots has its shoot damage in the low byte of the attribute (the bits above
-  // it are the look of what it shoots, Code51a4.cpp); uByte1 is its class, not a damage.
+  // it are the look of what it shoots, Code51a4.cpp); uByte1 is its class, not a damage. The
+  // engine's shot (Attack.cpp) takes the whole attribute, so a custom launcher with a look of
+  // its own set there hits harder than the number shown here says; the game's own have none.
   if (rn.dbType() == dbWEAPON)
   {
     int kind = GetRecordAddressDB5(rn)->weaponType();

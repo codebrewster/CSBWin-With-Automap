@@ -178,7 +178,8 @@ int HeroStatsLive_CarriedCount(const std::vector<HeroStatsLiveItem> &items)
   return count;
 }
 
-// Sorts places in items by name or weight; equal ones keep the order they came in
+// Sorts places in items by name or by a column's number (weight, food, water, damage, kinetic
+// energy, armor); equal ones keep the order they came in
 static void SortPlaces(const std::vector<HeroStatsLiveItem> &items, std::vector<size_t> *places, HeroStatsLiveOrder by, bool descending)
 {
   if (by == HeroLiveBySlot)
