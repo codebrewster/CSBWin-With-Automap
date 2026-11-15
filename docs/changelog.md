@@ -29,6 +29,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 - Champions: a weapon shows its damage and kinetic energy, a bow or sling its kinetic energy and shoot damage, armor its strength and sharp resistance, under the pointer and in the list (new columns Damage, Kinetic, Armor; Weight is now the last column). The values are the dungeon's own, so a custom dungeon shows its own.
 - Champions: each attribute has a bar against the best champion of the party; a drained part is hatched in red, a raised one continues in gold.
 - Champions, Party: in a window big enough for it (about 1300 x 980 with four champions) each card shows the attributes and the whole inventory; a little smaller, the inventory alone.
+- The HTML export shows the same: item values, the list's new columns, attribute bars, and the Party with attributes and inventory when four cards fit across.
 - A climb down a rope onto monsters is counted on Exploration under Pit climbs ("onto monsters"), as a fall onto them is under Pit falls. Saves from before start it at 0.
 - Exploration's headline shows Teleports in place of Doors bashed open (a `csb.cfg` with the earlier default follows; your own choice stays).
 

@@ -275,16 +275,27 @@ static void ExportHoldsTheChampionsAsTheyWere(void)
   halk.rank[0] = 2;
   HeroStatsLiveItem dagger = HeroStatsLive_Item(0, "DAGGER", false);
   halk.items.push_back(dagger);
+  // What the items are worth as a weapon and as armor goes last: damage, kinetic energy, shoot damage, armor, sharp resistance
+  HeroStatsLiveItem axe = HeroStatsLive_Item(1, "AXE", false), shield = HeroStatsLive_Item(3, "WOODEN SHIELD", false);
+  axe.damage = 49;
+  axe.kinetic = 33;
+  axe.shootDamage = 0;
+  shield.armor = 20;
+  shield.sharpResistance = 3;
+  halk.items.push_back(axe);
+  halk.items.push_back(shield);
   info.live.champions.push_back(halk);
   info.live.cursor.name = "TORCH";
   json = HeroStatsExport_Json(stats, Columns(stats), NAMES, info);
-  CHECK(json.find("\"cursor\":[-1,\"TORCH\",false,null,0,-1,false,0,0]") != std::string::npos);
+  CHECK(json.find("\"cursor\":[-1,\"TORCH\",false,null,0,-1,false,0,0,-1,-1,-1,-1,-1]") != std::string::npos);
   CHECK(json.find("{\"hero\":0,\"name\":\"HALK\"") != std::string::npos);
   CHECK(json.find("\"hp\":[80,120]") != std::string::npos);
   CHECK(json.find("\"wounds\":\"Head\"") != std::string::npos);
   CHECK(json.find("[\"Fighter\",\"Neophyte\",0]") != std::string::npos);
   CHECK(json.find("\"woundBits\":4") != std::string::npos && json.find("\"portrait\":null") != std::string::npos);
-  CHECK(json.find("\"items\":[[0,\"DAGGER\",false,null,0,-1,false,0,0]]") != std::string::npos);
+  CHECK(json.find("\"items\":[[0,\"DAGGER\",false,null,0,-1,false,0,0,-1,-1,-1,-1,-1],"
+                  "[1,\"AXE\",false,null,0,-1,false,0,0,49,33,0,-1,-1],"
+                  "[3,\"WOODEN SHIELD\",false,null,0,-1,false,0,0,-1,-1,-1,20,3]]") != std::string::npos);
 }
 
 // An item of the Champions tab: its slot, name, whether it is in a chest, its icon (a place in the
@@ -328,9 +339,9 @@ static void TheExportCarriesIconsWeightAndCharges(void)
   info.inventoryList = true;
   std::string json = HeroStatsExport_Json(stats, Columns(stats), NAMES, info);
   CHECK(json.find("\"icons\":[\"data:image/png;base64,AAA\",\"data:image/png;base64,BBB\"]") != std::string::npos);
-  CHECK(json.find("[1,\"STAFF OF CLAWS\",false,0,9,9,false,0,0]") != std::string::npos);
-  CHECK(json.find("[13,\"CHEST\",false,null,51,-1,false,0,0],[13,\"APPLE\",true,1,4,-1,false,500,0],[14,\"APPLE\",false,1,4,-1,false,500,0]") != std::string::npos);
-  CHECK(json.find("[15,\"WATERSKIN\",false,null,0,3,true,0,800]") != std::string::npos);
+  CHECK(json.find("[1,\"STAFF OF CLAWS\",false,0,9,9,false,0,0,-1,-1,-1,-1,-1]") != std::string::npos);
+  CHECK(json.find("[13,\"CHEST\",false,null,51,-1,false,0,0,-1,-1,-1,-1,-1],[13,\"APPLE\",true,1,4,-1,false,500,0,-1,-1,-1,-1,-1],[14,\"APPLE\",false,1,4,-1,false,500,0,-1,-1,-1,-1,-1]") != std::string::npos);
+  CHECK(json.find("[15,\"WATERSKIN\",false,null,0,3,true,0,800,-1,-1,-1,-1,-1]") != std::string::npos);
   CHECK(json.find("\"list\":true") != std::string::npos);
   CHECK(json.find("\"portrait\":\"data:image/png;base64,PPP\"") != std::string::npos);
 }
@@ -354,8 +365,8 @@ static void AnItemWithoutAPictureStillExports(void)
   halk.items.push_back(lost);
   info.live.champions.push_back(halk);
   std::string json = HeroStatsExport_Json(stats, Columns(stats), NAMES, info);
-  CHECK(json.find("[13,\"ODD THING\",false,null,5,-1,false,0,0]") != std::string::npos);
-  CHECK(json.find("[14,\"LOST PICTURE\",false,null,0,-1,false,0,0]") != std::string::npos);
+  CHECK(json.find("[13,\"ODD THING\",false,null,5,-1,false,0,0,-1,-1,-1,-1,-1]") != std::string::npos);
+  CHECK(json.find("[14,\"LOST PICTURE\",false,null,0,-1,false,0,0,-1,-1,-1,-1,-1]") != std::string::npos);
   CHECK(json.find("\"icons\":[]") != std::string::npos);
   CHECK(json.find("\"portrait\":null") != std::string::npos && json.find("\"cursor\":null") != std::string::npos);
 }
@@ -938,6 +949,58 @@ static void WriteASampleExport(void)
   std::vector<HeroStatsChampion> party;
   for (int c = 0; c < 4; c++) party.push_back(7 + c);
   HeroStatsExportInfo info = {"dungeon.dat", "2026-11-15 12:00"};
+  // The four as they are now: attributes drained and raised, weapons, what shoots, armor, a chest
+  stats.CountClimbLanding(2);
+  const int strength[4][2] = {{55, 55}, {38, 41}, {30, 30}, {33, 33}}, wisdom[4][2] = {{30, 30}, {55, 52}, {46, 46}, {44, 44}};
+  for (int c = 0; c < 4; c++)
+  {
+    HeroStatsLiveChampion live = {};
+    live.who = 7 + c;
+    live.name = names[c];
+    live.title = "OF THE SAMPLE";
+    live.health = 60 + 10 * c;
+    live.maxHealth = 100;
+    live.stamina = 500;
+    live.maxStamina = 800;
+    live.mana = 20;
+    live.maxMana = 40 + c;
+    live.food = 1200;
+    live.water = c == 1 ? -120 : 900;
+    live.load = 200;
+    live.maxLoad = 400;
+    for (int a = 0; a < HERO_LIVE_ATTRIBUTE_COUNT; a++) live.attributeNow[a] = live.attributeMax[a] = 35 + 3 * a + 2 * c;
+    live.attributeNow[0] = strength[c][0];
+    live.attributeMax[0] = strength[c][1];
+    live.attributeNow[2] = wisdom[c][0];
+    live.attributeMax[2] = wisdom[c][1];
+    for (int cls = 0; cls < 4; cls++) live.rank[cls] = 2 + (c + cls) % 4, live.percentToNext[cls] = 20 * cls + 10;
+    HeroStatsLiveItem axe = HeroStatsLive_Item(1, c == 2 ? "BOW" : "AXE", false), shield = HeroStatsLive_Item(0, "WOODEN SHIELD", false);
+    axe.weight = c == 2 ? 10 : 43;
+    axe.damage = c == 2 ? 1 : 49;
+    axe.kinetic = c == 2 ? 50 : 33;
+    axe.shootDamage = c == 2 ? 50 : 0;
+    shield.weight = 14;
+    shield.armor = 20;
+    shield.sharpResistance = 3;
+    HeroStatsLiveItem apple = HeroStatsLive_Item(13, "APPLE", false), chest = HeroStatsLive_Item(14, "CHEST", false);
+    apple.weight = 4;
+    apple.food = 500;
+    chest.weight = 55;
+    HeroStatsLiveItem dagger = HeroStatsLive_Item(14, "DAGGER", true), wand = HeroStatsLive_Item(15, "WAND", false);
+    dagger.weight = 5;
+    dagger.damage = 10;
+    dagger.kinetic = 19;
+    dagger.shootDamage = 0;
+    wand.weight = 1;
+    wand.damage = wand.kinetic = wand.shootDamage = 0;
+    live.items.push_back(shield);
+    live.items.push_back(axe);
+    live.items.push_back(apple);
+    live.items.push_back(chest);
+    live.items.push_back(dagger);
+    live.items.push_back(wand);
+    info.live.champions.push_back(live);
+  }
   std::string html = HeroStatsExport_Html(stats, HeroStatsView_Columns(stats, party), NAMES, info);
   FILE *file = fopen(path, "wb");
   if (file == NULL) return;

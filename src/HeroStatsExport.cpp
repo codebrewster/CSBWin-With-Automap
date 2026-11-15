@@ -37,7 +37,8 @@
 //     "attrs": [[name, current, max], ...], "ranks": [[class, rank, % to next], ...], "poison", "wounds"
 //     (as words), "woundBits" (bit n: slot n is wounded), "items": [[slot (the game's number, -1 the
 //     cursor), name, in a chest, icon (a place in "icons" or null), weight (tenths of a kilogram),
-//     charges (-1 holds none), charges are gulps, food it gives, water it gives (a drink, a waterskin's gulp)], ...]}, ...]}
+//     charges (-1 holds none), charges are gulps, food it gives, water it gives (a drink, a waterskin's gulp),
+//     damage, kinetic energy, shoot damage (above 0: it shoots), armor, sharp resistance (each -1: the kind has none)], ...]}, ...]}
 // [by hero] is empty except on the party's page.
 
 // ---------------------------------------------------------------------------------------------
@@ -300,7 +301,8 @@ static std::string Pair(int a, int b)
   return "[" + Number(a) + "," + Number(b) + "]";
 }
 
-// One item of the Champions tab: [slot, name, in a chest, icon, weight, charges, gulps, food, water]. icon: its
+// One item of the Champions tab: [slot, name, in a chest, icon, weight, charges, gulps, food, water,
+// damage, kinetic energy, shoot damage, armor, sharp resistance] (the last five -1 for none). icon: its
 // place in the icons written so far, added on first use; null without a picture.
 static std::string LiveItemJson(const HeroStatsLiveItem &item, const std::map<int, std::string> &pictures,
                                 std::vector<int> *iconKeys)
@@ -315,7 +317,8 @@ static std::string LiveItemJson(const HeroStatsLiveItem &item, const std::map<in
   }
   return "[" + Number(item.slot) + "," + HeroStatsExport_JsonString(item.name) + "," + Bool(item.inChest) + "," + icon + "," +
          Number(item.weight) + "," + Number(item.charges) + "," + Bool(item.gulps) + "," + Number(item.food) + "," +
-         Number(item.water) + "]";
+         Number(item.water) + "," + Number(item.damage) + "," + Number(item.kinetic) + "," + Number(item.shootDamage) + "," +
+         Number(item.armor) + "," + Number(item.sharpResistance) + "]";
 }
 
 static std::string LiveJson(const HeroStatsExportInfo &info, const std::vector<HeroStatsColumn> &columns)
@@ -479,7 +482,7 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   td:first-child, th:first-child { width:auto }
   th { color:var(--dim); font-weight:normal; border-bottom-color:var(--line); position:sticky; top:-10px; background:var(--bg); z-index:1 }
   .c-bar { width:26%; min-width:110px }
-  .nobar .c-bar, .noder .c-der { display:none }
+  .nobar .c-bar, .noder .c-der, .nokin .c-kin { display:none }
   /* then the champions' names in the header (their dots stay), half the padding, and at the end
      the long form of big numbers */
   .dots .hn { display:none } .tight td, .tight th { padding:3px 4px }
@@ -553,13 +556,24 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   .cap { color:var(--faint); font-size:10px; text-transform:uppercase; letter-spacing:.05em; align-self:end; white-space:nowrap }
   .pack { display:grid; gap:6px; align-content:start } .pack .grid { display:grid; grid-template-columns:repeat(6,40px); gap:4px }
   .ilist td.ic { padding-right:0 } .ilist img { width:16px; height:16px; image-rendering:pixelated; display:block }
+  .ilist td.dmg { color:#e39a7c } .ilist td.arm { color:#a9b8cf }
+  .abar { position:relative; height:9px; background:var(--track); border-radius:2px; overflow:hidden; min-width:90px }
+  .abar i { position:absolute; top:0; bottom:0; display:block }
+  .abar .lost { background:repeating-linear-gradient(135deg, var(--bad) 0 2px, transparent 2px 4px) }
+  .abar .over { background:#e0b54a; box-shadow:inset 2px 0 var(--panel) }
+  td.c-bar .abar { min-width:110px }
+  .cfull { display:grid; gap:10px } .psec { border-top:1px solid var(--line); padding-top:10px }
+  .lcards:not(.full) .cfull, .lcards.full .strip { display:none }
+  .cfull .inv { flex-direction:column; flex-wrap:nowrap; padding-top:0; gap:8px }
+  .cfull .slot { width:36px; height:36px } .cfull .doll { grid-template-columns:repeat(5,36px); grid-auto-rows:36px }
+  .cfull .pack .grid { grid-template-columns:repeat(6,36px) }
   .ilist .inl { display:inline-flex; gap:8px; align-items:center; padding-left:14px; color:var(--part) }
   @container (min-width:640px) { .champ { grid-template-columns:minmax(0,460px) auto; grid-template-rows:auto 1fr; grid-template-areas:"v i" "a i"; justify-content:start } .inv { flex-direction:column } }
   @container (min-width:1040px) { .inv { flex-direction:row; flex-wrap:nowrap } }
   #tip { position:fixed; z-index:20; pointer-events:none; background:var(--panel); border:1px solid #4a4e5a; border-radius:4px; padding:8px 10px;
     font:12.5px/1.45 "DejaVu Sans Mono","Bitstream Vera Sans Mono",Menlo,Consolas,monospace; color:var(--text); max-width:320px; box-shadow:0 6px 18px rgba(0,0,0,.5) }
   #tip .h { display:flex; gap:10px; align-items:center } #tip .h img { width:48px; height:48px; image-rendering:pixelated; flex:none }
-  #tip .n { color:#fff } #tip .s { color:var(--dim) } #tip .x { color:var(--part) } #tip .bad { color:var(--bad) } #tip .food { color:#c99a6c } #tip .water { color:#4a8fe0 }
+  #tip .n { color:#fff } #tip .s { color:var(--dim) } #tip .x { color:var(--part) } #tip .bad { color:var(--bad) } #tip .dmg { color:#e39a7c } #tip .arm { color:#a9b8cf } #tip .food { color:#c99a6c } #tip .water { color:#4a8fe0 }
   #tip .in { border-top:1px solid var(--line); margin-top:8px; padding-top:7px; display:grid; grid-template-columns:1fr 1fr; gap:4px 14px }
   #tip .in div { display:flex; gap:6px; align-items:center; white-space:nowrap } #tip .in img { width:16px; height:16px; image-rendering:pixelated }
   #tip .in .cap { grid-column:1 / -1; color:var(--dim); font-size:inherit; text-transform:none; letter-spacing:0 }
@@ -699,9 +713,13 @@ function frame() {
 
 // A tile: the number and its label; on the Experience and Records pages the rank or the record's
 // holder under it
-function tiles(numbers) {
+// rows: the topic's rows; when none of its tiles applies (a champion's Exploration), its own top
+// rows that do stand in (HeroStatsCatalogue_TilesFor in the game)
+function tiles(numbers, rows) {
   const r = rec(st.who, st.level), p = page();
-  const shown = numbers.filter(n => applies(n, st.who, st.level)).slice(0, 4);
+  let shown = numbers.filter(n => applies(n, st.who, st.level));
+  if (!shown.length && numbers.length && rows) shown = rows.filter(([n, d]) => d === 0 && applies(n, st.who, st.level)).map(row => row[0]);
+  shown = shown.slice(0, 4);
   return '<div class="tiles">' + shown.map(n => {
     let v = text(n, r[n]), l = esc(NUM[n].label), sub = '', cls = NUM[n].bad && r[n] > 0 ? ' bad' : '';
     // Beside Monsters killed, the champions' kills are a part of it
@@ -1017,7 +1035,7 @@ function topicPage() {
     const body = tiles(isParty() ? TOP[0].tiles : D.heroTiles) + (isParty() ? cards() : topicTiles());
     return body + section(KEY_SECTION, 'Key numbers', isParty() ? 'one row from each topic' : 'compared with the party', numbersTable(0));
   }
-  let html = tiles(TOP[t].tiles) + panels(t) + '<div class="secs">';
+  let html = tiles(TOP[t].tiles, TOP[t].rows) + panels(t) + '<div class="secs">';
   // The Records table is the page's numbers. A page whose table rows are one named group
   // (Exploration's Doors) names the section after it.
   const tableGroups = groupsOf(t).filter(g => !g.panel);
@@ -1107,6 +1125,14 @@ const chargesOf = it => it[5] < 0 ? '' : it[6] ? (it[5] === 0 ? 'empty' : it[5] 
 const gives = it => (it[7] > 0 ? `<span class="food">Food +${it[7]}</span>` : '') +
   (it[8] > 0 ? `<span class="water">${it[7] > 0 ? ' ' : ''}Water +${it[8]}${it[6] ? ' per gulp' : ''}</span>` : '');
 const heldIn = (items, i) => { const held = []; if (i < 0 || items[i][2]) return held; for (let k = i + 1; k < items.length && items[k][2]; k++) held.push(items[k]); return held; };
+// What an item is worth as a weapon and as armor: the same words and rules as the window's
+// (HeroStatsLive_WeaponText, _ArmorText, _ListDamage, _ListKinetic); keep the two in step
+const hasWeaponLine = it => it[9] >= 0 && (it[9] > 0 || it[10] > 0 || it[11] > 0);
+const weaponText = it => !hasWeaponLine(it) ? '' : it[11] > 0 ? `Kinetic energy ${it[10]} · shoot damage ${it[11]}` : `Damage ${it[9]} · kinetic energy ${it[10]}`;
+const armorText = it => it[12] >= 0 ? `Armor ${it[12]} · sharp resistance ${Math.max(0, it[13])}` : '';
+const listDamage = it => hasWeaponLine(it) && !(it[11] > 0) ? it[9] : -1;
+const listKinetic = it => hasWeaponLine(it) ? it[10] : -1;
+const worth = it => (weaponText(it) ? `<div class="dmg">${weaponText(it)}</div>` : '') + (armorText(it) ? `<div class="arm">${armorText(it)}</div>` : '');
 let TIPS = [];
 function tipOf(html) { TIPS.push(html); return ` data-tip="${TIPS.length - 1}"`; }
 function slotTip(items, i, slot, wounded) {
@@ -1114,7 +1140,7 @@ function slotTip(items, i, slot, wounded) {
   if (i < 0) return `<div class="s">${slotName(slot)} · empty${hurt}</div>`;
   const it = items[i], held = heldIn(items, i), charges = chargesOf(it);
   let html = `<div class="h">${iconOf(it)}<div><div class="n">${esc(it[1])}</div><div class="s">${slotName(slot)}${hurt}</div>` +
-    `<div class="x">${tenths(it[4])} kg${held.length ? ' with contents' : ''}${charges ? ' · ' + charges : ''}</div>${gives(it) ? `<div class="x">${gives(it)}</div>` : ''}</div></div>`;
+    `<div class="x">${tenths(it[4])} kg${held.length ? ' with contents' : ''}${charges ? ' · ' + charges : ''}</div>${worth(it)}${gives(it) ? `<div class="x">${gives(it)}</div>` : ''}</div></div>`;
   if (held.length) html += `<div class="in"><div class="cap">Holds ${held.length} ${held.length === 1 ? 'item' : 'items'}</div>` +
     held.map(h => `<div>${iconOf(h)}${esc(h[1])}${gives(h) ? ' &nbsp;' + gives(h) : ''}</div>`).join('') + '</div>';
   return html;
@@ -1144,16 +1170,34 @@ function liveHead(c, colour) {
 }
 const liveRanks = (c, colour) => '<div class="lranks">' + c.ranks.map(r => `<span class="l">${esc(r[0])}</span><span class="${r[1] ? '' : 'none'}">${r[1] ? esc(r[1]) : '-'}</span>` +
   `<div class="vbar"${tipOf(r[2] + '% of the way to the next rank')}><i style="width:${r[2]}%;background:${colour}"></i></div>`).join('') + '</div>';
+// An attribute's bar against the best of the party (HeroStatsLive_AttributeBar, _AttributeTop and
+// _AttributeHelp in the game): solid up to now, a drained part hatched up to the max, a raised part in gold past it
+function attributeBar(c, i, colour) {
+  const all = LIVE.champions, now0 = c.attrs[i][1], most0 = c.attrs[i][2];
+  const top = Math.max(1, ...all.map(o => Math.max(o.attrs[i][1], o.attrs[i][2])));
+  const best = Math.max(most0, ...all.map(o => o.attrs[i][2])), holder = (all.find(o => o.attrs[i][2] === best) || c).name;
+  const now = Math.min(top, Math.max(0, now0)), most = Math.min(top, Math.max(0, most0)), p = v => v * 100 / top;
+  const percent = best > 0 ? Math.floor((most0 * 200 + best) / (2 * best)) : 0;
+  const help = `${esc(c.name)}: ${now0 === most0 ? most0 : `${now0} now, ${most0} max`} · ${percent}% of the best (${esc(holder)} ${best})`;
+  return `<div class="abar"${tipOf(help)}><i style="left:0;width:${p(Math.min(now, most))}%;background:${colour}"></i>` +
+    (now < most ? `<i class="lost" style="left:${p(now)}%;width:${p(most - now)}%"></i>` : '') +
+    (now > most ? `<i class="over" style="left:${p(most)}%;width:${p(now - most)}%"></i>` : '') + '</div>';
+}
 function liveCard(c) {
   const colour = c.hero >= 0 ? COLOUR(c.hero) : 'var(--text)';
   const carried = c.items.filter(it => !it[2] && !(it[0] >= 0 && it[0] <= 5) && it[0] !== 10).length;
   return `<div class="lcard"${c.hero >= 0 ? ` onclick="set({who:${c.hero}})"` : ''}>` + liveHead(c, colour) + liveVitals(c, colour) +
     '<div class="strip">' + [0, 1, 2, 10, 3, 4, 5].map(s => slotHtml(c.items, s, isWounded(c, s))).join('') +
-    (carried ? `<span class="more">+${carried} carried</span>` : '') + '</div>' + liveRanks(c, colour) + '</div>';
+    (carried ? `<span class="more">+${carried} carried</span>` : '') + '</div>' +
+    // With all the cards in one row (fit sets "full" on them) the attributes and the whole inventory stand in the strip's place
+    `<div class="cfull"><div class="vit psec">${c.attrs.map((a, i) => `<span class="l">${esc(a[0])}</span>${attributeBar(c, i, colour)}` +
+      `<span class="v"><span class="${a[1] < a[2] ? 'bad' : a[1] > a[2] ? 'raised' : ''}">${a[1]}</span> / ${a[2]}</span>`).join('')}</div>` +
+    `<div class="psec">${livePicture(c)}</div><div class="psec" style="padding-top:0"></div></div>` + liveRanks(c, colour) + '</div>';
 }
 // The places of the items in the order the list shows them (HeroStatsLive_Order in the game)
 function listOrder(items, col, desc) {
-  const key = col === 3 ? (it => it[4]) : col === 4 ? (it => it[7]) : col === 5 ? (it => it[8]) : col === 2 ? (it => it[1]) : null;
+  const key = col === 3 ? (it => it[4]) : col === 4 ? (it => it[7]) : col === 5 ? (it => it[8]) : col === 2 ? (it => it[1])
+    : col === 6 ? listDamage : col === 7 ? listKinetic : col === 8 ? (it => it[12]) : null;
   const sorted = places => {
     if (!key) return desc ? places.reverse() : places;
     return places.sort((a, b) => { const x = key(items[a]), y = key(items[b]), c = x < y ? -1 : x > y ? 1 : 0; return (desc ? -c : c) || a - b; });
@@ -1172,12 +1216,18 @@ function liveInventory(c) {
   const s = st.sort.ilist || {col: 0, desc: false};
   const th = (col, label, num, cls) => `<th class="sort${cls}" onclick="sortBy('ilist',${col},${num})">${label}` +
     (s.col === col ? ` <span class="arrow">${s.desc ? '&#9660;' : '&#9650;'}</span>` : '') + '</th>';
-  if (st.list) return '<div class="wide"><table class="ilist"><tr>' + th(0, 'Slot', 0, '') + '<th></th>' + th(2, 'Item', 0, ' l') + th(3, 'Weight', 1, '') + th(4, 'Food', 1, '') + th(5, 'Water', 1, '') + '</tr>' +
+  if (st.list) return '<div class="wide"><table class="ilist"><tr>' + th(0, 'Slot', 0, '') + '<th></th>' + th(2, 'Item', 0, ' l') + th(6, 'Damage', 1, ' c-der') + th(7, 'Kinetic', 1, ' c-kin') + th(8, 'Armor', 1, ' c-der') +
+    th(4, 'Food', 1, '') + th(5, 'Water', 1, '') + th(3, 'Weight', 1, '') + '</tr>' +
     listOrder(c.items, s.col, s.desc).map(i => c.items[i]).map(it => {
     const charges = chargesOf(it);
     return `<tr class="${it[2] ? 'in' : ''}"><td class="nt">${it[2] ? '' : slotName(it[0])}</td><td class="ic">${it[2] ? '' : iconOf(it)}</td>` +
-      `<td class="l nm">${it[2] ? `<span class="inl">${iconOf(it)}${esc(it[1])}</span>` : esc(it[1])}${charges ? ` <span class="none">· ${charges}</span>` : ''}</td><td>${tenths(it[4])} kg</td><td>${it[7] > 0 ? it[7] : ''}</td><td>${it[8] > 0 ? it[8] : ''}</td></tr>`;
+      `<td class="l nm">${it[2] ? `<span class="inl">${iconOf(it)}${esc(it[1])}</span>` : esc(it[1])}${charges ? ` <span class="none">· ${charges}</span>` : ''}</td><td class="dmg c-der">${listDamage(it) >= 0 ? listDamage(it) : ''}</td><td class="dmg c-kin">${listKinetic(it) >= 0 ? listKinetic(it) : ''}</td>` +
+      `<td class="arm c-der">${it[12] >= 0 ? it[12] : ''}</td><td>${it[7] > 0 ? it[7] : ''}</td><td>${it[8] > 0 ? it[8] : ''}</td><td>${tenths(it[4])} kg</td></tr>`;
   }).join('') + '</table></div>';
+  return livePicture(c);
+}
+// The inventory as the game lays it out: the body with pouch and quiver, then the backpack
+function livePicture(c) {
   let doll = '';
   for (const s in DOLL) doll += `<div style="grid-column:${DOLL[s][0]};grid-row:${DOLL[s][1]}">${slotHtml(c.items, +s, isWounded(c, +s), PART[s])}</div>`;
   let pack = '';
@@ -1187,8 +1237,8 @@ function liveInventory(c) {
 }
 function liveChampion(c) {
   const colour = c.hero >= 0 ? COLOUR(c.hero) : 'var(--text)';
-  const attrs = '<div class="wide"><table><tr><th>Attribute</th><th>Current</th><th>Max</th></tr>' + c.attrs.map(a =>
-    `<tr><td>${esc(a[0])}</td><td class="${a[1] < a[2] ? 'bad' : a[1] > a[2] ? 'raised' : ''}">${a[1]}</td><td>${a[2]}</td></tr>`).join('') + '</table></div>';
+  const attrs = '<div class="wide"><table><tr><th>Attribute</th><th>Current</th><th>Max</th><th class="c-bar l">Against the best</th></tr>' + c.attrs.map((a, i) =>
+    `<tr><td>${esc(a[0])}</td><td class="${a[1] < a[2] ? 'bad' : a[1] > a[2] ? 'raised' : ''}">${a[1]}</td><td>${a[2]}</td><td class="c-bar">${attributeBar(c, i, colour)}</td></tr>`).join('') + '</table></div>';
   const count = c.items.length;
   const choice = `<span class="seg" onclick="event.stopPropagation()"><button class="ch${st.list ? '' : ' on'}" onclick="set({list:false})">Picture</button>` +
     `<button class="ch${st.list ? ' on' : ''}" onclick="set({list:true})">List</button></span>`;
@@ -1288,7 +1338,8 @@ function fitTables(view) {
     // What a table too wide gives up, in this order (HeroStatsLayout_FitTable): its bar, the
     // champions' names, half its padding, the worked-out columns, the label's single line, the
     // long form of big numbers; then it scrolls
-    const steps = ['nobar', 'dots', 'tight', 'noder', 'wrap', 'short', 'scrolls'];
+    // (the inventory list's Kinetic goes before anything else)
+    const steps = ['nokin', 'nobar', 'dots', 'tight', 'noder', 'wrap', 'short', 'scrolls'];
     w.classList.remove(...steps);
     for (const step of steps) {
       if (table.offsetWidth <= w.clientWidth + 1) break;
@@ -1329,7 +1380,11 @@ function fit() {
   fitTables(view);
   view.querySelectorAll('.tiles').forEach(g => { g.style.gridTemplateColumns = `repeat(${across(g.children.length, width, 150, 8)},1fr)`; });
   view.querySelectorAll('.cards').forEach(g => { g.style.gridTemplateColumns = `repeat(${across(g.children.length, width, 230, 8)},minmax(0,480px))`; });
-  view.querySelectorAll('.lcards').forEach(g => { g.style.gridTemplateColumns = `repeat(${across(g.children.length, width, 290, 10)},minmax(0,480px))`; });
+  view.querySelectorAll('.lcards').forEach(g => {
+    const n = across(g.children.length, width, 290, 10);
+    g.style.gridTemplateColumns = `repeat(${n},minmax(0,480px))`;
+    g.classList.toggle('full', n === g.children.length);   // all in one row: the cards show attributes and inventory
+  });
   view.querySelectorAll('.facts').forEach(g => { g.style.gridTemplateColumns = `repeat(${across(g.children.length, width, 230, 10)},minmax(0,1fr))`; });
   view.querySelectorAll('.topics').forEach(g => { g.style.gridTemplateColumns = width >= 528 ? '1fr 1fr' : '1fr'; });
 }
