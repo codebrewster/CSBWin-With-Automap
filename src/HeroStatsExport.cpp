@@ -7,7 +7,9 @@
 // The JSON the page script reads:
 // { "dungeon", "date", "separator" (between thousands), "heroes": [{"name", "left"}], "levels": [level, ...],
 //   "numbers": the catalogue, one per HeroStatsNumber: [{"label", "help", "party", "run", "bad", "ratio", "pct", "ticks"}],
-//   "topics": one per HeroStatsTopic: [{"label", "rows": [[number, depth], ...], "tiles": [number, ...],
+//   "topics": one per HeroStatsTopic: [{"label", "rows": [[number, depth], ...] (all its rows),
+//             "groups": [{"title", "panel" (drawn as a panel of the party's numbers), "rows": [[number, depth,
+//             the label in this place or null], ...]}, ...], "tiles": [number, ...],
 //             "grid": [number, ...] (Champions side by side), "details": [HeroStatsDetail, ...] (the party's),
 //             "heroDetails": [...] (a champion's)}],
 //   "heroTiles": [number, ...] (a champion's Overview), "xpFirst", "recFirst": the numbers of Fighter and of
@@ -26,7 +28,7 @@
 //              "sources": [[name, note, depth, experience, [by hero; a hero's page: the party's], has children, help], ...],
 //              "rankups": [[hero, class, rank, with, level], ...]},
 //       "records": [[kind, group, label, value, who, how, whom, when, level, has, held, party value, party's hero], ...] },
-//     "monsters": [[name, [kills per hero], door, pit, other, total], ...] most killed first,
+//     "monsters": [[name, [kills per hero], door, pit, telefrag, landed, other, total], ...] most killed first,
 //     "items": [[name, picked up, used in walls, from chests], ...] } } },
 //   "live": the party when the page was written (the Champions tab): {"cursor": the item on the cursor
 //     (an item as below) or null, "list": the inventory starts as a list, "icons": [PNG data URI, ...],
@@ -121,8 +123,8 @@ std::string HeroStatsExport_RecordJson(const HeroStatsRecord &record, HeroStatsC
 static std::string MonsterJson(const HeroStatsMonsterLine &line)
 {
   std::string out = "[" + HeroStatsExport_JsonString(line.name) + "," + Ints(line.byColumn);
-  int rest[4] = {line.door, line.pit, line.other, line.total};
-  for (int i = 0; i < 4; i++) out += "," + Number(rest[i]);
+  int rest[6] = {line.door, line.pit, line.telefrag, line.landed, line.other, line.total};
+  for (int i = 0; i < 6; i++) out += "," + Number(rest[i]);
   return out + "]";
 }
 
@@ -389,6 +391,17 @@ std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroS
     out += std::string(t > 0 ? "," : "") + "{\"label\":" + HeroStatsExport_JsonString(topic.label) + ",\"rows\":[";
     for (size_t r = 0; r < topic.rows.size(); r++)
       out += std::string(r > 0 ? ",[" : "[") + Number(topic.rows[r].number) + "," + Number(topic.rows[r].depth) + "]";
+    out += "],\"groups\":[";
+    for (size_t g = 0; g < topic.groups.size(); g++)
+    {
+      const HeroStatsTopicGroup &group = topic.groups[g];
+      out += std::string(g > 0 ? "," : "") + "{\"title\":" + HeroStatsExport_JsonString(group.title) + ",\"panel\":" + Bool(group.panel) +
+             ",\"rows\":[";
+      for (size_t r = 0; r < group.rows.size(); r++)
+        out += std::string(r > 0 ? ",[" : "[") + Number(group.rows[r].number) + "," + Number(group.rows[r].depth) + "," +
+               (group.rows[r].label != NULL ? HeroStatsExport_JsonString(group.rows[r].label) : std::string("null")) + "]";
+      out += "]}";
+    }
     std::vector<int> tiles(topic.tiles.begin(), topic.tiles.end());
     std::vector<HeroStatsNumber> gridNumbers = HeroStatsCatalogue_GridNumbers(t);
     std::vector<int> grid(gridNumbers.begin(), gridNumbers.end());
@@ -811,20 +824,21 @@ function items() {
 
 function monsters() {
   let lines = view(st.level).monsters;
-  if (!isParty()) lines = lines.filter(m => m[1][st.who] > 0).map(m => [m[0], [m[1][st.who]], 0, 0, 0, m[1][st.who]]);
+  if (!isParty()) lines = lines.filter(m => m[1][st.who] > 0).map(m => [m[0], [m[1][st.who]], 0, 0, 0, 0, 0, m[1][st.who]]);
   if (!lines.length) return section(DETAIL.MONSTERS, 'Monsters killed', 'none', '<div class="note">No monsters killed.</div>');
-  const all = lines.reduce((a, m) => { m[1].forEach((v, i) => a[1][i] += v); for (let k = 2; k < 6; k++) a[k] += m[k]; return a; },
-    ['All monsters', lines[0][1].map(() => 0), 0, 0, 0, 0]);
-  const summary = `${fmt(all[5])} kills · ${lines.length} kinds`;
+  const all = lines.reduce((a, m) => { m[1].forEach((v, i) => a[1][i] += v); for (let k = 2; k < 8; k++) a[k] += m[k]; return a; },
+    ['All monsters', lines[0][1].map(() => 0), 0, 0, 0, 0, 0, 0]);
+  const summary = `${fmt(all[7])} kills · ${lines.length} kinds`;
   let cols, cellsOf;
   if (isParty()) {
-    const extra = [[2, 'Door'], [3, 'Pit'], [4, 'Other']].filter(([k]) => all[k] > 0);
-    cols = [nameCol('Monster')].concat(H.map((h, i) => heroCol(i)), extra.map(([, l]) => numCol(l, l === 'Other' ? 'Killed by clouds, traps, other monsters or a cause not known.' : '')), [numCol('All', 'The champions, doors, pits and other causes added up: every kill.'), numCol('Who: Kills')]);
+    const extra = [[2, 'Door'], [3, 'Pit'], [4, 'Telefrag'], [5, 'Landed'], [6, 'Other']].filter(([k]) => all[k] > 0);
+    const extraHelp = {Telefrag: 'The party was teleported onto their square.', Landed: 'The party came down a pit onto their square.', Other: 'Clouds nobody is known to have made, traps, other monsters.'};
+    cols = [nameCol('Monster')].concat(H.map((h, i) => heroCol(i)), extra.map(([, l]) => numCol(l, extraHelp[l] || '')), [numCol('All', 'Every kill, whatever the cause.'), numCol('Who: Kills')]);
     cellsOf = (m, foot) => [nameTd(m[0])].concat(m[1].map((v, i) => td(v, plain(v, false, H[i].left ? 'gone' : ''))),
-      extra.map(([k]) => td(m[k], plain(m[k]))), [td(m[5], plain(m[5])), foot ? td(0, '<td></td>') : whoTd(m[1])]);
+      extra.map(([k]) => td(m[k], plain(m[k]))), [td(m[7], plain(m[7])), foot ? td(0, '<td></td>') : whoTd(m[1])]);
   } else {
     cols = [nameCol('Monster'), numCol('Kills')];
-    cellsOf = m => [nameTd(m[0]), td(m[5], plain(m[5]))];
+    cellsOf = m => [nameTd(m[0]), td(m[7], plain(m[7]))];
   }
   return section(DETAIL.MONSTERS, 'Monsters killed', summary,
     sortTable('monsters', cols, lines.map(m => ({cells: cellsOf(m)})), {cls: 'all', cells: cellsOf(all, true)}, cols.length - (isParty() ? 2 : 1)));

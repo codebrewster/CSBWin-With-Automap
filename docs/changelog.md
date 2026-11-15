@@ -10,6 +10,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 **Statistics**
 - Telefrags and landings: a teleport that ends on a square with monsters, or a fall down a pit onto them, kills the whole group at once. Exploration counts them under Teleports and Pit falls ("onto monsters").
 - Monsters has a new top number, Monsters killed, with the six causes that add up to it: Champions, Crushed by doors, Fell into pits, Telefragged, Landed on and Other causes. Telefrag kills are no longer counted a second time in Other causes.
+- The Monsters killed table has a Telefrag and a Landed column, so you see which monsters died that way and how many (kills from older saves stay under Other).
 - Hovertexts only where the label does not say it: the ones that repeated their label are gone; new ones say what is in Damage taken, Hit rate, Damage per hit, Friendly fire caused, Resurrected, Eaten, Teleports and Pit falls.
 - New number Monster bumps (Exploration): moves that were stopped by a monster on the next square, next to Wall bumps.
 - A champion's card on the Overview shows Experience instead of Healed (too close to Damage taken); Healed is still in the Key numbers.

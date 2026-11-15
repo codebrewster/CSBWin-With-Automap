@@ -397,7 +397,13 @@ static void ExportHoldsEveryLevel(void)
     CHECK(halkValues[HeroNumKills] == "1");
     CHECK(partyValues[HeroNumWipes] == "null");  // the whole run's only
   }
-  CHECK(json.find("[\"Screamer\",[1,0],0,0,0,1]") != std::string::npos);
+  CHECK(json.find("[\"Screamer\",[1,0],0,0,0,0,0,1]") != std::string::npos);
+  // The topics' groups, with the label a row has in its place
+  CHECK(json.find("{\"title\":\"Travel\",\"panel\":true,\"rows\":[[") != std::string::npos);
+  CHECK(json.find("," + std::to_string(HeroNumTelefrags) + ",1,\"onto monsters\"]") != std::string::npos ||
+        json.find("[" + std::to_string(HeroNumTelefrags) + ",1,\"onto monsters\"]") != std::string::npos);
+  CHECK(json.find("[" + std::to_string(HeroNumSteps) + ",0,null]") != std::string::npos);
+  CHECK(json.find("{\"title\":\"Doors\",\"panel\":false,\"rows\":[[") != std::string::npos);
   CHECK(json.find("\"items\":[[\"GOLD KEY\",0,1,0]]") != std::string::npos);
   std::string html = HeroStatsExport_Html(stats, Columns(stats), NAMES, info);
   CHECK(html.find("<!doctype html>") == 0);
@@ -848,6 +854,10 @@ static void MonstersKnowTelefragsAndLandings(void)
   // Per level keeps the causes: the party's Monsters table has a column for each
   HeroStatsPerLevel table = HeroStatsPages_PerLevelTotals(stats, Columns(stats), HERO_STATS_PARTY, HeroTopicMonsters);
   CHECK(table.numbers.size() == 7 && table.numbers[0] == HeroNumMonstersKilled && table.numbers[4] == HeroNumTelefragged);
+  // The export: name, kills per champion, door, pit, telefrag, landed, other, all
+  HeroStatsExportInfo info = {"dungeon.dat", "2026-11-15 12:00"};
+  std::string json = HeroStatsExport_Json(stats, Columns(stats), NAMES, info);
+  CHECK(json.find("\"monsters\":[[\"Screamer\",[2,2],0,0,1,2,1,8]]") != std::string::npos);
 }
 
 // The rows of a page know their group; a group none of whose rows apply is not there
