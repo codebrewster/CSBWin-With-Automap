@@ -41,6 +41,8 @@ static const ImU32 YELLOW_RGB = 0xe8d44a;     // food and water below 0
 static const ImU32 FOOD_RGB = 0x9b6a3c;       // the food bar, brown as in the game
 static const ImU32 WATER_RGB = 0x4a8fe0;      // the water bar
 static const ImU32 GOLD_RGB = 0xe0b54a;       // a champion's record that is the party's
+static const ImU32 DAMAGE_RGB = 0xe39a7c;     // a weapon's damage and kinetic energy
+static const ImU32 ARMOR_RGB = 0xa9b8cf;      // a piece of armor's strength
 // The game's own champion colours, by party slot, softened for the dark background
 static const ImU32 CHAMPION_RGB[4] = {0x5fbf5f, 0xd8c447, 0xd9604f, 0x5b8fd9};
 
@@ -558,7 +560,9 @@ static const ImU32 GUIDE_CROSS_RGB = 0x36405a; // where the row and the column m
 // as its widest text, which the cells note as they are drawn, so a table is laid out with the
 // widths of the frame before (its first frame with the defaults above). What the table gives up
 // when the page is too narrow is HeroStatsLayout_FitTable's.
-enum ColumnKind { ColumnLabel, ColumnNumber, ColumnDerived, ColumnBar, ColumnText };
+// ColumnFirstToGo: a number column the table leaves out as soon as it does not fit with everything
+// shown, before it gives up anything else (the inventory list's Kinetic)
+enum ColumnKind { ColumnLabel, ColumnNumber, ColumnDerived, ColumnBar, ColumnText, ColumnFirstToGo };
 struct TableMeasure
 {
   std::vector<int> kinds, lastKinds;  // of this frame as the columns are set up, and of the last
@@ -570,6 +574,7 @@ struct TableMeasure
   // The last frame's column widths: names and full numbers, dots and full numbers, dots and short numbers
   std::vector<float> fullWidth, dotWidth, shortWidth;
   HeroStatsTableFit fit;
+  bool keepFirst;                     // the columns that are the first to go show this frame
   bool known;                         // the last frame measured this table with these columns
 };
 static std::map<ImGuiID, TableMeasure> tableMeasures;
@@ -788,9 +793,11 @@ static bool BeginPageTable(const char *id, int columnCount, bool sortable)
   measure.known = (int)measure.lastKinds.size() == columnCount && last != NULL && last->ColumnsCount == columnCount;
   HeroStatsTableFit everything = {true, true, false, false, 0, BAR_WIDTH + padding, available, true, true, false};
   measure.fit = everything;
+  measure.keepFirst = true;
   if (measure.known)
   {
     HeroStatsTableNeeds needs = {0, 0, 0, false, 0, 0, 0, 0};
+    float firstToGo = 0;
     for (int i = 0; i < columnCount; i++)
     {
       float width = measure.width[i];
@@ -800,6 +807,7 @@ static bool BeginPageTable(const char *id, int columnCount, bool sortable)
       {
       case ColumnLabel: needs.label += width + padding; break;
       case ColumnDerived: needs.derived += width + padding; break;
+      case ColumnFirstToGo: firstToGo += width + padding; break;
       case ColumnBar:
         // A bar is never narrower than its header ("Share of party", "Who: Experience")
         needs.hasBar = true;
@@ -822,12 +830,16 @@ static bool BeginPageTable(const char *id, int columnCount, bool sortable)
       default: needs.numbers += width + padding; break;
       }
     }
+    // What is the first to go stays only while the whole table fits; then it is a column like the others
+    float everythingShown = HeroStatsLayout_FullWidth(needs) + firstToGo;
+    measure.keepFirst = firstToGo == 0 || HeroStatsLayout_ListValues(everythingShown, firstToGo, needs.derived, available) == HeroListAllValues;
+    if (measure.keepFirst) needs.numbers += firstToGo;
     measure.fit = HeroStatsLayout_FitTable(needs, available);
     // A number column is as wide as the form it is drawn in
     for (int i = 0; i < columnCount; i++)
       if (measure.lastKinds[i] == ColumnNumber && i < (int)measure.fullWidth.size() && measure.fullWidth[i] > 0)
         measure.width[i] = measure.fit.shortNumbers ? measure.shortWidth[i] : measure.fit.names ? measure.fullWidth[i] : measure.dotWidth[i];
-    widestTableBegun = std::max(widestTableBegun, HeroStatsLayout_FullWidth(needs));
+    widestTableBegun = std::max(widestTableBegun, everythingShown);
   }
   measure.kinds.clear();
   measure.seen.assign(columnCount, 0.0f);
@@ -895,10 +907,11 @@ static void LabelColumn(const char *label, bool sortable = false, bool sortsFirs
 
 // A column of numbers, as wide as its widest. derived: worked out from other columns (a rate, an
 // average), so it is left out before a label has to wrap.
-static void NumberColumn(const char *label, bool sortsFirst = false, bool derived = false)
+// firstToGo: left out before the table gives up anything else.
+static void NumberColumn(const char *label, bool sortsFirst = false, bool derived = false, bool firstToGo = false)
 {
-  bool off = derived && measuring != NULL && measuring->known && !measuring->fit.derived;
-  int index = AddColumn(derived ? ColumnDerived : ColumnNumber, off);
+  bool off = measuring != NULL && measuring->known && (firstToGo ? !measuring->keepFirst : derived && !measuring->fit.derived);
+  int index = AddColumn(firstToGo ? ColumnFirstToGo : derived ? ColumnDerived : ColumnNumber, off);
   float width = NUMBER_WIDTH;
   if (measuring != NULL && measuring->known && index >= 0 && measuring->width[index] > 0) width = measuring->width[index];
   ImGuiTableColumnFlags flags = ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_PreferSortDescending;
@@ -2805,6 +2818,10 @@ static void SlotTooltip(const std::vector<HeroStatsLiveItem> &items, int index, 
     ImGui::TextColored(Colour(BAD_RGB), " %s wounded", MIDDLE_DOT);
   }
   ImGui::TextColored(Colour(PART_RGB), "%s", WeightAndCharges(item, held).c_str());
+  // What the item's kind is worth as a weapon or as armor
+  std::string weapon = HeroStatsLive_WeaponText(item), armor = HeroStatsLive_ArmorText(item);
+  if (!weapon.empty()) ImGui::TextColored(Colour(DAMAGE_RGB), "%s", weapon.c_str());
+  if (!armor.empty()) ImGui::TextColored(Colour(ARMOR_RGB), "%s", armor.c_str());
   if (item.food > 0) ImGui::TextColored(Colour(FOOD_RGB + 0x303030), "Food +%d", item.food);
   if (item.water > 0)
     ImGui::TextColored(Colour(WATER_RGB), item.gulps ? "Water +%d per gulp" : "Water +%d", item.water);
@@ -3146,17 +3163,29 @@ static void LiveList(const HeroStatsLiveChampion &live)
     ImGui::TextColored(Colour(DIM_RGB), "Carries nothing.");
     return;
   }
-  if (!BeginPageTable("##items", 5, true)) return;
+  // Weight stands last, at the edge: it matters most. A list too narrow gives up Kinetic first,
+  // then Damage and Armor (they stay in the slot's hovertext); Food, Water and Weight always show.
+  if (!BeginPageTable("##items", 8, true)) return;
   TextColumn("Slot", true, true);
   LabelColumn("Item", true);
-  NumberColumn("Weight");
+  NumberColumn("Damage", false, true);
+  NumberColumn("Kinetic", false, false, true);
+  NumberColumn("Armor", false, true);
   NumberColumn("Food");
   NumberColumn("Water");
-  HeaderRow(std::vector<int>(), std::vector<HeroStatsColumn>());
-  // By slot as the game numbers them, by name or by weight; a chest keeps what it holds under it
+  NumberColumn("Weight");
+  static const HeaderHelps HELPS = {"", "", "The weapon's own strength in a blow. Blank for what shoots: see its hovertext.",
+                                    "Kinetic energy: how far and how hard it flies when thrown, or what a bow or sling adds to a shot.",
+                                    "The armor's strength. Its sharp resistance is in its hovertext."};
+  HeaderRow(std::vector<int>(), std::vector<HeroStatsColumn>(), "", HELPS);
+  // By slot as the game numbers them, by name or by a column's number; a chest keeps what it holds
+  // under it. A column the list left out sorts nothing: by slot then.
+  static const HeroStatsLiveOrder ORDERS[8] = {HeroLiveBySlot, HeroLiveByName, HeroLiveByDamage, HeroLiveByKinetic,
+                                               HeroLiveByArmor, HeroLiveByFood, HeroLiveByWater, HeroLiveByWeight};
   TableSort sort = CurrentSort();
-  HeroStatsLiveOrder by = sort.column == 1 ? HeroLiveByName : sort.column == 2 ? HeroLiveByWeight
-                          : sort.column == 3 ? HeroLiveByFood : sort.column == 4 ? HeroLiveByWater : HeroLiveBySlot;
+  bool sortShows = sort.column >= 0 && sort.column < 8 &&
+                   !(InMeasuredTable() && sort.column < (int)measuring->disabled.size() && measuring->disabled[sort.column]);
+  HeroStatsLiveOrder by = sortShows ? ORDERS[sort.column] : HeroLiveBySlot;
   std::vector<size_t> order = HeroStatsLive_Order(live.items, by, sort.descending);
   for (size_t k = 0; k < order.size(); k++)
   {
@@ -3187,13 +3216,18 @@ static void LiveList(const HeroStatsLiveChampion &live)
     }
     if (wraps) ImGui::PopTextWrapPos();
     if (indent > 0) ImGui::Unindent(indent);
-    ImGui::TableSetColumnIndex(2);
-    RightText(HeroStatsLive_WeightText(item.weight, false), item.inChest ? PART_RGB : TEXT_RGB);
+    // What it is worth as a weapon and as armor; blank for what is neither, and for what the list left out
+    int damage = HeroStatsLive_ListDamage(item), kinetic = HeroStatsLive_ListKinetic(item);
+    if (ImGui::TableSetColumnIndex(2) && damage >= 0) RightText(std::to_string(damage), DAMAGE_RGB);
+    if (ImGui::TableSetColumnIndex(3) && kinetic >= 0) RightText(std::to_string(kinetic), DAMAGE_RGB);
+    if (ImGui::TableSetColumnIndex(4) && item.armor >= 0) RightText(std::to_string(item.armor), ARMOR_RGB);
     // What eating or drinking it adds (a waterskin: per gulp); blank for what is neither
-    ImGui::TableSetColumnIndex(3);
+    ImGui::TableSetColumnIndex(5);
     if (item.food > 0) RightText(std::to_string(item.food), item.inChest ? PART_RGB : TEXT_RGB);
-    ImGui::TableSetColumnIndex(4);
+    ImGui::TableSetColumnIndex(6);
     if (item.water > 0) RightText(std::to_string(item.water), item.inChest ? PART_RGB : TEXT_RGB);
+    ImGui::TableSetColumnIndex(7);
+    RightText(HeroStatsLive_WeightText(item.weight, false), item.inChest ? PART_RGB : TEXT_RGB);
   }
   EndPageTable();
 }

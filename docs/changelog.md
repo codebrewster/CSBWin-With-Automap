@@ -26,6 +26,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 - The summary on an Overview tile (Records: biggest melee hit, biggest spell in all ...) wraps onto a second line instead of being cut off at the tile's edge.
 - Tooltips on rows, column headers and tiles say what a value counts and what it does not (Food wasted, kills by doors and falls, Tries against Attacks ...); they wrap instead of being cut off and have an edge that sets them apart from the rows.
 - The HTML export has them too: the column headers and the tiles show the explanations the rows already had.
+- Champions: a weapon shows its damage and kinetic energy, a bow or sling its kinetic energy and shoot damage, armor its strength and sharp resistance, under the pointer and in the list (new columns Damage, Kinetic, Armor; Weight is now the last column). The values are the dungeon's own, so a custom dungeon shows its own.
 - A climb down a rope onto monsters is counted on Exploration under Pit climbs ("onto monsters"), as a fall onto them is under Pit falls. Saves from before start it at 0.
 - Exploration's headline shows Teleports in place of Doors bashed open (a `csb.cfg` with the earlier default follows; your own choice stays).
 
