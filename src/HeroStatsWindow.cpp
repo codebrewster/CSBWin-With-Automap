@@ -112,7 +112,8 @@ void HeroStatsWindow_ReadSettings(void)
     std::string defaults = HeroStatsCatalogue_SettingDefault(setting);
     std::vector<char> text(defaults.begin(), defaults.end());
     text.push_back(0);
-    listSettings[i] = csb_get_config_string(SETTINGS_SECTION, HeroStatsCatalogue_SettingEntry(setting), text.data());
+    listSettings[i] = HeroStatsCatalogue_CurrentSetting(
+        setting, csb_get_config_string(SETTINGS_SECTION, HeroStatsCatalogue_SettingEntry(setting), text.data()));
     HeroStatsCatalogue_ApplySetting(setting, listSettings[i]);
   }
   // A value between the steps (csb.cfg edited by hand) goes to the nearest step

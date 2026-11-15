@@ -65,19 +65,23 @@ The window has three controls that never move:
   same whoever is picked. After them comes **Champions**, which is not a topic of the statistics
   but the party as it is now (see [Champions](#champions)).
 
-The **title strip** shows what you are looking at ("SYRA · Combat · Lv 3") and holds the
-**Export as HTML...** button (see [Sharing](#sharing-export-as-html)).
+After the level, at the right end of the first row, is the **Export as HTML...** button (see
+[Sharing](#sharing-export-as-html)).
 
 Every topic is built the same way:
 
-1. **Tiles** at the top: the topic's main numbers.
-2. **Numbers**: every number of the topic. For the Party there is one column per champion, the
+1. **Headline numbers** at the top (called tiles in `csb.cfg`): the topic's main numbers in a strip.
+2. **The party** (Exploration only): the numbers only the party has, in panels, see
+   [Exploration](#exploration).
+3. **Numbers**: every number of the topic, in groups under small headings (Combat: Dealing damage
+   and Attacks; Magic: Mana in, Mana out and Casts ...). For the Party there is one column per champion, the
    **Total** column (all the champions together), and a **Share** bar that splits the number in the champions' colours. For a
    champion there is their column, the Total column, and **Share of party**, a bar of their part.
    Numbers kept only for the party as a whole (steps, chests opened ...) show for the Party only.
-   A row indented further and greyed is a part of the row above it. Hover a number's name for a
-   word on what it counts, where there is one.
-3. **Detail tables** of the topic (weapons, spells, sources of damage, monsters ...). For the
+   A row indented behind a thin line is a part of the row above it. A name with a **dotted line**
+   under it has a hovertext: hover it for what the number counts and what is not in it. Names
+   that say it all have none.
+4. **Detail tables** of the topic (weapons, spells, sources of damage, monsters ...). For the
    Party they have a **Who** bar: how the line splits among the champions. Its header says what it
    splits: the column the table is sorted by, when that can be split (Weapons and Spells by Damage,
    Kills, Casts ...; Eaten and drunk by Eaten or Drunk), otherwise the table's main number
@@ -91,13 +95,17 @@ widest number, a bar takes about a quarter of its table, and the name takes the 
 is cut off. When the window is too narrow for a table, the table gives up room in this order:
 
 1. the bar (Share, Who) goes;
-2. then the columns worked out from others (Rate and Avg in Weapons);
-3. then long names go on under themselves on a second line;
-4. and at last the table scrolls sideways on its own, its names staying in place. The page
+2. then the champions' names in the header: their coloured dots stay (hover a dot for the name;
+   the buttons at the top show which colour is whose);
+3. then half of the space between the columns;
+4. then the columns worked out from others (Rate and Avg in Weapons);
+5. then long names go on under themselves on a second line;
+6. then numbers from 10,000 on are written short, 86k or 1.2M (hover one for the whole number);
+7. and at last the table scrolls sideways on its own, its names staying in place. The page
    itself never scrolls sideways.
 
 In a narrow window the champions' buttons, the level picker and the tabs go onto further lines,
-the level numbers become **◀ list ▶**, and the tiles stand two or one across. In a wide window
+the level numbers become **◀ list ▶**, and the headline numbers stand two or one across. In a wide window
 the sections of a topic stand side by side (Numbers beside Weapons, for example) once each fits
 in half the window, so a name and its numbers stay close together.
 
@@ -116,9 +124,11 @@ Throughout the window:
 ## Overview
 
 For the **Party**: tiles with the damage dealt, kills, deaths and tiles explored; a **card per
-champion** with their share of the party's damage and small bars for damage, kills, damage taken,
-healing, mana spent and deaths (each bar against the best champion); and **Key numbers**, one
-row from each topic. Click a card to see that champion.
+champion** with their share of the party's damage and bars for damage, kills, damage taken,
+experience (**Exp**), mana spent and deaths; and **Key numbers**, one row from each topic. Each
+bar is measured against the best champion, and all bars start at the same place and are equally
+long on every card, so a champion's longest bar is what they are best at. Click a card to see
+that champion.
 
 For a **champion**: their damage, kills, damage taken and deaths; a **tile per topic** with its
 main numbers (click one to open the topic); and the Key numbers next to the party's.
@@ -235,7 +245,9 @@ A gulp from an empty waterskin or flask does not count.
 
 ## Exploration
 
-Most of these are the party's, not a champion's; a champion's Exploration shows the doors only.
+Most of these are the party's, not a champion's. They stand in four panels under **The party**:
+**Movement**, **Travel**, **Time** and **Discoveries**. The doors are a table under them, with a
+column per champion; a champion's Exploration shows the doors only.
 
 | Number | What it counts |
 |---|---|
@@ -246,8 +258,9 @@ Most of these are the party's, not a champion's; a champion's Exploration shows 
 | **Wall bumps** | Moves that ran into a wall, a closed door or a solid false wall |
 | **Monster bumps** | Moves that were stopped by a monster standing on the next square |
 | **Teleports** | Teleporters that moved the party. Each teleporter in a chain counts. |
-| **Telefrags** | Teleports that ended on a square with monsters, which they killed at once. Counted on the level of the destination; a chain counts once, for its last square. The monsters they killed are the Telefrag kills on the Monsters tab. |
+| **onto monsters** (under Teleports) | Telefrags: teleports that ended on a square with monsters, which kills the whole group at once. Counted on the level of the destination; a chain counts once, for its last square. The monsters are Telefragged on the Monsters tab. |
 | **Pit falls** | Pits the party fell into. Each pit of a chain counts, on the level of the pit. |
+| **onto monsters** (under Pit falls) | Landings: the party came down a pit onto a square with monsters, which kills the whole group at once (a way to kill even a dragon). Counted on the level it landed on. The monsters are Landed on on the Monsters tab. |
 | **Pit climbs** | Pits the party climbed down with a rope (its CLIMB DOWN action), so nobody was hurt. Pits further down the same shaft are falls. |
 | **Time (ticks)** | Game ticks spent on the level, by the game's own clock, with **Asleep (ticks)** below it. How long a tick lasts in real time depends on the game speed. |
 | **Doors bashed open** | Doors a champion broke down ("bashed" is the game's own word), with **Smashed** (an attack), **Shot open** (a thrown or fired item) and **By spell** (a spell's missile or its explosion) below it. Doors broken by monsters or traps are not counted. |
@@ -264,12 +277,25 @@ new game, before the first champion joins.
 
 ## Monsters
 
-The numbers: **Kills** (by the champions), then **Crushed by doors**, **Killed by falls** and
-**Other causes** (clouds nobody is known to have made, traps, other monsters, the game removing them,
-telefrags) and **Telefrag kills**, the part of the Other causes that teleports onto a monster made.
+The numbers: **Monsters killed**, every kill whatever the cause, and under it the six causes
+that add up to it:
 
-**Monsters killed** has one row per kind of monster. For the Party: one column per champion,
-**Door**, **Pit** and **Other** when something was killed that way, **All**, and a **Who** bar.
+| Cause | What it counts |
+|---|---|
+| **Champions** | the champions' kills (Kills on the other tabs) |
+| **Crushed by doors** | monsters a closing door killed |
+| **Fell into pits** | monsters killed by their own fall into a pit |
+| **Telefragged** | the party was teleported onto their square |
+| **Landed on** | the party came down a pit onto their square |
+| **Other causes** | clouds nobody is known to have made, traps, other monsters, the game removing them |
+
+**Monsters killed** (the table) has one row per kind of monster. For the Party: one column per
+champion, **Door**, **Pit**, **Telefrag**, **Landed** and **Other** when something was killed that
+way, **All**, and a **Who** bar.
+
+In a game saved with an earlier version (1.4.0 or before), landings are among the Other causes, and the monsters that
+telefrags killed stay in the table's Other column: the old save does not say which monsters they
+were. The Telefragged number still counts them.
 For a champion: the monsters they killed. Monsters carry the names the dungeon gives them; kinds
 that look alike (variants the dungeon gives no name of their own) share one row.
 
@@ -443,6 +469,9 @@ Share bar.
 
 ## Numbers
 
+In a table too narrow for them, numbers from 10,000 on are written short: 86k, 1.2M. Hover one
+for the whole number.
+
 Numbers above 999 are written with a comma between the thousands, for example 4,261. The
 `stats_separator` entry in `csb.cfg` changes that, see [Settings](#settings-in-csbcfg). The HTML
 export uses the same.
@@ -460,7 +489,7 @@ Ranks gained most first and newest first, Records in their groups.
 
 ## Sharing: export as HTML
 
-Click **Export as HTML...** in the title strip. The game writes a file named like
+Click **Export as HTML...** at the right end of the first row. The game writes a file named like
 `statistics-2026-10-31-153000.html` into the game folder (the folder the game was started in,
 where `csb.cfg` is), and tells you where. Click **Open** in that message to look at it in your web browser.
 
@@ -540,7 +569,7 @@ The window keeps these in the `[settings]` section of `csb.cfg`:
 | `stats_layout` | 2: `stats_page` holds a topic. Without it, `stats_page` is read as the front page of earlier versions (3 Monsters, 4 Items; the others open the Overview). |
 | `stats_separator` | The mark between thousands: `comma` (4,261, the default), `dot` (4.261), `space` (4 261), `apostrophe` (4'261) or `none` (4261). Edit it while the game is closed. |
 | `stats_zoom` | The zoom in percent: 70, 80, 90, 100 (the default), 110, 125, 150, 175, 200 or 250. Another number is taken as the nearest of these. |
-| `stats_closed` | Which sections are folded, added up: 1 Weapons, 2 Spells, 4 Damage taken by source, 8 Healing by source, 16 Deaths, 32 Eaten and drunk, 64 Items, 128 Monsters killed, 256 Numbers, 512 Key numbers, 1024 Skills, 2048 Experience by source, 4096 Ranks gained, 8192 Records, 16384 Attributes, 32768 Ranks, 65536 Inventory (the last three on the Champions tab); 0 none |
+| `stats_closed` | Which sections are folded, added up: 1 Weapons, 2 Spells, 4 Damage taken by source, 8 Healing by source, 16 Deaths, 32 Eaten and drunk, 64 Items, 128 Monsters killed, 256 Numbers, 512 Key numbers, 1024 Skills, 2048 Experience by source, 4096 Ranks gained, 8192 Records, 16384 Attributes, 32768 Ranks, 65536 Inventory (the last three on the Champions tab), 131072 The party (Exploration's panels); 0 none |
 | `stats_inventory` | How the Champions tab shows a champion's inventory: `picture` (the default) or `list` |
 
 Who is picked, Per level and its choices are not kept: the window opens on the Party.
@@ -561,7 +590,7 @@ closed: the game writes `csb.cfg` again when you leave it.
 | `stats_tiles_survival` | The tiles of Survival | `taken, healed, deaths, resurrected` |
 | `stats_tiles_food` | The tiles of Food & items | `eaten, drunk, food_wasted, picked_up` |
 | `stats_tiles_exploration` | The tiles of Exploration | `tiles_explored, steps, ticks, doors_bashed` |
-| `stats_tiles_monsters` | The tiles of Monsters | `kills, door_kills, pit_kills, other_kills` |
+| `stats_tiles_monsters` | The tiles of Monsters | `monsters_killed, kills, telefragged, landed_on` (the earlier default `kills, door_kills, pit_kills, other_kills` is replaced by it) |
 | `stats_tiles_experience` | The tiles of Experience | `fighter, ninja, priest, wizard` |
 | `stats_tiles_records` | The tiles of Records | `biggest_melee_hit, biggest_ranged_hit, biggest_spell_total, biggest_hit_taken` |
 | `stats_key_numbers` | The rows of Key numbers, in their order (at most 24) | `damage, kills, taken, healed, mana_spent, deaths, eaten, drunk, doors_bashed, steps, tiles_explored, ticks` |
@@ -584,8 +613,8 @@ closed: the game writes `csb.cfg` again when you leave it.
 | Magic | `mana_generated`, `mana_regeneration`, `mana_potions`, `mana_spent`, `mana_on_spells`, `mana_successful`, `mana_wasted`, `runes_cleared`, `runes_not_cast`, `casts`, `casts_successful`, `casts_failed` |
 | Survival | `taken`, `healed`, `heal_regeneration`, `heal_potions`, `heal_action`, `healing_given`, `deaths`, `resurrected`, `wipes`, `reloads` |
 | Food & items | `eaten`, `drunk`, `food_gained`, `food_wasted`, `water_gained`, `water_wasted`, `picked_up`, `used_in_walls` |
-| Exploration | `steps`, `tiles_walked`, `tiles_explored`, `turns`, `wall_bumps`, `monster_bumps`, `teleports`, `telefrags`, `telefrag_kills`, `pit_falls`, `pit_climbs`, `ticks`, `sleep_ticks`, `doors_bashed`, `doors_smashed`, `doors_shot`, `doors_by_spell`, `doors_by_zo`, `doors_button_opened`, `doors_button_closed`, `chests`, `scrolls`, `wall_texts`, `champions_seen`, `champions_viewed` |
-| Monsters | `kills`, `door_kills`, `pit_kills`, `other_kills` |
+| Exploration | `steps`, `tiles_walked`, `tiles_explored`, `turns`, `wall_bumps`, `monster_bumps`, `teleports`, `telefrags`, `pit_falls`, `landings`, `pit_climbs`, `ticks`, `sleep_ticks`, `doors_bashed`, `doors_smashed`, `doors_shot`, `doors_by_spell`, `doors_by_zo`, `doors_button_opened`, `doors_button_closed`, `chests`, `scrolls`, `wall_texts`, `champions_seen`, `champions_viewed` |
+| Monsters | `monsters_killed`, `kills`, `door_kills`, `pit_kills`, `telefragged` (also read as `telefrag_kills`), `landed_on`, `other_kills` |
 | Experience | `experience`, `fighter`, `ninja`, `priest`, `wizard`, `ranks_gained` |
 | Records | `biggest_melee_hit`, `biggest_ranged_hit`, `biggest_spell_hit`, `biggest_spell_total`, `most_kills_at_once`, `kill_streak`, `biggest_hit_taken`, `biggest_spell_hit_taken`, `closest_call`, `biggest_heal`, `most_mana_on_spell`, `biggest_experience_gain`, `heaviest_load`, `longest_fall`, `longest_teleport_chain`, `longest_sleep`, `most_poison`, `most_poison_doses`, `most_poison_per_36_ticks`, `longest_poisoned`, `most_poisonings`, `poison_doses_suffered`, `most_wounds`, `most_wounds_one_blow`, `wounds_suffered` |
 

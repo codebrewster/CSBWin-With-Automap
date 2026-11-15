@@ -86,6 +86,10 @@ enum HeroStatsSetting { HeroSettingOverviewTiles, HeroSettingChampionTiles, Hero
                         HeroSettingKeyNumbers, HERO_SETTING_COUNT };
 const char *HeroStatsCatalogue_SettingEntry(HeroStatsSetting setting);   // "stats_tiles_combat"
 std::string HeroStatsCatalogue_SettingDefault(HeroStatsSetting setting); // the default list as names
+// What csb.cfg holds for the setting, brought up to date: a list that is the default an earlier
+// version wrote (the Monsters tiles before Monsters killed) becomes today's default; any other
+// list comes back as it is
+std::string HeroStatsCatalogue_CurrentSetting(HeroStatsSetting setting, const std::string &text);
 // Takes the setting's list (at most 4 tiles); a list with no number it knows keeps the default
 void HeroStatsCatalogue_ApplySetting(HeroStatsSetting setting, const std::string &text);
 std::vector<HeroStatsNumber> HeroStatsCatalogue_DefaultTiles(int topic);

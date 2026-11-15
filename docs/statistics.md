@@ -19,12 +19,12 @@ builds; only the hooks and the window touch the game.
 | `HeroStatsPending` | Damage to a hero is collected and applied later (`DisplayCharacterDamage`); this names the source of the batch that killed. |
 | `HeroStatsRunes` | Mana is taken rune by rune as it is clicked; this keeps each rune's cost so the spell's row gets its mana when the spell resolves. |
 | `HeroStatsGame` | Decides whether a loaded game is the one in play, so that deaths, wipes and reloads survive a reload. |
-| `HeroStatsCatalogue` | **Every number the window shows, defined once**: its label, its help text, the topic it belongs to, and what kind of number it is (party only, whole run only, bad news, a ratio). `HeroStatsCatalogue_Record` fills all of them for one champion and level. The pages, Per level and the HTML export are all made from this list, so a number is either everywhere it applies or nowhere. |
+| `HeroStatsCatalogue` | **Every number the window shows, defined once**: its label, its help text (only where the label and its place do not say it), the topic it belongs to, and what kind of number it is (party only, whole run only, bad news, a ratio). A topic's rows come in groups with a small heading (`HeroStatsTopicGroup`); a group of numbers only the party has is a panel, not table rows. A row can have a label of its own in its place ("onto monsters" under Teleports). `HeroStatsCatalogue_Record` fills all of them for one champion and level. The pages, Per level and the HTML export are all made from this list, so a number is either everywhere it applies or nowhere. |
 | `HeroStatsView` | Formatting and the window's choices: thousands separator, spell and cause names, the champion columns, the level picker. |
 | `HeroStatsPages` | The numbers of each page as the window draws them: a topic's tiles, its Numbers rows and its detail tables (weapons, spells, damage taken, healing, deaths, food, items, monsters), the Overview cards, and the Per level tables. On the Party's page each line also holds every champion's own numbers, for the Who bar. |
 | `HeroStatsExport` | The whole window as one HTML file: the catalogue and every page's numbers as JSON, and a script in the file that draws the same pages. |
 | `HeroStatsDump` | Every non-zero count as text, printed on each save with `map_debug = 1`. |
-| `HeroStatsLayout` | How the pages follow the window's width: what a table gives up when it does not fit, how many cards or tiles stand in a row, when sections stand side by side. No engine, no ImGui; the export follows the same rules in its script. |
+| `HeroStatsLayout` | How the pages follow the window's width: what a table gives up when it does not fit and in which order (its bar, the champions' names, half its padding, the worked-out columns, the label's single line, the long form of big numbers; then it scrolls), how many cards, tiles or panels stand in a row, when sections stand side by side. No engine, no ImGui; the export follows the same rules in its script. |
 
 **Engine-facing** (link only into the game):
 
@@ -47,6 +47,9 @@ which the engine often no longer knows when the damage lands, so:
   the source of that damage. The pairs nest, and the outermost names the source.
 - `HeroStats_BeginMonsterBlow` / `HeroStats_EndMonsterBlow` do the same for a door or a pit that
   kills a monster.
+- `HeroStats_BeginArrivalOnMonsters` / `HeroStats_EndArrivalOnMonsters` around the death of the
+  group the party arrived on (`MoveObject`): a telefrag when a teleporter moved the party, a
+  landing when a pit did. The event and the kills count on the level of arrival.
 
 Everything counts on the level the party is on (`HeroStats_OnPartyOnLevel`, called from
 `AutoMap_OnEngineTick`).
@@ -71,8 +74,9 @@ seen and viewed) are taken from the map's memory when the window shows them
 1. Count it in `HeroStats` (and in `Serialize`, with a new `HeroStats::LAYOUT`; the map's format
    version stays), with a hook
    in the engine.
-2. Add it to the catalogue: an entry in `HeroStatsNumber`, its `HeroStatsNumberInfo`, its place
-   in a topic's rows (and tiles, if it is one of the four main numbers), and its value in
+2. Add it to the catalogue: an entry in `HeroStatsNumber`, its `HeroStatsNumberInfo` and its name
+   in `KEYS`, its place in a group of a topic (`MakeTopics`; and in the tiles, if it is one of the
+   four main numbers), and its value in
    `HeroStatsCatalogue_Record` and `HeroStatsCatalogue_Value`.
 3. That is all the window and the export need: the topic's Numbers table, Per level, the Overview
    and the HTML file pick it up from the catalogue. `HeroStatsCatalogueTest` checks that every

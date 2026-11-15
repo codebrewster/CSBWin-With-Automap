@@ -403,6 +403,15 @@ static void HovertextsSayWhatLabelsDoNot(void)
   CHECK(!std::string(HeroStatsCatalogue_Info(HeroNumLandedOn).help).empty());
   CHECK(HeroStatsCatalogue_ParseNumbers("telefrag_kills", 4) == std::vector<HeroStatsNumber>(1, HeroNumTelefragged));
   CHECK(HeroStatsCatalogue_Key(HeroNumMonstersKilled) == "monsters_killed" && HeroStatsCatalogue_Key(HeroNumLandings) == "landings");
+  // A csb.cfg that still holds the Monsters tiles the game once wrote as defaults gets the new ones;
+  // a list the player chose stays
+  CHECK(HeroStatsCatalogue_CurrentSetting(HeroSettingMonstersTiles, "kills, door_kills, pit_kills, other_kills") ==
+        "monsters_killed, kills, telefragged, landed_on");
+  CHECK(HeroStatsCatalogue_CurrentSetting(HeroSettingMonstersTiles, "Kills door_kills,pit_kills , other_kills") ==
+        "monsters_killed, kills, telefragged, landed_on");
+  CHECK(HeroStatsCatalogue_CurrentSetting(HeroSettingMonstersTiles, "kills, other_kills") == "kills, other_kills");
+  CHECK(HeroStatsCatalogue_CurrentSetting(HeroSettingCombatTiles, "kills, door_kills, pit_kills, other_kills") ==
+        "kills, door_kills, pit_kills, other_kills");
 }
 
 void TestHeroStatsCatalogue(void)

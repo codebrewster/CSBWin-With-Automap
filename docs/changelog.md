@@ -16,6 +16,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 - A table too wide for the window gives up, one after the other: its bar, the champions' names in the header (their coloured dots stay; hover for the name), half its padding, the worked-out columns, the label's single line, and the long form of big numbers (86k, 1.2M; hover for the number). Only then does it scroll sideways.
 - A dotted line under a label says that it has a hovertext.
 - The HTML export has the same new look, groups, panels, narrow-width steps and hovertexts (in its own tooltip box, with the dotted line).
+- The tiles of Monsters are Monsters killed, By champions, Telefragged and Landed on; a `csb.cfg` that still holds the earlier default (`kills, door_kills, pit_kills, other_kills`) gets the new one. New names for `csb.cfg`: `monsters_killed`, `telefragged`, `landed_on`, `landings`.
 - Hovertexts only where the label does not say it: the ones that repeated their label are gone; new ones say what is in Damage taken, Hit rate, Damage per hit, Friendly fire caused, Resurrected, Eaten, Teleports and Pit falls.
 - New number Monster bumps (Exploration): moves that were stopped by a monster on the next square, next to Wall bumps.
 - A champion's card on the Overview shows Experience instead of Healed (too close to Damage taken); Healed is still in the Key numbers.

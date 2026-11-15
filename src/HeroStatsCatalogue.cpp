@@ -333,6 +333,14 @@ std::string HeroStatsCatalogue_SettingDefault(HeroStatsSetting setting)
   return HeroStatsCatalogue_JoinNumbers(SettingDefaults(setting));
 }
 
+std::string HeroStatsCatalogue_CurrentSetting(HeroStatsSetting setting, const std::string &text)
+{
+  if (setting != HeroSettingMonstersTiles) return text;
+  static const std::vector<HeroStatsNumber> before = {HeroNumKills, HeroNumDoorKills, HeroNumPitKills, HeroNumOtherKills};
+  if (HeroStatsCatalogue_ParseNumbers(text, MOST_TILES + 1) != before) return text;
+  return HeroStatsCatalogue_SettingDefault(setting);
+}
+
 void HeroStatsCatalogue_ApplySetting(HeroStatsSetting setting, const std::string &text)
 {
   bool keyNumbers = setting == HeroSettingKeyNumbers;
