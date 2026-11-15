@@ -182,9 +182,15 @@ static void SummaryIsTheFirstThreeTiles(void)
   record.value[HeroNumHitRate] = -1;
   CHECK(HeroStatsCatalogue_Summary(HeroTopicCombat, record, 7, HERO_STATS_WHOLE_RUN) ==
         "4,412 damage dealt \xc2\xb7 31 kills \xc2\xb7 0 friendly fire caused");
-  // Tiles that do not apply are skipped: a champion's Exploration has only the doors
+  // When no tile applies (Exploration's are the party's numbers), a champion gets the topic's own top rows
   record.value[HeroNumDoorsBashed] = 2;
-  CHECK(HeroStatsCatalogue_Summary(HeroTopicExploration, record, 7, HERO_STATS_WHOLE_RUN) == "2 doors bashed open");
+  CHECK(HeroStatsCatalogue_Summary(HeroTopicExploration, record, 7, HERO_STATS_WHOLE_RUN).find("2 doors bashed open") == 0);
+  std::vector<HeroStatsNumber> own = HeroStatsCatalogue_TilesFor(HeroStatsCatalogue_Topic(HeroTopicExploration).tiles, HeroTopicExploration, 7, HERO_STATS_WHOLE_RUN);
+  CHECK(!own.empty() && own[0] == HeroNumDoorsBashed);
+  for (size_t i = 0; i < own.size(); i++) CHECK(HeroStatsCatalogue_Applies(own[i], 7, HERO_STATS_WHOLE_RUN));
+  // Tiles that do apply are kept as they are, the others skipped
+  std::vector<HeroStatsNumber> party = HeroStatsCatalogue_TilesFor(HeroStatsCatalogue_Topic(HeroTopicExploration).tiles, HeroTopicExploration, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN);
+  CHECK(party.size() == 4 && party[3] == HeroNumTeleports);
 }
 
 // One number alone is what the whole record says (Per level asks for one number per champion)
@@ -419,6 +425,11 @@ static void HovertextsSayWhatLabelsDoNot(void)
   CHECK(HeroStatsCatalogue_CurrentSetting(HeroSettingMonstersTiles, "kills, other_kills") == "kills, other_kills");
   CHECK(HeroStatsCatalogue_CurrentSetting(HeroSettingCombatTiles, "kills, door_kills, pit_kills, other_kills") ==
         "kills, door_kills, pit_kills, other_kills");
+  // The Exploration tiles the game once wrote as defaults get Teleports; a chosen list stays
+  CHECK(HeroStatsCatalogue_CurrentSetting(HeroSettingExplorationTiles, "tiles_explored, steps, ticks, doors_bashed") ==
+        "tiles_explored, steps, ticks, teleports");
+  CHECK(HeroStatsCatalogue_CurrentSetting(HeroSettingExplorationTiles, "steps, doors_bashed") == "steps, doors_bashed");
+  CHECK(HeroStatsCatalogue_SettingDefault(HeroSettingExplorationTiles) == "tiles_explored, steps, ticks, teleports");
 }
 
 void TestHeroStatsCatalogue(void)

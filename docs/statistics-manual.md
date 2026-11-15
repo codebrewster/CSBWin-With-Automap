@@ -589,7 +589,7 @@ closed: the game writes `csb.cfg` again when you leave it.
 | `stats_tiles_magic` | The tiles of Magic | `mana_generated, mana_spent, casts, mana_wasted` |
 | `stats_tiles_survival` | The tiles of Survival | `taken, healed, deaths, resurrected` |
 | `stats_tiles_food` | The tiles of Food & items | `eaten, drunk, food_wasted, picked_up` |
-| `stats_tiles_exploration` | The tiles of Exploration | `tiles_explored, steps, ticks, doors_bashed` |
+| `stats_tiles_exploration` | The tiles of Exploration | `tiles_explored, steps, ticks, teleports` |
 | `stats_tiles_monsters` | The tiles of Monsters | `monsters_killed, kills, telefragged, landed_on` (the earlier default `kills, door_kills, pit_kills, other_kills` is replaced by it) |
 | `stats_tiles_experience` | The tiles of Experience | `fighter, ninja, priest, wizard` |
 | `stats_tiles_records` | The tiles of Records | `biggest_melee_hit, biggest_ranged_hit, biggest_spell_total, biggest_hit_taken` |

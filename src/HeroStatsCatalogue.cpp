@@ -196,7 +196,7 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
               {{HeroNumEaten, 0}, {HeroNumDrunk, 0}, {HeroNumFoodGained, 0}, {HeroNumFoodWasted, 1, "Wasted (over full)"},
                {HeroNumWaterGained, 0}, {HeroNumWaterWasted, 1, "Wasted (over full)"}}},
              {"Items", false, {{HeroNumPickedUp, 0}, {HeroNumUsedInWalls, 0}}}});
-  topics[HeroTopicExploration] = {"Exploration", {}, {HeroNumTilesExplored, HeroNumSteps, HeroNumTicks, HeroNumDoorsBashed}, {}};
+  topics[HeroTopicExploration] = {"Exploration", {}, {HeroNumTilesExplored, HeroNumSteps, HeroNumTicks, HeroNumTeleports}, {}};
   SetGroups(&topics[HeroTopicExploration],
             {{"Movement", true,
               {{HeroNumSteps, 0}, {HeroNumTurns, 0}, {HeroNumTilesWalked, 0}, {HeroNumTilesExplored, 0}, {HeroNumBumps, 0}, {HeroNumMonsterBumps, 0}}},
@@ -335,8 +335,10 @@ std::string HeroStatsCatalogue_SettingDefault(HeroStatsSetting setting)
 
 std::string HeroStatsCatalogue_CurrentSetting(HeroStatsSetting setting, const std::string &text)
 {
-  if (setting != HeroSettingMonstersTiles) return text;
-  static const std::vector<HeroStatsNumber> before = {HeroNumKills, HeroNumDoorKills, HeroNumPitKills, HeroNumOtherKills};
+  static const std::vector<HeroStatsNumber> monstersBefore = {HeroNumKills, HeroNumDoorKills, HeroNumPitKills, HeroNumOtherKills};
+  static const std::vector<HeroStatsNumber> explorationBefore = {HeroNumTilesExplored, HeroNumSteps, HeroNumTicks, HeroNumDoorsBashed};
+  if (setting != HeroSettingMonstersTiles && setting != HeroSettingExplorationTiles) return text;
+  const std::vector<HeroStatsNumber> &before = setting == HeroSettingMonstersTiles ? monstersBefore : explorationBefore;
   if (HeroStatsCatalogue_ParseNumbers(text, MOST_TILES + 1) != before) return text;
   return HeroStatsCatalogue_SettingDefault(setting);
 }
@@ -688,15 +690,26 @@ int HeroStatsCatalogue_TopicOfOldPage(int oldPage)
   return HeroTopicOverview;
 }
 
+std::vector<HeroStatsNumber> HeroStatsCatalogue_TilesFor(const std::vector<HeroStatsNumber> &tiles, int topic, HeroStatsChampion who, int level)
+{
+  std::vector<HeroStatsNumber> shown;
+  for (size_t i = 0; i < tiles.size(); i++)
+    if (HeroStatsCatalogue_Applies(tiles[i], who, level)) shown.push_back(tiles[i]);
+  if (!shown.empty() || tiles.empty()) return shown;
+  const HeroStatsTopicInfo &info = HeroStatsCatalogue_Topic(topic);
+  for (size_t i = 0; i < info.rows.size(); i++)
+    if (info.rows[i].depth == 0 && HeroStatsCatalogue_Applies(info.rows[i].number, who, level)) shown.push_back(info.rows[i].number);
+  return shown;
+}
+
 std::string HeroStatsCatalogue_Summary(int topic, const HeroStatsRecord &record, HeroStatsChampion who, int level)
 {
   std::string summary;
   int shown = 0;
-  const HeroStatsTopicInfo &info = HeroStatsCatalogue_Topic(topic);
-  for (size_t i = 0; i < info.tiles.size() && shown < 3; i++)
+  std::vector<HeroStatsNumber> tiles = HeroStatsCatalogue_TilesFor(HeroStatsCatalogue_Topic(topic).tiles, topic, who, level);
+  for (size_t i = 0; i < tiles.size() && shown < 3; i++)
   {
-    HeroStatsNumber number = info.tiles[i];
-    if (!HeroStatsCatalogue_Applies(number, who, level)) continue;
+    HeroStatsNumber number = tiles[i];
     if ((NUMBERS[number].isRatio || NUMBERS[number].isRecord) && record.value[number] < 0) continue;  // "- hit rate" says nothing
     std::string label = NUMBERS[number].label;
     label[0] = (char)tolower((unsigned char)label[0]);

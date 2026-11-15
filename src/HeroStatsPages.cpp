@@ -839,8 +839,8 @@ HeroStatsTopicPage HeroStatsPages_Topic(const HeroStats &stats, const std::vecto
   std::vector<HeroStatsNumber> tiles = info.tiles;
   if (topic == HeroTopicOverview && !isParty)
     tiles = HeroStatsCatalogue_ChampionTiles();
-  for (size_t t = 0; t < tiles.size() && page.tiles.size() < 4; t++)
-    if (HeroStatsCatalogue_Applies(tiles[t], who, level)) page.tiles.push_back(tiles[t]);
+  tiles = HeroStatsCatalogue_TilesFor(tiles, topic, who, level);
+  for (size_t t = 0; t < tiles.size() && page.tiles.size() < 4; t++) page.tiles.push_back(tiles[t]);
 
   for (size_t g = 0; g < info.groups.size(); g++)
   {
