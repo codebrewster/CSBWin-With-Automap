@@ -9,6 +9,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 **Statistics**
 - New numbers Telefrags and Telefrag kills (Exploration): teleports that ended on a square with monsters, which they killed, and how many monsters that was.
+- The party falling down a pit onto monsters, which kills them at once, is counted as a landing; the monsters a telefrag or a landing killed are counted with that cause, on the level the party arrived on.
 - New number Monster bumps (Exploration): moves that were stopped by a monster on the next square, next to Wall bumps.
 - A champion's card on the Overview shows Experience instead of Healed (too close to Damage taken); Healed is still in the Key numbers.
 - During a replay, a click on a value in the Records table goes to that tick in the game window and pauses there, as if typed into its "pause at" box.

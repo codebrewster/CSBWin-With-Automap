@@ -1020,7 +1020,8 @@ void ProcessMonsterDeleteFilter(i32 mapX, i32 mapY, DELETEMONSTERPARAMETERS *pdm
     {
       pRecord[subtype]++;
     };
-    // The party arriving on a cell kills its whole group at once (a telefrag)
+    // The party arriving on a cell kills its whole group at once (a telefrag, or a landing
+    // from a pit)
     int members = (pdmp->why == DMW_Movement2) ? pMonster->numMonM1() + 1 : 1;
     for (int member = 0; member < members; member++) HeroStats_OnMonsterDied(mt, subtype, pdmp->why);
   };
@@ -2988,6 +2989,7 @@ i16 MoveObject(const RN        object,
   i16 LOCAL_18=0;
   bool item16Attached=false;//LOCAL_16 = false;
   bool partyTeleported=false; // a teleporter moved the party in this call
+  bool partyFell=false;       // a pit did; of the two, the one that moved it last is set
   i16 LOCAL_14=0;
   MPO monsterPartyOther=MPO_unknown;//LOCAL_12=0;//1 if monster; 2 if party; else 3
   i16 objectPosition=0;
@@ -3102,6 +3104,7 @@ i16 MoveObject(const RN        object,
           AutoMap_OnPartyTeleported(curLevel, newX, newY);
           HeroStats_OnPartyTeleported(curLevel, newX, newY);
           partyTeleported = true;
+          partyFell = false;
         }
         else if (DB1A2 != pretendTeleporter)
         { // A missile, item or monster that the party can watch gets taken or turned
@@ -3225,7 +3228,12 @@ i16 MoveObject(const RN        object,
           fprintf(GETFILE(TraceFile),"Object %04x falls from %02x(%02x,%02x)",
                  object.ConvertToInteger(),curLevel,newX,newY);
           AutoMap_OnFellThroughPit(curLevel, newX, newY, objD7 == RNnul);
-          if (objD7 == RNnul) HeroStats_OnPartyWentDownPit(curLevel, newX, newY);
+          if (objD7 == RNnul)
+          {
+            HeroStats_OnPartyWentDownPit(curLevel, newX, newY);
+            partyFell = true;
+            partyTeleported = false;
+          };
           curLevel = IncrementLevel(curLevel, 1, &newX, &newY);
           if (TimerTraceActive)
           fprintf(GETFILE(TraceFile),"to %02x(%02x,%02x)\n",
@@ -3491,8 +3499,9 @@ i16 MoveObject(const RN        object,
     if (objD7 != RNeof)
     {
       DELETEMONSTERPARAMETERS dmp(DMW_Movement2, -1);
-      if (partyTeleported) HeroStats_OnPartyTelefragged(curLevel, GetRecordAddressDB4(objD7)->numMonM1() + 1);
+      HeroStats_BeginArrivalOnMonsters(curLevel, partyTeleported, partyFell);
       ProcessMonsterDeleteFilter(d.partyX, d.partyY, &dmp, -1);
+      HeroStats_EndArrivalOnMonsters();
       DropMonsterRemains(d.partyX, d.partyY, objD7, 1, d.LoadedLevel, dmp.dropResidue<2);
       DeleteMonster(d.partyX, d.partyY, pmmr);
     };

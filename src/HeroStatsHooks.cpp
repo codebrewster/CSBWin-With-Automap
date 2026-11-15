@@ -708,11 +708,25 @@ void HeroStats_OnPartyTeleported(int level, int x, int y)
   store.Records().CountTeleport(level, (uint32_t)d.Time);
 }
 
-void HeroStats_OnPartyTelefragged(int level, int monsters)
+// The group the party arrived on is dying: its kills take this cause, on this level
+static bool arriving = false;
+static HeroBlowBy arrivalBy = HeroBlowByOther;
+static int arrivalLevel = 0;
+
+void HeroStats_BeginArrivalOnMonsters(int level, bool teleported, bool fell)
 {
   if (d.partyLevel == LEVEL_OF_THE_PRISON_SCREEN) return;
-  (void)monsters;
-  store.CountTelefrag(level);
+  arriving = true;
+  arrivalBy = teleported ? HeroBlowByTelefrag : fell ? HeroBlowByLanding : HeroBlowByOther;
+  arrivalLevel = level;
+  store.MarkLevelVisited(level);
+  if (teleported) store.CountTelefrag(level);
+  else if (fell) store.CountLanding(level);
+}
+
+void HeroStats_EndArrivalOnMonsters(void)
+{
+  arriving = false;
 }
 
 void HeroStats_OnPartyWentDownPit(int level, int x, int y)
@@ -1083,6 +1097,11 @@ void HeroStats_EndMonsterBlow(void)
 void HeroStats_OnMonsterDied(int monsterType, int variant, int why)
 {
   // DMW_Movement1 is also how the last monster of a group a pit killed leaves the game
+  if (why == DMW_Movement2 && arriving)
+  {
+    store.CountMonsterKill(arrivalLevel, monsterType, variant, HeroStatsBlow_Nobody(arrivalBy));
+    return;
+  }
   bool takesLastBlow = why == DMW_Damage || why == DMW_Movement1;
   HeroStatsBlow blow = takesLastBlow && lastBlowSet ? lastBlow : HeroStatsBlow_Nobody(HeroBlowByOther);
   store.CountMonsterKill(PartyLevel(), monsterType, variant, blow);
