@@ -255,8 +255,8 @@ i16 CREATE(const char *fname, const char *flags, bool dieIfError)
   {
     if (dieIfError)
     {
-      char msg[100];
-      sprintf(msg,"Cannot create %s",fname);
+      char msg[1100];
+      snprintf(msg,sizeof(msg),"Cannot create %s",fname);
       die(0,msg);
     }
     else
@@ -530,9 +530,9 @@ i16 OPEN(const char *name, const char *ref)
   GETFILETABLE((ui16)i)->SetFile(f, fileName.m_fName);
   if (GETFILE((ui16)i)==NULL)
   {
-    char msg[100];
-    sprintf(msg,"Cannot open %s",name);
-//    die(0,msg);
+    // A name that does not exist yet is normal (the first save under a new name looks for
+    // the file it is about to rotate), so there is nothing to report. A message built into
+    // a fixed buffer overflowed for a long path.
     return -1;
   };
   GETFILETABLE((ui16)i)->Enciphered(false);

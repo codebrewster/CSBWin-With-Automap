@@ -38,6 +38,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 **Game window**
 - The party position in the top bar reads "L12 (32,43)" instead of "Party 12,32,43" and is right-aligned by its real width, so it is no longer cut off.
+- File > Save game under a new name no longer crashes the game when the path of the new file is long ("buffer overflow detected").
 
 ## 1.4.0 (2026-11-14)
 
