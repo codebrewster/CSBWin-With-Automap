@@ -96,3 +96,18 @@ std::vector<int> HeroStatsLayout_Flow(const std::vector<float> &heights)
   }
   return columns;
 }
+
+HeroStatsListValues HeroStatsLayout_ListValues(float needed, float kinetic, float values, float available)
+{
+  if (needed <= available) return HeroListAllValues;
+  if (needed - kinetic <= available) return HeroListDamageAndArmor;
+  return HeroListNoValues;
+}
+
+HeroStatsPartyStep HeroStatsLayout_PartyStep(int count, int across, float withBoth, float withInventory, float available)
+{
+  if (count <= 0 || across != count) return HeroPartyPlain;
+  if (withBoth <= available) return HeroPartyAttributesAndInventory;
+  if (withInventory <= available) return HeroPartyInventory;
+  return HeroPartyPlain;
+}

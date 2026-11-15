@@ -46,5 +46,17 @@ int HeroStatsLayout_Across(int count, float available, float smallest, float gap
 bool HeroStatsLayout_TwoColumns(const std::vector<float> &fullWidths, float available, float gap);
 // The column (0 left, 1 right) of each section: in order, each into the column shorter so far
 std::vector<int> HeroStatsLayout_Flow(const std::vector<float> &heights);
+// The value columns of the inventory list (Damage, Kinetic, Armor) at a width. needed: what the
+// list needs with all its columns after its own narrow steps (half padding, wrapped names);
+// kinetic: the Kinetic column's width; values: Damage's and Armor's together. Before the list
+// would scroll it gives up Kinetic, then Damage and Armor; Food, Water and Weight always show.
+enum HeroStatsListValues { HeroListNoValues, HeroListDamageAndArmor, HeroListAllValues };
+HeroStatsListValues HeroStatsLayout_ListValues(float needed, float kinetic, float values, float available);
+// What a card of the Champions tab's Party shows: the most that fits in the height without
+// scrolling, and more than the plain card only when all the cards stand in one row (across ==
+// count). withBoth: a card's height with attributes and inventory; withInventory: with the
+// inventory alone; available: the height the page has for the cards.
+enum HeroStatsPartyStep { HeroPartyPlain, HeroPartyInventory, HeroPartyAttributesAndInventory };
+HeroStatsPartyStep HeroStatsLayout_PartyStep(int count, int across, float withBoth, float withInventory, float available);
 
 #endif

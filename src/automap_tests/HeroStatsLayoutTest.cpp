@@ -124,8 +124,35 @@ static void ATableGivesUpOneThingAfterTheOther(void)
   CHECK(f.scroll && f.names && f.fullPadding && !f.shortNumbers);
 }
 
+// Before the inventory list would scroll it gives up Kinetic, then Damage and Armor
+static void TheListGivesUpKineticThenDamageAndArmor(void)
+{
+  CHECK(HeroStatsLayout_ListValues(680, 70, 120, 700) == HeroListAllValues);
+  CHECK(HeroStatsLayout_ListValues(680, 70, 120, 680) == HeroListAllValues);
+  CHECK(HeroStatsLayout_ListValues(680, 70, 120, 679) == HeroListDamageAndArmor);
+  CHECK(HeroStatsLayout_ListValues(680, 70, 120, 610) == HeroListDamageAndArmor);
+  CHECK(HeroStatsLayout_ListValues(680, 70, 120, 609) == HeroListNoValues);
+  CHECK(HeroStatsLayout_ListValues(680, 70, 120, 100) == HeroListNoValues);
+}
+
+// A Party card shows the most that fits in the height, and only when the cards stand in one row
+static void APartyCardShowsTheMostThatFits(void)
+{
+  CHECK(HeroStatsLayout_PartyStep(4, 4, 882, 742, 900) == HeroPartyAttributesAndInventory);
+  CHECK(HeroStatsLayout_PartyStep(4, 4, 882, 742, 882) == HeroPartyAttributesAndInventory);
+  CHECK(HeroStatsLayout_PartyStep(4, 4, 882, 742, 881) == HeroPartyInventory);
+  CHECK(HeroStatsLayout_PartyStep(4, 4, 882, 742, 742) == HeroPartyInventory);
+  CHECK(HeroStatsLayout_PartyStep(4, 4, 882, 742, 741) == HeroPartyPlain);
+  CHECK(HeroStatsLayout_PartyStep(4, 2, 882, 742, 2000) == HeroPartyPlain);
+  CHECK(HeroStatsLayout_PartyStep(2, 2, 882, 742, 900) == HeroPartyAttributesAndInventory);
+  CHECK(HeroStatsLayout_PartyStep(1, 1, 882, 742, 800) == HeroPartyInventory);
+  CHECK(HeroStatsLayout_PartyStep(0, 0, 882, 742, 2000) == HeroPartyPlain);
+}
+
 void TestHeroStatsLayout(void)
 {
+  TheListGivesUpKineticThenDamageAndArmor();
+  APartyCardShowsTheMostThatFits();
   ATableGivesUpOneThingAfterTheOther();
   AWideTableShowsEverything();
   TheBarGivesWayToTheLabelFirst();
