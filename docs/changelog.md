@@ -34,6 +34,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 - Exploration's headline shows Teleports in place of Doors bashed open (a `csb.cfg` with the earlier default follows; your own choice stays).
 
 **Map**
+- The monster pictures in a tile's tooltip (and in the HTML export) have their own colours and no coloured backdrop: they were drawn with the wrong transparent colour, so a blue, red or white box showed behind them.
 - WALKED also tints the teleporters and pits the party stepped into (it is carried off or falls at once, so it never stood on them for a tick).
 
 **Game window**

@@ -2374,7 +2374,9 @@ static void DrawTooltipIcon(const SDL_Rect &slot, const AutoMapItem &item)
     DrawFluxCage(Inset(slot, 8));
     return;
   }
-  const AutoMapSprite *sprite = SpriteOfTheGame(item.worldPicture);
+  AutoMapSpriteRequest request = {item.worldPicture,
+      item.transparentColour >= 0 ? item.transparentColour : TRANSPARENT_COLOUR_OF_THE_GAME};
+  const AutoMapSprite *sprite = item.worldPicture == AUTOMAP_NO_PICTURE ? NULL : sprites.Find(request);
   if (sprite == NULL)
   {
     Fill(Inset(slot, 35), ITEM_MARKER);
@@ -3779,6 +3781,7 @@ static std::vector<AutoMapTooltipSlot> BuildTooltipSlots(int x, int y)
       if (picture == AUTOMAP_NO_PICTURE) continue;
       AutoMapItem figureItem;
       figureItem.worldPicture = picture;
+      figureItem.transparentColour = monster.transparentColour;
       bool counted = false;
       for (size_t s = base; s < slots.size(); s++)
       {

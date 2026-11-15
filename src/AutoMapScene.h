@@ -120,7 +120,7 @@ struct AutoMapItem
   AutoMapItem(void)
     : worldPicture(AUTOMAP_NO_PICTURE), hasIcon(false),
       iconGraphic(AUTOMAP_NO_PICTURE), iconTile(0), nameIndex(-1), descIndex(-1), potionPower(0),
-      isFluxCage(false)
+      isFluxCage(false), transparentColour(-1)
   {
   }
   int worldPicture;
@@ -138,6 +138,9 @@ struct AutoMapItem
   int potionPower;
   // A fluxcage cloud in the tooltip: drawn as the yellow field of the map, named FLUXCAGE
   bool isFluxCage;
+  // A monster figure in the tooltip: the palette entry its picture leaves transparent, as its
+  // kind says; -1 for everything else (the game's own colour)
+  int transparentColour;
   // The item's own name where the type's does not tell it: a dead champion's bones, "TIGGY BONES";
   // "" for every other item
   std::string ownName;
@@ -149,7 +152,8 @@ inline bool operator==(const AutoMapItem &left, const AutoMapItem &right)
       && (!left.hasIcon || (left.iconGraphic == right.iconGraphic
                             && left.iconTile == right.iconTile))
       && left.nameIndex == right.nameIndex && left.potionPower == right.potionPower
-      && left.isFluxCage == right.isFluxCage && left.ownName == right.ownName;
+      && left.isFluxCage == right.isFluxCage
+      && left.transparentColour == right.transparentColour && left.ownName == right.ownName;
 }
 
 // The power rune of a potion, as the inventory shows it before the name: "LO", "UM", "ON", "EE",
