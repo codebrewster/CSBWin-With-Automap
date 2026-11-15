@@ -297,6 +297,20 @@ static void MovementIsKeptPerLevel(void)
   // A layout 28 file knows no such cause: it is refused, not misread
   HeroStats read28;
   CHECK(!read28.Deserialize(v29.data(), v29.size(), 28));
+  // Layout 30: climbs down a rope onto monsters, per level; a layout 29 file has none
+  HeroStats climbs;
+  climbs.CountClimbLanding(2);
+  climbs.CountClimbLanding(2);
+  climbs.CountLanding(2);
+  CHECK(climbs.Movement(2).climbLandings == 2 && climbs.Movement(2).landings == 1);
+  CHECK(climbs.Movement(HERO_STATS_WHOLE_RUN).climbLandings == 2 && climbs.Movement(3).climbLandings == 0);
+  std::vector<uint8_t> v30, as29;
+  climbs.Serialize(&v30);
+  climbs.Serialize(&as29, 29);
+  HeroStats read30, readAs29;
+  CHECK(read30.Deserialize(v30.data(), v30.size()) && read30.Movement(2).climbLandings == 2 && read30.Movement(2).landings == 1);
+  CHECK(v30.size() == as29.size() + 4);
+  CHECK(readAs29.Deserialize(as29.data(), as29.size(), 29) && readAs29.Movement(2).climbLandings == 0 && readAs29.Movement(2).landings == 1);
 }
 
 // The layout of version 13: harm rows without the missile kind, no movement table. A store with

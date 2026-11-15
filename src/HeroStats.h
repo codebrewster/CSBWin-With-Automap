@@ -110,6 +110,7 @@ struct HeroStatsMovement
   int telefragKills;
   int landings; // falls down a pit that ended on a cell with monsters, which they killed
   int tilesWalked, tilesExplored;
+  int climbLandings; // climbs down a pit with a rope that ended on a cell with monsters, which they killed
 };
 
 // What the party did with items, by item (its basic object type, like a weapon key): items picked
@@ -218,6 +219,7 @@ public:
   void CountMonsterBump(int level);
   void CountTelefrag(int level);
   void CountLanding(int level);
+  void CountClimbLanding(int level);
   // For the tests: the telefrag kills of a level as a file before layout 29 has them
   void SetLegacyTelefragKills(int level, int kills);
   // The party stands on the cell (any number of times: it counts once)
@@ -293,8 +295,8 @@ public:
   // 18 no tiles walked, 19 no scrolls read, 20 and 21 no rune outcomes and no runes kept (the
   // outcomes are taken from the rune spells' rows, on the level of the cast; 21 has a table of
   // rune mana per level, which is skipped), 22 no experience and no records, 23 no items taken
-  // from chests (none counted), 24 no poisonings, wounds or stretches of poison.
-  static const int LAYOUT = 29;
+  // from chests (none counted), 24 no poisonings, wounds or stretches of poison, 29 no climbs onto monsters.
+  static const int LAYOUT = 30;
   static const int FIRST_LAYOUT_WITH_MOVEMENT = 14;
   static const int FIRST_LAYOUT_WITH_PITS_AND_SLEEP = 15;
   static const int FIRST_LAYOUT_WITH_ITEMS = 16;
@@ -311,6 +313,7 @@ public:
   static const int FIRST_LAYOUT_WITH_TELEFRAGS = 27;
   static const int FIRST_LAYOUT_WITH_TELEFRAG_KILLS = 28;
   static const int FIRST_LAYOUT_WITH_LANDINGS = 29;  // and telefrags and landings as causes of a kill
+  static const int FIRST_LAYOUT_WITH_CLIMB_LANDINGS = 30;
   // layout: an older one leaves out what it does not have (the tests write old files with it)
   void Serialize(std::vector<uint8_t> *out, int layout = LAYOUT) const;
   bool Deserialize(const uint8_t *data, size_t size, int layout = LAYOUT);

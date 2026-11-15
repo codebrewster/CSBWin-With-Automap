@@ -402,6 +402,21 @@ static void KillCausesAddUp(void)
   // Landings are the events, on the level
   killed.CountLanding(1);
   CHECK(HeroStatsCatalogue_Value(killed, HERO_STATS_PARTY, 1, HeroNumLandings) == 1);
+  // A climb down a rope onto monsters is a number of its own, no landing
+  HeroStats climbed;
+  climbed.CountClimbLanding(1);
+  CHECK(HeroStatsCatalogue_Value(climbed, HERO_STATS_PARTY, 1, HeroNumClimbLandings) == 1);
+  CHECK(HeroStatsCatalogue_Value(climbed, HERO_STATS_PARTY, 1, HeroNumLandings) == 0);
+  CHECK(HeroStatsCatalogue_Key(HeroNumClimbLandings) == "climb_landings" && HeroStatsCatalogue_Key(HeroNumPitClimbs) == "pit_climbs");
+  CHECK(!HeroStatsCatalogue_Applies(HeroNumClimbLandings, 7, HERO_STATS_WHOLE_RUN));
+  // It stands under Pit climbs as "onto monsters"
+  const HeroStatsTopicInfo &exploration = HeroStatsCatalogue_Topic(HeroTopicExploration);
+  bool under = false;
+  for (size_t i = 0; i + 1 < exploration.rows.size(); i++)
+    if (exploration.rows[i].number == HeroNumPitClimbs)
+      under = exploration.rows[i + 1].number == HeroNumClimbLandings && exploration.rows[i + 1].depth == 1 &&
+              std::string(exploration.rows[i + 1].label) == "onto monsters";
+  CHECK(under);
 }
 
 // A hovertext only where the label and its place do not say it

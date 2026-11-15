@@ -724,9 +724,10 @@ void HeroStats_BeginArrivalOnMonsters(int level, bool teleported, bool fell)
   arrivalLevel = level;
   store.MarkLevelVisited(level);
   // A landing is a fall: a climb down a rope onto monsters kills them the same way (Landed on),
-  // but it is a Pit climb, and no part of the Pit falls
+  // but it is a Pit climb, and no part of the Pit falls; it is counted under the climbs
   if (teleported) store.CountTelefrag(level);
   else if (fell && !lastPitWasClimbed) store.CountLanding(level);
+  else if (fell) store.CountClimbLanding(level);
 }
 
 void HeroStats_EndArrivalOnMonsters(void)

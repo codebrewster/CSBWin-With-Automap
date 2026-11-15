@@ -641,7 +641,7 @@ std::vector<HeroStatsSpellRow> HeroStats::Spells(HeroStatsChampion who, int leve
 
 static HeroStatsMovement NoMovement(void)
 {
-  HeroStatsMovement none = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  HeroStatsMovement none = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
   return none;
 }
 
@@ -702,6 +702,11 @@ void HeroStats::CountLanding(int level)
   m_movement.insert(std::make_pair(level, NoMovement())).first->second.landings++;
 }
 
+void HeroStats::CountClimbLanding(int level)
+{
+  m_movement.insert(std::make_pair(level, NoMovement())).first->second.climbLandings++;
+}
+
 void HeroStats::SetLegacyTelefragKills(int level, int kills)
 {
   m_movement.insert(std::make_pair(level, NoMovement())).first->second.telefragKills = kills;
@@ -739,6 +744,7 @@ HeroStatsMovement HeroStats::Movement(int level) const
     sum.telefrags += at->second.telefrags;
     sum.telefragKills += at->second.telefragKills;
     sum.landings += at->second.landings;
+    sum.climbLandings += at->second.climbLandings;
   }
   return sum;
 }
@@ -1189,6 +1195,7 @@ void HeroStats::Serialize(std::vector<uint8_t> *out, int layout) const
     if (layout >= FIRST_LAYOUT_WITH_TELEFRAGS) HeroBytes_PutInt(out, it->second.telefrags);
     if (layout >= FIRST_LAYOUT_WITH_TELEFRAG_KILLS) HeroBytes_PutInt(out, it->second.telefragKills);
     if (layout >= FIRST_LAYOUT_WITH_LANDINGS) HeroBytes_PutInt(out, it->second.landings);
+    if (layout >= FIRST_LAYOUT_WITH_CLIMB_LANDINGS) HeroBytes_PutInt(out, it->second.climbLandings);
   }
   HeroBytes_Put(out, (uint32_t)m_items.size(), 4);
   for (std::map<std::pair<int, int>, ItemCounts>::const_iterator it = m_items.begin(); it != m_items.end(); ++it)
@@ -1287,6 +1294,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
   bool hasTelefrags = layout >= FIRST_LAYOUT_WITH_TELEFRAGS;
   bool hasTelefragKills = layout >= FIRST_LAYOUT_WITH_TELEFRAG_KILLS;
   bool hasLandings = layout >= FIRST_LAYOUT_WITH_LANDINGS;
+  bool hasClimbLandings = layout >= FIRST_LAYOUT_WITH_CLIMB_LANDINGS;
   HeroBytesReader in(data, size);
   HeroStats read;
   uint32_t count = in.GetCount(3);
@@ -1443,6 +1451,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
       if (hasTelefrags) movement.telefrags = in.GetInt();
       if (hasTelefragKills) movement.telefragKills = in.GetInt();
       if (hasLandings) movement.landings = in.GetInt();
+      if (hasClimbLandings) movement.climbLandings = in.GetInt();
     }
     read.m_movement[level] = movement;
   }

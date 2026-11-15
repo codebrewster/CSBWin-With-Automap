@@ -61,6 +61,7 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Landings", "Falls down a pit that ended on a square with monsters: the whole group dies at once. The monsters are on the Monsters tab.", true, false, false, false, false},
     {"Pit falls", "Each pit of a chain counts. Climbing down a rope is a Pit climb.", true, false, false, false, false},
     {"Pit climbs", "", true, false, false, false, false},
+    {"Climb landings", "Climbs down a rope that ended on a square with monsters: the whole group dies at once. The monsters are on the Monsters tab.", true, false, false, false, false},
     {"Time (ticks)", "", true, false, false, false, true},
     {"Asleep (ticks)", "", true, false, false, false, true},
     {"Doors bashed open", "", false, false, false, false, false},
@@ -126,7 +127,7 @@ static const char *const KEYS[] = {
     "eaten", "drunk", "food_gained", "food_wasted", "water_gained", "water_wasted",
     "picked_up", "used_in_walls",
     "steps", "tiles_walked", "tiles_explored", "turns", "wall_bumps", "monster_bumps", "teleports", "telefrags", "telefragged", "landings",
-    "pit_falls", "pit_climbs", "ticks", "sleep_ticks",
+    "pit_falls", "pit_climbs", "climb_landings", "ticks", "sleep_ticks",
     "doors_bashed", "doors_smashed", "doors_shot", "doors_by_spell", "doors_by_zo",
     "doors_button_opened", "doors_button_closed", "chests", "scrolls", "wall_texts",
     "champions_seen", "champions_viewed",
@@ -202,7 +203,7 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
               {{HeroNumSteps, 0}, {HeroNumTurns, 0}, {HeroNumTilesWalked, 0}, {HeroNumTilesExplored, 0}, {HeroNumBumps, 0}, {HeroNumMonsterBumps, 0}}},
              {"Travel", true,
               {{HeroNumTeleports, 0}, {HeroNumTelefrags, 1, "onto monsters"}, {HeroNumPitFalls, 0}, {HeroNumLandings, 1, "onto monsters"},
-               {HeroNumPitClimbs, 0}}},
+               {HeroNumPitClimbs, 0}, {HeroNumClimbLandings, 1, "onto monsters"}}},
              {"Time", true, {{HeroNumTicks, 0}, {HeroNumSleepTicks, 1, "Asleep"}}},
              {"Discoveries", true,
               {{HeroNumChests, 0}, {HeroNumScrolls, 0}, {HeroNumWallTexts, 0}, {HeroNumChampionsSeen, 0}, {HeroNumChampionsViewed, 0}}},
@@ -512,6 +513,7 @@ static void FillMovement(const HeroStats &stats, HeroStatsChampion, int level, i
   v[HeroNumLandings] = move.landings;
   v[HeroNumPitFalls] = move.pitFalls;
   v[HeroNumPitClimbs] = move.pitClimbs;
+  v[HeroNumClimbLandings] = move.climbLandings;
   v[HeroNumTicks] = move.ticks;
   v[HeroNumSleepTicks] = move.sleepTicks;
 }
@@ -606,7 +608,7 @@ static FillGroup GroupOf(HeroStatsNumber number)
   case HeroNumWaterWasted: return FillFood;
   case HeroNumPickedUp: case HeroNumUsedInWalls: return FillItems;
   case HeroNumSteps: case HeroNumTilesWalked: case HeroNumTilesExplored: case HeroNumTurns: case HeroNumBumps:
-  case HeroNumMonsterBumps: case HeroNumTeleports: case HeroNumTelefrags: case HeroNumLandings: case HeroNumPitFalls: case HeroNumPitClimbs: case HeroNumTicks:
+  case HeroNumMonsterBumps: case HeroNumTeleports: case HeroNumTelefrags: case HeroNumLandings: case HeroNumPitFalls: case HeroNumPitClimbs: case HeroNumClimbLandings: case HeroNumTicks:
   case HeroNumSleepTicks:
     return FillMovement;
   case HeroNumDoorsBashed: case HeroNumDoorsSmashed: case HeroNumDoorsShot: case HeroNumDoorsBySpell:
