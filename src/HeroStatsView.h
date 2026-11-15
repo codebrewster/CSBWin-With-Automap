@@ -18,6 +18,8 @@ const std::string &HeroStatsView_ThousandsSeparator(void);
 // anything else
 std::string HeroStatsView_SeparatorOfSetting(const std::string &setting);
 std::string HeroStatsView_Number(int value);             // 8931 -> "8,931"
+// From 10,000 on: 86300 -> "86k", 1204880 -> "1.2M"; below, and a negative value, as HeroStatsView_Number
+std::string HeroStatsView_ShortNumber(int value);
 std::string HeroStatsView_Percent(int part, int whole);  // "64%", "-" when whole == 0
 
 struct HeroStatsColumn { HeroStatsChampion id; std::string name; bool hasLeft; };

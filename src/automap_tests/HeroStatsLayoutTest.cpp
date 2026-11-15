@@ -89,8 +89,41 @@ static void EachSectionGoesToTheShorterColumn(void)
   CHECK(HeroStatsLayout_Flow(std::vector<float>(HEIGHTS, HEIGHTS + 4)) == std::vector<int>(COLUMNS, COLUMNS + 4));
 }
 
+// A table too wide gives up, in this order: the bar, the champions' names, half its padding, the
+// worked-out columns, the label's single line, the long form of big numbers; then it scrolls
+static void ATableGivesUpOneThingAfterTheOther(void)
+{
+  HeroStatsTableNeeds needs = {160, 300, 80, true, 60, 90, 40, 70};
+  CHECK(HeroStatsLayout_FullWidth(needs) == 650);
+  HeroStatsTableFit f = HeroStatsLayout_FitTable(needs, 650);
+  CHECK(f.bar && f.names && f.fullPadding && f.derived && !f.wrap && !f.shortNumbers && !f.scroll);
+  f = HeroStatsLayout_FitTable(needs, 540);   // 160 + 300 + 80: the bar goes
+  CHECK(!f.bar && f.names && f.fullPadding && f.derived && !f.wrap);
+  f = HeroStatsLayout_FitTable(needs, 450);   // - 90: the names go
+  CHECK(!f.bar && !f.names && f.fullPadding && f.derived && !f.wrap);
+  f = HeroStatsLayout_FitTable(needs, 410);   // - 40: the padding goes
+  CHECK(!f.names && !f.fullPadding && f.derived && !f.wrap && f.labelWidth == 160);
+  f = HeroStatsLayout_FitTable(needs, 330);   // - 80: the derived columns go
+  CHECK(!f.derived && !f.wrap && f.labelWidth == 160);
+  f = HeroStatsLayout_FitTable(needs, 300);   // the label wraps: 300 - 170 = 130, not below 120
+  CHECK(f.wrap && !f.shortNumbers && !f.scroll && f.labelWidth == 130);
+  f = HeroStatsLayout_FitTable(needs, 230);   // 230 - 170 is below 120: the numbers get short, 230 - 100 = 130
+  CHECK(f.wrap && f.shortNumbers && !f.scroll && f.labelWidth == 130 && f.tableWidth == 230);
+  f = HeroStatsLayout_FitTable(needs, 200);   // 200 - 100 is below 120: it scrolls
+  CHECK(f.scroll && f.shortNumbers && !f.names && !f.fullPadding && f.labelWidth == 120 && f.tableWidth == 220);
+  // Short numbers that make room for the whole label: it no longer wraps
+  HeroStatsTableNeeds roomy = {160, 300, 0, false, 0, 0, 0, 200};
+  f = HeroStatsLayout_FitTable(roomy, 300);
+  CHECK(f.shortNumbers && !f.wrap && !f.scroll && f.labelWidth == 200);
+  // A table with nothing to give up scrolls as before, and says it keeps what it has
+  HeroStatsTableNeeds plain = {160, 300, 0, false, 0, 0, 0, 0};
+  f = HeroStatsLayout_FitTable(plain, 400);
+  CHECK(f.scroll && f.names && f.fullPadding && !f.shortNumbers);
+}
+
 void TestHeroStatsLayout(void)
 {
+  ATableGivesUpOneThingAfterTheOther();
   AWideTableShowsEverything();
   TheBarGivesWayToTheLabelFirst();
   ThenTheBarGoesThenTheDerivedColumns();

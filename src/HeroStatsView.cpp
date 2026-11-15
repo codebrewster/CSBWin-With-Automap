@@ -34,6 +34,15 @@ std::string HeroStatsView_Number(int value)
   return value < 0 ? "-" + out : out;
 }
 
+std::string HeroStatsView_ShortNumber(int value)
+{
+  if (value < 10000) return HeroStatsView_Number(value);
+  long long thousands = ((long long)value + 500) / 1000;
+  if (thousands < 1000) return std::to_string(thousands) + "k";
+  long long tenths = ((long long)value + 50000) / 100000;  // of a million
+  return std::to_string(tenths / 10) + "." + std::to_string(tenths % 10) + "M";
+}
+
 std::string HeroStatsView_Percent(int part, int whole)
 {
   if (whole == 0) return "-";

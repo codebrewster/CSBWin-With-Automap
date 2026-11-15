@@ -220,8 +220,24 @@ static void GoneChampionFallsBackToParty(void)
   CHECK(HeroStatsView_ValidWho(columns, HERO_STATS_PARTY) == HERO_STATS_PARTY);
 }
 
+// From 10,000 on a number has a short form, for a table that fits no other way
+static void BigNumbersHaveAShortForm(void)
+{
+  CHECK(HeroStatsView_ShortNumber(0) == "0");
+  CHECK(HeroStatsView_ShortNumber(9999) == HeroStatsView_Number(9999));
+  CHECK(HeroStatsView_ShortNumber(10000) == "10k");
+  CHECK(HeroStatsView_ShortNumber(86300) == "86k");
+  CHECK(HeroStatsView_ShortNumber(986300) == "986k");
+  CHECK(HeroStatsView_ShortNumber(999499) == "999k");
+  CHECK(HeroStatsView_ShortNumber(999500) == "1.0M");
+  CHECK(HeroStatsView_ShortNumber(1204880) == "1.2M");
+  CHECK(HeroStatsView_ShortNumber(2147483647) == "2147.5M");
+  CHECK(HeroStatsView_ShortNumber(-20000) == HeroStatsView_Number(-20000));
+}
+
 void TestHeroStatsView(void)
 {
+  BigNumbersHaveAShortForm();
   GoneChampionFallsBackToParty();
   NumbersAndPercents();
   ColumnsPutThePartyFirst();

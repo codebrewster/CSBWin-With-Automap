@@ -16,8 +16,9 @@ float HeroStatsLayout_FullWidth(const HeroStatsTableNeeds &needs)
 
 HeroStatsTableFit HeroStatsLayout_FitTable(const HeroStatsTableNeeds &needs, float available)
 {
-  HeroStatsTableFit fit = {false, false, false, false, needs.label, 0, available};
-  float withDerived = needs.label + needs.numbers + needs.derived;
+  HeroStatsTableFit fit = {false, false, false, false, needs.label, 0, available, true, true, false};
+  float numbers = needs.numbers;
+  float withDerived = needs.label + numbers + needs.derived;
   if (needs.hasBar && withDerived + SmallestBar(needs) <= available)
   {
     // The bar's share, but never at the cost of the label's single line
@@ -27,19 +28,39 @@ HeroStatsTableFit HeroStatsLayout_FitTable(const HeroStatsTableNeeds &needs, flo
     fit.labelWidth = available - needs.numbers - needs.derived - fit.barWidth;
     return fit;
   }
-  if (needs.derived > 0 && withDerived <= available)
+  // The champions' names, then half the padding
+  if (withDerived > available && needs.names > 0)
+  {
+    fit.names = false;
+    numbers -= needs.names;
+  }
+  if (needs.label + numbers + needs.derived > available && needs.padding > 0)
+  {
+    fit.fullPadding = false;
+    numbers -= needs.padding;
+  }
+  if (needs.derived > 0 && needs.label + numbers + needs.derived <= available)
   {
     fit.derived = true;
-    fit.labelWidth = available - needs.numbers - needs.derived;
+    fit.labelWidth = available - numbers - needs.derived;
     return fit;
   }
-  fit.labelWidth = available - needs.numbers;
+  fit.labelWidth = available - numbers;
   if (fit.labelWidth >= needs.label) return fit;
   fit.wrap = true;
   if (fit.labelWidth >= HERO_LAYOUT_LABEL_SMALLEST) return fit;
+  if (needs.shortNumbers > 0)
+  {
+    fit.shortNumbers = true;
+    numbers -= needs.shortNumbers;
+    fit.labelWidth = available - numbers;
+    fit.wrap = fit.labelWidth < needs.label;
+    if (fit.labelWidth >= std::min(needs.label, HERO_LAYOUT_LABEL_SMALLEST)) return fit;
+    fit.wrap = true;
+  }
   fit.scroll = true;
   fit.labelWidth = std::min(needs.label, HERO_LAYOUT_LABEL_SMALLEST);
-  fit.tableWidth = fit.labelWidth + needs.numbers;
+  fit.tableWidth = fit.labelWidth + numbers;
   return fit;
 }
 
