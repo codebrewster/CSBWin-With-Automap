@@ -16,7 +16,7 @@ static HeroStatsMonsterLine EmptyMonsterLine(const std::string &name, size_t col
   HeroStatsMonsterLine line;
   line.name = name;
   line.byColumn.assign(columnCount, 0);
-  line.door = line.pit = line.other = line.total = 0;
+  line.door = line.pit = line.other = line.total = line.telefrag = line.landed = 0;
   return line;
 }
 
@@ -41,6 +41,8 @@ std::vector<HeroStatsMonsterLine> HeroStatsPages_Monsters(const HeroStats &stats
     line.total += kill.count;
     if (kill.by == HeroBlowByDoor) line.door += kill.count;
     else if (kill.by == HeroBlowByPit) line.pit += kill.count;
+    else if (kill.by == HeroBlowByTelefrag) line.telefrag += kill.count;
+    else if (kill.by == HeroBlowByLanding) line.landed += kill.count;
     else
     {
       int column = -1;
@@ -63,6 +65,8 @@ HeroStatsMonsterLine HeroStatsPages_AllMonsters(const std::vector<HeroStatsMonst
     for (size_t i = 0; i < columnCount && i < lines[l].byColumn.size(); i++) all.byColumn[i] += lines[l].byColumn[i];
     all.door += lines[l].door;
     all.pit += lines[l].pit;
+    all.telefrag += lines[l].telefrag;
+    all.landed += lines[l].landed;
     all.other += lines[l].other;
     all.total += lines[l].total;
   }
@@ -838,19 +842,43 @@ HeroStatsTopicPage HeroStatsPages_Topic(const HeroStats &stats, const std::vecto
   for (size_t t = 0; t < tiles.size() && page.tiles.size() < 4; t++)
     if (HeroStatsCatalogue_Applies(tiles[t], who, level)) page.tiles.push_back(tiles[t]);
 
-  for (size_t r = 0; r < info.rows.size(); r++)
+  for (size_t g = 0; g < info.groups.size(); g++)
   {
-    HeroStatsNumber number = info.rows[r].number;
-    if (!HeroStatsCatalogue_Applies(number, who, level)) continue;
-    HeroStatsNumbersRow row;
-    row.number = number;
-    row.depth = info.rows[r].depth;
-    row.partyOnly = HeroStatsCatalogue_Info(number).partyOnly;
-    row.party = party.value[number];
-    if (!isParty) row.byColumn.push_back(page.record.value[number]);
-    else if (!row.partyOnly)
-      for (size_t c = 0; c < perColumn.size(); c++) row.byColumn.push_back(perColumn[c].value[number]);
-    page.numbers.push_back(row);
+    const HeroStatsTopicGroup &group = info.groups[g];
+    bool applied[3] = {false, false, false};  // whether the last row of each depth applies
+    bool begun = false;
+    for (size_t r = 0; r < group.rows.size(); r++)
+    {
+      const HeroStatsTopicRow &topicRow = group.rows[r];
+      HeroStatsNumber number = topicRow.number;
+      int depth = std::max(0, std::min(2, topicRow.depth));
+      applied[depth] = HeroStatsCatalogue_Applies(number, who, level);
+      if (!applied[depth]) continue;
+      if (!begun)
+      {
+        HeroStatsNumbersGroup shown = {group.title, group.panel};
+        page.groups.push_back(shown);
+        begun = true;
+      }
+      HeroStatsNumbersRow row;
+      row.number = number;
+      row.depth = depth;
+      row.label = HeroStatsCatalogue_RowLabel(topicRow);
+      // A part whose sum is not there stands on its own, under its own name
+      if (depth > 0 && !applied[depth - 1])
+      {
+        row.depth = 0;
+        row.label = HeroStatsCatalogue_Info(number).label;
+        applied[0] = true;
+      }
+      row.group = (int)page.groups.size() - 1;
+      row.partyOnly = HeroStatsCatalogue_Info(number).partyOnly;
+      row.party = party.value[number];
+      if (!isParty) row.byColumn.push_back(page.record.value[number]);
+      else if (!row.partyOnly)
+        for (size_t c = 0; c < perColumn.size(); c++) row.byColumn.push_back(perColumn[c].value[number]);
+      page.numbers.push_back(row);
+    }
   }
 
   page.details = HeroStatsPages_Details(topic, who);
@@ -872,7 +900,7 @@ HeroStatsTopicPage HeroStatsPages_Topic(const HeroStats &stats, const std::vecto
           if (kills <= 0) continue;
           HeroStatsMonsterLine line = page.monsters[l];
           line.byColumn.assign(1, kills);
-          line.door = line.pit = line.other = 0;
+          line.door = line.pit = line.other = line.telefrag = line.landed = 0;
           line.total = kills;
           own.push_back(line);
         }
@@ -939,7 +967,9 @@ HeroStatsPerLevel HeroStatsPages_PerLevelTotals(const HeroStats &stats, const st
   for (size_t r = 0; r < info.rows.size(); r++)
   {
     HeroStatsNumber number = info.rows[r].number;
-    if (info.rows[r].depth != 0 || !HeroStatsCatalogue_Applies(number, who, A_LEVEL)) continue;
+    // Monsters: the causes are parts of Monsters killed, and each is worth its column
+    int deepest = topic == HeroTopicMonsters ? 1 : 0;
+    if (info.rows[r].depth > deepest || !HeroStatsCatalogue_Applies(number, who, A_LEVEL)) continue;
     table.numbers.push_back(number);
     if (who == HERO_STATS_PARTY && !table.hasShare && !HeroStatsCatalogue_Info(number).partyOnly &&
         HeroStatsCatalogue_Summable(number))

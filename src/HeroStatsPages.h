@@ -24,12 +24,15 @@ struct HeroStatsNames
 };
 
 // One row of the Monsters page: the monsters of one name, killed by each champion column, by
-// doors, pits and anything else (clouds, traps, monsters, the game)
+// doors, pits, telefrags, landings (the party arriving on them by teleporter or pit) and anything
+// else (clouds, traps, monsters, the game). A game saved before the statistics knew telefrags as
+// a cause has those kills in other: its rows do not say which monsters they were.
 struct HeroStatsMonsterLine
 {
   std::string name;
   std::vector<int> byColumn;
   int door, pit, other, total;
+  int telefrag, landed;
 };
 // Most killed first. Variants the dungeon gives no name of their own share one line.
 std::vector<HeroStatsMonsterLine> HeroStatsPages_Monsters(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
@@ -87,7 +90,21 @@ HeroStatsHeroPage HeroStatsPages_Hero(const HeroStats &stats, const std::vector<
 
 // One row of the Numbers table. byColumn: the Party's page: one value per column (empty for a
 // party-only number); a champion's page: that champion's value. party: the party's value.
-struct HeroStatsNumbersRow { HeroStatsNumber number; int depth; std::vector<int> byColumn; int party; bool partyOnly; };
+// label: what the row is called here; group: its place in the page's groups. A part whose sum
+// does not apply to who (a champion's Kills under the party's Monsters killed) stands at depth 0
+// under the number's own label.
+struct HeroStatsNumbersRow
+{
+  HeroStatsNumber number;
+  int depth;
+  std::vector<int> byColumn;
+  int party;
+  bool partyOnly;
+  std::string label;
+  int group;
+};
+// A group of the page's numbers (HeroStatsTopicGroup) that has a row for who on the level
+struct HeroStatsNumbersGroup { std::string title; bool panel; };
 enum HeroStatsDetail { HeroDetailWeapons, HeroDetailSpells, HeroDetailHarm, HeroDetailHealing, HeroDetailDeaths,
                        HeroDetailConsumed, HeroDetailItems, HeroDetailMonsters, HeroDetailSkills, HeroDetailXpSources,
                        HeroDetailRankUps, HeroDetailRecords, HERO_DETAIL_COUNT };
@@ -132,6 +149,7 @@ struct HeroStatsTopicPage
   std::vector<HeroStatsNumber> tiles;         // the tiles that apply, at most 4
   HeroStatsRecord record;                     // who's numbers on the level
   std::vector<HeroStatsNumbersRow> numbers;   // the topic's rows that apply
+  std::vector<HeroStatsNumbersGroup> groups;  // their groups, in order
   std::vector<HeroStatsDetail> details;       // in drawing order
   HeroStatsHeroPage hero;                     // weapons, spells, taken, healing, deaths, eaten, drunk
   std::vector<HeroStatsMonsterLine> monsters;
@@ -159,7 +177,7 @@ struct HeroStatsPerLevel
   std::vector<HeroStatsLevelRow> rows;
 };
 // The party's (who HERO_STATS_PARTY) or a champion's totals: the topic's top-level rows that
-// apply to who on a level. The party's rows share out the topic's first number kept per champion.
+// apply to who on a level (Monsters: the causes under Monsters killed too). The party's rows share out the topic's first number kept per champion.
 HeroStatsPerLevel HeroStatsPages_PerLevelTotals(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
                                                 HeroStatsChampion who, int topic);
 // Champions side by side: values are one per column, then the party; share one per column

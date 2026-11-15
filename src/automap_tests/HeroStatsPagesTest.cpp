@@ -824,8 +824,60 @@ static void ExportHasExperienceAndRecords(void)
   CHECK(html.find("function records(") != std::string::npos && html.find("function xpSources(") != std::string::npos);
 }
 
+// Telefrags and landings have their own columns of the Monsters table and are no "other" kills
+static void MonstersKnowTelefragsAndLandings(void)
+{
+  HeroStats stats = KillsOnTwoLevels();
+  stats.CountMonsterKill(4, 6, 0, HeroStatsBlow_Nobody(HeroBlowByTelefrag));
+  stats.CountMonsterKill(4, 6, 0, HeroStatsBlow_Nobody(HeroBlowByLanding));
+  stats.CountMonsterKill(4, 6, 0, HeroStatsBlow_Nobody(HeroBlowByLanding));
+  stats.CountMonsterKill(4, 6, 0, HeroStatsBlow_Nobody(HeroBlowByCloud));
+  std::vector<HeroStatsMonsterLine> lines = HeroStatsPages_Monsters(stats, Columns(stats), HERO_STATS_WHOLE_RUN, NAMES);
+  HeroStatsMonsterLine all = HeroStatsPages_AllMonsters(lines, 2);
+  CHECK(all.telefrag == 1 && all.landed == 2 && all.other == 1);
+  CHECK(all.total == 8 && all.total == all.door + all.pit + all.telefrag + all.landed + all.other + all.byColumn[0] + all.byColumn[1]);
+  // A champion's page: only their own kills
+  HeroStatsTopicPage halk = HeroStatsPages_Topic(stats, Columns(stats), 7, HERO_STATS_WHOLE_RUN, HeroTopicMonsters, NAMES);
+  CHECK(halk.monsters.size() == 1 && halk.monsters[0].total == 2 && halk.monsters[0].telefrag == 0 && halk.monsters[0].landed == 0);
+  // and their one number is Kills, not a part of a sum that is not there
+  CHECK(halk.numbers.size() == 1);
+  if (halk.numbers.size() == 1) CHECK(halk.numbers[0].number == HeroNumKills && halk.numbers[0].depth == 0 && halk.numbers[0].label == "Kills");
+  HeroStatsTopicPage party = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroTopicMonsters, NAMES);
+  CHECK(party.numbers.size() == 7);
+  if (party.numbers.size() == 7) CHECK(party.numbers[1].number == HeroNumKills && party.numbers[1].depth == 1 && party.numbers[1].label == "Champions");
+  // Per level keeps the causes: the party's Monsters table has a column for each
+  HeroStatsPerLevel table = HeroStatsPages_PerLevelTotals(stats, Columns(stats), HERO_STATS_PARTY, HeroTopicMonsters);
+  CHECK(table.numbers.size() == 7 && table.numbers[0] == HeroNumMonstersKilled && table.numbers[4] == HeroNumTelefragged);
+}
+
+// The rows of a page know their group; a group none of whose rows apply is not there
+static void PagesCarryTheGroups(void)
+{
+  HeroStats stats = KillsOnTwoLevels();
+  HeroStatsTopicPage party = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroTopicExploration, NAMES);
+  CHECK(party.groups.size() == 5);
+  if (party.groups.size() != 5) return;
+  CHECK(party.groups[1].title == "Travel" && party.groups[1].panel && party.groups[4].title == "Doors" && !party.groups[4].panel);
+  bool found = false;
+  for (size_t r = 0; r < party.numbers.size(); r++)
+    if (party.numbers[r].number == HeroNumTelefrags)
+    {
+      found = true;
+      CHECK(party.numbers[r].label == "onto monsters" && party.numbers[r].group == 1 && party.numbers[r].depth == 1);
+    }
+  CHECK(found);
+  HeroStatsTopicPage one = HeroStatsPages_Topic(stats, Columns(stats), 7, HERO_STATS_WHOLE_RUN, HeroTopicExploration, NAMES);
+  CHECK(one.groups.size() == 1 && one.groups[0].title == "Doors");
+  for (size_t r = 0; r < one.numbers.size(); r++) CHECK(one.numbers[r].group == 0);
+  // Wipes and reloads are the whole run's: on a level the Deaths group stays, without them
+  HeroStatsTopicPage level = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, 4, HeroTopicSurvival, NAMES);
+  CHECK(level.groups.size() == 3 && level.groups[2].title == "Deaths");
+}
+
 void TestHeroStatsPages(void)
 {
+  MonstersKnowTelefragsAndLandings();
+  PagesCarryTheGroups();
   ExportHasExperienceAndRecords();
   SourcesAddUpToTheClasses();
   ChampionSourcesLeaveOutZeros();
