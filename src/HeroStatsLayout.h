@@ -55,8 +55,10 @@ HeroStatsListValues HeroStatsLayout_ListValues(float needed, float kinetic, floa
 // What a card of the Champions tab's Party shows: the most that fits in the height without
 // scrolling, and more than the plain card only when all the cards stand in one row (across ==
 // count). withBoth: a card's height with attributes and inventory; withInventory: with the
-// inventory alone; available: the height the page has for the cards.
+// inventory alone; available: the height the page has for the cards. cardInner: the room inside
+// a card; picture: the width of the inventory's picture. A card narrower than that stays plain.
 enum HeroStatsPartyStep { HeroPartyPlain, HeroPartyInventory, HeroPartyAttributesAndInventory };
-HeroStatsPartyStep HeroStatsLayout_PartyStep(int count, int across, float withBoth, float withInventory, float available);
+HeroStatsPartyStep HeroStatsLayout_PartyStep(int count, int across, float withBoth, float withInventory, float available,
+                                             float cardInner, float picture);
 
 #endif

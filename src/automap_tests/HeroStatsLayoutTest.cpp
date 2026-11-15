@@ -138,15 +138,18 @@ static void TheListGivesUpKineticThenDamageAndArmor(void)
 // A Party card shows the most that fits in the height, and only when the cards stand in one row
 static void APartyCardShowsTheMostThatFits(void)
 {
-  CHECK(HeroStatsLayout_PartyStep(4, 4, 882, 742, 900) == HeroPartyAttributesAndInventory);
-  CHECK(HeroStatsLayout_PartyStep(4, 4, 882, 742, 882) == HeroPartyAttributesAndInventory);
-  CHECK(HeroStatsLayout_PartyStep(4, 4, 882, 742, 881) == HeroPartyInventory);
-  CHECK(HeroStatsLayout_PartyStep(4, 4, 882, 742, 742) == HeroPartyInventory);
-  CHECK(HeroStatsLayout_PartyStep(4, 4, 882, 742, 741) == HeroPartyPlain);
-  CHECK(HeroStatsLayout_PartyStep(4, 2, 882, 742, 2000) == HeroPartyPlain);
-  CHECK(HeroStatsLayout_PartyStep(2, 2, 882, 742, 900) == HeroPartyAttributesAndInventory);
-  CHECK(HeroStatsLayout_PartyStep(1, 1, 882, 742, 800) == HeroPartyInventory);
-  CHECK(HeroStatsLayout_PartyStep(0, 0, 882, 742, 2000) == HeroPartyPlain);
+  CHECK(HeroStatsLayout_PartyStep(4, 4, 882, 742, 900, 300, 236) == HeroPartyAttributesAndInventory);
+  CHECK(HeroStatsLayout_PartyStep(4, 4, 882, 742, 882, 300, 236) == HeroPartyAttributesAndInventory);
+  CHECK(HeroStatsLayout_PartyStep(4, 4, 882, 742, 881, 300, 236) == HeroPartyInventory);
+  CHECK(HeroStatsLayout_PartyStep(4, 4, 882, 742, 742, 300, 236) == HeroPartyInventory);
+  CHECK(HeroStatsLayout_PartyStep(4, 4, 882, 742, 741, 300, 236) == HeroPartyPlain);
+  CHECK(HeroStatsLayout_PartyStep(4, 2, 882, 742, 2000, 300, 236) == HeroPartyPlain);
+  CHECK(HeroStatsLayout_PartyStep(2, 2, 882, 742, 900, 300, 236) == HeroPartyAttributesAndInventory);
+  CHECK(HeroStatsLayout_PartyStep(1, 1, 882, 742, 800, 300, 236) == HeroPartyInventory);
+  CHECK(HeroStatsLayout_PartyStep(0, 0, 882, 742, 2000, 300, 236) == HeroPartyPlain);
+  // A card narrower than the inventory's picture stays plain, however tall the page
+  CHECK(HeroStatsLayout_PartyStep(1, 1, 882, 742, 2000, 235, 236) == HeroPartyPlain);
+  CHECK(HeroStatsLayout_PartyStep(1, 1, 882, 742, 2000, 236, 236) == HeroPartyAttributesAndInventory);
 }
 
 void TestHeroStatsLayout(void)

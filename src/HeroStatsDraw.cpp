@@ -3257,9 +3257,35 @@ static void LiveList(const HeroStatsLiveChampion &live)
   // under it. A column the list left out sorts nothing: by slot then.
   static const HeroStatsLiveOrder ORDERS[8] = {HeroLiveBySlot, HeroLiveByName, HeroLiveByDamage, HeroLiveByKinetic,
                                                HeroLiveByArmor, HeroLiveByFood, HeroLiveByWater, HeroLiveByWeight};
+  // ImGui moves the sort to Slot for good when its column is left out. The order the player
+  // chose is kept here: by slot while its column is away, and theirs again when it is back.
+  static int chosenColumn = -1;
+  static bool chosenDescending = false, chosenAway = false;
   TableSort sort = CurrentSort();
-  bool sortShows = sort.column >= 0 && sort.column < 8 &&
-                   !(InMeasuredTable() && sort.column < (int)measuring->disabled.size() && measuring->disabled[sort.column]);
+  auto away = [](int column) {
+    return InMeasuredTable() && column >= 0 && column < (int)measuring->disabled.size() && measuring->disabled[column];
+  };
+  if (chosenColumn >= 0 && away(chosenColumn) && sort.column > 0 && sort.column != chosenColumn && !away(sort.column))
+  {
+    // Another column picked while the chosen one is away: that is the choice now
+    chosenAway = false;
+    chosenColumn = sort.column;
+    chosenDescending = sort.descending;
+  }
+  else if (chosenColumn >= 0 && away(chosenColumn)) chosenAway = true;
+  else if (chosenAway && chosenColumn >= 0)
+  {
+    chosenAway = false;
+    ImGui::TableSetColumnSortDirection(chosenColumn, chosenDescending ? ImGuiSortDirection_Descending : ImGuiSortDirection_Ascending, false);
+    sort.column = chosenColumn;
+    sort.descending = chosenDescending;
+  }
+  else
+  {
+    chosenColumn = sort.column;
+    chosenDescending = sort.descending;
+  }
+  bool sortShows = sort.column >= 0 && sort.column < 8 && !chosenAway;
   HeroStatsLiveOrder by = sortShows ? ORDERS[sort.column] : HeroLiveBySlot;
   std::vector<size_t> order = HeroStatsLive_Order(live.items, by, sort.descending);
   for (size_t k = 0; k < order.size(); k++)
@@ -3485,8 +3511,7 @@ static void DrawChampionsPage(HeroStatsDrawState *state, const HeroStatsLivePart
       // With all the cards in one row, each shows the most that fits in the page's height without
       // scrolling: attributes and inventory, the inventory alone, or the card as it is. The
       // heights are the last frame's: a card's frame (the same at every step, the tallest card's
-      // counts) and the middle part of each step as it was last drawn; until a step was drawn, a
-      // guess on the low side, so that it is drawn once and measured.
+      // counts) and the middle part of each step as it was last drawn.
       static float frameSeen[8] = {0}, middleSeen[3] = {0, 0, 0};
       float line = ImGui::GetTextLineHeightWithSpacing(), tallest = 0;
       bool framesKnown = true;
@@ -3495,12 +3520,20 @@ static void DrawChampionsPage(HeroStatsDrawState *state, const HeroStatsLivePart
         framesKnown = framesKnown && frameSeen[i] > 0;
         tallest = std::max(tallest, frameSeen[i]);
       }
-      float pictureGuess = 8 * 40.0f + 30, attributesGuess = HERO_LIVE_ATTRIBUTE_COUNT * line + 8;
-      float withInventory = tallest + (middleSeen[HeroPartyInventory] > 0 ? middleSeen[HeroPartyInventory] : pictureGuess);
+      // What a step not yet drawn needs, from the sizes LiveCard, CardRule and LivePicture draw
+      // with, and never less than they do: a step is first shown only when it surely fits, so
+      // the page never scrolls for having shown more
+      const float cardSlot = 36, cardStep = cardSlot + SLOT_GAP, spacing = ImGui::GetStyle().ItemSpacing.y;
+      float rule = 3 + 5 + 2 * spacing;
+      float picture = HERO_LIVE_DOLL_ROWS * cardStep - SLOT_GAP + 14 + ImGui::GetFontSize() * 0.78f + 6 + 3 * cardStep - SLOT_GAP + spacing;
+      float pictureNeeds = rule + picture + rule + 2, attributesNeed = rule + HERO_LIVE_ATTRIBUTE_COUNT * line;
+      float withInventory = tallest + (middleSeen[HeroPartyInventory] > 0 ? middleSeen[HeroPartyInventory] : pictureNeeds);
       float withBoth = tallest + (middleSeen[HeroPartyAttributesAndInventory] > 0 ? middleSeen[HeroPartyAttributesAndInventory]
-                                                                                 : pictureGuess + attributesGuess);
+                                                                                 : pictureNeeds + attributesNeed);
+      float cardInner = width - 2 * 12, pictureWidth = HERO_LIVE_BACKPACK_ACROSS * cardStep - SLOT_GAP;
       HeroStatsPartyStep step = framesKnown && count <= 8
-          ? HeroStatsLayout_PartyStep(count, across, withBoth, withInventory, ImGui::GetContentRegionAvail().y) : HeroPartyPlain;
+          ? HeroStatsLayout_PartyStep(count, across, withBoth, withInventory, ImGui::GetContentRegionAvail().y, cardInner, pictureWidth)
+          : HeroPartyPlain;
       HeroStatsChampion picked = HERO_STATS_PARTY;
       bool anyPicked = false;
       ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(gap, gap));

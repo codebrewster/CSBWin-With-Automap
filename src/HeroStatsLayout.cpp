@@ -104,9 +104,10 @@ HeroStatsListValues HeroStatsLayout_ListValues(float needed, float kinetic, floa
   return HeroListNoValues;
 }
 
-HeroStatsPartyStep HeroStatsLayout_PartyStep(int count, int across, float withBoth, float withInventory, float available)
+HeroStatsPartyStep HeroStatsLayout_PartyStep(int count, int across, float withBoth, float withInventory, float available,
+                                             float cardInner, float picture)
 {
-  if (count <= 0 || across != count) return HeroPartyPlain;
+  if (count <= 0 || across != count || cardInner < picture) return HeroPartyPlain;
   if (withBoth <= available) return HeroPartyAttributesAndInventory;
   if (withInventory <= available) return HeroPartyInventory;
   return HeroPartyPlain;
