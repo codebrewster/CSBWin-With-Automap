@@ -531,19 +531,21 @@ static void FillKillCauses(const HeroStats &stats, HeroStatsChampion, int level,
 {
   v[HeroNumDoorKills] = v[HeroNumPitKills] = v[HeroNumOtherKills] = v[HeroNumTelefragged] = v[HeroNumLandedOn] = 0;
   v[HeroNumMonstersKilled] = 0;
+  int ofNoKnownCause = 0;
   std::vector<HeroStatsMonsterRow> kills = stats.MonsterKills(level);
   for (size_t i = 0; i < kills.size(); i++)
   {
     v[HeroNumMonstersKilled] += kills[i].count;
+    if (kills[i].by == HeroBlowByOther) ofNoKnownCause += kills[i].count;
     if (kills[i].by == HeroBlowByDoor) v[HeroNumDoorKills] += kills[i].count;
     else if (kills[i].by == HeroBlowByPit) v[HeroNumPitKills] += kills[i].count;
     else if (kills[i].by == HeroBlowByTelefrag) v[HeroNumTelefragged] += kills[i].count;
     else if (kills[i].by == HeroBlowByLanding) v[HeroNumLandedOn] += kills[i].count;
     else if (kills[i].by != HeroBlowByChampion) v[HeroNumOtherKills] += kills[i].count;
   }
-  // A game saved before layout 29 counted a telefrag's kills beside its "other" kills: they are
-  // telefrags, as many of them as there are such kills
-  int before = std::min(stats.Movement(level).telefragKills, v[HeroNumOtherKills]);
+  // A game saved before layout 29 counted a telefrag's kills beside its kills of no known cause:
+  // they are telefrags, as many of them as there are such kills (a cloud's or a trap's never were)
+  int before = std::min(stats.Movement(level).telefragKills, ofNoKnownCause);
   if (before > 0)
   {
     v[HeroNumTelefragged] += before;

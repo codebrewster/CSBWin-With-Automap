@@ -279,6 +279,21 @@ static void MovementIsKeptPerLevel(void)
   CHECK(kills29.size() == 2 && kills29[0].by == HeroBlowByTelefrag && kills29[1].by == HeroBlowByLanding);
   // An older file: no landings; its telefrag kills stay as they were stored
   CHECK(read.Movement(HERO_STATS_WHOLE_RUN).landings == 0);
+  // A layout 28 file with more telefrag kills than "other" kills on a level (kills from before a
+  // group counted whole): only as many as there are such kills are telefrags, and that is settled
+  // when the file is read, so an "other" kill made later is not taken for one
+  HeroStats before;
+  before.CountTelefrag(3);
+  before.SetLegacyTelefragKills(3, 9);
+  for (int i = 0; i < 2; i++) before.CountMonsterKill(3, 7, 0, HeroStatsBlow_Nobody(HeroBlowByOther));
+  before.CountMonsterKill(3, 7, 0, HeroStatsBlow_Nobody(HeroBlowByCloud));
+  before.CountMonsterKill(5, 7, 0, HeroStatsBlow_Nobody(HeroBlowByOther));
+  std::vector<uint8_t> v28;
+  before.Serialize(&v28, 28);
+  HeroStats readBefore;
+  CHECK(readBefore.Deserialize(v28.data(), v28.size(), 28));
+  CHECK(readBefore.Movement(3).telefragKills == 2 && readBefore.Movement(5).telefragKills == 0);
+  CHECK(readBefore.Movement(HERO_STATS_WHOLE_RUN).telefragKills == 2);
   // A layout 28 file knows no such cause: it is refused, not misread
   HeroStats read28;
   CHECK(!read28.Deserialize(v29.data(), v29.size(), 28));

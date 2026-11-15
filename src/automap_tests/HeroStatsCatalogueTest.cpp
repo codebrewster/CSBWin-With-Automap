@@ -383,6 +383,13 @@ static void KillCausesAddUp(void)
   killed.SetLegacyTelefragKills(1, 9);
   k = HeroStatsCatalogue_Record(killed, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN);
   CHECK(k.value[HeroNumOtherKills] == 0 && k.value[HeroNumTelefragged] == 4 && k.value[HeroNumMonstersKilled] == 8);
+  // Only kills of no known cause can have been telefrags: a cloud's or a trap's never were
+  HeroStats clouds;
+  for (int i = 0; i < 2; i++) clouds.CountMonsterKill(1, 3, 0, HeroStatsBlow_Nobody(HeroBlowByCloud));
+  clouds.CountMonsterKill(1, 3, 0, HeroStatsBlow_Nobody(HeroBlowByOther));
+  clouds.SetLegacyTelefragKills(1, 5);
+  k = HeroStatsCatalogue_Record(clouds, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN);
+  CHECK(k.value[HeroNumTelefragged] == 1 && k.value[HeroNumOtherKills] == 2 && k.value[HeroNumMonstersKilled] == 3);
   // Nothing killed: every cause is 0
   HeroStatsRecord none = HeroStatsCatalogue_Record(HeroStats(), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN);
   CHECK(none.value[HeroNumMonstersKilled] == 0 && none.value[HeroNumOtherKills] == 0 && none.value[HeroNumTelefragged] == 0);

@@ -708,6 +708,9 @@ void HeroStats_OnPartyTeleported(int level, int x, int y)
   store.Records().CountTeleport(level, (uint32_t)d.Time);
 }
 
+// The last pit the party went down was climbed with a rope, not fallen into
+static bool lastPitWasClimbed = false;
+
 // The group the party arrived on is dying: its kills take this cause, on this level
 static bool arriving = false;
 static HeroBlowBy arrivalBy = HeroBlowByOther;
@@ -720,8 +723,10 @@ void HeroStats_BeginArrivalOnMonsters(int level, bool teleported, bool fell)
   arrivalBy = teleported ? HeroBlowByTelefrag : fell ? HeroBlowByLanding : HeroBlowByOther;
   arrivalLevel = level;
   store.MarkLevelVisited(level);
+  // A landing is a fall: a climb down a rope onto monsters kills them the same way (Landed on),
+  // but it is a Pit climb, and no part of the Pit falls
   if (teleported) store.CountTelefrag(level);
-  else if (fell) store.CountLanding(level);
+  else if (fell && !lastPitWasClimbed) store.CountLanding(level);
 }
 
 void HeroStats_EndArrivalOnMonsters(void)
@@ -736,7 +741,8 @@ void HeroStats_OnPartyWentDownPit(int level, int x, int y)
   // The pit the party stepped onto is walked too: it never stands there for a tick
   store.MarkTileWalked(level, x, y);
   // The rope's Climb Down sets it for the first pit only; the pits below are falls
-  if (d.SupressPitDamage != 0) store.CountPitClimb(level);
+  lastPitWasClimbed = d.SupressPitDamage != 0;
+  if (lastPitWasClimbed) store.CountPitClimb(level);
   else
   {
     store.CountPitFall(level);

@@ -1100,8 +1100,16 @@ static void LabelCell(const std::string &text, int depth, ImU32 rgb, const char 
   // A part stands behind a line under the number it is a part of
   if (depth > 0)
   {
-    float x = min.x - 9;
-    ImGui::GetWindowDrawList()->AddLine(ImVec2(x, min.y - 1), ImVec2(x, max.y + 1), Packed(FAINT_RGB));
+    // From the row's top to its bottom, so the lines of rows one under the other join; a part
+    // of a part stands behind both lines
+    ImGuiTable *table = ImGui::GetCurrentTable();
+    float top = table != NULL ? table->RowPosY1 : min.y - 1;
+    float bottom = max.y + (table != NULL ? ImGui::GetStyle().CellPadding.y : 1);
+    for (int d = 1; d <= depth; d++)
+    {
+      float x = min.x - 9 - 14.0f * (depth - d);
+      ImGui::GetWindowDrawList()->AddLine(ImVec2(x, top), ImVec2(x, bottom), Packed(FAINT_RGB));
+    }
     ImGui::Unindent(14.0f * depth);
   }
 }
@@ -2625,7 +2633,12 @@ static void DrawPerLevel(HeroStatsDrawState *state, const HeroStats &stats, cons
   }
   else
   {
-    for (size_t n = 0; n < table.numbers.size(); n++) labels.push_back(HeroStatsCatalogue_Info(table.numbers[n]).label);
+    for (size_t n = 0; n < table.numbers.size(); n++)
+    {
+      // Beside Monsters killed, the champions' kills are a part of it, as on the page
+      bool byChampions = state->topic == HeroTopicMonsters && state->who == HERO_STATS_PARTY && table.numbers[n] == HeroNumKills;
+      labels.push_back(byChampions ? "By champions" : HeroStatsCatalogue_Info(table.numbers[n]).label);
+    }
     if (table.hasShare) labels.push_back(std::string("Who: ") + HeroStatsCatalogue_Info(table.shareNumber).label);
   }
   ImGui::PushID(grid ? "grid" : "totals");

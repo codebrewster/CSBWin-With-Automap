@@ -115,6 +115,9 @@ static void ATableGivesUpOneThingAfterTheOther(void)
   HeroStatsTableNeeds roomy = {160, 300, 0, false, 0, 0, 0, 200};
   f = HeroStatsLayout_FitTable(roomy, 300);
   CHECK(f.shortNumbers && !f.wrap && !f.scroll && f.labelWidth == 200);
+  // Short numbers never stand under a champion's name: the header is the dot then, also in a
+  // table whose names saved nothing while its numbers were long
+  CHECK(!f.names);
   // A table with nothing to give up scrolls as before, and says it keeps what it has
   HeroStatsTableNeeds plain = {160, 300, 0, false, 0, 0, 0, 0};
   f = HeroStatsLayout_FitTable(plain, 400);

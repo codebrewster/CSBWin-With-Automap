@@ -52,6 +52,9 @@ HeroStatsTableFit HeroStatsLayout_FitTable(const HeroStatsTableNeeds &needs, flo
   if (needs.shortNumbers > 0)
   {
     fit.shortNumbers = true;
+    // Short numbers never stand under a champion's name: a table whose names saved nothing while
+    // its numbers were long would cut the names now
+    fit.names = false;
     numbers -= needs.shortNumbers;
     fit.labelWidth = available - numbers;
     fit.wrap = fit.labelWidth < needs.label;

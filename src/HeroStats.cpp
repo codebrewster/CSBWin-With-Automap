@@ -1446,6 +1446,17 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
     }
     read.m_movement[level] = movement;
   }
+  // A game saved before telefrags were a cause holds their kills among its "other" kills, and at
+  // first counted a group as one: no more of them are telefrags than there are such kills. Settled
+  // here, so that an "other" kill made from now on is not taken for one.
+  if (!hasLandings)
+    for (std::map<int, HeroStatsMovement>::iterator at = read.m_movement.begin(); at != read.m_movement.end(); ++at)
+    {
+      int others = 0;
+      for (std::map<MonsterKey, int>::const_iterator kill = read.m_monsterKills.begin(); kill != read.m_monsterKills.end(); ++kill)
+        if (std::get<0>(kill->first) == at->first && std::get<3>(kill->first) == (int)HeroBlowByOther) others += kill->second;
+      at->second.telefragKills = std::min(at->second.telefragKills, others);
+    }
   bool hasChestItems = layout >= FIRST_LAYOUT_WITH_CHEST_ITEMS;
   count = layout >= FIRST_LAYOUT_WITH_ITEMS ? in.GetCount((hasChestItems ? 5 : 4) * 4) : 0;
   for (uint32_t i = 0; i < count && in.ok; i++)

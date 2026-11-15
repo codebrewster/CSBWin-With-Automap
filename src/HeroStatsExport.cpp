@@ -1068,7 +1068,9 @@ function perLevel() {
     // Monsters: the causes are parts of Monsters killed, and each is worth its column
     const numbers = TOP[t].rows.filter(([n, depth]) => depth <= (t === TOPIC_MONSTERS ? 1 : 0) && applies(n, st.who, 0)).map(([n]) => n);
     const share = isParty() ? numbers.find(n => !NUM[n].party && !NUM[n].ratio) : undefined;
-    cols = [nameCol('Level')].concat(numbers.map(n => numCol(NUM[n].label)));
+    // Beside Monsters killed, the champions' kills are a part of it, as on the page
+    const head = n => t === TOPIC_MONSTERS && isParty() && NUM[n].label === 'Kills' ? 'By champions' : NUM[n].label;
+    cols = [nameCol('Level')].concat(numbers.map(n => numCol(head(n))));
     if (share !== undefined) cols.push(numCol('Who: ' + NUM[share].label));
     rowOf = l => [levelTd(l)].concat(numbers.map(n => td(rec(st.who, l)[n], numCell(n, rec(st.who, l)[n]))),
       share === undefined ? [] : [td(rec(N, l)[share], `<td class="whobar">${shareBar(H.map((h, i) => rec(i, l)[share]))}</td>`)]);
