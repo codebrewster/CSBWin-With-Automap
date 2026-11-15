@@ -41,6 +41,8 @@ const int HERO_STATS_KEY_NUMBERS_SECTION = -2;
 const int HERO_STATS_ATTRIBUTES_SECTION = -3;
 const int HERO_STATS_RANKS_SECTION = -4;
 const int HERO_STATS_INVENTORY_SECTION = -5;
+// The panels of the party's own numbers on a topic page (Exploration): bit 131072
+const int HERO_STATS_PANELS_SECTION = -6;
 
 // The pictures of the Champions tab as textures of the window's renderer; 0 when there is none.
 // icon: an item's inventory icon (HeroStatsLiveItem::iconGraphic and iconTile), 16 x 16.

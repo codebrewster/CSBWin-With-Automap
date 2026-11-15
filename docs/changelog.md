@@ -11,6 +11,10 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 - Telefrags and landings: a teleport that ends on a square with monsters, or a fall down a pit onto them, kills the whole group at once. Exploration counts them under Teleports and Pit falls ("onto monsters").
 - Monsters has a new top number, Monsters killed, with the six causes that add up to it: Champions, Crushed by doors, Fell into pits, Telefragged, Landed on and Other causes. Telefrag kills are no longer counted a second time in Other causes.
 - The Monsters killed table has a Telefrag and a Landed column, so you see which monsters died that way and how many (kills from older saves stay under Other).
+- A new look: the title strip is gone (who, the levels and Export as HTML share one row), the headline numbers stand in a strip without boxes, the Numbers tables are grouped under small headings (Dealing damage, Attacks, Mana in, Mana out ...) with parts behind a guide line, and the numbers only the party has stand in panels on Exploration (Movement, Travel, Time, Discoveries).
+- The champion cards of the Overview call Experience "Exp", so the bars get the room; the bars of all cards are equally long.
+- A table too wide for the window gives up, one after the other: its bar, the champions' names in the header (their coloured dots stay; hover for the name), half its padding, the worked-out columns, the label's single line, and the long form of big numbers (86k, 1.2M; hover for the number). Only then does it scroll sideways.
+- A dotted line under a label says that it has a hovertext.
 - Hovertexts only where the label does not say it: the ones that repeated their label are gone; new ones say what is in Damage taken, Hit rate, Damage per hit, Friendly fire caused, Resurrected, Eaten, Teleports and Pit falls.
 - New number Monster bumps (Exploration): moves that were stopped by a monster on the next square, next to Wall bumps.
 - A champion's card on the Overview shows Experience instead of Healed (too close to Damage taken); Healed is still in the Key numbers.
