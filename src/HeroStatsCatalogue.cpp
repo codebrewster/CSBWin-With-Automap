@@ -10,26 +10,26 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Melee", "", false, false, false, false, false},
     {"Ranged", "", false, false, false, false, false},
     {"Magic", "", false, false, false, false, false},
-    {"Kills", "Monsters killed by a champion's blows, missiles and spells. Monsters killed by doors, falls and other causes are counted on the Monsters page, not here.", false, false, false, false, false},
+    {"Kills", "Kills by the champions. Monsters killed by doors, falls, telefrags and landings are on the Monsters tab.", false, false, false, false, false},
     {"Attacks", "Blows and missiles aimed at a monster. Other actions are not counted here, but are in the Weapons table's Tries.", false, false, false, false, false},
     {"Hits", "", false, false, false, false, false},
-    {"Hit rate", "", false, false, false, true, false},
-    {"Damage per hit", "", false, false, false, true, false},
+    {"Hit rate", "Hits \xc3\xb7 Attacks.", false, false, false, true, false},
+    {"Damage per hit", "Damage of blows and missiles \xc3\xb7 Hits. Spells are not in it.", false, false, false, true, false},
     {"Other actions", "Actions that cannot hit: War Cry, Calm, Brandish, Blow Horn, Confuse, shields and the like. Not part of Attacks.", false, false, false, false, false},
-    {"Friendly fire caused", "", false, false, true, false, false},
+    {"Friendly fire caused", "Damage this champion's missiles, spells and poison clouds did to the own party. Not part of Damage dealt.", false, false, true, false, false},
     {"Mana generated", "", false, false, false, false, false},
     {"Regeneration", "", false, false, false, false, false},
     {"Mana potions", "", false, false, false, false, false},
     {"Mana spent", "Spent as each rune is entered, on the level it is entered on, whatever becomes of the spell; staffs, wands and the shield and heal actions as they are used. The four lines below add up to it.", false, false, false, false, false},
     {"Spells", "Runes of the spells cast, successful or failed, staffs, wands and the shield and heal actions: the Mana of All spells in the Spells table. On one level the two can differ: here runes count where they were entered, the table counts a spell where it was cast.", false, false, false, false, false},
     {"Successful casts", "Runes of spells that worked, staffs and wands, the shield and heal actions.", false, false, false, false, false},
-    {"Wasted on failures", "Runes of spells that failed.", false, false, true, false, false},
+    {"Wasted on failures", "", false, false, true, false, false},
     {"Runes cleared", "Runes entered and never cast: cleared, replaced by a new incantation, or lost when the caster died.", false, false, true, false, false},
     {"Not cast yet", "Runes entered and waiting in an incantation, on the level they were entered on.", false, false, false, false, false},
     {"Spells cast", "", false, false, false, false, false},
     {"Successful", "", false, false, false, false, false},
     {"Failed", "", false, false, true, false, false},
-    {"Damage taken", "", false, false, false, false, false},
+    {"Damage taken", "All hit points lost, whatever took them: monster attacks, their missiles and spells, friendly fire, poison and poison clouds, traps, pits, walls run into, closing doors, starvation, exhaustion and harmful potions. Survival lists each cause.", false, false, false, false, false},
     {"Healed", "", false, false, false, false, false},
     {"Regeneration", "", false, false, false, false, false},
     {"Potions", "", false, false, false, false, false},
@@ -38,14 +38,14 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Poisoned", "Times poisoned: each new dose of poison counts once, not each tick of it.", false, false, true, false, false},
     {"Wounds", "Parts of the body wounded that were whole before; a part wounded again does not count.", false, false, true, false, false},
     {"Deaths", "", false, false, true, false, false},
-    {"Resurrected", "", false, false, false, false, false},
+    {"Resurrected", "Times this champion was brought back from the dead.", false, false, false, false, false},
     {"Party wiped out", "", true, true, true, false, false},
     {"Reloads", "", true, true, false, false, false},
-    {"Eaten", "", false, false, false, false, false},
-    {"Drunk", "Drinks drunk, the fountain included.", false, false, false, false, false},
-    {"Food gained", "Food that filled the stomach.", false, false, false, false, false},
+    {"Eaten", "Items eaten.", false, false, false, false, false},
+    {"Drunk", "Drinks, the fountain included.", false, false, false, false, false},
+    {"Food gained", "", false, false, false, false, false},
     {"Food wasted (over full)", "Food that did not fit because the champion was full. Not part of Food gained.", false, false, true, false, false},
-    {"Water gained", "Water that filled the stomach.", false, false, false, false, false},
+    {"Water gained", "", false, false, false, false, false},
     {"Water wasted (over full)", "Water that did not fit because the champion was full. Not part of Water gained.", false, false, true, false, false},
     {"Items picked up", "Items taken from the dungeon into the hand, each only the first time.", true, false, false, false, false},
     {"Used in walls", "Items a wall took: keys in locks, coins and gems in slots.", true, false, false, false, false},
@@ -55,18 +55,19 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Turns", "", true, false, false, false, false},
     {"Wall bumps", "Moves that ran into a wall, a closed door or a solid false wall.", true, false, false, false, false},
     {"Monster bumps", "Moves that were stopped by a monster on the next square.", true, false, false, false, false},
-    {"Teleports", "", true, false, false, false, false},
-    {"Telefrags", "Teleports that ended on a square with monsters, which they killed.", true, false, false, false, false},
-    {"Telefrag kills", "The monsters those teleports killed.", true, false, false, false, false},
-    {"Pit falls", "", true, false, false, false, false},
+    {"Teleports", "Each teleporter of a chain counts.", true, false, false, false, false},
+    {"Telefrags", "Teleports that ended on a square with monsters: the whole group dies at once. The monsters are on the Monsters tab.", true, false, false, false, false},
+    {"Telefragged", "The party was teleported onto their square: the whole group dies at once.", true, false, false, false, false},
+    {"Landings", "Falls down a pit that ended on a square with monsters: the whole group dies at once. The monsters are on the Monsters tab.", true, false, false, false, false},
+    {"Pit falls", "Each pit of a chain counts. Climbing down a rope is a Pit climb.", true, false, false, false, false},
     {"Pit climbs", "", true, false, false, false, false},
     {"Time (ticks)", "", true, false, false, false, true},
     {"Asleep (ticks)", "", true, false, false, false, true},
-    {"Doors bashed open", "Doors this champion broke down with an attack, a missile or a spell.", false, false, false, false, false},
+    {"Doors bashed open", "", false, false, false, false, false},
     {"Smashed", "", false, false, false, false, false},
     {"Shot open", "", false, false, false, false, false},
     {"By spell", "", false, false, false, false, false},
-    {"Opened with Zo", "Closed doors a Zo spell opened; the door stays whole.", false, false, false, false, false},
+    {"Opened with Zo", "Closed doors a Zo spell opened; the door stays whole. Not part of Doors bashed open.", false, false, false, false, false},
     {"Opened with button", "", true, false, false, false, false},
     {"Closed with button", "", true, false, false, false, false},
     {"Chests opened", "", true, false, false, false, false},
@@ -74,9 +75,11 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Wall texts read", "The wall texts the map knows as read.", true, false, false, false, false},
     {"Champions seen", "Champion portraits in mirrors seen face to face; each mirror once.", true, false, false, false, false},
     {"Champions viewed", "Mirrors clicked to look at the champion; each mirror once.", true, false, false, false, false},
-    {"Crushed by doors", "Monsters killed by a closing door. Not counted in Kills.", true, false, false, false, false},
-    {"Killed by falls", "Monsters killed by a fall into a pit. Not counted in Kills.", true, false, false, false, false},
-    {"Other causes", "Clouds nobody is known to have made, traps, other monsters. Not counted in Kills.", true, false, false, false, false},
+    {"Crushed by doors", "", true, false, false, false, false},
+    {"Fell into pits", "", true, false, false, false, false},
+    {"Other causes", "Clouds nobody is known to have made, traps, other monsters.", true, false, false, false, false},
+    {"Monsters killed", "", true, false, false, false, false},
+    {"Landed on", "The party came down a pit onto their square: the whole group dies at once.", true, false, false, false, false},
     {"Experience gained", "Experience as the game added it: with the level's multiplier, the bonus in combat and the dungeon's own rules.", false, false, false, false, false},
     {"Fighter", "", false, false, false, false, false},
     {"Ninja", "", false, false, false, false, false},
@@ -91,13 +94,13 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Biggest hit taken", "The most damage one monster attack did, after armour.", false, false, false, false, false, true},
     {"Biggest spell hit taken", "The most damage one monster spell or missile did.", false, false, false, false, false, true},
     {"Closest call", "The fewest hit points left after taking damage and living.", false, false, false, false, false, true},
-    {"Biggest heal", "The most hit points gained at once.", false, false, false, false, false, true},
+    {"Biggest heal", "", false, false, false, false, false, true},
     {"Most mana on one spell", "The mana of the runes of one spell that worked.", false, false, false, false, false, true},
-    {"Biggest experience gain", "The most experience gained at once.", false, false, false, false, false, true},
+    {"Biggest experience gain", "", false, false, false, false, false, true},
     {"Heaviest load", "The most weight carried, and the share of what the champion could carry.", false, false, false, false, false, true},
     {"Longest fall", "Pits fallen through one after the other.", true, false, false, false, false, true},
-    {"Longest teleport chain", "Teleporters one after the other.", true, false, false, false, false, true},
-    {"Longest sleep", "Ticks of one sleep.", true, false, false, false, true, true},
+    {"Longest teleport chain", "", true, false, false, false, false, true},
+    {"Longest sleep", "", true, false, false, false, true, true},
     {"Most poison at once", "The most poison working on a champion at one time, all doses added up; it is the number of poison ticks still to come.", false, false, true, false, false, true},
     {"Longest poisoned", "Ticks of the longest time a champion stayed poisoned without a break, with the poison damage taken in it. Death or a cure ends it.", false, false, true, false, true, true},
     {"Most poisonings in a row", "The most new doses of poison taken within one stretch of being poisoned.", false, false, true, false, false, true},
@@ -122,12 +125,12 @@ static const char *const KEYS[] = {
     "deaths", "resurrected", "wipes", "reloads",
     "eaten", "drunk", "food_gained", "food_wasted", "water_gained", "water_wasted",
     "picked_up", "used_in_walls",
-    "steps", "tiles_walked", "tiles_explored", "turns", "wall_bumps", "monster_bumps", "teleports", "telefrags", "telefrag_kills",
+    "steps", "tiles_walked", "tiles_explored", "turns", "wall_bumps", "monster_bumps", "teleports", "telefrags", "telefragged", "landings",
     "pit_falls", "pit_climbs", "ticks", "sleep_ticks",
     "doors_bashed", "doors_smashed", "doors_shot", "doors_by_spell", "doors_by_zo",
     "doors_button_opened", "doors_button_closed", "chests", "scrolls", "wall_texts",
     "champions_seen", "champions_viewed",
-    "door_kills", "pit_kills", "other_kills",
+    "door_kills", "pit_kills", "other_kills", "monsters_killed", "landed_on",
     "experience", "fighter", "ninja", "priest", "wizard", "ranks_gained",
     "biggest_hit", "biggest_spell_hit", "biggest_spell_total", "most_kills_at_once", "kill_streak",
     "biggest_hit_taken", "biggest_spell_hit_taken", "closest_call", "biggest_heal", "most_mana_on_spell",
@@ -142,59 +145,88 @@ const HeroStatsNumberInfo &HeroStatsCatalogue_Info(HeroStatsNumber number)
   return NUMBERS[number];
 }
 
+const char *HeroStatsCatalogue_RowLabel(const HeroStatsTopicRow &row)
+{
+  return row.label != NULL ? row.label : NUMBERS[row.number].label;
+}
+
+// The topic's rows are those of its groups, in order
+static void SetGroups(HeroStatsTopicInfo *topic, const std::vector<HeroStatsTopicGroup> &groups)
+{
+  topic->groups = groups;
+  topic->rows.clear();
+  for (size_t g = 0; g < groups.size(); g++) topic->rows.insert(topic->rows.end(), groups[g].rows.begin(), groups[g].rows.end());
+}
+
+static void SetRows(HeroStatsTopicInfo *topic, const std::vector<HeroStatsTopicRow> &rows)
+{
+  SetGroups(topic, {{"", false, rows}});
+}
+
 static std::vector<HeroStatsTopicInfo> MakeTopics(void)
 {
   std::vector<HeroStatsTopicInfo> topics(HERO_TOPIC_COUNT);
-  topics[HeroTopicOverview] = {"Overview",
-                               {{HeroNumDamage, 0}, {HeroNumKills, 0}, {HeroNumTaken, 0}, {HeroNumHealed, 0},
-                                {HeroNumManaSpent, 0}, {HeroNumDeaths, 0}, {HeroNumEaten, 0}, {HeroNumDrunk, 0},
-                                {HeroNumDoorsBashed, 0}, {HeroNumSteps, 0}, {HeroNumTilesExplored, 0}, {HeroNumTicks, 0}},
-                               {HeroNumDamage, HeroNumKills, HeroNumDeaths, HeroNumTilesExplored}};
-  topics[HeroTopicCombat] = {"Combat",
-                             {{HeroNumDamage, 0}, {HeroNumMelee, 1}, {HeroNumRanged, 1}, {HeroNumMagic, 1}, {HeroNumKills, 0},
-                              {HeroNumAttacks, 0}, {HeroNumHits, 1}, {HeroNumHitRate, 1}, {HeroNumDamagePerHit, 1},
-                              {HeroNumOtherActions, 0}, {HeroNumFriendlyFire, 0}},
-                             {HeroNumDamage, HeroNumKills, HeroNumHitRate, HeroNumFriendlyFire}};
-  topics[HeroTopicMagic] = {"Magic",
-                            {{HeroNumManaGenerated, 0}, {HeroNumManaRegeneration, 1}, {HeroNumManaPotions, 1},
-                             {HeroNumManaSpent, 0}, {HeroNumManaOnSpells, 1}, {HeroNumManaSuccessful, 2}, {HeroNumManaWasted, 2},
-                             {HeroNumRunesCleared, 1},
-                             {HeroNumRunesNotCast, 1}, {HeroNumCasts, 0}, {HeroNumCastsSuccessful, 1}, {HeroNumCastsFailed, 1}},
-                            {HeroNumManaGenerated, HeroNumManaSpent, HeroNumCasts, HeroNumManaWasted}};
-  topics[HeroTopicSurvival] = {"Survival",
-                               {{HeroNumTaken, 0}, {HeroNumHealed, 0}, {HeroNumHealRegeneration, 1}, {HeroNumHealPotions, 1},
-                                {HeroNumHealAction, 1}, {HeroNumHealingGiven, 0}, {HeroNumPoisonings, 0}, {HeroNumWounds, 0}, {HeroNumDeaths, 0}, {HeroNumResurrected, 0},
-                                {HeroNumWipes, 0}, {HeroNumReloads, 0}},
-                               {HeroNumTaken, HeroNumHealed, HeroNumDeaths, HeroNumResurrected}};
-  topics[HeroTopicSupplies] = {"Food & items",
-                               {{HeroNumEaten, 0}, {HeroNumDrunk, 0}, {HeroNumFoodGained, 0}, {HeroNumFoodWasted, 1},
-                                {HeroNumWaterGained, 0}, {HeroNumWaterWasted, 1}, {HeroNumPickedUp, 0}, {HeroNumUsedInWalls, 0}},
-                               {HeroNumEaten, HeroNumDrunk, HeroNumFoodWasted, HeroNumPickedUp}};
-  topics[HeroTopicExploration] = {"Exploration",
-                                  {{HeroNumSteps, 0}, {HeroNumTilesWalked, 0}, {HeroNumTilesExplored, 0}, {HeroNumTurns, 0},
-                                   {HeroNumBumps, 0}, {HeroNumMonsterBumps, 0}, {HeroNumTeleports, 0}, {HeroNumTelefrags, 0}, {HeroNumPitFalls, 0}, {HeroNumPitClimbs, 0},
-                                   {HeroNumTicks, 0}, {HeroNumSleepTicks, 1}, {HeroNumDoorsBashed, 0}, {HeroNumDoorsSmashed, 1},
-                                   {HeroNumDoorsShot, 1}, {HeroNumDoorsBySpell, 1}, {HeroNumDoorsByZo, 0},
-                                   {HeroNumDoorsButtonOpened, 0}, {HeroNumDoorsButtonClosed, 0}, {HeroNumChests, 0},
-                                   {HeroNumScrolls, 0}, {HeroNumWallTexts, 0}, {HeroNumChampionsSeen, 0},
-                                   {HeroNumChampionsViewed, 0}},
-                                  {HeroNumTilesExplored, HeroNumSteps, HeroNumTicks, HeroNumDoorsBashed}};
-  topics[HeroTopicMonsters] = {"Monsters",
-                               {{HeroNumKills, 0}, {HeroNumDoorKills, 0}, {HeroNumPitKills, 0}, {HeroNumOtherKills, 0},
-                                {HeroNumTelefragKills, 0}},
-                               {HeroNumKills, HeroNumDoorKills, HeroNumPitKills, HeroNumOtherKills}};
-  topics[HeroTopicExperience] = {"Experience",
-                                 {{HeroNumExperience, 0}, {HeroNumXpFighter, 1}, {HeroNumXpNinja, 1}, {HeroNumXpPriest, 1},
-                                  {HeroNumXpWizard, 1}, {HeroNumRanksGained, 0}},
-                                 {HeroNumXpFighter, HeroNumXpNinja, HeroNumXpPriest, HeroNumXpWizard}};
+  topics[HeroTopicOverview] = {"Overview", {}, {HeroNumDamage, HeroNumKills, HeroNumDeaths, HeroNumTilesExplored}, {}};
+  SetRows(&topics[HeroTopicOverview],
+          {{HeroNumDamage, 0}, {HeroNumKills, 0}, {HeroNumTaken, 0}, {HeroNumHealed, 0},
+           {HeroNumManaSpent, 0}, {HeroNumDeaths, 0}, {HeroNumEaten, 0}, {HeroNumDrunk, 0},
+           {HeroNumDoorsBashed, 0}, {HeroNumSteps, 0}, {HeroNumTilesExplored, 0}, {HeroNumTicks, 0}});
+  topics[HeroTopicCombat] = {"Combat", {}, {HeroNumDamage, HeroNumKills, HeroNumHitRate, HeroNumFriendlyFire}, {}};
+  SetGroups(&topics[HeroTopicCombat],
+            {{"Dealing damage", false,
+              {{HeroNumDamage, 0}, {HeroNumMelee, 1}, {HeroNumRanged, 1}, {HeroNumMagic, 1}, {HeroNumKills, 0}, {HeroNumFriendlyFire, 0}}},
+             {"Attacks", false,
+              {{HeroNumAttacks, 0}, {HeroNumHits, 1}, {HeroNumHitRate, 1}, {HeroNumDamagePerHit, 1}, {HeroNumOtherActions, 0}}}});
+  topics[HeroTopicMagic] = {"Magic", {}, {HeroNumManaGenerated, HeroNumManaSpent, HeroNumCasts, HeroNumManaWasted}, {}};
+  SetGroups(&topics[HeroTopicMagic],
+            {{"Mana in", false, {{HeroNumManaGenerated, 0}, {HeroNumManaRegeneration, 1}, {HeroNumManaPotions, 1}}},
+             {"Mana out", false,
+              {{HeroNumManaSpent, 0}, {HeroNumManaOnSpells, 1}, {HeroNumManaSuccessful, 2}, {HeroNumManaWasted, 2},
+               {HeroNumRunesCleared, 1}, {HeroNumRunesNotCast, 1}}},
+             {"Casts", false, {{HeroNumCasts, 0}, {HeroNumCastsSuccessful, 1}, {HeroNumCastsFailed, 1}}}});
+  topics[HeroTopicSurvival] = {"Survival", {}, {HeroNumTaken, HeroNumHealed, HeroNumDeaths, HeroNumResurrected}, {}};
+  SetGroups(&topics[HeroTopicSurvival],
+            {{"Harm", false, {{HeroNumTaken, 0}, {HeroNumPoisonings, 0}, {HeroNumWounds, 0}}},
+             {"Healing", false,
+              {{HeroNumHealed, 0}, {HeroNumHealRegeneration, 1}, {HeroNumHealPotions, 1}, {HeroNumHealAction, 1}, {HeroNumHealingGiven, 0}}},
+             {"Deaths", false, {{HeroNumDeaths, 0}, {HeroNumResurrected, 0}, {HeroNumWipes, 0}, {HeroNumReloads, 0}}}});
+  topics[HeroTopicSupplies] = {"Food & items", {}, {HeroNumEaten, HeroNumDrunk, HeroNumFoodWasted, HeroNumPickedUp}, {}};
+  SetGroups(&topics[HeroTopicSupplies],
+            {{"Food and water", false,
+              {{HeroNumEaten, 0}, {HeroNumDrunk, 0}, {HeroNumFoodGained, 0}, {HeroNumFoodWasted, 1, "Wasted (over full)"},
+               {HeroNumWaterGained, 0}, {HeroNumWaterWasted, 1, "Wasted (over full)"}}},
+             {"Items", false, {{HeroNumPickedUp, 0}, {HeroNumUsedInWalls, 0}}}});
+  topics[HeroTopicExploration] = {"Exploration", {}, {HeroNumTilesExplored, HeroNumSteps, HeroNumTicks, HeroNumDoorsBashed}, {}};
+  SetGroups(&topics[HeroTopicExploration],
+            {{"Movement", true,
+              {{HeroNumSteps, 0}, {HeroNumTurns, 0}, {HeroNumTilesWalked, 0}, {HeroNumTilesExplored, 0}, {HeroNumBumps, 0}, {HeroNumMonsterBumps, 0}}},
+             {"Travel", true,
+              {{HeroNumTeleports, 0}, {HeroNumTelefrags, 1, "onto monsters"}, {HeroNumPitFalls, 0}, {HeroNumLandings, 1, "onto monsters"},
+               {HeroNumPitClimbs, 0}}},
+             {"Time", true, {{HeroNumTicks, 0}, {HeroNumSleepTicks, 1, "Asleep"}}},
+             {"Discoveries", true,
+              {{HeroNumChests, 0}, {HeroNumScrolls, 0}, {HeroNumWallTexts, 0}, {HeroNumChampionsSeen, 0}, {HeroNumChampionsViewed, 0}}},
+             {"Doors", false,
+              {{HeroNumDoorsBashed, 0}, {HeroNumDoorsSmashed, 1}, {HeroNumDoorsShot, 1}, {HeroNumDoorsBySpell, 1}, {HeroNumDoorsByZo, 0},
+               {HeroNumDoorsButtonOpened, 0}, {HeroNumDoorsButtonClosed, 0}}}});
+  // The six causes add up to Monsters killed
+  topics[HeroTopicMonsters] = {"Monsters", {}, {HeroNumMonstersKilled, HeroNumKills, HeroNumTelefragged, HeroNumLandedOn}, {}};
+  SetRows(&topics[HeroTopicMonsters],
+          {{HeroNumMonstersKilled, 0}, {HeroNumKills, 1, "Champions"}, {HeroNumDoorKills, 1}, {HeroNumPitKills, 1},
+           {HeroNumTelefragged, 1}, {HeroNumLandedOn, 1}, {HeroNumOtherKills, 1}});
+  topics[HeroTopicExperience] = {"Experience", {}, {HeroNumXpFighter, HeroNumXpNinja, HeroNumXpPriest, HeroNumXpWizard}, {}};
+  SetRows(&topics[HeroTopicExperience],
+          {{HeroNumExperience, 0}, {HeroNumXpFighter, 1}, {HeroNumXpNinja, 1}, {HeroNumXpPriest, 1}, {HeroNumXpWizard, 1}, {HeroNumRanksGained, 0}});
   topics[HeroTopicRecords] = {"Records", {},
-                              {HeroNumRecBiggestMeleeHit, HeroNumRecBiggestRangedHit, HeroNumRecBiggestSpellTotal, HeroNumRecBiggestHitTaken}};
+                              {HeroNumRecBiggestMeleeHit, HeroNumRecBiggestRangedHit, HeroNumRecBiggestSpellTotal, HeroNumRecBiggestHitTaken}, {}};
   // The melee and ranged hits first, where the biggest hit was; that one is no longer shown
-  topics[HeroTopicRecords].rows.push_back({HeroNumRecBiggestMeleeHit, 0});
-  topics[HeroTopicRecords].rows.push_back({HeroNumRecBiggestRangedHit, 0});
+  std::vector<HeroStatsTopicRow> records;
+  records.push_back({HeroNumRecBiggestMeleeHit, 0});
+  records.push_back({HeroNumRecBiggestRangedHit, 0});
   for (int k = 0; k < HERO_RECORD_COUNT; k++)
     if (k != HeroRecBiggestHit && k != HeroRecBiggestMeleeHit && k != HeroRecBiggestRangedHit)
-      topics[HeroTopicRecords].rows.push_back({(HeroStatsNumber)(HeroNumRecFirst + k), 0});
+      records.push_back({(HeroStatsNumber)(HeroNumRecFirst + k), 0});
+  SetRows(&topics[HeroTopicRecords], records);
   return topics;
 }
 
@@ -257,6 +289,8 @@ std::vector<HeroStatsNumber> HeroStatsCatalogue_ParseNumbers(const std::string &
     for (size_t i = 0; i < word.size(); i++) word[i] = (char)tolower((unsigned char)word[i]);
     // The biggest hit is no longer shown: a csb.cfg that names it gets the biggest melee hit
     if (word == "biggest_hit") word = "biggest_melee_hit";
+    // Telefrag kills became Telefragged
+    if (word == "telefrag_kills") word = "telefragged";
     for (int n = 0; n < HERO_NUMBER_COUNT; n++)
       if (word == KEYS[n] && std::find(numbers.begin(), numbers.end(), (HeroStatsNumber)n) == numbers.end())
         numbers.push_back((HeroStatsNumber)n);
@@ -306,9 +340,9 @@ void HeroStatsCatalogue_ApplySetting(HeroStatsSetting setting, const std::string
   if (numbers.empty()) numbers = SettingDefaults(setting);
   if (keyNumbers)
   {
-    std::vector<HeroStatsTopicRow> &rows = Topics()[HeroTopicOverview].rows;
-    rows.clear();
+    std::vector<HeroStatsTopicRow> rows;
     for (size_t i = 0; i < numbers.size(); i++) rows.push_back({numbers[i], 0});
+    SetRows(&Topics()[HeroTopicOverview], rows);
   }
   else if (setting == HeroSettingChampionTiles) ChampionTiles() = numbers;
   else Topics()[SETTINGS[setting].topic].tiles = numbers;
@@ -465,7 +499,7 @@ static void FillMovement(const HeroStats &stats, HeroStatsChampion, int level, i
   v[HeroNumMonsterBumps] = move.monsterBumps;
   v[HeroNumTeleports] = move.teleports;
   v[HeroNumTelefrags] = move.telefrags;
-  v[HeroNumTelefragKills] = move.telefragKills;
+  v[HeroNumLandings] = move.landings;
   v[HeroNumPitFalls] = move.pitFalls;
   v[HeroNumPitClimbs] = move.pitClimbs;
   v[HeroNumTicks] = move.ticks;
@@ -483,16 +517,29 @@ static void FillDungeon(const HeroStats &stats, HeroStatsChampion, int level, in
   v[HeroNumChampionsViewed] = stats.ChampionsViewed(level);
 }
 
-// As the Monsters page counts them: a door, a fall, or any cause but a champion's blow
+// Every kill by its cause: a door, a fall, a telefrag, a landing, or any other cause but a
+// champion's blow. The causes and the champions' Kills add up to Monsters killed.
 static void FillKillCauses(const HeroStats &stats, HeroStatsChampion, int level, int *v)
 {
-  v[HeroNumDoorKills] = v[HeroNumPitKills] = v[HeroNumOtherKills] = 0;
+  v[HeroNumDoorKills] = v[HeroNumPitKills] = v[HeroNumOtherKills] = v[HeroNumTelefragged] = v[HeroNumLandedOn] = 0;
+  v[HeroNumMonstersKilled] = 0;
   std::vector<HeroStatsMonsterRow> kills = stats.MonsterKills(level);
   for (size_t i = 0; i < kills.size(); i++)
   {
+    v[HeroNumMonstersKilled] += kills[i].count;
     if (kills[i].by == HeroBlowByDoor) v[HeroNumDoorKills] += kills[i].count;
     else if (kills[i].by == HeroBlowByPit) v[HeroNumPitKills] += kills[i].count;
+    else if (kills[i].by == HeroBlowByTelefrag) v[HeroNumTelefragged] += kills[i].count;
+    else if (kills[i].by == HeroBlowByLanding) v[HeroNumLandedOn] += kills[i].count;
     else if (kills[i].by != HeroBlowByChampion) v[HeroNumOtherKills] += kills[i].count;
+  }
+  // A game saved before layout 29 counted a telefrag's kills beside its "other" kills: they are
+  // telefrags, as many of them as there are such kills
+  int before = std::min(stats.Movement(level).telefragKills, v[HeroNumOtherKills]);
+  if (before > 0)
+  {
+    v[HeroNumTelefragged] += before;
+    v[HeroNumOtherKills] -= before;
   }
 }
 
@@ -547,7 +594,7 @@ static FillGroup GroupOf(HeroStatsNumber number)
   case HeroNumWaterWasted: return FillFood;
   case HeroNumPickedUp: case HeroNumUsedInWalls: return FillItems;
   case HeroNumSteps: case HeroNumTilesWalked: case HeroNumTilesExplored: case HeroNumTurns: case HeroNumBumps:
-  case HeroNumMonsterBumps: case HeroNumTeleports: case HeroNumTelefrags: case HeroNumTelefragKills: case HeroNumPitFalls: case HeroNumPitClimbs: case HeroNumTicks:
+  case HeroNumMonsterBumps: case HeroNumTeleports: case HeroNumTelefrags: case HeroNumLandings: case HeroNumPitFalls: case HeroNumPitClimbs: case HeroNumTicks:
   case HeroNumSleepTicks:
     return FillMovement;
   case HeroNumDoorsBashed: case HeroNumDoorsSmashed: case HeroNumDoorsShot: case HeroNumDoorsBySpell:
@@ -556,7 +603,8 @@ static FillGroup GroupOf(HeroStatsNumber number)
   case HeroNumWallTexts: case HeroNumChampionsSeen: case HeroNumChampionsViewed: return FillDungeon;
   case HeroNumExperience: case HeroNumXpFighter: case HeroNumXpNinja: case HeroNumXpPriest: case HeroNumXpWizard:
   case HeroNumRanksGained: return FillExperience;
-  case HeroNumDoorKills: case HeroNumPitKills: case HeroNumOtherKills: return FillKillCauses;
+  case HeroNumDoorKills: case HeroNumPitKills: case HeroNumOtherKills: case HeroNumMonstersKilled: case HeroNumTelefragged:
+  case HeroNumLandedOn: return FillKillCauses;
   default: return FillRecords;
   }
 }

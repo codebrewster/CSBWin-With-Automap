@@ -332,8 +332,84 @@ static void RecordsAreNotSummable(void)
   CHECK(HeroStatsCatalogue_GridNumbers(HeroTopicExperience).size() == 6);
 }
 
+// The rows of a topic are the rows of its groups, in order; the groups the pages draw by
+static void TopicsHaveGroups(void)
+{
+  for (int t = 0; t < HERO_TOPIC_COUNT; t++)
+  {
+    const HeroStatsTopicInfo &info = HeroStatsCatalogue_Topic(t);
+    size_t at = 0;
+    for (size_t g = 0; g < info.groups.size(); g++)
+      for (size_t r = 0; r < info.groups[g].rows.size(); r++, at++)
+        CHECK(at < info.rows.size() && info.rows[at].number == info.groups[g].rows[r].number);
+    CHECK(at == info.rows.size());
+  }
+  const HeroStatsTopicInfo &exploration = HeroStatsCatalogue_Topic(HeroTopicExploration);
+  CHECK(exploration.groups.size() == 5);
+  if (exploration.groups.size() != 5) return;
+  CHECK(std::string(exploration.groups[0].title) == "Movement" && exploration.groups[0].panel);
+  CHECK(std::string(exploration.groups[1].title) == "Travel" && exploration.groups[1].rows[1].number == HeroNumTelefrags &&
+        exploration.groups[1].rows[1].depth == 1 && std::string(HeroStatsCatalogue_RowLabel(exploration.groups[1].rows[1])) == "onto monsters");
+  CHECK(std::string(HeroStatsCatalogue_RowLabel(exploration.groups[1].rows[0])) == "Teleports");
+  CHECK(std::string(exploration.groups[4].title) == "Doors" && !exploration.groups[4].panel);
+  CHECK(HeroStatsCatalogue_Topic(HeroTopicCombat).groups.size() == 2 && HeroStatsCatalogue_Topic(HeroTopicMagic).groups.size() == 3);
+  CHECK(HeroStatsCatalogue_Topic(HeroTopicMonsters).groups.size() == 1 && std::string(HeroStatsCatalogue_Topic(HeroTopicMonsters).groups[0].title).empty());
+  // The Key numbers csb.cfg chooses are one group too
+  HeroStatsCatalogue_ApplySetting(HeroSettingKeyNumbers, "kills, damage");
+  const HeroStatsTopicInfo &overview = HeroStatsCatalogue_Topic(HeroTopicOverview);
+  CHECK(overview.groups.size() == 1 && overview.groups[0].rows.size() == 2 && overview.groups[0].rows[0].number == HeroNumKills);
+  HeroStatsCatalogue_ApplySetting(HeroSettingKeyNumbers, "");
+}
+
+// The six causes add up to Monsters killed; an older save's telefrag kills leave Other causes
+static void KillCausesAddUp(void)
+{
+  HeroStats killed;
+  killed.CountMonsterKill(1, 3, 0, ChampionBlow(7, 5, HeroDamageMelee));
+  killed.CountMonsterKill(1, 3, 0, HeroStatsBlow_Nobody(HeroBlowByDoor));
+  killed.CountMonsterKill(1, 3, 0, HeroStatsBlow_Nobody(HeroBlowByPit));
+  killed.CountMonsterKill(1, 3, 0, HeroStatsBlow_Nobody(HeroBlowByTelefrag));
+  killed.CountMonsterKill(1, 3, 0, HeroStatsBlow_Nobody(HeroBlowByLanding));
+  for (int i = 0; i < 3; i++) killed.CountMonsterKill(1, 3, 0, HeroStatsBlow_Nobody(HeroBlowByOther));
+  killed.SetLegacyTelefragKills(1, 2);
+  HeroStatsRecord k = HeroStatsCatalogue_Record(killed, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN);
+  CHECK(k.value[HeroNumTelefragged] == 3 && k.value[HeroNumLandedOn] == 1 && k.value[HeroNumOtherKills] == 1);
+  CHECK(k.value[HeroNumMonstersKilled] == 8);
+  CHECK(k.value[HeroNumMonstersKilled] == k.value[HeroNumKills] + k.value[HeroNumDoorKills] + k.value[HeroNumPitKills] +
+        k.value[HeroNumTelefragged] + k.value[HeroNumLandedOn] + k.value[HeroNumOtherKills]);
+  CHECK(HeroStatsCatalogue_Value(killed, HERO_STATS_PARTY, 1, HeroNumMonstersKilled) == 8);
+  CHECK(HeroStatsCatalogue_Value(killed, HERO_STATS_PARTY, 1, HeroNumLandedOn) == 1);
+  // More stored telefrag kills than "other" kills: Other causes is 0, the sum still holds
+  killed.SetLegacyTelefragKills(1, 9);
+  k = HeroStatsCatalogue_Record(killed, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN);
+  CHECK(k.value[HeroNumOtherKills] == 0 && k.value[HeroNumTelefragged] == 4 && k.value[HeroNumMonstersKilled] == 8);
+  // Nothing killed: every cause is 0
+  HeroStatsRecord none = HeroStatsCatalogue_Record(HeroStats(), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN);
+  CHECK(none.value[HeroNumMonstersKilled] == 0 && none.value[HeroNumOtherKills] == 0 && none.value[HeroNumTelefragged] == 0);
+  // Landings are the events, on the level
+  killed.CountLanding(1);
+  CHECK(HeroStatsCatalogue_Value(killed, HERO_STATS_PARTY, 1, HeroNumLandings) == 1);
+}
+
+// A hovertext only where the label and its place do not say it
+static void HovertextsSayWhatLabelsDoNot(void)
+{
+  CHECK(std::string(HeroStatsCatalogue_Info(HeroNumFoodGained).help).empty());
+  CHECK(std::string(HeroStatsCatalogue_Info(HeroNumDoorsBashed).help).empty());
+  CHECK(std::string(HeroStatsCatalogue_Info(HeroNumDoorKills).help).empty());
+  CHECK(std::string(HeroStatsCatalogue_Info(HeroNumRecLongestSleep).help).empty());
+  CHECK(std::string(HeroStatsCatalogue_Info(HeroNumTaken).help).find("walls run into") != std::string::npos);
+  CHECK(std::string(HeroStatsCatalogue_Info(HeroNumHitRate).help) == "Hits \xc3\xb7 Attacks.");
+  CHECK(!std::string(HeroStatsCatalogue_Info(HeroNumLandedOn).help).empty());
+  CHECK(HeroStatsCatalogue_ParseNumbers("telefrag_kills", 4) == std::vector<HeroStatsNumber>(1, HeroNumTelefragged));
+  CHECK(HeroStatsCatalogue_Key(HeroNumMonstersKilled) == "monsters_killed" && HeroStatsCatalogue_Key(HeroNumLandings) == "landings");
+}
+
 void TestHeroStatsCatalogue(void)
 {
+  TopicsHaveGroups();
+  KillCausesAddUp();
+  HovertextsSayWhatLabelsDoNot();
   ExperienceAndRecordsHaveTopics();
   RecordValuesAreTheBest();
   RecordsAreNotSummable();

@@ -25,12 +25,12 @@ enum HeroStatsNumber {
   HeroNumDeaths, HeroNumResurrected, HeroNumWipes, HeroNumReloads,
   HeroNumEaten, HeroNumDrunk, HeroNumFoodGained, HeroNumFoodWasted, HeroNumWaterGained, HeroNumWaterWasted,
   HeroNumPickedUp, HeroNumUsedInWalls,
-  HeroNumSteps, HeroNumTilesWalked, HeroNumTilesExplored, HeroNumTurns, HeroNumBumps, HeroNumMonsterBumps, HeroNumTeleports, HeroNumTelefrags, HeroNumTelefragKills,
+  HeroNumSteps, HeroNumTilesWalked, HeroNumTilesExplored, HeroNumTurns, HeroNumBumps, HeroNumMonsterBumps, HeroNumTeleports, HeroNumTelefrags, HeroNumTelefragged, HeroNumLandings,
   HeroNumPitFalls, HeroNumPitClimbs, HeroNumTicks, HeroNumSleepTicks,
   HeroNumDoorsBashed, HeroNumDoorsSmashed, HeroNumDoorsShot, HeroNumDoorsBySpell, HeroNumDoorsByZo,
   HeroNumDoorsButtonOpened, HeroNumDoorsButtonClosed, HeroNumChests, HeroNumScrolls, HeroNumWallTexts,
   HeroNumChampionsSeen, HeroNumChampionsViewed,
-  HeroNumDoorKills, HeroNumPitKills, HeroNumOtherKills,
+  HeroNumDoorKills, HeroNumPitKills, HeroNumOtherKills, HeroNumMonstersKilled, HeroNumLandedOn,
   HeroNumExperience, HeroNumXpFighter, HeroNumXpNinja, HeroNumXpPriest, HeroNumXpWizard, HeroNumRanksGained,
   // The records, in HeroRecordKind order (HeroNumRecFirst + kind)
   HeroNumRecBiggestHit, HeroNumRecBiggestSpellHit, HeroNumRecBiggestSpellTotal, HeroNumRecMostKillsAtOnce,
@@ -53,8 +53,21 @@ bool HeroStatsCatalogue_IsRecord(HeroStatsNumber number);
 HeroRecordKind HeroStatsCatalogue_RecordOf(HeroStatsNumber number);  // for a record
 const HeroStatsNumberInfo &HeroStatsCatalogue_Info(HeroStatsNumber number);
 
-struct HeroStatsTopicRow { HeroStatsNumber number; int depth; };  // depth 1: a part of the row above, 2: a part of that
-struct HeroStatsTopicInfo { const char *label; std::vector<HeroStatsTopicRow> rows; std::vector<HeroStatsNumber> tiles; };
+// depth 1: a part of the row above, 2: a part of that. label: what the row is called in this
+// place ("onto monsters" under Teleports), or NULL for the number's own label.
+struct HeroStatsTopicRow { HeroStatsNumber number; int depth; const char *label; };
+const char *HeroStatsCatalogue_RowLabel(const HeroStatsTopicRow &row);
+// The rows of a topic come in groups with a small heading (title "" for a topic that is one
+// group). panel: numbers only the party has, drawn as a panel of label and value, not as table rows.
+struct HeroStatsTopicGroup { const char *title; bool panel; std::vector<HeroStatsTopicRow> rows; };
+// rows: the rows of all the groups, in order
+struct HeroStatsTopicInfo
+{
+  const char *label;
+  std::vector<HeroStatsTopicRow> rows;
+  std::vector<HeroStatsNumber> tiles;
+  std::vector<HeroStatsTopicGroup> groups;
+};
 const HeroStatsTopicInfo &HeroStatsCatalogue_Topic(int topic);
 
 // Each number's name in csb.cfg: "damage", "hit_rate", "other_actions" ...
