@@ -272,6 +272,18 @@ column per champion; a champion's Exploration shows the doors only.
 | **Wall texts read** | the wall texts the map knows as read |
 | **Champions seen**, **Champions viewed** | portraits in mirrors seen face to face, and mirrors clicked to look at the champion; each mirror counts once, and the champions you took into the party count too, although their mirror is empty afterwards |
 
+**Shot open** stays at 0 in most games, because a thrown or fired item seldom breaks a door. It
+only breaks a door an axe can break, and the force of its hit has to reach the door's strength
+(42 for a wooden door). That force comes from the item's kinetic energy and weight and from the
+energy the missile still has; it falls with every square the missile flies. The thrower's
+strength and skill raise it only a little: a strong champion's throw does not go much further than
+a weaker one's. A Hardcleave thrown by hand from right in front of a wooden door, by a champion
+with 104 strength and Archmaster in everything, hit it with a force of 10 to 31 in 26 throws; 49 is
+the most it can reach, and the door breaks about once in 400 throws; a lighter axe does worse.
+An arrow or a sling stone shot from a launcher hits a door as hard as it hits a monster, so
+`launcher_power` in `csb.cfg` multiplies that force too (at 1, the original game's, it is weak).
+Fireballs and attacks with an axe (Smashed) are the ways to break doors.
+
 Only what you did counts as steps and turns. Falling, climbing down, being teleported or being
 moved by a script is not a step. Movement and the other party numbers count from the start of a
 new game, before the first champion joins.
