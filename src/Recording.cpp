@@ -329,6 +329,15 @@ void PLAYFILE::Open(void)
     return;
   };
   GETS(versionLine,199,m_file);
+  if (versionLine[0] != '#')
+  { // A playfile of the oldest versions has no header: its first line already is the first
+    // event (the click on Resume), which must not be swallowed. Read from the start again.
+    CLOSE(m_file);
+    m_file = OPEN(PlayfileName, "r");
+    if (m_file < 0) return;
+    versionLine[0] = '#'; // as for any file without a version line: older than every version
+    versionLine[1] = 0;
+  };
   {
     int n;
     for (n = strlen(versionLine)-1; n>=0; n--)
