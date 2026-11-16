@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cfloat>
+#include <cmath>
 #include <cstdlib>
 #include <cstdio>
 #include <ctime>
@@ -168,6 +169,9 @@ void HeroStatsWindow_RestoreVisibility(void)
 // The ImGui context
 
 
+// ImGui's scalable font when the body font is its bitmap one, else NULL
+static ImFont *scalableBodyFont = NULL;
+
 // Vera Sans Mono beside the game's Vera.ttf when it is there; otherwise ImGui's own font,
 // which is monospaced as well
 static void LoadFont(void)
@@ -179,7 +183,8 @@ static void LoadFont(void)
     // ImGui's own font is a bitmap at 13 px, crisp there and blocky when scaled up for the tiles'
     // big numbers: the body text keeps it and the big text gets the scalable one
     ImGui::GetIO().Fonts->AddFontDefaultBitmap();
-    HeroStatsDraw_SetScalableFont(ImGui::GetIO().Fonts->AddFontDefaultVector());
+    scalableBodyFont = ImGui::GetIO().Fonts->AddFontDefaultVector();
+    HeroStatsDraw_SetScalableFont(scalableBodyFont);
     return;
   }
   fclose(file);
@@ -410,6 +415,44 @@ static float Zoom(void)
   return zoomPercent / 100.0f;
 }
 
+// ImGui draws the font at the zoomed density, but puts each line of text on a whole pixel of the
+// unzoomed page: zoomed, a glyph's top lands between two screen pixels (a line at 7 is at 8.75
+// at 125 %), and the texture is sampled between two rows of the glyph, blurred and differently
+// for each line. Each glyph is moved to the screen pixel above or below, so that its rows fall on
+// the screen's; its size is already whole screen pixels. Across, the font is oversampled for
+// positions between pixels, as at 100 %. A glyph is a quad of the font atlas in ImGui's order
+// (top left, top right, bottom right, bottom left) whose texture coordinates differ across and
+// down; filled shapes take one texel for all their corners. The atlas is the only texture ImGui
+// keeps (the pictures are the renderer's own), and when it grows during a frame the commands
+// before carry the one it had then, so any texture of ImGui's counts.
+static void PutTextOnScreenPixels(ImDrawData *drawData)
+{
+  float scale = drawData->FramebufferScale.y;
+  if (scale == 1.0f) return;
+  for (ImDrawList *list : drawData->CmdLists)
+    for (const ImDrawCmd &cmd : list->CmdBuffer)
+    {
+      if (cmd.UserCallback != NULL || cmd.TexRef._TexData == NULL) continue;
+      const ImDrawIdx *idx = list->IdxBuffer.Data + cmd.IdxOffset;
+      ImDrawVert *vtx = list->VtxBuffer.Data + cmd.VtxOffset;
+      for (unsigned int i = 0; i + 6 <= cmd.ElemCount; i += 3)
+      {
+        unsigned int first = idx[i];
+        if (idx[i + 1] != first + 1 || idx[i + 2] != first + 2 || idx[i + 3] != first ||
+            idx[i + 4] != first + 2 || idx[i + 5] != first + 3)
+          continue;
+        ImDrawVert *quad = vtx + first;
+        bool isGlyph = quad[0].pos.y == quad[1].pos.y && quad[2].pos.y == quad[3].pos.y &&
+                       quad[0].pos.x == quad[3].pos.x && quad[1].pos.x == quad[2].pos.x &&
+                       quad[0].uv.x != quad[1].uv.x && quad[0].uv.y != quad[3].uv.y;
+        if (!isGlyph) continue;
+        float shift = roundf(quad[0].pos.y * scale) / scale - quad[0].pos.y;
+        for (int v = 0; v < 4; v++) quad[v].pos.y += shift;
+        i += 3;
+      }
+    }
+}
+
 static void ShowZoomInTitle(void)
 {
   if (statsWindow == NULL) return;
@@ -520,6 +563,11 @@ static void ExportStatistics(void);
 
 static void DrawWindowContents(void)
 {
+  // ImGui draws the font at the density of the zoom (and of the display): the bitmap font, made
+  // for 13 pixels, comes out with uneven strokes and letters of uneven height at 16.25 pixels
+  // (125 %). Zoomed, the body text takes the scalable font, made to match it in size and width.
+  bool scalableBody = scalableBodyFont != NULL && ImGui::GetIO().DisplayFramebufferScale.y != 1.0f;
+  if (scalableBody) ImGui::PushFont(scalableBodyFont, 0.0f);
   const ImGuiViewport *viewport = ImGui::GetMainViewport();
   ImGui::SetNextWindowPos(viewport->Pos);
   ImGui::SetNextWindowSize(viewport->Size);
@@ -544,6 +592,7 @@ static void DrawWindowContents(void)
     HeroStatsDraw_Frame(&drawState, stats, columns, picker, HeroStats_LiveParty(), pictures, ExportStatistics);
   }
   ImGui::End();
+  if (scalableBody) ImGui::PopFont();
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -668,6 +717,7 @@ void HeroStatsWindow_Paint(void)
     ImGui::Render();
     if (!HeroStatsDraw_WantsAnotherPass()) break;
   }
+  PutTextOnScreenPixels(ImGui::GetDrawData());
   ImGuiIO &io = ImGui::GetIO();
   SDL_RenderSetScale(statsRenderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
   SDL_SetRenderDrawColor(statsRenderer, BACKGROUND[0], BACKGROUND[1], BACKGROUND[2], 0xff);

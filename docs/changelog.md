@@ -32,6 +32,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 - The HTML export shows the same: item values, the list's new columns, attribute bars, and the Party with attributes and inventory when four cards fit across.
 - A climb down a rope onto monsters is counted on Exploration under Pit climbs ("onto monsters"), as a fall onto them is under Pit falls. Saves from before start it at 0.
 - Exploration's headline shows Teleports in place of Doors bashed open (a `csb.cfg` with the earlier default follows; your own choice stays).
+- Zoomed in (or out), the text is sharp: the letters no longer come out damaged or blurred, and no longer sit unevenly from line to line.
 
 **Map**
 - The monster pictures in a tile's tooltip (and in the HTML export) have their own colours and no coloured backdrop: they were drawn with the wrong transparent colour, so a blue, red or white box showed behind them.
