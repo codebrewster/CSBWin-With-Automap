@@ -41,7 +41,7 @@ map.
 
 To make everything in the window bigger or smaller, hold **Ctrl** and turn the mouse wheel over
 the window, or press **Ctrl +** and **Ctrl −** with the pointer over it. **Ctrl 0** goes back to
-100 %. The zoom goes from 70 % to 250 %, the window's title shows it when it is not 100 %, and it
+100 %. The zoom goes from 70 % to 400 %, the window's title shows it when it is not 100 %, and it
 is kept for the next time.
 
 ## The window
@@ -416,7 +416,7 @@ stays in step with its recording. The level picker is hidden on this tab; it has
 - the portrait, the name and title, and "dead" or "poisoned" in red;
 - health, stamina and mana as bars in the champion's colour, food and water, and the load against
   what the champion can carry, each with its number; then wounds and poison (the sum of all doses
-  and the damage per 36 ticks, with each dose listed under it; the doses add up to the sum);
+  and the damage per 36 ticks; the champion's own page lists each dose under it);
 - what the champion holds and wears as icons (both hands, head, neck, torso, legs, feet) and how
   many more items they carry;
 - the rank in each class with the way to the next rank.

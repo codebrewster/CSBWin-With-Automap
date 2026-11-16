@@ -42,7 +42,7 @@ static const Uint8 BACKGROUND[3] = {0x1e, 0x1f, 0x24};
 static const int SETTINGS_LAYOUT = 2;
 // The zoom steps in percent (stats_zoom): Ctrl with the mouse wheel or with + and - goes one step,
 // Ctrl+0 back to 100
-static const int ZOOM_STEPS[] = {70, 80, 90, 100, 110, 125, 150, 175, 200, 250};
+static const int ZOOM_STEPS[] = {70, 80, 90, 100, 110, 125, 150, 175, 200, 250, 300, 350, 400};
 static const int ZOOM_STEP_COUNT = (int)(sizeof ZOOM_STEPS / sizeof ZOOM_STEPS[0]);
 static const int NORMAL_ZOOM = 100;
 

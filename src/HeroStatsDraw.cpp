@@ -2925,7 +2925,7 @@ struct VitalLine
 
 // Health, stamina, mana, food, water and load as bars that take the room between the labels and
 // the numbers, then wounds and poison as text. width: of the block.
-static void LiveVitals(const HeroStatsLiveChampion &live, ImU32 rgb, float width)
+static void LiveVitals(const HeroStatsLiveChampion &live, ImU32 rgb, float width, bool showDoses)
 {
   // Food and water: the game's bar, from HERO_LIVE_FOOD_EMPTY to HERO_LIVE_FOOD_FULL; the number
   // turns yellow below 0 and red below -512 as the game's bar does
@@ -2992,8 +2992,9 @@ static void LiveVitals(const HeroStatsLiveChampion &live, ImU32 rgb, float width
     if (ImGui::IsItemHovered())
       WrappedTooltip("The poison still to tick, all doses added up. A dose of strength v hurts max(1, v / 64) HP "
                      "every 36 ticks and gets weaker by 1 each time; a Cure Poison removes every dose.");
-    // The doses fold away (30 and more can work on one champion); the fold is kept per champion
-    if (!live.poisonDoses.empty())
+    // The doses fold away (30 and more can work on one champion); the fold is kept per champion.
+    // The Party's cards leave it out, so a poisoned champion's card is no taller than the others
+    if (showDoses && !live.poisonDoses.empty())
     {
       ImGui::PushID((int)live.who);
       ImGui::Indent(LIVE_LABEL_WIDTH);
@@ -3368,7 +3369,7 @@ static bool LiveCard(const HeroStatsLiveParty &party, const HeroStatsLiveChampio
   {
     float inner = ImGui::GetContentRegionAvail().x;
     LiveHead(live, rgb, inner);
-    LiveVitals(live, rgb, inner);
+    LiveVitals(live, rgb, inner, false);
     ImGui::Dummy(ImVec2(0, 4));
     float middleTop = ImGui::GetCursorPosY();
     // What is held and worn: both hands, head, neck, torso, legs, feet
@@ -3445,7 +3446,7 @@ static void DrawLiveChampion(HeroStatsDrawState *state, const HeroStatsLiveParty
   if (ImGui::BeginChild("##self", ImVec2(leftWidth, 0), ImGuiChildFlags_AutoResizeY, plain))
   {
     LiveHead(live, rgb, leftWidth);
-    LiveVitals(live, rgb, leftWidth);
+    LiveVitals(live, rgb, leftWidth, true);
     ImGui::Dummy(ImVec2(0, 8));
     if (SectionHeader(state, HERO_STATS_ATTRIBUTES_SECTION, "Attributes", ""))
     {
