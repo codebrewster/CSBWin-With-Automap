@@ -433,11 +433,15 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   :root { color-scheme: dark; --bg:#1e1f24; --panel:#272930; --hover:#2e3139; --line:#31343d; --row:#292b32;
     --text:#d8d8d8; --part:#b4b6bf; --dim:#8a8d98; --faint:#5a5d68; --on:#4272b8; --bad:#e5735f; --track:#2f323a;
     --c0:#5fbf5f; --c1:#d8c447; --c2:#d9604f; --c3:#5b8fd9 }
-  body { background:#121317; color:#ccc; font:14px system-ui,sans-serif; margin:24px }
-  @media (max-width:700px) { body { margin:10px } }
+  /* The page fills the browser window: the panel takes the width and the height left under the
+     heading, and only the view inside it scrolls */
+  html, body { height:100% }
+  body { background:#121317; color:#ccc; font:14px system-ui,sans-serif; margin:0; padding:24px; box-sizing:border-box;
+    display:flex; flex-direction:column }
+  @media (max-width:700px) { body { padding:10px } }
   h1 { font-size:18px; color:#fff; margin:0 0 4px; font-weight:600 }
   .about { color:#999; margin-bottom:12px }
-  .im { max-width:1500px; background:var(--bg); color:var(--text); font:12.5px/1.45 "DejaVu Sans Mono","Bitstream Vera Sans Mono",Menlo,Consolas,monospace;
+  .im { flex:1 0 360px; min-height:360px; display:flex; flex-direction:column; background:var(--bg); color:var(--text); font:12.5px/1.45 "DejaVu Sans Mono","Bitstream Vera Sans Mono",Menlo,Consolas,monospace;
     border:1px solid var(--line); border-radius:6px; overflow:hidden }
   .bar1 { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 10px 0 }
   .whos, .seg { display:flex; gap:4px; flex-wrap:wrap; align-items:center }
@@ -453,7 +457,7 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   .tabs { display:flex; gap:2px; padding:6px 10px 0; border-bottom:1px solid var(--line); flex-wrap:wrap }
   .tab { background:none; border:0; color:var(--dim); padding:5px 10px 6px; border-bottom:2px solid transparent; margin-bottom:-1px }
   .tab:hover { color:#fff } .tab.on { color:#fff; border-bottom-color:var(--on) }
-  #view { max-height:680px; overflow:auto; padding:10px 12px 14px }
+  #view { flex:1 1 0; min-height:0; overflow:auto; padding:10px 12px 14px }
   /* The headline numbers: a strip, each behind a thin line, no boxes */
   .tiles { display:grid; grid-template-columns:repeat(4,1fr); gap:14px 0; margin:4px 0 16px }
   .tile { border-left:1px solid var(--line); padding:0 14px; min-width:0 }
