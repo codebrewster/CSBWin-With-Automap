@@ -19,6 +19,7 @@
 
 RN FindFirstObject(i32 level, i32 x, i32 y);
 extern bool legacySmartDiscardSlow;
+extern bool legacySmartDiscardNoRandom;
 
 namespace
 {
@@ -138,8 +139,10 @@ float ComputePriority(SDOBJ *pSDobj)
   // and rounded the sum to float once.  Doing the same here reproduces their
   // priorities to the last bit (checked against an 11.022 trace), so the
   // heap orders ties the same way and draws the same random numbers.
+  // CSBwin before 8.0 drew no random number here (their exes never call the generator
+  // from SmartDiscard)
   priority = (float)((double)psdEnt->y_intercept
-                     + (double)STRandom(100000) * (double)1e-5f);
+                     + (legacySmartDiscardNoRandom ? 0.0 : (double)STRandom(100000) * (double)1e-5f));
   if (m_trace)
   {
     fprintf(m_trace,"ComputePriority for SmartDiscard priority = %f",

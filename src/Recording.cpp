@@ -60,6 +60,8 @@ extern bool legacyMonsterAttackOrder;
 extern bool legacyDoubleShooter;
 extern bool legacyPadAnyObject;
 extern bool legacyEnlargeToMax;
+extern bool legacySmartDiscardNoRandom;
+extern bool legacyMonsterPositionLoadedLevel;
 extern bool legacyTorchPaletteOnlyWhenBurnedOut;
 extern bool legacyTorchLightHighBits;
 extern ui32 legacyGraphicSignature, legacyDungeonSignature;
@@ -378,6 +380,8 @@ void PLAYFILE::Open(void)
   legacyDoubleShooter     = PlayfileVersionBefore(versionLine+1, 9.9);
   legacyPadAnyObject      = PlayfileVersionBefore(versionLine+1, 9.9);
   legacyEnlargeToMax      = PlayfileVersionBefore(versionLine+1, 9.5);
+  legacySmartDiscardNoRandom = PlayfileVersionBefore(versionLine+1, 8.0);
+  legacyMonsterPositionLoadedLevel = PlayfileVersionBefore(versionLine+1, 9.0);
   legacyTorchPaletteOnlyWhenBurnedOut = PlayfileVersionBefore(versionLine+1, 9.6);
   legacyTorchLightHighBits = PlayfileVersionBefore(versionLine+1, 9.6);
   if (strcmp(versionLine+1, szCSBVersion) != 0)
@@ -1026,6 +1030,16 @@ bool PLAYFILE::Play(MouseQueueEnt *ent)
     if (m_num == 0x2224)
     {
       //d.Long16600 = -505; //No idea!
+      if (legacyLevelTimer22)
+      { // Before 9.7 the splice, like a saved game that is loaded, set the harmless timer 22
+        // that takes a timer slot (as LoadPartyLevel does)
+        TIMER splice22;
+        splice22.Function(TT_22);
+        d.Long16600 = d.Time + 1;
+        splice22.Time(d.Long16600 + 2);
+        splice22.Level(0);
+        gameTimers.SetTimer(&splice22);
+      };
       totalMoveCount += 4; // See sample below where 4 commands are commented out before the save.
       checkDungeonSignature = false;
       if (d.AttackingCharacterOrdinal != 0)

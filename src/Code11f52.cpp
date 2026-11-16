@@ -28,6 +28,7 @@ bool IsPlayFileOpen(void);
 const char *TranslateLanguage(const char *text);
 
 extern bool version90Compatible;
+extern bool legacyMonsterPositionLoadedLevel;
 extern bool legacyPitViewportRedraw;
 extern bool legacyPadAnyObject;
 extern bool drawAsSize4Monsters;
@@ -930,7 +931,7 @@ void DropMonsterRemains(i32 mapX,
         //ASSERT(   (monsterAttachedToLevel == d.LoadedLevel)
         //        ||(d.partyLevel != d.LoadedLevel));
         w_6 = MonsterPositionByte(DB4A3, sw(monsterAttachedToLevel), false);
-        if (version90Compatible)
+        if (version90Compatible || legacyMonsterPositionLoadedLevel)
         {
           w_6 = MonsterPositionByte(DB4A3, d.LoadedLevel, false);
         };

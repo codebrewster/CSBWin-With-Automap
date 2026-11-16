@@ -369,6 +369,12 @@ bool legacyPadAnyObject = false;
 // not).  A full database was enlarged at once to 1023 entries (767 for the text database 15)
 // instead of by 100, which changes how many entries SmartDiscard counts.
 bool legacyEnlargeToMax = false;
+// Set while replaying a playfile recorded by CSBwin before 8.0 (no version line, or older):
+// SmartDiscard drew no random numbers.
+bool legacySmartDiscardNoRandom = false;
+// Set while replaying a playfile recorded by CSBwin before 9.0: a dead monster's remains took their
+// place in the group from the loaded level (as in 9.0), also for a monster of another level.
+bool legacyMonsterPositionLoadedLevel = false;
 // Set while replaying a playfile recorded by CSBwin before 9.6 (the 9.5 exe has it, 9.6a does
 // not).  The 512-tick burn-down of torches reselected the light level (and redrew the hands)
 // only when a torch had burned out.  A monster's sight range depends on that light level.
