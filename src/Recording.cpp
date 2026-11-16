@@ -59,6 +59,9 @@ extern bool legacyPitViewportRedraw;
 extern bool legacyMonsterAttackOrder;
 extern bool legacyDoubleShooter;
 extern bool legacyPadAnyObject;
+extern bool legacyEnlargeToMax;
+extern bool legacyTorchPaletteOnlyWhenBurnedOut;
+extern bool legacyTorchLightHighBits;
 extern ui32 legacyGraphicSignature, legacyDungeonSignature;
 extern bool TimerTraceActive;
 extern i16 TraceFile;
@@ -374,6 +377,9 @@ void PLAYFILE::Open(void)
   legacyMonsterAttackOrder = PlayfileVersionBefore(versionLine+1, 9.9);
   legacyDoubleShooter     = PlayfileVersionBefore(versionLine+1, 9.9);
   legacyPadAnyObject      = PlayfileVersionBefore(versionLine+1, 9.9);
+  legacyEnlargeToMax      = PlayfileVersionBefore(versionLine+1, 9.5);
+  legacyTorchPaletteOnlyWhenBurnedOut = PlayfileVersionBefore(versionLine+1, 9.6);
+  legacyTorchLightHighBits = PlayfileVersionBefore(versionLine+1, 9.6);
   if (strcmp(versionLine+1, szCSBVersion) != 0)
   {
     char msg[200];

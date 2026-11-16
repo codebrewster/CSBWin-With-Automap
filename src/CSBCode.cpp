@@ -58,6 +58,8 @@ void QueueDSASwitchAction(
 
 extern bool PlaybackCommandOption;
 extern bool legacyLevelTimer22;
+extern bool legacyTorchPaletteOnlyWhenBurnedOut;
+extern bool legacyTorchLightHighBits;
 extern bool DMRulesDesignOption;
 extern bool invisibleMonsters;
 extern bool drawAsSize4Monsters;
@@ -7368,7 +7370,10 @@ void SelectPaletteForLightLevel(void)
             && (objNID0 <= objNI_Torch_d) )
         {
           pwA0 = (i16 *)GetCommonAddress(LOCAL_10);
-          *pwA3 = ((DB5 *)pwA0)->charges();
+          // Before 9.6 the light of a torch was read from bits 12-15 of the object's
+          // second word, not from its charges in bits 10-13 (the exe of 9.5 and older).
+          if (legacyTorchLightHighBits) *pwA3 = (i16)((((ui16)pwA0[1]) >> 12) & 0xf);
+          else *pwA3 = ((DB5 *)pwA0)->charges();
           continue;
         };
       };
@@ -7439,6 +7444,7 @@ void NinetySecondUpdate(void)
   OBJ_NAME_INDEX objNID4;
   DB5      *DB5A2;
   CHARDESC *pcA3;
+  bool      torchBurnedOut = false;
 //#ifdef _DEBUG
 //  verifyppq();
 //#endif
@@ -7464,16 +7470,15 @@ void NinetySecondUpdate(void)
       if (D3W == 0)
       {
         DB5A2->important(false);
+        torchBurnedOut = true;
       };
 //
     };
     pcA3++;
 
   };
-  //if (0)
-  //{
-  //};
-  //if (D5W != 0)
+  // Before 9.6 the light level and the hands were redrawn only when a torch burned out
+  if (!legacyTorchPaletteOnlyWhenBurnedOut || torchBurnedOut)
   {
     SelectPaletteForLightLevel();
     DrawEightHands();

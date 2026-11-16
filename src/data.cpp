@@ -365,6 +365,17 @@ bool legacyDoubleShooter = false;
 // "operated by anything" reacted to every object, clouds and missiles too
 // (PressurePadOrAlcove).  Changed between 9.8 and 9.95.
 bool legacyPadAnyObject = false;
+// Set while replaying a playfile recorded by CSBwin before 9.5 (the 9.2 exe has it, 9.5 does
+// not).  A full database was enlarged at once to 1023 entries (767 for the text database 15)
+// instead of by 100, which changes how many entries SmartDiscard counts.
+bool legacyEnlargeToMax = false;
+// Set while replaying a playfile recorded by CSBwin before 9.6 (the 9.5 exe has it, 9.6a does
+// not).  The 512-tick burn-down of torches reselected the light level (and redrew the hands)
+// only when a torch had burned out.  A monster's sight range depends on that light level.
+bool legacyTorchPaletteOnlyWhenBurnedOut = false;
+// Set while replaying a playfile recorded by CSBwin before 9.6: the light level counted bits
+// 12-15 of a torch's second word instead of its charges (bits 10-13).
+bool legacyTorchLightHighBits = false;
 i32 RememberToPutObjectInHand = -1;
 i32 segSize[5]   = {0x02,0x02,0x02,0x02,0x00};
 i32 segSrcX[5]   = {0x00,0x00,0xe0,0x00,0x00};
@@ -934,6 +945,7 @@ i32 DATABASES::Enlarge(i32 dbNum)
   if (m_noEnlarge & (1 << dbNum)) return RNnul;
 //  max = (dbNum==15) ? 1000 : ((dbNum==3)?16000:8000);
   max = Max(dbNum);
+  if (legacyEnlargeToMax) max = (dbNum == 15) ? 767 : 1023;
   if (m_numEnt[dbNum] >= max)
   {
     return -1;//Already as big as possible.
@@ -961,7 +973,7 @@ i32 DATABASES::Enlarge(i32 dbNum)
   //  m_noEnlarge |= 1 << dbNum;
   //  return -1;
   //};
-  newSize = m_numEnt[dbNum] + 100;
+  newSize = legacyEnlargeToMax ? max : m_numEnt[dbNum] + 100;
   m_Address[dbNum] =
      (DBCOMMON *)UI_realloc(m_Address[dbNum],
          newSize*dbEntrySizes[dbNum],

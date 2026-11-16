@@ -54,6 +54,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 - File > Continue recording: replays to the end at full speed and records on into the same file.
 - Nostalgia Mode plays by the rules of CSBwin 17.6, so a recording replays there too.
 - More old playfiles replay exactly (reincarnation penalty before 9.6, killing blow and defense adjustment before 9.9; DMMovie8).
+- More old playfiles replay to their end: DMMovie1, 3, 5, 7 and 40 (a full database was enlarged at once to 1023 entries before 9.5; before 9.6 a torch's light level counted other bits of the torch and was only recomputed when a torch burned out, which changes how far monsters see).
 
 **Statistics**
 - Champions tab: a card per champion, the inventory as picture or list with icons, weight, charges, wounded slots and chest contents; also in the HTML export.
