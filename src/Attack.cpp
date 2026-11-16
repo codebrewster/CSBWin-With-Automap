@@ -140,6 +140,7 @@ bool IsCellOccupied(i32 x, i32 y)
 //
 //*********************************************************
 //   TAG00f340
+extern bool legacyFusionRandomWalk;
 RESTARTABLE _Fusion(const i32 attackX, const i32 attackY)
 {//(void)
   static dReg D0, D6, D7;
@@ -164,6 +165,41 @@ RESTARTABLE _Fusion(const i32 attackX, const i32 attackY)
   CreateCloud(RN(RNDispellMissile), 0xff, D7W, D6W, D7W, D6W, 0xff, NULL);
   obj_16 = IsLordChaosHere(D7W, D6W);
   if (obj_16 == RNempty) RETURN;
+  if (legacyFusionRandomWalk)
+  { // Before 9.5: one random direction per attempt, then the first free neighbour clockwise from
+    // it; no scrambled order and no two-square jump.
+    bool blocked[4];
+    int n, k, dir, tx, ty;
+    blocked[0] = IsCellFluxcage(D7W-1, D6W);
+    blocked[1] = IsCellFluxcage(D7W+1, D6W);
+    blocked[2] = IsCellFluxcage(D7W, D6W-1);
+    blocked[3] = IsCellFluxcage(D7W, D6W+1);
+    n = blocked[0] + blocked[1] + blocked[2] + blocked[3];
+    while (n < 4)
+    {
+      dir = STRandom0_3();
+      for (k=0; k<4 && blocked[dir]; k++) dir = (dir+1)&3;
+      if (k == 4) break;
+      blocked[dir] = true;
+      tx = D7W + ((dir==0) ? -1 : (dir==1) ? 1 : 0);
+      ty = D6W + ((dir==2) ? -1 : (dir==3) ? 1 : 0);
+      if (   legalXY(tx, ty)
+          && IsCellOpenOrPit(tx, ty)
+          && !((tx == d.partyX) && (ty == d.partyY))
+          && (FindFirstObject(tx, ty) == RNeof) )
+      {
+        D0W = MoveObject(obj_16, D7W, D6W, tx, ty, NULL, NULL);
+        if (D0W == 0)
+        {
+          StartMonsterMovementTimers(tx, ty);
+          RETURN;
+        };
+      };
+      n++;
+    };
+  };
+  if (!legacyFusionRandomWalk)
+  {
   for (i=0; i<4; i++) direction[i] = i; // Initially north, east, south, west
   // Now scramble the four directions
   for (i=3; i>0; i--)
@@ -213,6 +249,7 @@ RESTARTABLE _Fusion(const i32 attackX, const i32 attackY)
         RETURN;
       };
     };
+  };
   };
   // Sorry, Mr. Chaos.  You are toast.
   FusionSequence(_3_); //TAG01fefc

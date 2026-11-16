@@ -60,6 +60,7 @@ extern bool legacyMonsterAttackOrder;
 extern bool legacyDoubleShooter;
 extern bool legacyPadAnyObject;
 extern bool legacyEnlargeToMax;
+extern bool legacyFusionRandomWalk;
 extern bool legacySmartDiscardNoRandom;
 extern bool legacyMonsterPositionLoadedLevel;
 extern bool legacyTorchPaletteOnlyWhenBurnedOut;
@@ -389,6 +390,7 @@ void PLAYFILE::Open(void)
   legacyDoubleShooter     = PlayfileVersionBefore(versionLine+1, 9.9);
   legacyPadAnyObject      = PlayfileVersionBefore(versionLine+1, 9.9);
   legacyEnlargeToMax      = PlayfileVersionBefore(versionLine+1, 9.5);
+  legacyFusionRandomWalk  = PlayfileVersionBefore(versionLine+1, 9.2);
   legacySmartDiscardNoRandom = PlayfileVersionBefore(versionLine+1, 8.0);
   legacyMonsterPositionLoadedLevel = PlayfileVersionBefore(versionLine+1, 9.0);
   legacyTorchPaletteOnlyWhenBurnedOut = PlayfileVersionBefore(versionLine+1, 9.6);

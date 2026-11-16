@@ -369,6 +369,9 @@ bool legacyPadAnyObject = false;
 // not).  A full database was enlarged at once to 1023 entries (767 for the text database 15)
 // instead of by 100, which changes how many entries SmartDiscard counts.
 bool legacyEnlargeToMax = false;
+// Set while replaying a playfile recorded by CSBwin before 9.2: Lord Chaos' flight from the
+// fusion spell picked one random direction per attempt (the original Atari way).
+bool legacyFusionRandomWalk = false;
 // Set while replaying a playfile recorded by CSBwin before 8.0 (no version line, or older):
 // SmartDiscard drew no random numbers.
 bool legacySmartDiscardNoRandom = false;
