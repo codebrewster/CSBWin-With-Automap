@@ -57,6 +57,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 - More old playfiles replay to their end: DMMovie1, 3, 5, 7 and 40 (a full database was enlarged at once to 1023 entries before 9.5; before 9.6 a torch's light level counted other bits of the torch and was only recomputed when a torch burned out, which changes how far monsters see).
 - Still more old playfiles replay to their end: CSBMovie9, 10, 11, 14 and 16 (before 8.0 SmartDiscard drew no random numbers; before 9.7 a spliced recording also sets the level timer; before 9.0 a monster's remains are placed by the loaded level).
 - DMMovie4 and 6 (9.07) replay to their end too: before 9.2 Lord Chaos fled from the fusion spell by picking one random direction per attempt, as on the Atari.
+- CSBMovie4, 6 and 8 replay to their end: the oldest exes (3.3 to 4.x) let a hero regenerate mana, at the cost of stamina, in the opposite ticks to later versions.
 - Playfiles of the oldest versions, which have no header line, no longer lose their first event (the click on Resume): CSBMovie2 and 4 to 8 start instead of waiting at the prison door, and CSBMovie8 replays to its end.
 
 **Statistics**

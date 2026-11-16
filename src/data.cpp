@@ -369,6 +369,10 @@ bool legacyPadAnyObject = false;
 // not).  A full database was enlarged at once to 1023 entries (767 for the text database 15)
 // instead of by 100, which changes how many entries SmartDiscard counts.
 bool legacyEnlargeToMax = false;
+// Set while replaying a playfile of the oldest versions (no header line, time written with eight
+// digits: 3.3 to 4.x, not 5.2): a hero regenerated mana (at the cost of stamina) when the
+// time-derived number was NOT below mastery plus wisdom, the opposite of later versions.
+bool legacyManaRegenInverted = false;
 // Set while replaying a playfile recorded by CSBwin before 9.2: Lord Chaos' flight from the
 // fusion spell picked one random direction per attempt (the original Atari way).
 bool legacyFusionRandomWalk = false;

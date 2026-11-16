@@ -60,6 +60,7 @@ extern bool legacyMonsterAttackOrder;
 extern bool legacyDoubleShooter;
 extern bool legacyPadAnyObject;
 extern bool legacyEnlargeToMax;
+extern bool legacyManaRegenInverted;
 extern bool legacyFusionRandomWalk;
 extern bool legacySmartDiscardNoRandom;
 extern bool legacyMonsterPositionLoadedLevel;
@@ -330,6 +331,28 @@ void PLAYFILE::Open(void)
     return;
   };
   GETS(versionLine,199,m_file);
+  // The exes of 3.3 to 4.x (not 5.2 and later) regenerated mana the other way round.  Their
+  // playfiles have no version line and the first event records many draws already (the title
+  // screen drew random numbers then), a 5.2 file records few.
+  legacyManaRegenInverted = false;
+  if (strstr(versionLine, "Version ") == NULL)
+  {
+    FILE *scan = fopen(PlayfileName, "r");
+    if (scan != NULL)
+    {
+      char l[100];
+      unsigned t, x, y, n, ran;
+      while (fgets(l, sizeof l, scan) != NULL)
+      {
+        if (l[0] == '#') continue;
+        if (   l[8] == ' ' // time written with eight digits: the 3.3 to 5.2 format, 7.x wrote it short
+            && sscanf(l, "%x %x %x %x %x", &t, &x, &y, &n, &ran) == 5 && ran >= 0x1000 && ran < 0x10000)
+          legacyManaRegenInverted = true;
+        break;
+      };
+      fclose(scan);
+    };
+  };
   if (versionLine[0] != '#')
   { // A playfile of the oldest versions has no header: its first line already is the first
     // event (the click on Resume), which must not be swallowed. Read from the start again.

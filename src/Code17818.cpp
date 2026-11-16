@@ -159,6 +159,7 @@ i32 DetermineMastery(i32 chIdx,i32 skill,const char *traceID)
 }
 
 //   TAG017818 //2.5 seconds while sleeping
+extern bool legacyManaRegenInverted;
 void TenSecondUpdate(void)
 {
   dReg D0, D1, D3, D4, D5, D6;
@@ -219,7 +220,7 @@ void TenSecondUpdate(void)
       magicMastery = DetermineMastery(chIdx, SKILL_Wizard) + DetermineMastery(chIdx, SKILL_Priest);
       magicMasteryPlusWisdom = magicMastery + pcA3->Attributes[Wisdom].Current();
       //D0L = random112; // Reversed 3 bits of time
-      if (random112 >= magicMasteryPlusWisdom)// goto tag0179b0;
+      if (legacyManaRegenInverted ? (random112 < magicMasteryPlusWisdom) : (random112 >= magicMasteryPlusWisdom))// goto tag0179b0;
       {
         if (pcA3->Mana() > pcA3->MaxMana())
         {
