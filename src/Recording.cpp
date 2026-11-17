@@ -61,6 +61,7 @@ extern bool legacyDoubleShooter;
 extern bool legacyPadAnyObject;
 extern bool legacyEnlargeToMax;
 extern bool legacyManaRegenInverted;
+extern bool legacySaveDraws143;
 extern bool legacyFusionRandomWalk;
 extern bool legacySmartDiscardNoRandom;
 extern bool legacyMonsterPositionLoadedLevel;
@@ -335,6 +336,7 @@ void PLAYFILE::Open(void)
   // playfiles have no version line and the first event records many draws already (the title
   // screen drew random numbers then), a 5.2 file records few.
   legacyManaRegenInverted = false;
+  legacySaveDraws143 = false;
   if (strstr(versionLine, "Version ") == NULL)
   {
     FILE *scan = fopen(PlayfileName, "r");
@@ -347,7 +349,7 @@ void PLAYFILE::Open(void)
         if (l[0] == '#') continue;
         if (   l[8] == ' ' // time written with eight digits: the 3.3 to 5.2 format, 7.x wrote it short
             && sscanf(l, "%x %x %x %x %x", &t, &x, &y, &n, &ran) == 5 && ran >= 0x1000 && ran < 0x10000)
-          legacyManaRegenInverted = true;
+          legacyManaRegenInverted = legacySaveDraws143 = true;
         break;
       };
       fclose(scan);

@@ -373,6 +373,8 @@ bool legacyEnlargeToMax = false;
 // digits: 3.3 to 4.x, not 5.2): a hero regenerated mana (at the cost of stamina) when the
 // time-derived number was NOT below mastery plus wisdom, the opposite of later versions.
 bool legacyManaRegenInverted = false;
+// Set together with it: the save of those exes drew exactly 143 raw random numbers and did not re-attach the monsters.
+bool legacySaveDraws143 = false;
 // Set while replaying a playfile recorded by CSBwin before 9.2: Lord Chaos' flight from the
 // fusion spell picked one random direction per attempt (the original Atari way).
 bool legacyFusionRandomWalk = false;

@@ -830,6 +830,7 @@ struct BlockDesc
 // *********************************************************
 // TAG001de4c
 extern char *opened_file;
+extern bool legacySaveDraws143;
 bool skipToSavenPlay;
 // File -> Save game goes past the disk menu, so its clicks are not in the recording
 static bool savingFromFileMenu = false;
@@ -1387,8 +1388,16 @@ RESTARTABLE _DisplayDiskMenu(void)
       // checks the random number of the line before it does them.
       RecordFile_Record(0, 0, 0x2223);
     };
+    if (legacySaveDraws143)
+    { // The 3.3 to 4.x exes drew exactly 143 raw random numbers while saving (16 for the game
+      // id, 3, then 31 times 4 for the file key) and did not re-attach the monsters (CSBMovie3 and 5)
+      for (int i = 0; i < 143; i++) STRandom();
+    }
+    else
+    {
     TAG00bd40(); //Remove the Active Monster (ITEM16) entries
     ProcessMonstersOnLevel();
+    };
     SmartDiscard(true); //Initialize Smart Discard.  0x2223
                         //in the playfile.log also does this
   // *****************************************************************
