@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "ExportHtml.h"
 #include "UI.h"
 
 #include <stdio.h>
@@ -2362,6 +2363,7 @@ extern void ProcessMenuEvent(const SDL_Event &event); // also
 extern bool endSequencePlaying; // also
 extern bool endSequenceAbandonRequested; // also
 void my_Delay(int ms) {
+    if (ExportHtml_IsOn()) return; // --export-html does not wait for the end texts
     SDL_Event ev;
     // The menu stays usable here; Reset, Load and Select dungeon end the sequence by an
     // exception, as this loop blocks inside it

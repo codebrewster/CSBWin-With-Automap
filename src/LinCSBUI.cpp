@@ -1,5 +1,6 @@
 // Keep imgui includes at the top to avoid the pragma pack in CSB.h
 #include "PlaybackControl.h"
+#include "ExportHtml.h"
 #include "ReplaySnapshot.h"
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
@@ -126,6 +127,8 @@ i32 UI_MessageBox(const char *msg, const char *title, i32 flags ) {
 	fflush(stdout);
 	_Exit(2);
     }
+    // Nor to an --export-html run
+    ExportHtml_OnMessageBox(msg);
     // Nor to a rewind test, which runs without a window
     if (ReplaySnapshot_TestIsRunning()) {
 	std::string text = msg != NULL ? msg : "";
@@ -395,6 +398,7 @@ enum {
 		    enum_large,
 		    enum_small,
 		    enum_play,
+		    enum_export_html,
 		    enum_timer,
 		    enum_path,
     		    enum_gamsav,
@@ -488,6 +492,8 @@ bool UI_ProcessOption(char **argv, int &argc)
 			state=enum_ignore; screenSize=1;
 			WindowHeight=200;
 			WindowWidth=320;
+		    }else if(!strcmp("--export-html",key) ) {
+			state=enum_export_html;
 		    }else if(!strcmp("--play",key) ) {
 			state=enum_play;
 		    }else if(!strcmp("--visibility-test",key) ) {
@@ -578,6 +584,11 @@ bool UI_ProcessOption(char **argv, int &argc)
 				"\tSet screensize to 640x400 pixels\n"
 			"  --small\n"
 				"\tSet screensize to 320x200 pixels\n"
+			"  --export-html\n"
+				"\tUsage: --export-html DIR --play Playfile.log\n"
+				"\tReplays at top speed without a window, plays the ending, writes\n"
+				"\tDIR/map.html and DIR/statistics.html and exits (2: a message box,\n"
+				"\t4: a file could not be written).\n"
 			"  --play\n"
 				"\tUsage: --play Playfile.log\n"
 			    	"\tPlayes a recorded game. Might be reffered to as a \"movie\".\n"
@@ -730,6 +741,11 @@ bool UI_ProcessOption(char **argv, int &argc)
 		    RecordCommandOption = false;
 		    break;
 		}
+		case enum_export_html:
+		    ExportHtml_Enable(key);
+		    skipLogo = true;
+		    break;
+
 		case enum_play:
 		    PlayfileName=key;
 //		g_warning("pag %s",PlayfileName);
@@ -835,6 +851,7 @@ void UI_ScreenEndUpdates(void)
 extern void post_render();
 void UI_ScreenPresent(void)
 {
+  if (ExportHtml_IsOn()) return; // nothing is shown
   // A replay at max changes the screen on nearly every tick, and drawing the window costs far
   // more than a tick: it shows PLAYBACK_MAX_FRAMES_PER_SECOND frames, the rest of the time goes
   // to the game. The picture stays in the texture, so the next frame shows the latest one.

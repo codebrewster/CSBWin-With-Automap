@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "ExportHtml.h"
 
 #include "UI.h"
 
@@ -897,6 +898,16 @@ bool ReplaySnapshot_EndScreenWaits(void)
 
 void ReplaySnapshot_AtTickBoundary(void)
 {
+  if (ExportHtml_IsOn())
+  { // --export-html: no snapshots, as fast as it goes
+    if (IsPlayFileOpen() && !PlaybackControl_IsMax())
+    {
+      PlaybackControl_SetSpeedIndex(PLAYBACK_SPEED_MAX);
+      NoSpeedLimit = 0x20000000;
+    }
+    ExportHtml_AtTick();
+    return;
+  }
   // A test or check runs at max: --quick alone leaves the replay's own pace at 1x
   if ((testing || checking) && IsPlayFileOpen() && !PlaybackControl_IsMax()
       && !PlaybackControl_IsSkipping() && !PlaybackControl_RewindPending())

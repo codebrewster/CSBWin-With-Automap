@@ -646,6 +646,26 @@ static void FillExportPictures(HeroStatsExportInfo *info)
   }
 }
 
+// The statistics as one HTML file at path, without any window (--export-html)
+bool HeroStatsWindow_WriteExport(const std::string &path)
+{
+  time_t now = time(NULL);
+  char date[32] = "";
+  const struct tm *local = localtime(&now);
+  if (local != NULL) strftime(date, sizeof date, "%Y-%m-%d %H:%M", local);
+  HeroStats_RefreshMapCounts(true);
+  const HeroStats &stats = HeroStats_Store();
+  HeroStatsExportInfo info = {HeroStats_DungeonInPlay(), date, HeroStats_LiveParty()};
+  info.inventoryList = drawState.inventoryList;
+  FillExportPictures(&info);
+  std::string html = HeroStatsExport_Html(stats, HeroStatsView_Columns(stats, HeroStats_PartyNow()),
+                                          HeroStats_NamesOfTheGame(), info);
+  FILE *file = fopen(path.c_str(), "wb");
+  bool written = file != NULL && fwrite(html.data(), 1, html.size(), file) == html.size();
+  if (file != NULL && fclose(file) != 0) written = false;
+  return written;
+}
+
 static void ExportStatistics(void)
 {
   time_t now = time(NULL);

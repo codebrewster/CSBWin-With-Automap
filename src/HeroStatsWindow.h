@@ -2,6 +2,7 @@
 #define HEROSTATSWINDOW_H
 
 #include <SDL.h>
+#include <string>
 
 // The second OS window, beside the map's, that shows the hero statistics. It draws with Dear
 // ImGui in a context of its own; every function here leaves the game's ImGui context current.
@@ -22,6 +23,9 @@ void HeroStatsWindow_Hide(void);
 // Called when the champions' screen after a win appears: shows the window on the Whole run of
 // the page the player last chose, with no hero page open. Harmless when called again.
 void HeroStatsWindow_ShowAfterWin(void);
+// The statistics page of --export-html and of the window's export button, written without a
+// window or a dialog; false when the file cannot be written
+bool HeroStatsWindow_WriteExport(const std::string &path);
 // Drops the cached pages (a game was loaded or begun); a no-op when the window was never made
 void HeroStatsWindow_Forget(void);
 

@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "PlaybackControl.h"
+#include "ExportHtml.h"
 
 #include <stdio.h>
 #include <ctype.h>
@@ -561,6 +562,7 @@ bool PLAYFILE::Play(MouseQueueEnt *ent)
       replayReachedItsEnd = true;
       Close();
       replayReachedItsEnd = false;
+      ExportHtml_OnReplayEnd();
       if (continuing) ContinueRecording_Start(rules);
       // No message box: it would stop the game, the map and the statistics windows until
       // answered. The menu bar says the replay ended (CSBlinux.cpp)

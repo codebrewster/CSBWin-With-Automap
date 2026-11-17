@@ -21,6 +21,7 @@
 #include "HeroStatsDraw.h"
 #include "HeroStatsWindow.h"
 #include "PlaybackControl.h"
+#include "ExportHtml.h"
 #include "ReplaySnapshot.h"
 #include "AutoMapTickRate.h"
 #include "GameRules.h"
@@ -2568,6 +2569,7 @@ static void SetReplaySpeed(int index)
 // A replay at max runs ticks without a clock (UI_ScreenPresent, CSBUI's UIM_TIMER)
 static bool ReplayRunsAtMax(void)
 {
+  if (ExportHtml_IsOn()) return true; // --export-html: also in the ending after the replay
   return PlayfileIsOpen() && PlaybackControl_IsMax() && NoSpeedLimit != 0 && !PlaybackControl_IsPaused();
 }
 

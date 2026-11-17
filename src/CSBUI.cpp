@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "PlaybackControl.h"
+#include "ExportHtml.h"
 #include "ReplaySnapshot.h"
 #include "resource.h"
 
@@ -1037,6 +1038,12 @@ i32 CSBUI(CSB_UI_MESSAGE *msg)
         if (PlayfileIsOpen() && PlaybackControl_IsMax() && NoSpeedLimit != 0 && !PlaybackControl_IsPaused())
         {
           maxSpeedUntil = UI_GetSystemTime() + PLAYBACK_MAX_MS_PER_TIMER;
+          CallCheckVBL = 1000000;
+        }
+        // --export-html: every timer message runs ticks for a good while, replay or ending
+        if (ExportHtml_IsOn())
+        {
+          maxSpeedUntil = UI_GetSystemTime() + 200;
           CallCheckVBL = 1000000;
         }
         if (trace >= 0)

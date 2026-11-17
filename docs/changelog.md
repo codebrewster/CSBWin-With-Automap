@@ -48,6 +48,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 ## 1.4.0 (2026-11-14)
 
 **Replay**
+- `csb --export-html DIR --play Playfile.log` writes the map and the statistics of a recording as web pages without opening a window, at top speed and with the ending played, and `scripts/export-all-html.sh` does that for every movie in a folder (all 43 of the collection in about a minute and a half).
 - Fast forward and go back by 25, 250 or 2500 ticks (buttons, Left/Right, Down/Up, Page Down/Page Up); elapsed and total time on the bar.
 - Pause at a typed tick, ahead or behind; a breakpoint or pause that a fast forward runs into stops it.
 - Go back after the end, and from the win and death screens; a popup asks before progress is thrown away; an x hides the buttons.

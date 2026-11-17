@@ -126,6 +126,25 @@ goes out of step.
 If a 17.6 recording stops early with "Sequence/timing error", this port and 17.6 disagree
 somewhere. Please report it with the playfile and the `dungeon.dat` it needs.
 
+## Writing the map and statistics pages without a window
+
+`csb --export-html DIR --play Playfile.log` replays a recording as fast as the machine allows,
+with no window, no sound and no snapshots, plays the ending (the fusion, and the end texts of
+Dungeon Master without their waits), and then writes `DIR/map.html` and `DIR/statistics.html`
+and exits. The map page holds every level at the most the dialog allows (vision and spoilers
+ALL); the statistics page is the one of **Export as HTML**. The ticks of the ending count in the
+statistics, as they do when you watch it. The last line printed says where the replay ended and
+how many ticks the statistics counted. A message box (a desync, say) ends the run with exit code
+2 and no pages; 4 means a page could not be written.
+
+`scripts/export-all-html.sh [-j JOBS] [-o OUTDIR] [GAMES_DIR [FILTER]]` does it for every
+`playfile.log` below a folder (default `~/Games/CSB-Games`), several at once, longest first, on a
+copy of each game folder, and puts `map.html` and `statistics.html` into
+`OUTDIR/<the game's folder path>/` (default `GAMES_DIR/html`). It prints one line per game.
+All 43 movies of `~/Games/CSB-Games` take about a minute and a half on 16 processors (the
+longest, CSBMovie1 and 2, about 100 seconds each, run alongside the rest). Build with
+`make RELEASE=1` first, and `make RELEASE=1` again after a change.
+
 ## When the replay ends
 
 When the file runs out, the menu bar says **Replay ended at tick N: you play on from here**

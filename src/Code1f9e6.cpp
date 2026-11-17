@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include "HeroStatsHooks.h"
 #include "HeroStatsWindow.h"
+#include "ExportHtml.h"
 
 //#include "Objects.h"
 #include "Dispatch.h"
@@ -179,6 +180,7 @@ RESTARTABLE _ShowCredits(const i32 P1) //(void)
     if (d.Word11694)
     {
       Flood(d.LogicalScreenBase, 12, 0xfa0);
+      ExportHtml_OnGameEnd(); // --export-html writes its pages here and exits
       HeroStatsWindow_ShowAfterWin(); // before the first yield of this branch, so it runs once
       for (D7W=0; D7W<d.NumCharacter; D7W++)
       {
