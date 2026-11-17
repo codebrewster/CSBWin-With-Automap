@@ -375,6 +375,12 @@ bool legacyEnlargeToMax = false;
 bool legacyManaRegenInverted = false;
 // Set together with it: the save of those exes drew exactly 143 raw random numbers and did not re-attach the monsters.
 bool legacySaveDraws143 = false;
+// Also set together with it: the queue of active monsters stayed at 60 entries (CSBMovie2).
+bool legacyFixedItem16Queue = false;
+// Set for a playfile of the 4.1 exe (CSBwin41.exe lies next to it): its shield potion stored only
+// the low byte of the strength in the timer, next to a byte the compiler had filled with 0xcd,
+// so the timer took 0xcd00 more away than the potion had added.
+bool legacyShieldPotionJunk = false;
 // Set while replaying a playfile recorded by CSBwin before 9.2: Lord Chaos' flight from the
 // fusion spell picked one random direction per attempt (the original Atari way).
 bool legacyFusionRandomWalk = false;

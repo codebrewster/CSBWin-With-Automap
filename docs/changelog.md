@@ -59,6 +59,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 - DMMovie4 and 6 (9.07) replay to their end too: before 9.2 Lord Chaos fled from the fusion spell by picking one random direction per attempt, as on the Atari.
 - CSBMovie4, 6 and 8 replay to their end: the oldest exes (3.3 to 4.x) let a hero regenerate mana, at the cost of stamina, in the opposite ticks to later versions.
 - CSBMovie3 and 5 replay to their end: the 3.3 to 4.x exes drew exactly 143 raw random numbers when saving (Save and Play) and did not re-attach the monsters of the level.
+- CSBMovie2 replays to its end: the 3.3 to 4.x exes kept the monster queue at 60 entries, so a full queue made a monster generator fail; the 4.1 exe subtracted 0xcd00 too much when a shield potion wore off. Also fixed a crash ("Recursive timer search") when a monster generator queued a timer.
 - Playfiles of the oldest versions, which have no header line, no longer lose their first event (the click on Resume): CSBMovie2 and 4 to 8 start instead of waiting at the prison door, and CSBMovie8 replays to its end.
 
 **Statistics**

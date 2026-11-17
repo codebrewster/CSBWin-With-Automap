@@ -62,6 +62,8 @@ extern bool legacyPadAnyObject;
 extern bool legacyEnlargeToMax;
 extern bool legacyManaRegenInverted;
 extern bool legacySaveDraws143;
+extern bool legacyFixedItem16Queue;
+extern bool legacyShieldPotionJunk;
 extern bool legacyFusionRandomWalk;
 extern bool legacySmartDiscardNoRandom;
 extern bool legacyMonsterPositionLoadedLevel;
@@ -337,6 +339,8 @@ void PLAYFILE::Open(void)
   // screen drew random numbers then), a 5.2 file records few.
   legacyManaRegenInverted = false;
   legacySaveDraws143 = false;
+  legacyFixedItem16Queue = false;
+  legacyShieldPotionJunk = false;
   if (strstr(versionLine, "Version ") == NULL)
   {
     FILE *scan = fopen(PlayfileName, "r");
@@ -349,7 +353,16 @@ void PLAYFILE::Open(void)
         if (l[0] == '#') continue;
         if (   l[8] == ' ' // time written with eight digits: the 3.3 to 5.2 format, 7.x wrote it short
             && sscanf(l, "%x %x %x %x %x", &t, &x, &y, &n, &ran) == 5 && ran >= 0x1000 && ran < 0x10000)
-          legacyManaRegenInverted = legacySaveDraws143 = true;
+          {
+          legacyManaRegenInverted = legacySaveDraws143 = legacyFixedItem16Queue = true;
+          // Only the 4.1 exe has the shield potion bug; the playfile does not say which exe made it
+          char exe[1024];
+          const char *slash = strrchr(PlayfileName, '/');
+          if (slash == NULL) slash = strrchr(PlayfileName, '\\');
+          snprintf(exe, sizeof exe, "%.*sCSBwin41.exe", slash ? (int)(slash - PlayfileName + 1) : 0, PlayfileName);
+          FILE *probe = fopen(exe, "rb");
+          if (probe != NULL) { fclose(probe); legacyShieldPotionJunk = true; };
+        }
         break;
       };
       fclose(scan);

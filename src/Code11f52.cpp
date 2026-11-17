@@ -2617,9 +2617,10 @@ void CreateMovementTimer(RN object,
   TIMERTYPE tt;
   TIMER timer;
   TIMER *pTimer;
-  TIMER_SEARCH timerSearch;
   i32 count = 0;
   tt = (P5==0)?TT_60:TT_61;
+  {
+  TIMER_SEARCH timerSearch; // ended before SetTimer, which makes a search of its own
   //pTimer = d.pTimer(0);
   //for (i = 0;
   //     i < d.MaxTimer();
@@ -2633,6 +2634,7 @@ void CreateMovementTimer(RN object,
     //if (pTimer->timerTime >> 24 != (ui32)level) continue;
     if (pTimer->Level() != level) continue;
     count++;
+  };
   };
   if (count >= 31)
   {

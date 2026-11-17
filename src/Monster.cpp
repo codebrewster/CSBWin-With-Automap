@@ -85,8 +85,10 @@ void settrace(i32 n)
 #define TIMERTRACE(n)
 #endif
 
+extern bool legacyFixedItem16Queue;
 void EnsureItem16Available(void)
 {
+  if (legacyFixedItem16Queue) return; // the 3.3 to 4.x exes kept the queue at 60: a full one made CreateMonster fail
   if (   (d.ITEM16QueLen >= d.MaxITEM16-5)
       && (d.LoadedLevel == d.partyLevel)  )
   {

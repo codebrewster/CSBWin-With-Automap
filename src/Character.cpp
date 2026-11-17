@@ -16,6 +16,7 @@ extern bool legacyAdditiveAttackDefense;
 extern ui32 *pDSAparameters;
 extern bool neophyteSkills;
 extern bool legacyAttributeDefense;
+extern bool legacyShieldPotionJunk;
 ui8 reincarnateAttributePenalty, reincarnateStatPenalty, randomPoints;
 pnt GetExternalPortraitAddress(i32 index);
 void GetText(char *result, i32 index);
@@ -4478,7 +4479,9 @@ RESTARTABLE _FeedCharacter()
       timer.Time(d.Time+fp.shieldDuration);
       timer.Level((ui8)d.partyLevel);
       timer.timerUByte5(ub(chIdx));
-      timer.timerUWord6() = sw(fp.shieldStrengthAdjust);
+      // The 3.3 to 4.x exes kept the timer in a static that was filled with 0xcd and stored only
+      // the low byte of the strength: the timer took 0xcd00 more away than the potion had added
+      timer.timerUWord6() = legacyShieldPotionJunk ? (ui16)((fp.shieldStrengthAdjust & 0xff) | 0xcd00) : sw(fp.shieldStrengthAdjust);
       gameTimers.SetTimer(&timer);
       pcA2->charFlags |= CHARFLAG_portraitChanged;
     };
