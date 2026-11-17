@@ -381,6 +381,9 @@ bool legacyFixedItem16Queue = false;
 // the low byte of the strength in the timer, next to a byte the compiler had filled with 0xcd,
 // so the timer took 0xcd00 more away than the potion had added.
 bool legacyShieldPotionJunk = false;
+// Set for a playfile of the 3.3 exe (CSBwin33.exe lies next to it): the timer that erases a
+// champion's damage number was first set for the current tick, not five ticks later.
+bool legacyDamageTimerNoDelay = false;
 // Set while replaying a playfile recorded by CSBwin before 9.2: Lord Chaos' flight from the
 // fusion spell picked one random direction per attempt (the original Atari way).
 bool legacyFusionRandomWalk = false;

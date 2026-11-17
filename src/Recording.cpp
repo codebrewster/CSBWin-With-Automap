@@ -64,6 +64,7 @@ extern bool legacyManaRegenInverted;
 extern bool legacySaveDraws143;
 extern bool legacyFixedItem16Queue;
 extern bool legacyShieldPotionJunk;
+extern bool legacyDamageTimerNoDelay;
 extern bool legacyFusionRandomWalk;
 extern bool legacySmartDiscardNoRandom;
 extern bool legacyMonsterPositionLoadedLevel;
@@ -341,6 +342,7 @@ void PLAYFILE::Open(void)
   legacySaveDraws143 = false;
   legacyFixedItem16Queue = false;
   legacyShieldPotionJunk = false;
+  legacyDamageTimerNoDelay = false;
   if (strstr(versionLine, "Version ") == NULL)
   {
     FILE *scan = fopen(PlayfileName, "r");
@@ -362,6 +364,9 @@ void PLAYFILE::Open(void)
           snprintf(exe, sizeof exe, "%.*sCSBwin41.exe", slash ? (int)(slash - PlayfileName + 1) : 0, PlayfileName);
           FILE *probe = fopen(exe, "rb");
           if (probe != NULL) { fclose(probe); legacyShieldPotionJunk = true; };
+          snprintf(exe, sizeof exe, "%.*sCSBwin33.exe", slash ? (int)(slash - PlayfileName + 1) : 0, PlayfileName);
+          probe = fopen(exe, "rb");
+          if (probe != NULL) { fclose(probe); legacyDamageTimerNoDelay = true; };
         }
         break;
       };

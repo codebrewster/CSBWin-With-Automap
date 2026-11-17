@@ -23,6 +23,7 @@ ui32 time(void *);
 
 extern i32 VBLperTimer;
 extern bool overlayActive;
+extern bool legacyDamageTimerNoDelay;
 
 i32 timerTypeModifier[3]; // set/clear/toggle
 
@@ -7270,7 +7271,7 @@ void DisplayCharacterDamage(void)
     if (D5W == -1)
     {
       LOCAL_12.Function(TT_12);
-      D0L = d.Time + 5;
+      D0L = d.Time + (legacyDamageTimerNoDelay ? 0 : 5); // the 3.3 exe set the first one for the same tick
       //D1L = d.partyLevel;
       //D3L = 24;
       //D1L <<= D3W;

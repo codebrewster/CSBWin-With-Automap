@@ -60,6 +60,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 - CSBMovie4, 6 and 8 replay to their end: the oldest exes (3.3 to 4.x) let a hero regenerate mana, at the cost of stamina, in the opposite ticks to later versions.
 - CSBMovie3 and 5 replay to their end: the 3.3 to 4.x exes drew exactly 143 raw random numbers when saving (Save and Play) and did not re-attach the monsters of the level.
 - CSBMovie2 replays to its end: the 3.3 to 4.x exes kept the monster queue at 60 entries, so a full queue made a monster generator fail; the 4.1 exe subtracted 0xcd00 too much when a shield potion wore off. Also fixed a crash ("Recursive timer search") when a monster generator queued a timer.
+- CSBMovie1 replays to its end: the 3.3 exe set the timer that erases a champion's damage number for the current tick instead of five ticks later (the replay needs CSBwin33.exe next to the playfile to know).
 - Playfiles of the oldest versions, which have no header line, no longer lose their first event (the click on Resume): CSBMovie2 and 4 to 8 start instead of waiting at the prison door, and CSBMovie8 replays to its end.
 
 **Statistics**
