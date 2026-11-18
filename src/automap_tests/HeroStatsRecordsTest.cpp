@@ -92,7 +92,16 @@ static void ChainsEndWithAMove(void)
   records.CountPitFall(2, 200);
   HeroRecordEntry fall;
   CHECK(records.Best(HeroRecLongestFall, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, &fall));
-  CHECK(fall.value == 3 && fall.firstLevel == 7 && fall.level == 9 && fall.who == HERO_STATS_PARTY);
+  // The record is on the level the fall began on; the party landed on 10, one below the last pit
+  CHECK(fall.value == 3 && fall.firstLevel == 7 && fall.level == 7 && fall.extra == 10 && fall.who == HERO_STATS_PARTY);
+  // The report: pits on 6, 7 and 8 land on 9, and the record is on 6
+  records.CountMove();
+  records.CountPitFall(6, 300);
+  records.CountPitFall(7, 301);
+  records.CountPitFall(8, 302);
+  records.CountMove();
+  HeroRecordEntry six;
+  CHECK(records.Best(HeroRecLongestFall, HERO_STATS_PARTY, 6, &six) && six.value == 3 && six.firstLevel == 6 && six.extra == 9);
   records.CountTeleport(1, 10);
   records.CountTeleport(1, 11);
   records.CountMove();

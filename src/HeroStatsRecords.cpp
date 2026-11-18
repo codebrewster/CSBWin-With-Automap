@@ -89,6 +89,15 @@ static HeroRecordEntry EntryOf(HeroStatsChampion who, int count, int firstLevel,
   return entry;
 }
 
+// A fall chain is a record of the level it began on, like the other chains; the level it landed
+// on (one below its last pit) is kept in extra. The chain's last pit is its time.
+HeroRecordEntry HeroStatsRecords::FallEntryOf(const Running &fall)
+{
+  HeroRecordEntry entry = EntryOf(HERO_STATS_PARTY, fall.count, fall.firstLevel, fall.firstLevel, fall.firstTime, fall.time, fall.kinds);
+  entry.extra = fall.level + 1;
+  return entry;
+}
+
 bool HeroStatsRecords::Best(HeroRecordKind kind, HeroStatsChampion who, int level, HeroRecordEntry *out) const
 {
   bool found = false;
@@ -133,7 +142,8 @@ bool HeroStatsRecords::Best(HeroRecordKind kind, HeroStatsChampion who, int leve
       consider(StretchEntry(it->first, it->second, kind == HeroRecLongestPoisoned));
   const Running *chain = kind == HeroRecLongestFall ? &m_fall : kind == HeroRecLongestTeleportChain ? &m_teleports
                          : kind == HeroRecLongestSleep ? &m_sleep : NULL;
-  if (chain != NULL)
+  if (kind == HeroRecLongestFall) consider(FallEntryOf(*chain));
+  else if (chain != NULL)
     consider(EntryOf(HERO_STATS_PARTY, chain->count, chain->firstLevel, chain->level, chain->firstTime, chain->time, chain->kinds));
   if (found && out != NULL) *out = best;
   return found;
@@ -208,7 +218,7 @@ void HeroStatsRecords::CountTeleport(int level, uint32_t time)
 
 void HeroStatsRecords::CountMove(void)
 {
-  OfferRunning(HeroRecLongestFall, HERO_STATS_PARTY, m_fall);
+  if (m_fall.count > 0) Offer(HeroRecLongestFall, FallEntryOf(m_fall));
   OfferRunning(HeroRecLongestTeleportChain, HERO_STATS_PARTY, m_teleports);
   m_fall = m_teleports = Running();
 }

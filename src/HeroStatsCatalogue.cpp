@@ -43,6 +43,7 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Reloads", "", true, true, false, false, false},
     {"Eaten", "Items eaten.", false, false, false, false, false},
     {"Drunk", "Drinks, the fountain included.", false, false, false, false, false},
+    {"Potions drunk", "Potions drunk: the potions are part of Drunk. A Water Flask counts as a potion; a waterskin is water and no potion.", false, false, false, false, false},
     {"Food gained", "", false, false, false, false, false},
     {"Food wasted (over full)", "Food that did not fit because the champion was full. Not part of Food gained.", false, false, true, false, false},
     {"Water gained", "", false, false, false, false, false},
@@ -124,7 +125,7 @@ static const char *const KEYS[] = {
     "casts", "casts_successful", "casts_failed",
     "taken", "healed", "heal_regeneration", "heal_potions", "heal_action", "healing_given", "poisoned", "wounds",
     "deaths", "resurrected", "wipes", "reloads",
-    "eaten", "drunk", "food_gained", "food_wasted", "water_gained", "water_wasted",
+    "eaten", "drunk", "potions_drunk", "food_gained", "food_wasted", "water_gained", "water_wasted",
     "picked_up", "used_in_walls",
     "steps", "tiles_walked", "tiles_explored", "turns", "wall_bumps", "monster_bumps", "teleports", "telefrags", "telefragged", "landings",
     "pit_falls", "pit_climbs", "climb_landings", "ticks", "sleep_ticks",
@@ -191,10 +192,10 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
              {"Healing", false,
               {{HeroNumHealed, 0}, {HeroNumHealRegeneration, 1}, {HeroNumHealPotions, 1}, {HeroNumHealAction, 1}, {HeroNumHealingGiven, 0}}},
              {"Deaths", false, {{HeroNumDeaths, 0}, {HeroNumResurrected, 0}, {HeroNumWipes, 0}, {HeroNumReloads, 0}}}});
-  topics[HeroTopicSupplies] = {"Food & items", {}, {HeroNumEaten, HeroNumDrunk, HeroNumFoodWasted, HeroNumPickedUp}, {}};
+  topics[HeroTopicSupplies] = {"Food & items", {}, {HeroNumFoodGained, HeroNumWaterGained, HeroNumPotionsDrunk, HeroNumPickedUp}, {}};
   SetGroups(&topics[HeroTopicSupplies],
             {{"Food and water", false,
-              {{HeroNumEaten, 0}, {HeroNumDrunk, 0}, {HeroNumFoodGained, 0}, {HeroNumFoodWasted, 0},
+              {{HeroNumEaten, 0}, {HeroNumDrunk, 0}, {HeroNumPotionsDrunk, 1}, {HeroNumFoodGained, 0}, {HeroNumFoodWasted, 0},
                {HeroNumWaterGained, 0}, {HeroNumWaterWasted, 0}}},
              {"Items", false, {{HeroNumPickedUp, 0}, {HeroNumUsedInWalls, 0}}}});
   topics[HeroTopicExploration] = {"Exploration", {}, {HeroNumTilesExplored, HeroNumSteps, HeroNumTicks, HeroNumTeleports}, {}};
@@ -465,6 +466,7 @@ static void FillFood(const HeroStats &stats, HeroStatsChampion who, int level, i
   v[HeroNumEaten] = stats.Eaten(who, level);
   HeroStatsNourishment food = stats.Nourishment(who, level);
   v[HeroNumDrunk] = stats.Drunk(who, level) + food.fountainDrinks;  // the fountain is a way of drinking
+  v[HeroNumPotionsDrunk] = stats.Potions(who, level);
   v[HeroNumFoodGained] = food.foodGained;
   v[HeroNumFoodWasted] = food.foodWasted;
   v[HeroNumWaterGained] = food.waterGained;
@@ -604,7 +606,7 @@ static FillGroup GroupOf(HeroStatsNumber number)
   case HeroNumDeaths: case HeroNumResurrected: return FillDeaths;
   case HeroNumPoisonings: case HeroNumWounds: return FillEvents;
   case HeroNumWipes: case HeroNumReloads: return FillHardship;
-  case HeroNumEaten: case HeroNumDrunk: case HeroNumFoodGained: case HeroNumFoodWasted: case HeroNumWaterGained:
+  case HeroNumEaten: case HeroNumDrunk: case HeroNumPotionsDrunk: case HeroNumFoodGained: case HeroNumFoodWasted: case HeroNumWaterGained:
   case HeroNumWaterWasted: return FillFood;
   case HeroNumPickedUp: case HeroNumUsedInWalls: return FillItems;
   case HeroNumSteps: case HeroNumTilesWalked: case HeroNumTilesExplored: case HeroNumTurns: case HeroNumBumps:

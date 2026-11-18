@@ -119,8 +119,9 @@ struct HeroStatsMovement
 // HeroItemTakenFromChest counts as picked up and as from a chest.
 enum HeroItemEvent { HeroItemPickedUp, HeroItemUsedInWall, HeroItemTakenFromChest, HERO_ITEM_EVENT_COUNT };
 struct HeroStatsItemRow { int item; int pickedUp, fromChest, usedInWall; };
-// What a champion ate or drank (potions, water, food), by item
-enum HeroConsumeKind { HeroConsumeDrunk, HeroConsumeEaten, HERO_CONSUME_KIND_COUNT };
+// What a champion ate or drank (potions, water, food), by item. A potion is drunk too: its own kind
+// counts it as a potion as well as among the drinks (a waterskin is water, not a potion).
+enum HeroConsumeKind { HeroConsumeDrunk, HeroConsumeEaten, HeroConsumePotion, HERO_CONSUME_KIND_COUNT };
 struct HeroStatsConsumedRow { int item; int drunk, eaten; };
 // Food and water a champion took in: what the item or fountain added, and what was lost over the
 // game's maximum (2048); drinks straight from a fountain
@@ -236,7 +237,8 @@ public:
   std::vector<HeroStatsItemRow> Items(int level) const;   // item order, zero rows left out
   void CountConsumed(HeroStatsChampion who, int level, int item, HeroConsumeKind kind);
   std::vector<HeroStatsConsumedRow> Consumed(HeroStatsChampion who, int level) const;  // item order
-  int Drunk(HeroStatsChampion who, int level) const;
+  int Drunk(HeroStatsChampion who, int level) const;     // all drinks, potions included, no fountain
+  int Potions(HeroStatsChampion who, int level) const;   // the potions drunk, a subset of Drunk
   int Eaten(HeroStatsChampion who, int level) const;
   // value: what the item or fountain gives (0 for none, negative values count nothing), gained:
   // how much the champion's food or water actually rose

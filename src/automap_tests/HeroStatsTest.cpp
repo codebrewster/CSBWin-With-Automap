@@ -472,12 +472,18 @@ static void EatingDoorsAndChestsAreCounted(void)
   stats.CountChestOpened(1);
   CHECK(stats.Eaten(7, 1) == 2 && stats.Eaten(7, 2) == 0 && stats.Drunk(7, HERO_STATS_WHOLE_RUN) == 0);
   CHECK(stats.Drunk(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN) == 1);
+  // A potion is a drink and counted as a potion too; a waterskin drink is not
+  stats.CountConsumed(9, 2, VI_POTION, HeroConsumePotion);
+  stats.CountConsumed(9, 2, 31, HeroConsumeDrunk);
+  CHECK(stats.Potions(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN) == 1 && stats.Potions(9, 2) == 1);
+  CHECK(stats.Drunk(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN) == 3 && stats.Potions(9, 1) == 0);
   std::vector<HeroStatsConsumedRow> rows = stats.Consumed(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN);
-  CHECK(rows.size() == 2);
-  if (rows.size() == 2)
+  CHECK(rows.size() == 3);
+  if (rows.size() == 3)
   {
     CHECK(rows[0].item == APPLE && rows[0].eaten == 2 && rows[0].drunk == 0);
-    CHECK(rows[1].item == VI_POTION && rows[1].drunk == 1);
+    CHECK(rows[1].item == VI_POTION && rows[1].drunk == 2);
+    CHECK(rows[2].item == 31 && rows[2].drunk == 1);
   }
   CHECK(stats.DoorsBashed(7, 2) == 1 && stats.DoorsBashed(HERO_STATS_PARTY, 2) == 2 && stats.DoorsBashed(9, 1) == 0);
   CHECK(stats.DoorsBashed(HERO_STATS_PARTY, 2, HeroDoorSmashed) == 1 && stats.DoorsBashed(9, 2, HeroDoorBySpell) == 1);

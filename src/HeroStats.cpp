@@ -798,8 +798,8 @@ std::vector<HeroStatsConsumedRow> HeroStats::Consumed(HeroStatsChampion who, int
     if (!Matches(who, std::get<0>(key)) || !LevelMatches(level, std::get<1>(key))) continue;
     HeroStatsConsumedRow zero = {std::get<2>(key), 0, 0};
     HeroStatsConsumedRow &row = sums.insert(std::make_pair(std::get<2>(key), zero)).first->second;
-    if (std::get<3>(key) == HeroConsumeDrunk) row.drunk += at->second;
-    else row.eaten += at->second;
+    if (std::get<3>(key) == HeroConsumeEaten) row.eaten += at->second;
+    else row.drunk += at->second;  // a potion is a drink too
   }
   std::vector<HeroStatsConsumedRow> rows;
   for (std::map<int, HeroStatsConsumedRow>::const_iterator at = sums.begin(); at != sums.end(); ++at)
@@ -821,7 +821,12 @@ int HeroStats::ConsumedOfKind(HeroStatsChampion who, int level, int kind) const
 
 int HeroStats::Drunk(HeroStatsChampion who, int level) const
 {
-  return ConsumedOfKind(who, level, HeroConsumeDrunk);
+  return ConsumedOfKind(who, level, HeroConsumeDrunk) + Potions(who, level);
+}
+
+int HeroStats::Potions(HeroStatsChampion who, int level) const
+{
+  return ConsumedOfKind(who, level, HeroConsumePotion);
 }
 
 int HeroStats::Eaten(HeroStatsChampion who, int level) const

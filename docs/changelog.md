@@ -36,9 +36,10 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 - Zoomed in (or out), the text is sharp: the letters no longer come out damaged or blurred, and no longer sit unevenly from line to line.
 - The window zooms in up to 400 % (was 250 %).
 - The Party's cards no longer have the fold listing each poison dose, so a poisoned champion's card is no taller than the others; the champion's own page still lists them.
-- Records: Longest fall names the level the party landed on ("Lv 5 → 9" for four pits from level 5), not the level of the last pit.
+- Records: Longest fall is a record of the level the fall began on, so its Lv column shows that level ("Lv 6 → 9" for pits on 6, 7 and 8 is Lv 6); the level it landed on is in the text.
 - Ranks gained sorts in the window too, and in both the window and the HTML page Rank sorts by the rank reached instead of its name, and a new Tick column sorts back to newest first.
 - Food & items: Food wasted and Water wasted are no longer indented under Food gained and Water gained, since they are not part of them.
+- Food & items: the headline numbers are Food gained, Water gained, Potions drunk (new) and Items picked up; Eaten, Drunk and Food wasted stay in the table below. Potions drunk counts the potions in Drunk; a Water Flask is a potion, a waterskin is not.
 - HTML page: the poison doses show only on a champion's Champions page, folded under "Show the N doses", as in the window; the Party's cards no longer list them.
 
 - Records over all replays: `scripts/export-all-html.sh` writes `records.html` beside the pages, with the Records tab over every replay of each game (Chaos Strikes Back, Dungeon Master): one row per record, for the party or a champion, with the lowest value above 0, the average and the highest, and the replay, hero, weapon or spell and monster behind each.

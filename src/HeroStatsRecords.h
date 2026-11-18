@@ -107,6 +107,7 @@ private:
   };
   void Extend(Running *running, int level, uint32_t time);
   void OfferRunning(HeroRecordKind kind, HeroStatsChampion who, const Running &running);
+  static HeroRecordEntry FallEntryOf(const Running &fall);  // the record of a fall chain
   // (kind, champion, level)
   typedef std::tuple<int, HeroStatsChampion, int> Key;
   std::map<Key, HeroRecordEntry> m_best;

@@ -709,6 +709,13 @@ static std::string RecordValue(HeroRecordKind kind, const HeroRecordEntry &entry
   return text;
 }
 
+// The level a fall chain landed on. A record keeps it in extra; one saved before that kept only
+// its last pit, one level above which the party landed.
+static int FallLanding(const HeroRecordEntry &entry)
+{
+  return entry.extra > 0 ? entry.extra : entry.level + 1;
+}
+
 static void DescribeRecord(HeroRecordKind kind, const HeroRecordEntry &entry, const HeroStatsNames &names, HeroStatsRecordLine *line)
 {
   std::string monster = entry.monsterType >= 0 ? names.monster(entry.monsterType, entry.variant) : "";
@@ -757,8 +764,7 @@ static void DescribeRecord(HeroRecordKind kind, const HeroRecordEntry &entry, co
                 HeroStatsView_Number(entry.extra) + " damage";
     break;
   case HeroRecLongestFall:
-    // The level of each pit is recorded; the party lands on the level below the last one
-    line->how = "Lv " + std::to_string(entry.firstLevel) + " \xe2\x86\x92 " + std::to_string(entry.level + 1);
+    line->how = "Lv " + std::to_string(entry.firstLevel) + " \xe2\x86\x92 " + std::to_string(FallLanding(entry));
     break;
   case HeroRecLongestTeleportChain:
     if (entry.firstLevel != entry.level) line->how = "Lv " + std::to_string(entry.firstLevel) + " \xe2\x86\x92 " + std::to_string(entry.level);
@@ -805,14 +811,15 @@ static std::vector<HeroStatsRecordLine> RecordLines(const HeroStats &stats, cons
     if (line.has)
     {
       line.who = ChampionName(columns, entry.who);
-      line.level = entry.level;
+      // A fall is a record of the level it began on; its landing is in the text
+      line.level = kind == HeroRecLongestFall ? entry.firstLevel : entry.level;
       line.tick = (int)entry.time;
       line.when = "tick " + HeroStatsView_Number((int)entry.time);
       // A streak or chain: where and when it began and ended
       if (kind == HeroRecKillStreak || kind == HeroRecLongestFall || kind == HeroRecLongestTeleportChain || kind == HeroRecLongestSleep ||
           kind == HeroRecLongestPoisoned || kind == HeroRecMostPoisonings)
         line.when = "Lv " + std::to_string(entry.firstLevel) + ", tick " + HeroStatsView_Number((int)entry.firstTime) + " \xe2\x86\x92 Lv " +
-                    std::to_string(kind == HeroRecLongestFall ? entry.level + 1 : entry.level) + ", tick " + HeroStatsView_Number((int)entry.time);
+                    std::to_string(kind == HeroRecLongestFall ? FallLanding(entry) : entry.level) + ", tick " + HeroStatsView_Number((int)entry.time);
       DescribeRecord(kind, entry, names, &line);
     }
     HeroRecordEntry party;

@@ -567,8 +567,8 @@ void HeroStats_OnItemConsumed(int slot, int item, bool eaten)
   RN rn;
   if (!IsHero(slot) || !IsItem(item, &rn)) return;
   MeetHero(slot);
-  store.CountConsumed(d.hero[slot].fingerPrint, PartyLevel(), HeroStats_WeaponOf(rn),
-                      eaten ? HeroConsumeEaten : HeroConsumeDrunk);
+  HeroConsumeKind kind = eaten ? HeroConsumeEaten : rn.dbType() == dbPOTION ? HeroConsumePotion : HeroConsumeDrunk;
+  store.CountConsumed(d.hero[slot].fingerPrint, PartyLevel(), HeroStats_WeaponOf(rn), kind);
 }
 
 void HeroStats_OnScrollRead(int scroll)
