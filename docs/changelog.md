@@ -41,11 +41,16 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 - Food & items: Food wasted and Water wasted are no longer indented under Food gained and Water gained, since they are not part of them.
 - HTML page: the poison doses show only on a champion's Champions page, folded under "Show the N doses", as in the window; the Party's cards no longer list them.
 
+- Records over all replays: `scripts/export-all-html.sh` writes `records.html` beside the pages, with the Records tab over every replay of each game (Chaos Strikes Back, Dungeon Master): one row per record, for the party or a champion, with the lowest value above 0, the average and the highest, and the replay, hero, weapon or spell and monster behind each.
+
 **Map**
 - The monster pictures in a tile's tooltip (and in the HTML export) have their own colours and no coloured backdrop: they were drawn with the wrong transparent colour, so a blue, red or white box showed behind them.
 - WALKED also tints the teleporters and pits the party stepped into (it is carried off or falls at once, so it never stood on them for a tick).
 - An illusionary wall (a wall in the 3D view that the party walks through) is drawn with its purple pinstripes on the dark floor, so it no longer looks like a solid false wall; the HTML export too. The tooltip says whether a false wall is `SOLID`, `WALK-THROUGH` or `OPEN`. The pinstripes of false walls keep their look when you zoom in instead of getting denser.
 - The search finds the words of scrolls the party has read and of wall texts, from three letters on (`KING` finds THE GRAVE OF KING FILIUS); a hit shows the words around the match with the match in gold, tagged SCROLL, SCROLL ALCOVE, SCROLL IN CHEST, SCROLL CARRIED or WALL (N). The HTML export too.
+
+**Replay**
+- `csb --export-html` with `--export-ending` writes the pages at the victory screen, not at the replay's last line. `scripts/export-all-html.sh` gives it to the Chaos Strikes Back folders (Chaos Strikes Back minimum item picking, Race to Fulya Pit), so their maps show where the party ends up after the last line. Dungeon Master games still write at the last line.
 
 **Game window**
 - The party position in the top bar reads "L12 (32,43)" instead of "Party 12,32,43" and is right-aligned by its real width, so it is no longer cut off.

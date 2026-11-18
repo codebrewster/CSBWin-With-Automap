@@ -2334,6 +2334,7 @@ RESTARTABLE _ProcessTimersViewportAndSound(void)
     RESTART(2)
   END_RESTARTMAP
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  if (ExportHtml_IsOn()) ExportHtml_AtTick(); // --export-html: the fusion runs its ticks here
   if (ProcessTimers())
   {
     VBLDelay(_1_,300);  //about 5 seconds

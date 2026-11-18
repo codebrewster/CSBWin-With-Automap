@@ -10,6 +10,16 @@ MD = mkdir
 # comment out following line to see compiler invocation
 SILENT=1
 
+# "make" builds the optimized release (obj-release); "make DEBUG=1" or "make debug" the debug
+# build with AddressSanitizer (obj). "make test" uses the debug build too. "make RELEASE=1" still
+# works. The objects of the two builds are kept apart, so neither needs a clean.
+ifneq ($(filter debug test,$(MAKECMDGOALS)),)
+  DEBUG := 1
+endif
+ifneq ($(DEBUG),1)
+  RELEASE := 1
+endif
+
 ifeq ($(target), Raspberry)
   options = -O -D_LINUX -D RGB655 -D SDL12  -c
   gincludes =  -I/usr/include/SDL
@@ -17,9 +27,6 @@ ifeq ($(target), Raspberry)
   comp = gcc $(options) $(gincludes)
 endif
 ifeq ($(target), SDL20)
-# "make RELEASE=1" gives the optimized build, a plain "make" the debug one.
-# They use separate object directories (obj-release and obj), so they do not disturb each
-# other, and neither does "make test", which shares the debug objects.
 ifdef RELEASE
 	options =   -O2 -D _LINUX -D RGB655 -D SDL20 -c
 else
@@ -145,6 +152,9 @@ ifdef WIN
 endif
 
 all: maketree message csb
+
+# the debug build: "make debug" is "make DEBUG=1"
+debug: all
 
 $(OBJDIRS):
 	$(MD) -p $@

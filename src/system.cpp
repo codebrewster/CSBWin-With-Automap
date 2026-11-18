@@ -14,6 +14,7 @@
 #include "Data.h"
 #include "PlaybackControl.h"
 #include "ReplaySnapshotParts.h"
+#include "ExportHtml.h"
 
 #if defined _LINUX || defined CSB_CLASSIC_MAC
 #include "LinuxFileName.inl" // class FILENAME
@@ -686,6 +687,7 @@ RESTARTABLE _wvbl(const CSB_UI_MESSAGE *pMsg)
   while (oldCount == VBLCount)
   {
     WAITFORMESSAGE(_1_); //a UIM_VBL will do.
+    if (ExportHtml_IsOn()) ExportHtml_AtTick(); // --export-html: the ending's waits give up too
   }
   RETURN;
 }

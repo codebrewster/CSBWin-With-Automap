@@ -12,6 +12,7 @@ ui32 time(void *);
 
 //#include "Objects.h"
 #include "Dispatch.h"
+#include "ExportHtml.h"
 #include "CSB.h"
 #include "Data.h"
 #include "AutoMapHooks.h"
@@ -11672,6 +11673,7 @@ RESTARTABLE _StartCSB(const CSB_UI_MESSAGE * /*msg*/) //
   {
     MainLoop(_2_); //TAG00068e
     {
+      if (d.GameIsLost) ExportHtml_OnGameEnd(); // --export-html: the party is dead, the lost screen does not end
       ShowCredits(_3_,d.GameIsLost);
     };
     if (GameIsComplete) break;

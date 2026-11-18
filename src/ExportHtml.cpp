@@ -4,6 +4,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
 #include <string>
 #include <vector>
 #include <sys/stat.h>
@@ -21,14 +22,24 @@ extern bool GameIsComplete;
 static bool on = false;
 static std::string outDir;
 static bool replayEnded = false;
+static bool waitForEnding = false;
 static int replayEndedTick = 0;
+static time_t replayEndedWhen = 0;
 // The game's ending after the replay's last line takes about 6000 ticks (the fusion, the texts);
 // more than this means the game is not heading for a victory screen
 static const int TICKS_AFTER_THE_END_AT_MOST = 40000;
+// The same in seconds: the ending's waits (the credits, the fusion) can run without ticks, so the
+// time they take counts too
+static const double SECONDS_AFTER_THE_END_AT_MOST = 180;
 
 bool ExportHtml_IsOn(void)
 {
   return on;
+}
+
+void ExportHtml_WaitForEnding(void)
+{
+  waitForEnding = true;
 }
 
 void ExportHtml_Enable(const char *dir)
@@ -92,8 +103,9 @@ void ExportHtml_OnReplayEnd(void)
   if (!on) return;
   replayEnded = true;
   replayEndedTick = (int)d.Time;
+  replayEndedWhen = time(NULL);
   // In the ending (the fusion, the end of game actuator) the victory screen comes by itself
-  if (d.Word11694 == 0) Finish("replay ended");
+  if (d.Word11694 == 0 && !waitForEnding) Finish("replay ended");
 }
 
 void ExportHtml_OnGameEnd(void)
@@ -113,5 +125,7 @@ void ExportHtml_OnMessageBox(const char *msg)
 
 void ExportHtml_AtTick(void)
 {
-  if (on && replayEnded && (int)d.Time - replayEndedTick > TICKS_AFTER_THE_END_AT_MOST) Finish("gave up waiting for the ending");
+  if (!on || !replayEnded) return;
+  if ((int)d.Time - replayEndedTick > TICKS_AFTER_THE_END_AT_MOST) Finish("gave up waiting for the ending");
+  if (difftime(time(NULL), replayEndedWhen) > SECONDS_AFTER_THE_END_AT_MOST) Finish("gave up waiting for the ending");
 }

@@ -494,6 +494,8 @@ bool UI_ProcessOption(char **argv, int &argc)
 			WindowWidth=320;
 		    }else if(!strcmp("--export-html",key) ) {
 			state=enum_export_html;
+		    }else if(!strcmp("--export-ending",key) ) {
+			state=enum_ignore; ExportHtml_WaitForEnding();
 		    }else if(!strcmp("--play",key) ) {
 			state=enum_play;
 		    }else if(!strcmp("--visibility-test",key) ) {
@@ -589,6 +591,9 @@ bool UI_ProcessOption(char **argv, int &argc)
 				"\tReplays at top speed without a window, plays the ending, writes\n"
 				"\tDIR/map.html and DIR/statistics.html and exits (2: a message box,\n"
 				"\t4: a file could not be written).\n"
+			"  --export-ending\n"
+				"\tWith --export-html: writes the pages at the victory screen, not at the\n"
+				"\treplay's last line (Chaos Strikes Back moves the party after it)\n"
 			"  --play\n"
 				"\tUsage: --play Playfile.log\n"
 			    	"\tPlayes a recorded game. Might be reffered to as a \"movie\".\n"

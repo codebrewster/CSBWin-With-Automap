@@ -143,7 +143,7 @@ copy of each game folder, and puts `map.html` and `statistics.html` into
 `OUTDIR/<the game's folder path>/` (default `GAMES_DIR/html`). It prints one line per game.
 All 43 movies of `~/Games/CSB-Games` take about a minute and a half on 16 processors (the
 longest, CSBMovie1 and 2, about 100 seconds each, run alongside the rest). Build with
-`make RELEASE=1` first, and `make RELEASE=1` again after a change.
+`make` first, and `make` again after a change.
 
 ## When the replay ends
 
