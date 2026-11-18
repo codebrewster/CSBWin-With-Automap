@@ -2141,11 +2141,11 @@ static void DrawXpSources(HeroStatsDrawState *state, const std::vector<HeroStats
   SectionGap();
 }
 
-static void DrawRankUps(HeroStatsDrawState *state, const std::vector<HeroStatsRankUpLine> &lines,
+static void DrawRankUps(HeroStatsDrawState *state, std::vector<HeroStatsRankUpLine> lines,
                         const std::vector<HeroStatsColumn> &columns)
 {
   int ups = (int)lines.size();
-  if (!SectionHeader(state, HeroDetailRankUps, "Ranks gained", ups == 0 ? "none yet" : "newest first " + std::string(MIDDLE_DOT) + " " + Count(ups, ups == 1 ? "rank" : "ranks")))
+  if (!SectionHeader(state, HeroDetailRankUps, "Ranks gained", ups == 0 ? "none yet" : Count(ups, ups == 1 ? "rank" : "ranks")))
     return;
   if (ups == 0)
   {
@@ -2154,18 +2154,34 @@ static void DrawRankUps(HeroStatsDrawState *state, const std::vector<HeroStatsRa
     return;
   }
   bool isParty = state->who == HERO_STATS_PARTY;
-  int count = isParty ? 5 : 4;
-  if (BeginPageTable("##rankups", count, false))
+  int count = isParty ? 6 : 5;
+  if (BeginPageTable("##rankups", count, true))
   {
-    if (isParty) LabelColumn("Who");
-    if (isParty) TextColumn("Class");
-    else LabelColumn("Class");
-    TextColumn("Rank");
-    TextColumn("With");
+    if (isParty) LabelColumn("Who", true);
+    if (isParty) TextColumn("Class", true);
+    else LabelColumn("Class", true);
+    TextColumn("Rank", true);
+    TextColumn("With", true);
     NumberColumn("Lv");
-    static const HeaderHelps PARTY_HELPS = {"", "", "", "What gave the experience that made the rank: an action, a spell or a kill."};
-    static const HeaderHelps CHAMPION_HELPS = {"", "", "What gave the experience that made the rank: an action, a spell or a kill."};
+    NumberColumn("Tick", true);
+    static const HeaderHelps PARTY_HELPS = {"", "", "Sorts by the rank reached.", "What gave the experience that made the rank: an action, a spell or a kill.",
+                                            "", "When the rank came: newest first."};
+    static const HeaderHelps CHAMPION_HELPS = {"", "Sorts by the rank reached.", "What gave the experience that made the rank: an action, a spell or a kill.",
+                                               "", "When the rank came: newest first."};
     HeaderRow(std::vector<int>(), columns, "", isParty ? PARTY_HELPS : CHAMPION_HELPS);
+    // The rows come newest first; a column of the champion's page is one to the left of the party's
+    int shift = isParty ? 0 : 1;
+    SortRows(&lines, CurrentSort(), [&](const HeroStatsRankUpLine &a, const HeroStatsRankUpLine &b, int c) {
+      switch (c + shift)
+      {
+      case 0: return WhoLabel(columns, a.who).compare(WhoLabel(columns, b.who));
+      case 1: return a.className.compare(b.className);
+      case 2: return Compare(a.rankNumber, b.rankNumber);
+      case 3: return a.with.compare(b.with);
+      case 4: return Compare(a.level, b.level);
+      default: return Compare(a.tick, b.tick);
+      }
+    });
     for (size_t i = 0; i < lines.size(); i++)
     {
       const HeroStatsRankUpLine &line = lines[i];
@@ -2189,6 +2205,8 @@ static void DrawRankUps(HeroStatsDrawState *state, const std::vector<HeroStatsRa
       ImGui::TextColored(Colour(DIM_RGB), "%s", line.with.c_str());
       ImGui::TableSetColumnIndex(column++);
       RightText(LevelLabel(line.level).substr(3), TEXT_RGB);
+      ImGui::TableSetColumnIndex(column++);
+      RightText(HeroStatsView_Number(line.tick), DIM_RGB);
     }
     EndPageTable();
   }

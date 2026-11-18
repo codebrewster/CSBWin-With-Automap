@@ -355,7 +355,8 @@ or open it:
 - **Other**: items and scripts of the dungeon that raise a skill.
 
 **Ranks gained** lists each new rank, newest first: the champion, the class, the rank
-("Artisan → Adept"), what earned it and the level.
+("Artisan → Adept"), what earned it, the level and the tick. **Rank** sorts by the rank reached,
+not by its name; **Tick** sorts back to newest first.
 
 Experience counts on the level where it was gained.
 
@@ -523,9 +524,10 @@ triangle shows the column and the direction. Numbers sort largest first on the f
 alphabetically. The total row always stays at the bottom, and a weapon's actions stay below it,
 sorted the same way.
 
-All tables sort except **Numbers**, **Key numbers**, and the tables of Experience and Records, which
-keep their order so that the parts stay under their row: Skills by class, Experience by source and
-Ranks gained most first and newest first, Records in their groups.
+All tables sort except **Numbers**, **Key numbers**, Skills, Experience by source and Records,
+which keep their order so that the parts stay under their row: Skills by class, Experience by
+source most first, Records in their groups. Each table that sorts starts sorted by one of its
+columns, so clicking that column brings the first order back.
 
 ## Sharing: export as HTML
 

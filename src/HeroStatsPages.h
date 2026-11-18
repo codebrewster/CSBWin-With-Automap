@@ -127,8 +127,9 @@ struct HeroStatsClassLine
   std::vector<int> byColumn;
   std::vector<HeroStatsXpLine> skills;
 };
-// rank: "Artisan → Adept"; with: what brought it ("SWING with DIAMOND EDGE", "Ful Ir Fireball")
-struct HeroStatsRankUpLine { HeroStatsChampion who; std::string className, rank, with; int level; };
+// rank: "Artisan → Adept"; with: what brought it ("SWING with DIAMOND EDGE", "Ful Ir Fireball");
+// rankNumber: the rank reached (HeroXp_RankName's), for sorting; tick: when it came
+struct HeroStatsRankUpLine { HeroStatsChampion who; std::string className, rank, with; int level; int rankNumber; int tick; };
 // One record. value, how, whom, when as shown ("38.4 kg · 92%", "4 × Screamer", "tick 4,321"). who:
 // the champion's name or "party". held: a champion's page: the champion holds the party's record.
 // partyValue, partyHolder: the party's best and who holds it.

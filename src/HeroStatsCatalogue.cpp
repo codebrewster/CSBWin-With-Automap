@@ -194,8 +194,8 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
   topics[HeroTopicSupplies] = {"Food & items", {}, {HeroNumEaten, HeroNumDrunk, HeroNumFoodWasted, HeroNumPickedUp}, {}};
   SetGroups(&topics[HeroTopicSupplies],
             {{"Food and water", false,
-              {{HeroNumEaten, 0}, {HeroNumDrunk, 0}, {HeroNumFoodGained, 0}, {HeroNumFoodWasted, 1, "Wasted (over full)"},
-               {HeroNumWaterGained, 0}, {HeroNumWaterWasted, 1, "Wasted (over full)"}}},
+              {{HeroNumEaten, 0}, {HeroNumDrunk, 0}, {HeroNumFoodGained, 0}, {HeroNumFoodWasted, 0},
+               {HeroNumWaterGained, 0}, {HeroNumWaterWasted, 0}}},
              {"Items", false, {{HeroNumPickedUp, 0}, {HeroNumUsedInWalls, 0}}}});
   topics[HeroTopicExploration] = {"Exploration", {}, {HeroNumTilesExplored, HeroNumSteps, HeroNumTicks, HeroNumTeleports}, {}};
   SetGroups(&topics[HeroTopicExploration],

@@ -24,9 +24,9 @@
 //       "taken": [[text, amount, isBad, [by hero]], ...], "healing": [[text, amount, [by hero]], ...],
 //       "deaths": [text, ...], "eaten": [[text, amount, [by hero]], ...], "drunk": [...], "eatenTotal", "drunkTotal",
 //       "xp": {"classes": [[name, rank now, rank at the start, % to next, next rank, experience, ranks gained,
-//                           best hero (the party's), [by hero], [[skill, experience, [by hero]], ...]], ...],
+//                           best hero (the party's), [by hero], [[skill, experience, [by hero]], ...], rank now as a number], ...],
 //              "sources": [[name, note, depth, experience, [by hero; a hero's page: the party's], has children, help], ...],
-//              "rankups": [[hero, class, rank, with, level], ...]},
+//              "rankups": [[hero, class, rank, with, level, rank reached as a number, tick], ...]},
 //       "records": [[kind, group, label, value, who, how, whom, when, level, has, held, party value, party's hero], ...] },
 //     "monsters": [[name, [kills per hero], door, pit, telefrag, landed, other, total], ...] most killed first,
 //     "items": [[name, picked up, used in walls, from chests], ...] } } },
@@ -218,7 +218,7 @@ static std::string XpJson(const HeroStatsTopicPage &xp, const std::vector<HeroSt
     for (size_t k = 0; k < line.skills.size(); k++)
       out += std::string(k > 0 ? "," : "") + "[" + HeroStatsExport_JsonString(line.skills[k].name) + "," +
              Number(line.skills[k].amount) + "," + Ints(line.skills[k].byColumn) + "]";
-    out += "]]";
+    out += "]," + Number(line.rankNow) + "]";
   }
   out += "],\"sources\":[";
   for (size_t i = 0; i < xp.sources.size(); i++)
@@ -233,7 +233,8 @@ static std::string XpJson(const HeroStatsTopicPage &xp, const std::vector<HeroSt
   {
     const HeroStatsRankUpLine &line = xp.rankUps[i];
     out += std::string(i > 0 ? "," : "") + "[" + Number(HeroIndex(columns, line.who)) + "," + HeroStatsExport_JsonString(line.className) +
-           "," + HeroStatsExport_JsonString(line.rank) + "," + HeroStatsExport_JsonString(line.with) + "," + Number(line.level) + "]";
+           "," + HeroStatsExport_JsonString(line.rank) + "," + HeroStatsExport_JsonString(line.with) + "," + Number(line.level) + "," + Number(line.rankNumber) + "," +
+           Number(line.tick) + "]";
   }
   return out + "]}";
 }
@@ -534,6 +535,7 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   /* The Champions tab. A card and the champion's own column stop growing, so no bar gets long. */
   #view { container-type:inline-size }
   .vit { display:grid; grid-template-columns:max-content minmax(40px,1fr) max-content; gap:4px 10px; align-items:center }
+  .vit .fold { color:var(--dim); cursor:pointer; user-select:none } .vit .fold:hover { color:#fff }
   .vit .l, .lranks .l { color:var(--dim) } .vit .v { text-align:right; white-space:nowrap } .vit .w { grid-column:2 / 4 }
   .bad { color:var(--bad) } .none { color:var(--dim) } .raised { color:#e0b54a }
   .vbar { height:9px; background:var(--track); border-radius:2px; overflow:hidden } .vbar i { display:block; height:100% }
@@ -961,7 +963,7 @@ function skills(p) {
     const key = 'class:' + st.who + ':' + i, open = !!st.open[key];
     const name = td(c[0], `<td>${open ? '&#9662;' : '&#9656;'} ${esc(c[0].toUpperCase())}</td>`);
     const cells = isParty() ? [name, td(c[5], plain(c[5])), td(c[6], plain(c[6])), whoBy(c[5], () => c[8])]
-      : [name, td(c[1], `<td class="l">${esc(c[1] || '-')}${c[2] && c[2] !== c[1] ? ` <span class="nt">(${esc(c[2])} at the start)</span>` : ''}</td>`),
+      : [name, td(c[10], `<td class="l">${esc(c[1] || '-')}${c[2] && c[2] !== c[1] ? ` <span class="nt">(${esc(c[2])} at the start)</span>` : ''}</td>`),
          td(c[5], plain(c[5])), td(c[6], plain(c[6]))];
     const sub = open ? c[9].map(s => ({cls: 'opt', cells: isParty() ? [nameTd(s[0]), td(s[1], plain(s[1])), td(0, '<td></td>'), td(0, whoBar(s[2]))]
                                                              : [nameTd(s[0]), td(0, '<td></td>'), td(s[1], plain(s[1])), td(0, '<td></td>')]})) : [];
@@ -1001,10 +1003,12 @@ function xpSources(p) {
 function rankUps(p) {
   const ups = p.xp.rankups, n = ups.length;
   if (!n) return section(DETAIL.RANK_UPS, 'Ranks gained', 'none yet', '<div class="note">No new rank yet.</div>');
-  const cols = (isParty() ? [nameCol('Who')] : []).concat([nameCol('Class'), nameCol('Rank'), nameCol('With', 'What gave the experience that made the rank: an action, a spell or a kill.'), numCol('Lv')]);
+  const cols = (isParty() ? [nameCol('Who')] : []).concat([nameCol('Class'), nameCol('Rank', 'Sorts by the rank reached.'),
+    nameCol('With', 'What gave the experience that made the rank: an action, a spell or a kill.'), numCol('Lv'), numCol('Tick', 'When the rank came: newest first.')]);
   const rows = ups.map((u, i) => ({cells: (isParty() ? [td(whoName(u[0]), `<td>${u[0] < N ? dotOf(u[0]) + ' ' : ''}${esc(whoName(u[0]))}</td>`)] : [])
-    .concat([nameTd(u[1]), nameTd(u[2]), td(u[3], `<td class="nt">${esc(u[3])}</td>`), td(u[4], `<td>${u[4]}</td>`)])}));
-  return section(DETAIL.RANK_UPS, 'Ranks gained', `newest first · ${n} ${n === 1 ? 'rank' : 'ranks'}`, sortTable('rankups', cols, rows, null, null));
+    .concat([nameTd(u[1]), td(u[5], `<td>${esc(u[2])}</td>`), td(u[3], `<td class="nt">${esc(u[3])}</td>`), td(u[4], `<td>${u[4]}</td>`),
+             td(u[6], `<td class="nt">${fmt(u[6])}</td>`)])}));
+  return section(DETAIL.RANK_UPS, 'Ranks gained', `${n} ${n === 1 ? 'rank' : 'ranks'}`, sortTable('rankups', cols, rows, null, cols.length - 1));
 }
 
 function records(p) {
@@ -1155,7 +1159,13 @@ function slotHtml(items, slot, wounded, part) {
     (i < 0 ? (part ? `<span class="gh">${part}</span>` : '') : iconOf(items[i]) + (held.length ? `<span class="cnt">${held.length}</span>` : '')) + '</div>';
 }
 const isWounded = (c, slot) => slot >= 0 && slot < 6 && ((c.woundBits >> slot) & 1) === 1;
-function liveVitals(c, colour) {
+// showDoses: a champion's page; the doses fold away under a line of their own (30 and more can
+// work on one champion), the fold kept per champion. The Party's cards leave them out.
+function liveVitals(c, colour, showDoses) {
+  const key = 'doses:' + c.hero, open = !!st.open[key], n = c.poisonDoses.length;
+  const doses = !showDoses || !n ? '' : `<span></span><span class="w fold" onclick="toggleWeapon('${key}')">${open ? '&#9662;' : '&#9656;'} ` +
+    `${open ? 'Hide' : 'Show'} the ${n} ${n === 1 ? 'dose' : 'doses'}</span>` +
+    (open ? c.poisonDoses.map(v => `<span></span><span class="w none">${v} (${Math.max(1, Math.floor(v / 64))} HP per 36 ticks, ${v * 36} ticks left)</span>`).join('') : '');
   const heavy = c.load[0] > c.load[1];
   return '<div class="vit">' + vitalBar('Health', c.hp[0], c.hp[1], colour, `${c.hp[0]} / ${c.hp[1]}`) +
     vitalBar('Stamina', c.stamina[0], c.stamina[1], colour, `${Math.floor(c.stamina[0] / 10)} / ${Math.floor(c.stamina[1] / 10)}`) +
@@ -1165,7 +1175,7 @@ function liveVitals(c, colour) {
     `<span class="l">Wounds</span><span class="w ${c.wounds ? 'bad' : 'none'}">${c.wounds ? esc(c.wounds) : 'none'}</span>` +
     `<span class="l">Poison</span><span class="w ${c.poison ? 'bad' : 'none'}">${c.poison ?
       `${c.poisonSum} (${c.poison} ${c.poison === 1 ? 'dose' : 'doses'}, ${c.poisonDoses.reduce((t, v) => t + Math.max(1, Math.floor(v / 64)), 0)} HP per 36 ticks)` : 'none'}</span>` +
-    c.poisonDoses.map(v => `<span></span><span class="w none">${v} (${Math.max(1, Math.floor(v / 64))} HP per 36 ticks, ${v * 36} ticks left)</span>`).join('') + '</div>';
+    doses + '</div>';
 }
 function liveHead(c, colour) {
   const status = c.hp[0] <= 0 ? 'dead' : c.poison ? 'poisoned' : '';
@@ -1248,7 +1258,7 @@ function liveChampion(c) {
   const count = c.items.length;
   const choice = `<span class="seg" onclick="event.stopPropagation()"><button class="ch${st.list ? '' : ' on'}" onclick="set({list:false})">Picture</button>` +
     `<button class="ch${st.list ? ' on' : ''}" onclick="set({list:true})">List</button></span>`;
-  return `<div class="champ"><div class="a-v">${liveHead(c, colour)}${liveVitals(c, colour)}</div>` +
+  return `<div class="champ"><div class="a-v">${liveHead(c, colour)}${liveVitals(c, colour, true)}</div>` +
     `<div class="a-a">${section('attrs', 'Attributes', '', attrs)}${section('ranks', 'Ranks', 'way to the next rank', liveRanks(c, colour))}</div>` +
     `<div class="a-i">${section('inventory', 'Inventory', `${count} ${count === 1 ? 'item' : 'items'} &nbsp;${choice}`, liveInventory(c))}</div></div>`;
 }

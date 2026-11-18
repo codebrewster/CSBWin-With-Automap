@@ -36,6 +36,10 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 - Zoomed in (or out), the text is sharp: the letters no longer come out damaged or blurred, and no longer sit unevenly from line to line.
 - The window zooms in up to 400 % (was 250 %).
 - The Party's cards no longer have the fold listing each poison dose, so a poisoned champion's card is no taller than the others; the champion's own page still lists them.
+- Records: Longest fall names the level the party landed on ("Lv 5 → 9" for four pits from level 5), not the level of the last pit.
+- Ranks gained sorts in the window too, and in both the window and the HTML page Rank sorts by the rank reached instead of its name, and a new Tick column sorts back to newest first.
+- Food & items: Food wasted and Water wasted are no longer indented under Food gained and Water gained, since they are not part of them.
+- HTML page: the poison doses show only on a champion's Champions page, folded under "Show the N doses", as in the window; the Party's cards no longer list them.
 
 **Map**
 - The monster pictures in a tile's tooltip (and in the HTML export) have their own colours and no coloured backdrop: they were drawn with the wrong transparent colour, so a blue, red or white box showed behind them.
