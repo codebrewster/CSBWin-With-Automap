@@ -26,7 +26,7 @@ enum HeroStatsNumber {
   HeroNumEaten, HeroNumDrunk, HeroNumPotionsDrunk, HeroNumFoodGained, HeroNumFoodWasted, HeroNumWaterGained, HeroNumWaterWasted,
   HeroNumPickedUp, HeroNumUsedInWalls,
   HeroNumSteps, HeroNumTilesWalked, HeroNumTilesExplored, HeroNumTurns, HeroNumBumps, HeroNumMonsterBumps, HeroNumTeleports, HeroNumTelefrags, HeroNumTelefragged, HeroNumLandings,
-  HeroNumPitFalls, HeroNumPitClimbs, HeroNumClimbLandings, HeroNumTicks, HeroNumSleepTicks,
+  HeroNumPitFalls, HeroNumPitClimbs, HeroNumClimbLandings, HeroNumArrivals, HeroNumStairChanges, HeroNumTicks, HeroNumSleepTicks,
   HeroNumDoorsBashed, HeroNumDoorsSmashed, HeroNumDoorsShot, HeroNumDoorsBySpell, HeroNumDoorsByZo,
   HeroNumDoorsButtonOpened, HeroNumDoorsButtonClosed, HeroNumChests, HeroNumScrolls, HeroNumWallTexts,
   HeroNumChampionsSeen, HeroNumChampionsViewed,

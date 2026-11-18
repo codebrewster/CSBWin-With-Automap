@@ -641,7 +641,7 @@ std::vector<HeroStatsSpellRow> HeroStats::Spells(HeroStatsChampion who, int leve
 
 static HeroStatsMovement NoMovement(void)
 {
-  HeroStatsMovement none = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  HeroStatsMovement none = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
   return none;
 }
 
@@ -707,6 +707,16 @@ void HeroStats::CountClimbLanding(int level)
   m_movement.insert(std::make_pair(level, NoMovement())).first->second.climbLandings++;
 }
 
+void HeroStats::CountArrival(int level)
+{
+  m_movement.insert(std::make_pair(level, NoMovement())).first->second.arrivals++;
+}
+
+void HeroStats::CountStairChange(int level)
+{
+  m_movement.insert(std::make_pair(level, NoMovement())).first->second.stairChanges++;
+}
+
 void HeroStats::SetLegacyTelefragKills(int level, int kills)
 {
   m_movement.insert(std::make_pair(level, NoMovement())).first->second.telefragKills = kills;
@@ -745,6 +755,8 @@ HeroStatsMovement HeroStats::Movement(int level) const
     sum.telefragKills += at->second.telefragKills;
     sum.landings += at->second.landings;
     sum.climbLandings += at->second.climbLandings;
+    sum.arrivals += at->second.arrivals;
+    sum.stairChanges += at->second.stairChanges;
   }
   return sum;
 }
@@ -1201,6 +1213,11 @@ void HeroStats::Serialize(std::vector<uint8_t> *out, int layout) const
     if (layout >= FIRST_LAYOUT_WITH_TELEFRAG_KILLS) HeroBytes_PutInt(out, it->second.telefragKills);
     if (layout >= FIRST_LAYOUT_WITH_LANDINGS) HeroBytes_PutInt(out, it->second.landings);
     if (layout >= FIRST_LAYOUT_WITH_CLIMB_LANDINGS) HeroBytes_PutInt(out, it->second.climbLandings);
+    if (layout >= FIRST_LAYOUT_WITH_STAIRS)
+    {
+      HeroBytes_PutInt(out, it->second.arrivals);
+      HeroBytes_PutInt(out, it->second.stairChanges);
+    }
   }
   HeroBytes_Put(out, (uint32_t)m_items.size(), 4);
   for (std::map<std::pair<int, int>, ItemCounts>::const_iterator it = m_items.begin(); it != m_items.end(); ++it)
@@ -1300,6 +1317,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
   bool hasTelefragKills = layout >= FIRST_LAYOUT_WITH_TELEFRAG_KILLS;
   bool hasLandings = layout >= FIRST_LAYOUT_WITH_LANDINGS;
   bool hasClimbLandings = layout >= FIRST_LAYOUT_WITH_CLIMB_LANDINGS;
+  bool hasStairs = layout >= FIRST_LAYOUT_WITH_STAIRS;
   HeroBytesReader in(data, size);
   HeroStats read;
   uint32_t count = in.GetCount(3);
@@ -1437,7 +1455,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
   }
   read.m_partyWipes = in.GetInt();
   read.m_reloads = in.GetInt();
-  count = hasMovement ? in.GetCount((hasClimbLandings ? 14 : hasLandings ? 13 : hasTelefragKills ? 12 : hasTelefrags ? 11 : hasMonsterBumps ? 10 : hasPitsAndSleep ? 9 : 5) * 4) : 0;
+  count = hasMovement ? in.GetCount((hasStairs ? 16 : hasClimbLandings ? 14 : hasLandings ? 13 : hasTelefragKills ? 12 : hasTelefrags ? 11 : hasMonsterBumps ? 10 : hasPitsAndSleep ? 9 : 5) * 4) : 0;
   for (uint32_t i = 0; i < count && in.ok; i++)
   {
     int level = in.GetInt();
@@ -1457,6 +1475,11 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
       if (hasTelefragKills) movement.telefragKills = in.GetInt();
       if (hasLandings) movement.landings = in.GetInt();
       if (hasClimbLandings) movement.climbLandings = in.GetInt();
+      if (hasStairs)
+      {
+        movement.arrivals = in.GetInt();
+        movement.stairChanges = in.GetInt();
+      }
     }
     read.m_movement[level] = movement;
   }

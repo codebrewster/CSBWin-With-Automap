@@ -55,6 +55,9 @@ void HeroStats_OnFusionTick(void);
 // turned it (turning on stairs takes the stairs: a step). Bumping into a wall is neither.
 void HeroStats_OnPartyStepped(void);
 void HeroStats_OnPartyTurned(void);
+// The party is about to take the stairs (TraverseStairway, after the party move filter let it): the
+// stair change counts on the level it leaves. Its arrival on the next level counts in OnPartyOnLevel.
+void HeroStats_OnStairwayTaken(void);
 // A teleporter on level took the party (each teleporter of a chain counts)
 void HeroStats_OnPartyTeleported(int level, int x, int y);
 // The party went down the pit on level: climbed down with a rope (the engine suppresses the

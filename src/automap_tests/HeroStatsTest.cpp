@@ -305,12 +305,29 @@ static void MovementIsKeptPerLevel(void)
   CHECK(climbs.Movement(2).climbLandings == 2 && climbs.Movement(2).landings == 1);
   CHECK(climbs.Movement(HERO_STATS_WHOLE_RUN).climbLandings == 2 && climbs.Movement(3).climbLandings == 0);
   std::vector<uint8_t> v30, as29;
-  climbs.Serialize(&v30);
+  climbs.Serialize(&v30, 30);
   climbs.Serialize(&as29, 29);
   HeroStats read30, readAs29;
-  CHECK(read30.Deserialize(v30.data(), v30.size()) && read30.Movement(2).climbLandings == 2 && read30.Movement(2).landings == 1);
+  CHECK(read30.Deserialize(v30.data(), v30.size(), 30) && read30.Movement(2).climbLandings == 2 && read30.Movement(2).landings == 1);
   CHECK(v30.size() == as29.size() + 4);
   CHECK(readAs29.Deserialize(as29.data(), as29.size(), 29) && readAs29.Movement(2).climbLandings == 0 && readAs29.Movement(2).landings == 1);
+  // Layout 31: arrivals and stair changes, per level; a layout 30 file has neither
+  HeroStats stairs;
+  stairs.CountArrival(1);
+  stairs.CountArrival(1);
+  stairs.CountArrival(2);
+  stairs.CountStairChange(1);
+  CHECK(stairs.Movement(1).arrivals == 2 && stairs.Movement(1).stairChanges == 1);
+  CHECK(stairs.Movement(HERO_STATS_WHOLE_RUN).arrivals == 3 && stairs.Movement(HERO_STATS_WHOLE_RUN).stairChanges == 1);
+  CHECK(stairs.Movement(2).arrivals == 1 && stairs.Movement(2).stairChanges == 0);
+  std::vector<uint8_t> v31, as30;
+  stairs.Serialize(&v31);
+  stairs.Serialize(&as30, 30);
+  HeroStats read31, readAs30;
+  CHECK(read31.Deserialize(v31.data(), v31.size()) && read31.Movement(1).arrivals == 2 && read31.Movement(1).stairChanges == 1);
+  // Two levels hold movement, two more counts each
+  CHECK(v31.size() == as30.size() + 16);
+  CHECK(readAs30.Deserialize(as30.data(), as30.size(), 30) && readAs30.Movement(1).arrivals == 0 && readAs30.Movement(1).stairChanges == 0);
 }
 
 // The layout of version 13: harm rows without the missile kind, no movement table. A store with

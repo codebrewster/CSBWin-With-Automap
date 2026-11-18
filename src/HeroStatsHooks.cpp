@@ -76,6 +76,7 @@ static std::map<int, DoorBlow> scheduledDoorBashes;   // DoorKey
 // The level last marked visited in the store, so that a tick on the same level costs nothing;
 // -1 after the store was replaced
 static int levelMarked = -1;
+static const int LEVEL_OF_THE_PRISON_SCREEN = 255;
 
 HeroStats &HeroStats_Store(void)
 {
@@ -450,9 +451,12 @@ static bool IsHero(int slot)
   return slot >= 0 && slot < d.NumCharacter && slot < 4;
 }
 
+// A change of level since the last mark is an arrival, however the party got there. The first
+// level of a game (or after a load, which forgets the mark) is no arrival.
 static void MarkPartyLevelVisited(void)
 {
   if (levelMarked == d.partyLevel) return;
+  if (levelMarked != -1 && d.partyLevel != LEVEL_OF_THE_PRISON_SCREEN) store.CountArrival(d.partyLevel);
   store.MarkLevelVisited(d.partyLevel);
   levelMarked = d.partyLevel;
 }
@@ -686,7 +690,6 @@ void HeroStats_OnDoorBashTimer(int level, int x, int y, bool breaksNow)
 }
 
 // Chaos Strikes Back starts on a screen of its own, which is no dungeon level
-static const int LEVEL_OF_THE_PRISON_SCREEN = 255;
 
 void HeroStats_OnPartyStepped(void)
 {
@@ -714,6 +717,12 @@ void HeroStats_RefreshMapCounts(bool force)
   }
   store.SetWallTextsRead(texts);
   store.SetChampionsSeen(seen, viewed);
+}
+
+void HeroStats_OnStairwayTaken(void)
+{
+  if (d.partyLevel == LEVEL_OF_THE_PRISON_SCREEN) return;
+  store.CountStairChange(PartyLevel());
 }
 
 void HeroStats_OnPartyTurned(void)
