@@ -579,19 +579,23 @@ static void BreakableDoorLooksLikeAPlainDoor(void)
   CHECK(!HasLineStartingWith(Texts(AutoMapScene_RelayLines(drawList, 2, 1)), "  BREAK FORCE"));
 }
 
+// An illusionary one shows as walk-through once known, and not before
 static void FalseWallIsAWallUntilKnown(void)
 {
   AutoMapLevelSnapshot snapshot = Corridor();
   At(&snapshot, 3, 1).kind = AutoMapCellFalseWall;
+  At(&snapshot, 3, 1).falseWallIsPassable = true;
   At(&snapshot, 2, 2).kind = AutoMapCellOpenFalseWall;
   AutoMapKnowledge knowledge;
   AutoMapDrawList before = Build(snapshot, AutoMapSpoilersLearned, &knowledge);
   CHECK(FindCell(before, 3, 1)->cell.kind == AutoMapCellWall);
+  CHECK(!FindCell(before, 3, 1)->cell.falseWallIsPassable);
   CHECK(FindCell(before, 2, 2)->cell.kind == AutoMapCellFloor);
   Learn(&knowledge, AutoMapFactFalseWall, 3, 1);
   Learn(&knowledge, AutoMapFactFalseWall, 2, 2);
   AutoMapDrawList after = Build(snapshot, AutoMapSpoilersLearned, &knowledge);
   CHECK(FindCell(after, 3, 1)->cell.kind == AutoMapCellFalseWall);
+  CHECK(FindCell(after, 3, 1)->cell.falseWallIsPassable);
   CHECK(FindCell(after, 2, 2)->cell.kind == AutoMapCellOpenFalseWall);
   // Seen never restores anything, whatever the knowledge holds
   AutoMapDrawList seen = Build(snapshot, AutoMapSpoilersSeen, &knowledge);

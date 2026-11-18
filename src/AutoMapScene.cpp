@@ -494,15 +494,17 @@ static void HideCellSecrets(const AutoMapCell &levelCell, const AutoMapFog &fog,
   HideWallSecrets(fog, record);
   // A closed switchable pit is floor to the party until it opens
   record->pitIsClosedSwitchable = false;
-  record->falseWallIsPassable = false;
   // Whether a door can be broken is only found out by breaking it
   record->doorBreakableWithAxe = false;
   record->doorBreakableWithFireball = false;
   record->doorBreakForce = -1;
+  // A false wall the party knows shows whether it can be walked through; one it does not is
+  // stone
   if (record->kind == AutoMapCellFalseWall
       && !Known(fog, AutoMapFact_OfCell(AutoMapFactFalseWall, levelCell)))
   {
     record->kind = AutoMapCellWall;
+    record->falseWallIsPassable = false;
   }
   else if (record->kind == AutoMapCellOpenFalseWall
            && !Known(fog, AutoMapFact_OfCell(AutoMapFactFalseWall, levelCell)))
@@ -1858,8 +1860,12 @@ std::vector<AutoMapTipLine> AutoMapScene_RelayLines(const AutoMapDrawList &drawL
     {
       if (drawList.linkedCells[i].x == x && drawList.linkedCells[i].y == y) switched = true;
     }
-    AddRelayGroup(&lines, "FALSE WALL",
-                  switched ? std::vector<std::string>(1, "SWITCHED") : std::vector<std::string>());
+    // Whether the party can walk in it now, then whether something operates it
+    std::vector<std::string> wall;
+    if (shown->cell.kind == AutoMapCellOpenFalseWall) wall.push_back("OPEN");
+    else wall.push_back(shown->cell.falseWallIsPassable ? "WALK-THROUGH" : "SOLID");
+    if (switched) wall.push_back("SWITCHED");
+    AddRelayGroup(&lines, "FALSE WALL", wall);
   }
   // Sealed doors first: no switch, no incoming link, no axe/fireball way
   // through. Bashable counts as openable and names the force that breaks it.

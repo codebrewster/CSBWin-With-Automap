@@ -174,7 +174,9 @@ const COL = { wall: '#8d877a', wallEdge: '#a39c8d', floor: '#2e2b27', floorEdge:
 function drawCellBase(c) {
   const x = px(c.x), y = py(c.y), k = c.k;
   if (k === 0) { rect(x, y, cs, cs, COL.wall); frame(x, y, cs, cs, COL.wallEdge); return; }
-  if (k === 6) { rect(x, y, cs, cs, '#4a3856'); g.fillStyle = '#664e7a'; for (let i = 3; i < cs; i += 4) g.fillRect(x + i, y + 1, 1, cs - 2); frame(x, y, cs, cs, '#8a6ea0'); return; }
+  // closed false wall: purple when solid, floor under the stripes when the party walks through;
+  // spacing and width grow with the cell (as the window's DrawFalseWall: 4 pixels at 40)
+  if (k === 6) { const st = 4, sw = Math.max(1, Math.round(cs / 40)); rect(x, y, cs, cs, c.fwp ? COL.floor : '#4a3856'); g.fillStyle = c.fwp ? '#8a6ea0' : '#664e7a'; for (let n = 1; ; n++) { const i = Math.floor(n * st * cs / 40) - 1; if (i + sw > cs - 1) break; g.fillRect(x + i, y + 1, sw, cs - 2); } frame(x, y, cs, cs, '#8a6ea0'); return; }
   rect(x, y, cs, cs, COL.floor); frame(x, y, cs, cs, COL.floorEdge);
   if (k === 4) drawDoor(c, x, y);
   if (k === 3) drawStairs(c, x, y);

@@ -6769,12 +6769,16 @@ static void MonsterNameLineNamesTheGroup(void)
   CHECK(AutoMapScene_MonsterNameLine(fogged, 2, 1) == "");
 }
 
-// A false wall says what it is, and that a switch operates it when one does
+// A false wall says what it is, whether the party can walk in it, and that a switch operates
+// it when one does
 static void SwitchedFalseWallSaysSo(void)
 {
   AutoMapLevelSnapshot corridor = Corridor();
   corridor.cells[0 * 4 + 2].kind = AutoMapCellFalseWall;
   corridor.cells[0 * 4 + 3].kind = AutoMapCellFalseWall;
+  corridor.cells[1 * 4 + 2].kind = AutoMapCellFalseWall;
+  corridor.cells[1 * 4 + 2].falseWallIsPassable = true;
+  corridor.cells[1 * 4 + 3].kind = AutoMapCellOpenFalseWall;
   AutoMapFloorActuator pad = {1, 1, AutoMapActuatorPad};
   corridor.actuators.push_back(pad);
   AutoMapLink toWall = {1, 1, 2, 0, false, -1};
@@ -6786,8 +6790,13 @@ static void SwitchedFalseWallSaysSo(void)
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(corridor, NoFog(explored, visibleNow));
   std::vector<std::string> switched = Texts(AutoMapScene_RelayLines(drawList, 2, 0));
   std::vector<std::string> plain = Texts(AutoMapScene_RelayLines(drawList, 3, 0));
-  CHECK(switched.size() == 2 && switched[0] == "FALSE WALL" && switched[1] == "  SWITCHED");
-  CHECK(plain.size() == 1 && plain[0] == "FALSE WALL");
+  std::vector<std::string> illusion = Texts(AutoMapScene_RelayLines(drawList, 2, 1));
+  std::vector<std::string> open = Texts(AutoMapScene_RelayLines(drawList, 3, 1));
+  CHECK(switched.size() == 3 && switched[0] == "FALSE WALL" && switched[1] == "  SOLID"
+        && switched[2] == "  SWITCHED");
+  CHECK(plain.size() == 2 && plain[0] == "FALSE WALL" && plain[1] == "  SOLID");
+  CHECK(illusion.size() == 2 && illusion[0] == "FALSE WALL" && illusion[1] == "  WALK-THROUGH");
+  CHECK(open.size() == 2 && open[0] == "FALSE WALL" && open[1] == "  OPEN");
   CHECK(AutoMapScene_RelayLines(drawList, 3, 0)[0].style == AutoMapTipHeader);
 }
 

@@ -162,6 +162,12 @@ they take, with a box for objects. A generator shows its monster faded with a `G
 generator that has fired and sleeps until it may fire again is an empty diamond over its monster,
 fainter still.
 
+**False walls** have purple pinstripes: the game shows a wall there. A solid one, which stops the
+party, stands on purple; an illusionary one, which the party walks through, on the dark floor. An
+open false wall is floor with a dashed edge. A gold badge in the upper right says a switch or pad
+operates it. The tooltip says `SOLID`, `WALK-THROUGH` or `OPEN` under `FALSE WALL`, and `SWITCHED`
+when something operates it.
+
 **Stairs** carry a plate with an arrow and the level they lead to. A **teleporter** is a cyan
 checkerboard; one to another level shows that level's number. A pile of more than three items shows
 its count in the upper right.

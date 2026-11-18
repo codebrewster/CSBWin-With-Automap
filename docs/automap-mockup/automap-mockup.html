@@ -184,7 +184,9 @@ const COL = { wall: '#8d877a', wallEdge: '#a39c8d', floor: '#2e2b27', floorEdge:
 function drawCellBase(c) {
   const x = px(c.x), y = py(c.y), k = c.k;
   if (k === 0) { rect(x, y, cs, cs, COL.wall); frame(x, y, cs, cs, COL.wallEdge); return; }
-  if (k === 6) { rect(x, y, cs, cs, '#4a3856'); g.fillStyle = '#664e7a'; for (let i = 3; i < cs; i += 4) g.fillRect(x + i, y + 1, 1, cs - 2); frame(x, y, cs, cs, '#8a6ea0'); return; }
+  // closed false wall: purple when solid, floor under the stripes when the party walks through;
+  // spacing and width grow with the cell (as the window's DrawFalseWall: 4 pixels at 40)
+  if (k === 6) { const st = 4, sw = Math.max(1, Math.round(cs / 40)); rect(x, y, cs, cs, c.fwp ? COL.floor : '#4a3856'); g.fillStyle = c.fwp ? '#8a6ea0' : '#664e7a'; for (let n = 1; ; n++) { const i = Math.floor(n * st * cs / 40) - 1; if (i + sw > cs - 1) break; g.fillRect(x + i, y + 1, sw, cs - 2); } frame(x, y, cs, cs, '#8a6ea0'); return; }
   rect(x, y, cs, cs, COL.floor); frame(x, y, cs, cs, COL.floorEdge);
   if (k === 4) drawDoor(c, x, y);
   if (k === 3) drawStairs(c, x, y);
@@ -338,7 +340,17 @@ function drawItems(c) {
   items.slice(0, 3).forEach((it, i) => { const sx = x + Math.floor(cs * i / n), sw = Math.floor(cs / n); if (!itemSpr(it[0], sx, y, sw, cs)) insetMark(sx, y, sw, cs, COL.item); });
   if (all > 3) { const p = Math.max(1, Math.floor(cs / 24)), s = String(all), w = textW(s, p) + 4 * p, h = 9 * p; rect(x + cs - w - 2, y + 2, w, h, '#0d0c0a'); frame(x + cs - w - 2, y + 2, w, h, COL.item); text(g, x + cs - w - 2 + 2 * p, y + 2 + 2 * p, s, COL.item, p); }
 }
-function drawClouds() { for (const [x, y, s] of V.clouds) if (!spr(s, px(x), py(y), cs, cs)) { g.fillStyle = 'rgba(80,200,120,.45)'; g.fillRect(px(x) + cs * .05, py(y) + cs * .05, cs * .9, cs * .9); } }
+function drawFlux(x, y, n) {
+  n = n || cs;
+  g.save(); g.beginPath(); g.rect(x, y, n, n); g.clip();
+  const q = Math.max(2, Math.round(n / 14));
+  g.fillStyle = 'rgba(242,210,60,.59)';
+  for (let j = 0; j * q < n; j++) for (let i = 0; i * q < n; i++) if ((i + j) % 2 == 0) g.fillRect(x + i * q, y + j * q, q, q);
+  g.restore();
+  g.strokeStyle = '#f2d23c'; g.lineWidth = 1; g.strokeRect(x + 1.5, y + 1.5, n - 3, n - 3);
+  if (n >= 16) g.strokeRect(x + 2.5, y + 2.5, n - 5, n - 5);
+}
+function drawClouds() { for (const [x, y, s, flux] of V.clouds) if (flux) drawFlux(px(x), py(y)); else if (!spr(s, px(x), py(y), cs, cs)) { g.fillStyle = 'rgba(80,200,120,.45)'; g.fillRect(px(x) + cs * .05, py(y) + cs * .05, cs * .9, cs * .9); } }
 // What flies crosses the upper three fifths of its cell, as the window's DrawMissiles
 function drawMissiles() { const n = {}; V.missiles.forEach(m => n[m[0] + ',' + m[1]] = (n[m[0] + ',' + m[1]] || 0) + 1); const k = {}; for (const [x, y, s, sc] of V.missiles) { const key = x + ',' + y, i = (k[key] = (k[key] || 0) + 1) - 1, cnt = n[key]; const airH = Math.floor(cs * 3 / 5), sx = px(x) + Math.floor(cs * i / cnt), sw = Math.floor(cs / cnt); if (!itemSpr(s, sx, py(y), sw, airH, sc)) insetMark(sx, py(y), sw, airH, '#ff6a2b'); } }
 function glimpseMark(pp, ax, ay, aw, ah) { const r = PUN['?']; const left = ax + (aw - 3 * pp) / 2, top = ay + (ah - 5 * pp) / 2; g.fillStyle = COL.item; for (let row = 0; row < 5; row++) for (let c = 0; c < 3; c++) if (r[row] & (1 << (2 - c))) g.fillRect(Math.round(left + c * pp), Math.round(top + row * pp), pp, pp); }
@@ -703,7 +715,7 @@ function drawTooltip(L) {
     const [item, count, nested, predicted, required] = icons[i];
     const inset = nested ? 6 : 0; rect(tx + inset, ty + inset, T - 2 * inset, T - 2 * inset, predicted ? '#24221f' : '#3a3733');
     frame(tx + inset, ty + inset, T - 2 * inset, T - 2 * inset, required ? '#e0b64a' : nested && !predicted ? COL.item : '#5a554c');
-    spr(item[1] || item[0], tx + inset + 2, ty + inset + 2, T - 2 * inset - 4, T - 2 * inset - 4, predicted ? .5 : 1);
+    if (item[4]) drawFlux(tx + inset + 8, ty + inset + 8, T - 2 * inset - 16); else spr(item[1] || item[0], tx + inset + 2, ty + inset + 2, T - 2 * inset - 4, T - 2 * inset - 4, predicted ? .5 : 1);
     if (count > 1) { const s = String(count), bw = textW(s, 2) + 4; rect(tx + T - bw - 1, ty + T - 15, bw, 14, '#0d0c0a'); text(g, tx + T - bw + 1, ty + T - 13, s, COL.item, 2); }
   }
   shown.forEach((l, i) => { const muted = l.s === undefined && /^(WOULD|DORMANT)/.test(l.t); richText(x + 5, y + gridH + 6 + i * lh, l.t, l.s === undefined ? (muted ? '#a8b8bc' : '#fff') : TIPCOL[l.s] || '#fff', p, l.i); });
@@ -717,9 +729,9 @@ function rulers() {
   const p = 2; rect(0, 0, cv.width, RUL, '#24221f'); rect(0, cv.height - RUL, cv.width, RUL, '#24221f'); rect(0, 0, RUL, cv.height, '#24221f'); rect(cv.width - RUL, 0, RUL, cv.height, '#24221f');
   const every = Math.max(1, Math.ceil((textW('00', p) + 6) / cs)), everyY = Math.max(1, Math.ceil(16 / cs));
   for (let x = 0; x < W; x++) { const X = px(x) + cs / 2; if (X < RUL || X > cv.width - RUL) continue; const hot = hover && hover.x === x; if ((x + OX) % every && !hot) continue; const s = String(x + OX);
-    if (hot) { rect(X - textW(s, p) / 2 - 2, 3, textW(s, p) + 4, 13, '#ffcc33'); text(g, X - textW(s, p) / 2, 4, s, '#1a160f', p); } else text(g, X - textW(s, p) / 2, 4, s, '#b8b0a0', p); text(g, X - textW(s, p) / 2, cv.height - 14, s, hot ? '#ffcc33' : '#b8b0a0', p); }
+    if (hot) { rect(px(x) - 1, 0, 3, RUL, '#ffcc33'); rect(px(x) - 1, cv.height - RUL, 3, RUL, '#ffcc33'); rect(X - textW(s, p) / 2 - 2, 3, textW(s, p) + 4, 13, '#ffcc33'); text(g, X - textW(s, p) / 2, 4, s, '#1a160f', p); } else text(g, X - textW(s, p) / 2, 4, s, '#b8b0a0', p); if (hot) { rect(X - textW(s, p) / 2 - 2, cv.height - 15, textW(s, p) + 4, 13, '#ffcc33'); text(g, X - textW(s, p) / 2, cv.height - 14, s, '#1a160f', p); } else text(g, X - textW(s, p) / 2, cv.height - 14, s, '#b8b0a0', p); }
   for (let y = 0; y < H; y++) { const Y = py(y) + cs / 2; if (Y < RUL || Y > cv.height - RUL) continue; const hot = hover && hover.y === y; if ((y + OY) % everyY && !hot) continue; const s = String(y + OY);
-    if (hot) { rect(1, Y - 7, RUL - 2, 13, '#ffcc33'); text(g, RUL / 2 - textW(s, p) / 2, Y - 5, s, '#1a160f', p); } else text(g, RUL / 2 - textW(s, p) / 2, Y - 5, s, '#b8b0a0', p); text(g, cv.width - RUL / 2 - textW(s, p) / 2, Y - 5, s, hot ? '#ffcc33' : '#b8b0a0', p); }
+    if (hot) { rect(0, py(y) - 1, RUL, 3, '#ffcc33'); rect(cv.width - RUL, py(y) - 1, RUL, 3, '#ffcc33'); rect(1, Y - 7, RUL - 2, 13, '#ffcc33'); text(g, RUL / 2 - textW(s, p) / 2, Y - 5, s, '#1a160f', p); } else text(g, RUL / 2 - textW(s, p) / 2, Y - 5, s, '#b8b0a0', p); if (hot) { rect(cv.width - RUL + 1, Y - 7, RUL - 2, 13, '#ffcc33'); text(g, cv.width - RUL / 2 - textW(s, p) / 2, Y - 5, s, '#1a160f', p); } else text(g, cv.width - RUL / 2 - textW(s, p) / 2, Y - 5, s, '#b8b0a0', p); }
 }
 // ============================================================================================
 // Panels share one look: dark plate, gold frame, 3x5 text

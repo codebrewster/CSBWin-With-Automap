@@ -207,6 +207,7 @@ static void WriteDrawList(std::string &f, ExportPictures &sp, const AutoMapDrawL
     std::ostringstream o;
     o << "{\"x\":" << sc.x << ",\"y\":" << sc.y << ",\"k\":" << (int)c.kind;
     if (c.isOutsideLevel) o << ",\"out\":1";
+    if (c.kind == AutoMapCellFalseWall && c.falseWallIsPassable) o << ",\"fwp\":1";
     if (c.floorPicture != AUTOMAP_NO_PICTURE) o << ",\"fp\":" << JsonText(sp.Plain(c.floorPicture, 10)) << ",\"fpn\":" << c.floorPicture << ",\"flav\":" << AutoMapScene_FloorPictureIsFlavour(c.floorPicture);
     if (c.kind == AutoMapCellDoor)
       o << ",\"door\":[" << (int)c.doorState << "," << c.runsNorthSouth << "," << c.doorBreakableWithAxe << "," << c.doorBreakableWithFireball << ","

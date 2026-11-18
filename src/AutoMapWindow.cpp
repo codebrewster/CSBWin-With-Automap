@@ -2150,15 +2150,25 @@ static void DrawWall(const SDL_Rect &cell, const AutoMapCellRecord &wall)
   DrawWallFaces(cell, wall);
 }
 
-// An illusionary wall: the pinstripes tell it from stone at a glance
+// A closed false wall: the pinstripes tell it from stone at a glance. A solid one stands on
+// purple; an illusionary one, which the party walks through, on floor, with the stripes in the
+// edge colour so they still read on the dark ground and the floor shows between. Spacing and
+// width grow with the cell, so the pattern looks the same at every zoom.
 static void DrawFalseWall(const SDL_Rect &cell, const AutoMapCellRecord &wall)
 {
-  Fill(cell, FALSE_WALL);
+  static const int REFERENCE_CELL = 40;
+  static const int STRIPE_STEP = 4;  // pixels at REFERENCE_CELL
+  bool illusion = wall.falseWallIsPassable;
+  Fill(cell, illusion ? FLOOR : FALSE_WALL);
   Outline(cell, FALSE_WALL_EDGE);
-  UseColour(FALSE_WALL_STRIPE);
-  for (int x = cell.x + 3; x < cell.x + cell.w; x += 4)
+  UseColour(illusion ? FALSE_WALL_EDGE : FALSE_WALL_STRIPE);
+  int width = std::max(1, (cell.w + REFERENCE_CELL / 2) / REFERENCE_CELL);
+  for (int k = 1;; k++)
   {
-    SDL_RenderDrawLine(mapRenderer, x, cell.y + 1, x, cell.y + cell.h - 2);
+    int x = cell.x + k * STRIPE_STEP * cell.w / REFERENCE_CELL - 1;
+    if (x + width > cell.x + cell.w - 1) break;
+    SDL_Rect stripe = {x, cell.y + 1, width, cell.h - 2};
+    SDL_RenderFillRect(mapRenderer, &stripe);
   }
   DrawWallFaces(cell, wall);
 }

@@ -1265,7 +1265,8 @@ std::vector<AutoMapTipLine> AutoMapScene_TriggerLines(const AutoMapDrawList &dra
 // Tooltip lines for what a cell is, not what a press does (that is AutoMapScene_PressBlock
 // and AutoMapScene_RelayBlock), already grouped: a header (AutoMapTipHeader) with its
 // lines two spaces in. "ADDED ROCK: OUTSIDE THE LEVEL" (plain, first); "FALSE WALL" with
-// "SWITCHED" under it when something operates it; a stone-embedded missile launcher reads
+// "SOLID", "WALK-THROUGH" (an illusionary wall) or "OPEN" under it, then "SWITCHED" when
+// something operates it; a stone-embedded missile launcher reads
 // "LAUNCHER (N)" with "LAUNCHES POISON CLOUD" ("2X" for paired types 9/10/15) under it;
 // "DOOR" with "SEALED" (a door that is not open, with no own switch, no incoming link and no
 // axe/fireball way through, at All only) and "BREAK FORCE: 60 (AXE, FIREBALL)" for a
