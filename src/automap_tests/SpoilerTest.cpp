@@ -1185,6 +1185,29 @@ static void SearchFindsTheWordsOfReadScrollsAndWalls(void)
   CHECK(AutoMapScene_SearchItems(after, "ch", FakeName, NULL).empty());
 }
 
+// A read scroll lying fourth on its cell, past the three items the map draws, still brings its
+// icon to the search (DM L11 (48, 27))
+static void ScrollHitPastTheDrawnItemsHasItsIcon(void)
+{
+  AutoMapLevelSnapshot snapshot = Corridor();
+  AutoMapCellRecord &cell = At(&snapshot, 1, 1);
+  for (int i = 0; i < 3; i++)
+  {
+    AutoMapFloorItemTag tag = {(AutoMapRecordId)(20 + i), -1};
+    cell.itemPictures.push_back(ItemOf(SWORD, 1));
+    cell.itemTags.push_back(tag);
+  }
+  AutoMapFloorItemTag scrollTag = {12, -1};
+  cell.itemPictures.push_back(ItemOf(SCROLL, 3));
+  cell.itemTags.push_back(scrollTag);
+  cell.scrollTexts.push_back("INVISIBILITY OH EW SAR");
+  cell.scrollRecords.push_back(12);
+  AutoMapDrawList all = Build(snapshot, AutoMapSpoilersAll, NULL);
+  std::vector<AutoMapSearchHit> hits = AutoMapScene_SearchItems(all, "invisibility", FakeName, NULL);
+  CHECK(hits.size() == 1);
+  if (hits.size() == 1) CHECK(hits[0].kind == AutoMapHitScroll && hits[0].slot.item == ItemOf(SCROLL, 3));
+}
+
 // Whole level below All: the 3D view draws the goods in a wall only on an alcove face, so the
 // coins in a coin slot (CSB L10 (36,36)) stay hidden until the slot turns into an alcove or the
 // party looked into it
@@ -2442,6 +2465,7 @@ void TestAutoMapSpoilers(void)
   ChestContentsOnlyOnceOpened();
   ScrollTextOnlyOnceRead();
   SearchFindsTheWordsOfReadScrollsAndWalls();
+  ScrollHitPastTheDrawnItemsHasItsIcon();
   MonsterCarriesNothingBelowAll();
   SearchFindsNoHiddenItems();
   ChestInAnAlcoveShowsItsContentsOnlyOnceOpened();

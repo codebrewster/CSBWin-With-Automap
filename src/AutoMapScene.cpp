@@ -1317,12 +1317,14 @@ std::vector<AutoMapWallText> AutoMapScene_WallTexts(const AutoMapDrawList &drawL
   return found;
 }
 
-// The floor scroll of a record, for its icon: the pile keeps record and picture side by side
-static AutoMapItem FloorScrollItem(const AutoMapCellRecord &cell, AutoMapRecordId scroll)
+// The floor scroll of a record, for its icon. The whole pile keeps record and picture side by
+// side; the cell's own itemPictures holds only the few the map draws.
+static AutoMapItem FloorScrollItem(const AutoMapShownCell &shown, AutoMapRecordId scroll)
 {
-  for (size_t i = 0; i < cell.itemTags.size() && i < cell.itemPictures.size(); i++)
+  const std::vector<AutoMapFloorItemTag> &tags = shown.cell.itemTags;
+  for (size_t i = 0; i < tags.size() && i < shown.allItemPictures.size(); i++)
   {
-    if (cell.itemTags[i].record == scroll) return cell.itemPictures[i];
+    if (tags[i].record == scroll) return shown.allItemPictures[i];
   }
   return AutoMapItem();
 }
@@ -1357,7 +1359,7 @@ std::vector<AutoMapCellText> AutoMapScene_CellTexts(const AutoMapDrawList &drawL
     if (cell.scrollTexts[i].empty()) continue;
     entry.where = AutoMapHitItem;
     entry.text = cell.scrollTexts[i];
-    entry.item = i < cell.scrollRecords.size() ? FloorScrollItem(cell, cell.scrollRecords[i]) : AutoMapItem();
+    entry.item = i < cell.scrollRecords.size() ? FloorScrollItem(*shown, cell.scrollRecords[i]) : AutoMapItem();
     found.push_back(entry);
   }
   for (size_t i = 0; i < cell.alcoveContents.size(); i++)
