@@ -1317,6 +1317,99 @@ std::vector<AutoMapWallText> AutoMapScene_WallTexts(const AutoMapDrawList &drawL
   return found;
 }
 
+// The floor scroll of a record, for its icon: the pile keeps record and picture side by side
+static AutoMapItem FloorScrollItem(const AutoMapCellRecord &cell, AutoMapRecordId scroll)
+{
+  for (size_t i = 0; i < cell.itemTags.size() && i < cell.itemPictures.size(); i++)
+  {
+    if (cell.itemTags[i].record == scroll) return cell.itemPictures[i];
+  }
+  return AutoMapItem();
+}
+
+std::string AutoMapScene_TextTag(AutoMapHitKind kind, AutoMapHitKind where, int side)
+{
+  if (kind == AutoMapHitWallText)
+  {
+    if (side < 0 || side >= AUTOMAP_SIDE_COUNT) return "WALL";
+    return std::string("WALL (") + "NESW"[side] + ")";
+  }
+  switch (where)
+  {
+  case AutoMapHitInChest: return "SCROLL IN CHEST";
+  case AutoMapHitAlcove: return "SCROLL ALCOVE";
+  case AutoMapHitCarried: return "SCROLL CARRIED";
+  default: return "SCROLL";
+  }
+}
+
+std::vector<AutoMapCellText> AutoMapScene_CellTexts(const AutoMapDrawList &drawList, int x, int y)
+{
+  std::vector<AutoMapCellText> found;
+  const AutoMapShownCell *shown = FindShownCell(drawList, x, y);
+  if (shown == NULL) return found;
+  const AutoMapCellRecord &cell = shown->cell;
+  AutoMapCellText entry;
+  entry.kind = AutoMapHitScroll;
+  entry.side = -1;
+  for (size_t i = 0; i < cell.scrollTexts.size(); i++)
+  {
+    if (cell.scrollTexts[i].empty()) continue;
+    entry.where = AutoMapHitItem;
+    entry.text = cell.scrollTexts[i];
+    entry.item = i < cell.scrollRecords.size() ? FloorScrollItem(cell, cell.scrollRecords[i]) : AutoMapItem();
+    found.push_back(entry);
+  }
+  for (size_t i = 0; i < cell.alcoveContents.size(); i++)
+  {
+    const AutoMapAlcoveEntry &alcove = cell.alcoveContents[i];
+    if (alcove.text.empty()) continue;
+    entry.where = AutoMapHitAlcove;
+    entry.side = alcove.side;
+    entry.text = alcove.text;
+    entry.item = alcove.item;
+    found.push_back(entry);
+  }
+  entry.side = -1;
+  for (size_t i = 0; i < cell.chestContents.size(); i++)
+  {
+    const AutoMapChestContents &chest = cell.chestContents[i];
+    for (size_t p = 0; p < chest.pictureTexts.size(); p++)
+    {
+      if (chest.pictureTexts[p].empty()) continue;
+      entry.where = AutoMapHitInChest;
+      entry.text = chest.pictureTexts[p];
+      entry.item = p < chest.pictures.size() ? chest.pictures[p] : AutoMapItem();
+      found.push_back(entry);
+    }
+  }
+  for (size_t i = 0; i < drawList.monsters.size(); i++)
+  {
+    const AutoMapShownMonster &group = drawList.monsters[i];
+    if (group.x != x || group.y != y) continue;
+    for (size_t p = 0; p < group.possessionTexts.size(); p++)
+    {
+      if (group.possessionTexts[p].empty()) continue;
+      entry.where = AutoMapHitCarried;
+      entry.text = group.possessionTexts[p];
+      entry.item = p < group.possessionPictures.size() ? group.possessionPictures[p] : AutoMapItem();
+      entry.carriedBy = AutoMapScene_MonsterNameLine(drawList, x, y);
+      found.push_back(entry);
+    }
+  }
+  entry = AutoMapCellText();
+  entry.kind = AutoMapHitWallText;
+  entry.where = AutoMapHitItem;
+  for (int side = 0; side < AUTOMAP_SIDE_COUNT; side++)
+  {
+    if (cell.wallSides[side].text.empty()) continue;
+    entry.side = side;
+    entry.text = AutoMapScene_MakeExcerpt(cell.wallSides[side].text);
+    found.push_back(entry);
+  }
+  return found;
+}
+
 std::vector<AutoMapItemStack> AutoMapScene_TooltipItems(const AutoMapDrawList &drawList,
                                                         int x, int y)
 {
@@ -2311,13 +2404,27 @@ static bool StartsWord(const std::string &word, const std::string &query, size_t
   return q.size() >= shortest && q.size() <= w.size() && w.compare(0, q.size(), q) == 0;
 }
 
+static int TextRank(const AutoMapSearchHit &hit, const std::string &query);
+
 int AutoMapScene_SearchHitRank(const AutoMapSearchHit &hit, const std::string &query)
 {
+  if (hit.kind == AutoMapHitScroll || hit.kind == AutoMapHitWallText) return TextRank(hit, query);
   int rank = AutoMapScene_SearchRank(hit.name, query);
   if (hit.isFood) rank = BetterRank(rank, AutoMapScene_SearchRank(AUTOMAP_FOOD_WORD, query));
   if (hit.kind == AutoMapHitGenerator && StartsWord("GENERATOR", query, 3)) rank = BetterRank(rank, 1);
   if (hit.kind == AutoMapHitMonster && StartsWord("MONSTER", query, 3)) rank = BetterRank(rank, 1);
   return rank;
+}
+
+static const int TEXT_RANK = 3;
+
+// A text holds the query anywhere, from three letters on; the words on a scroll or wall come
+// after every name
+static int TextRank(const AutoMapSearchHit &hit, const std::string &query)
+{
+  std::string trimmed = Lowered(Trimmed(query));
+  if (trimmed.size() < AUTOMAP_SHORTEST_TEXT_QUERY) return -1;
+  return Lowered(hit.text).find(trimmed) != std::string::npos ? TEXT_RANK : -1;
 }
 
 namespace
@@ -2461,6 +2568,26 @@ std::vector<AutoMapSearchHit> AutoMapScene_SearchItems(const AutoMapDrawList &dr
         break;
       }
       if (!joined) hits.push_back(hit);
+    }
+    std::vector<AutoMapCellText> texts = AutoMapScene_CellTexts(drawList, x, y);
+    for (size_t t = 0; t < texts.size(); t++)
+    {
+      AutoMapSearchHit hit;
+      hit.kind = texts[t].kind;
+      hit.scrollWhere = texts[t].where;
+      hit.text = texts[t].text;
+      hit.name = texts[t].text;
+      hit.slot.item = texts[t].item;
+      hit.slot.side = texts[t].side;
+      hit.carriedBy = texts[t].carriedBy;
+      hit.level = drawList.level;
+      hit.paletteScheme9 = drawList.paletteScheme9;
+      hit.paletteScheme10 = drawList.paletteScheme10;
+      hit.x = x;
+      hit.y = y;
+      AutoMapScene_GlobalPosition(drawList, x, y, &hit.globalX, &hit.globalY);
+      if (AutoMapScene_SearchHitRank(hit, trimmed) < 0) continue;
+      hits.push_back(hit);
     }
   }
   // Monster groups the map shows, by their names; generators by what they create

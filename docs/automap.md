@@ -57,7 +57,8 @@ CSB_MAP_RENDER=out.bmp,<level>,<vision 0..2>,<spoilers 0 seen..2 all>,<cell>,<x>
 ```
 
 draws the window as it would look with cell (x, y) hovered; `export`, `export-pick`, `export-busy`
-or `export-done` in place of `shift` draws the EXPORT dialog over it. `CSB_MAP_EXPORT=<dir>` writes
+or `export-done` in place of `shift` draws the EXPORT dialog over it, and `find:<query>` the search
+with that query (`_` for a space). `CSB_MAP_EXPORT=<dir>` writes
 the data of the reference mockup in `docs/automap-mockup/` (steps in its `pack-data.py`), and
 `CSB_MAP_HTML=<out.html>,<vision 0..2>,<spoilers 0..2>[,<levels>]` the page EXPORT writes, with
 `all` levels or their numbers joined by `+`.

@@ -1147,6 +1147,44 @@ static void ScrollTextOnlyOnceRead(void)
   CHECK(FindCell(after, 1, 0)->cell.alcoveContents[0].text == "ALCOVE");
 }
 
+// The search finds the words of a scroll once it is read, and of a wall's writing; where the
+// scroll lies goes with the hit. Fewer than three letters find no text.
+static void SearchFindsTheWordsOfReadScrollsAndWalls(void)
+{
+  AutoMapLevelSnapshot snapshot = Corridor();
+  AutoMapCellRecord &cell = At(&snapshot, 1, 1);
+  cell.scrollTexts.push_back("THE HALL OF CHAMPIONS");
+  cell.scrollRecords.push_back(12);
+  AutoMapAlcoveEntry entry;
+  entry.item = ItemOf(SCROLL, 3);
+  entry.side = AutoMapSouth;
+  entry.text = "BEWARE THE CHAMPION";
+  entry.scroll = 13;
+  At(&snapshot, 1, 0).wallSides[AutoMapSouth].isAlcove = true;
+  At(&snapshot, 1, 0).alcoveContents.push_back(entry);
+  At(&snapshot, 3, 0).wallSides[AutoMapWest].text = "CHAMPIONS\nREST HERE";
+  AutoMapKnowledge knowledge;
+  AutoMapDrawList before = Build(snapshot, AutoMapSpoilersLearned, &knowledge);
+  std::vector<AutoMapSearchHit> unread = AutoMapScene_SearchItems(before, "champion", FakeName, NULL);
+  CHECK(unread.size() == 1 && unread[0].kind == AutoMapHitWallText);
+  knowledge.Learn(AutoMapFact_OfRecord(AutoMapFactScrollRead, 12));
+  knowledge.Learn(AutoMapFact_OfRecord(AutoMapFactScrollRead, 13));
+  AutoMapDrawList after = Build(snapshot, AutoMapSpoilersLearned, &knowledge);
+  std::vector<AutoMapSearchHit> hits = AutoMapScene_SearchItems(after, "champion", FakeName, NULL);
+  CHECK(hits.size() == 3);
+  int floor = 0, alcove = 0, wall = 0;
+  for (size_t i = 0; i < hits.size(); i++)
+  {
+    if (hits[i].kind == AutoMapHitScroll && hits[i].scrollWhere == AutoMapHitItem && hits[i].x == 1 && hits[i].y == 1) floor++;
+    if (hits[i].kind == AutoMapHitScroll && hits[i].scrollWhere == AutoMapHitAlcove && hits[i].slot.side == AutoMapSouth) alcove++;
+    if (hits[i].kind == AutoMapHitWallText && hits[i].slot.side == AutoMapWest && hits[i].text == "CHAMPIONS REST HERE") wall++;
+  }
+  CHECK(floor == 1 && alcove == 1 && wall == 1);
+  // The lines of a wall are joined, so words across a line break are found
+  CHECK(AutoMapScene_SearchItems(after, "champions rest", FakeName, NULL).size() == 1);
+  CHECK(AutoMapScene_SearchItems(after, "ch", FakeName, NULL).empty());
+}
+
 // Whole level below All: the 3D view draws the goods in a wall only on an alcove face, so the
 // coins in a coin slot (CSB L10 (36,36)) stay hidden until the slot turns into an alcove or the
 // party looked into it
@@ -2403,6 +2441,7 @@ void TestAutoMapSpoilers(void)
   TwoChestsAreOneHit();
   ChestContentsOnlyOnceOpened();
   ScrollTextOnlyOnceRead();
+  SearchFindsTheWordsOfReadScrollsAndWalls();
   MonsterCarriesNothingBelowAll();
   SearchFindsNoHiddenItems();
   ChestInAnAlcoveShowsItsContentsOnlyOnceOpened();

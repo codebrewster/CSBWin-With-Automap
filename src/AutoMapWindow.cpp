@@ -4623,6 +4623,8 @@ static std::string SearchTag(const AutoMapSearchHit &hit, SDL_Color *colour)
   case AutoMapHitInChest: return Counted(hit, "IN CHEST");
   case AutoMapHitAlcove: return Counted(hit, "ALCOVE");
   case AutoMapHitGenerator: *colour = GEN_TEXT; return "GENERATOR";
+  case AutoMapHitScroll:
+  case AutoMapHitWallText: return AutoMapScene_TextTag(hit.kind, hit.scrollWhere, hit.slot.side);
   case AutoMapHitFeature:
   {
     if (hit.stairsTarget != AUTOMAP_NO_LEVEL) return "TO L" + std::to_string(hit.stairsTarget);
@@ -4670,6 +4672,18 @@ static void DrawSearchIcon(const SDL_Rect &box, const AutoMapSearchHit &hit)
     DrawStairs(square, stairs);
     return;
   }
+  // A wall's writing: three lines of text on a plate
+  if (hit.kind == AutoMapHitWallText)
+  {
+    SDL_Rect plate = {box.x + 1, box.y + 2, box.w - 2, box.h - 4};
+    Fill(plate, WALL);
+    for (int line = 0; line < 3; line++)
+    {
+      SDL_Rect stroke = {plate.x + 2, plate.y + 3 + line * 4, plate.w - 4 - (line == 2 ? 4 : 0), 1};
+      Fill(stroke, BACKGROUND);
+    }
+    return;
+  }
   if (hit.kind == AutoMapHitFeature)
   {
     const AutoMapShownCell *shown = NULL;
@@ -4685,6 +4699,52 @@ static void DrawSearchIcon(const SDL_Rect &box, const AutoMapSearchHit &hit)
     return;
   }
   DrawTooltipIcon(box, hit.slot.item);
+}
+
+// A text hit's words, cut to width with the query in view: from the start, or when the match would
+// not fit from the start of the word before it, "..." where text is left out. Fills the match's place within the returned line.
+static std::string TextExcerpt(const std::string &text, const std::string &query, int width,
+                               size_t *matchAt, size_t *matchLength)
+{
+  static const size_t WORDS_BEFORE_MATCH = 12;  // letters
+  std::string upper = text, needle = query;
+  for (size_t i = 0; i < upper.size(); i++) upper[i] = (char)toupper((unsigned char)upper[i]);
+  while (!needle.empty() && needle[0] == ' ') needle.erase(0, 1);
+  while (!needle.empty() && needle[needle.size() - 1] == ' ') needle.erase(needle.size() - 1);
+  for (size_t i = 0; i < needle.size(); i++) needle[i] = (char)toupper((unsigned char)needle[i]);
+  size_t at = needle.empty() ? std::string::npos : upper.find(needle);
+  size_t start = 0;
+  // From the start when the match fits there with the "..." at the end
+  bool fitsFromStart = at == std::string::npos
+      || AutoMapPaint_TextWidth(upper.substr(0, at + needle.size()) + "...", DIGIT_SCALE) <= width;
+  if (!fitsFromStart)
+  {
+    // As much as fits before the match when the rest of the text fits too, else a few words
+    start = at > WORDS_BEFORE_MATCH ? at - WORDS_BEFORE_MATCH : 0;
+    for (size_t from = 1; from < start; from++)
+    {
+      if (AutoMapPaint_TextWidth("..." + upper.substr(from), DIGIT_SCALE) > width) continue;
+      start = from;
+      break;
+    }
+    if (start > 0 && upper[start - 1] != ' ')
+    {
+      size_t space = upper.find(' ', start);
+      if (space != std::string::npos && space < at) start = space + 1;
+    }
+  }
+  std::string line = (start > 0 ? "..." : "") + upper.substr(start);
+  size_t shift = start > 0 ? 3 : 0;
+  if (AutoMapPaint_TextWidth(line, DIGIT_SCALE) > width)
+  {
+    while (line.size() > shift && AutoMapPaint_TextWidth(line + "...", DIGIT_SCALE) > width) line.erase(line.size() - 1);
+    while (!line.empty() && line[line.size() - 1] == ' ') line.erase(line.size() - 1);
+    line += "...";
+  }
+  *matchAt = at == std::string::npos ? std::string::npos : at - start + shift;
+  *matchLength = needle.size();
+  if (*matchAt != std::string::npos && *matchAt >= line.size()) *matchAt = std::string::npos;
+  return line;
 }
 
 // The results: a heading per level (the shown level first), then its hits in reading order with
@@ -4711,7 +4771,7 @@ static void DrawSearchPanel(void)
   Fill(line, FLOOR_EDGE);
   int y = plate.y + SEARCH_QUERY_H + 4;
   if (!searchQuery.empty() && searchHits.empty()) DrawLegendText(plate.x + 8, y + 4, "NOTHING SEEN MATCHES", RULER_TEXT);
-  if (searchQuery.empty()) DrawLegendText(plate.x + 8, y + 4, "TYPE A NAME: ITEM, MONSTER, GEN", FLAVOR_TICK);
+  if (searchQuery.empty()) DrawLegendText(plate.x + 8, y + 4, "TYPE A NAME OR WORDS OF A TEXT", FLAVOR_TICK);
   int visible = SearchVisibleRows();
   int coordsW = AutoMapPaint_TextWidth("(00,00)", DIGIT_SCALE);
   for (int r = searchTop; r < (int)rows.size() && r < searchTop + visible; r++)
@@ -4744,9 +4804,32 @@ static void DrawSearchPanel(void)
       SDL_Color dark = {0x1a, 0x16, 0x0f, 0xff};
       std::string at = "(" + std::to_string(hit.globalX) + "," + std::to_string(hit.globalY) + ")";
       DrawLegendText(band.x + 42, y + 5, at.c_str(), selected ? dark : RULER_TEXT);
-      DrawLegendText(band.x + 42 + coordsW + 10, y + 5, hit.name.c_str(), selected ? dark : WHITE);
       SDL_Color tagColour;
       std::string tag = SearchTag(hit, &tagColour);
+      int nameX = band.x + 42 + coordsW + 10;
+      if (hit.kind == AutoMapHitScroll || hit.kind == AutoMapHitWallText)
+      {
+        // The words around the match, the match itself in gold
+        int room = band.x + band.w - 4 - AutoMapPaint_TextWidth(tag, DIGIT_SCALE) - 10 - nameX;
+        size_t at = 0, length = 0;
+        std::string line = TextExcerpt(hit.text, searchQuery, room, &at, &length);
+        // In three pieces: drawn over each other the letters' rims would smear
+        if (at == std::string::npos) at = line.size();
+        std::string before = line.substr(0, at);
+        std::string match = line.substr(at, length);
+        std::string after = at + match.size() < line.size() ? line.substr(at + match.size()) : "";
+        // A letter takes four font pixels with its gap; the width of a text leaves out the last gap
+        static const int LETTER_STEP = 4 * DIGIT_SCALE;
+        int matchX = nameX + (int)before.size() * LETTER_STEP;
+        int afterX = matchX + (int)match.size() * LETTER_STEP;
+        DrawLegendText(nameX, y + 5, before.c_str(), selected ? dark : RULER_TEXT);
+        DrawLegendText(matchX, y + 5, match.c_str(), selected ? dark : LINK_BADGE);
+        DrawLegendText(afterX, y + 5, after.c_str(), selected ? dark : RULER_TEXT);
+      }
+      else
+      {
+        DrawLegendText(nameX, y + 5, hit.name.c_str(), selected ? dark : WHITE);
+      }
       if (!tag.empty())
       {
         DrawLegendText(band.x + band.w - 4 - AutoMapPaint_TextWidth(tag, DIGIT_SCALE), y + 5, tag.c_str(),
@@ -5954,6 +6037,13 @@ bool AutoMapWindow_RenderToFile(const AutoMapDrawList &list, int width, int heig
 
 // ---------------------------------------------------------------------------------------------
 // What the bar above the map asks and does (AutoMapBar.cpp)
+
+void AutoMapWindow_SearchForPicture(const std::string &query)
+{
+  searchOpen = !query.empty();
+  searchQuery = query;
+  SearchFullRefresh();
+}
 
 bool AutoMapWindow_SearchIsOpen(void)
 {

@@ -256,6 +256,19 @@ static void WriteDrawList(std::string &f, ExportPictures &sp, const AutoMapDrawL
       o << "]";
     }
     if (!c.wallRelays.empty()) o << ",\"relays\":" << c.wallRelays.size();
+    // The writing the search finds: wall (0 scroll, 1 wall), tag, text, the scroll's item
+    std::vector<AutoMapCellText> texts = AutoMapScene_CellTexts(l, sc.x, sc.y);
+    if (!texts.empty())
+    {
+      o << ",\"txt\":[";
+      for (size_t k = 0; k < texts.size(); k++)
+      {
+        const AutoMapCellText &t = texts[k];
+        o << (k ? "," : "") << "[" << (t.kind == AutoMapHitWallText) << "," << JsonText(AutoMapScene_TextTag(t.kind, t.where, t.side)) << ","
+          << JsonText(t.text) << "," << ItemArr(sp, t.item) << "]";
+      }
+      o << "]";
+    }
     o << "}";
     Append(f, "%s%s\n", i ? "," : "", o.str().c_str());
   }
@@ -566,8 +579,9 @@ void AutoMapExport_HtmlCancel(void)
 }
 
 // CSB_MAP_RENDER="<out.bmp>,<level>,<vision 0..2>,<spoilers as in csb.cfg: 0 seen, 1 learned, 2 all>,
-// <cell size>,<x>,<y>[,shift|export|export-pick|export-busy|export-done]": the map window as it would look with the cell (x, y) of the level
-// (draw-list coordinates, as the mockup's hh) hovered, 1200 x 900 pixels
+// <cell size>,<x>,<y>[,shift|export|export-pick|export-busy|export-done|find:<query>]": the map window as it would look with the cell (x, y) of the level
+// (draw-list coordinates, as the mockup's hh) hovered, 1200 x 900 pixels; find: opens the search
+// with the query (an underscore for a space, at most ten letters)
 static void Render(const char *spec, AutoMapRecorder &recorder, int partyLevel)
 {
   char out[512] = "";
@@ -587,8 +601,15 @@ static void Render(const char *spec, AutoMapRecorder &recorder, int partyLevel)
   // "export", "export-pick", "export-busy", "export-done": the export dialog open over the map
   std::string last = fields == 8 ? shift : "";
   if (last.compare(0, 6, "export") == 0) AutoMapExportDialog_OpenForPicture(last.size() > 7 ? last.substr(7) : "form");
+  if (last.compare(0, 5, "find:") == 0)
+  {
+    std::string query = last.substr(5);
+    for (size_t i = 0; i < query.size(); i++) query[i] = query[i] == '_' ? ' ' : (char)toupper((unsigned char)query[i]);
+    AutoMapWindow_SearchForPicture(query);
+  }
   bool rendered = AutoMapWindow_RenderToFile(list, 1200, 900, cellSize, x, y, last == "shift", out);
   if (AutoMapExportDialog_IsOpen()) AutoMapExportDialog_Close();
+  AutoMapWindow_SearchForPicture("");
   printf("CSB_MAP_RENDER: %s %s\n", out, rendered ? "written" : "failed");
 }
 

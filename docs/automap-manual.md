@@ -415,14 +415,18 @@ every level and finds:
 - items `CARRIED` by a monster (at spoiler level All only);
 - monster groups by name, and generators by what they create;
 - water fountains and the Altar of Vi;
-- stairs, as `STAIRS UP` and `STAIRS DOWN`.
+- stairs, as `STAIRS UP` and `STAIRS DOWN`;
+- the words of scrolls and of wall texts, from three letters on: `KING` finds `THE GRAVE OF KING
+  FILIUS`. The lines of a text are joined, so words broken across two lines are found too.
 
 `FOOD` finds everything edible, `GEN` every generator, and `MON` every monster group.
 
 The results are grouped under a heading per level, the shown level first; a click on a heading
 folds it away. Each hit shows its icon, the cell as the rulers number it, its name and a tag: `X3`,
 `ALCOVE`, `IN CHEST`, `CARRIED BY …`, `NEEDS`, `PAD NEEDS`, `GENERATOR`, or for stairs the level
-they lead to (`TO L4`). A stack of more than one says how many in front of where it lies: `X2 ALCOVE`,
+they lead to (`TO L4`). A text hit shows the words around the match, the match in gold, and is
+tagged `SCROLL`, `SCROLL ALCOVE`, `SCROLL IN CHEST`, `SCROLL CARRIED` or `WALL (N)` with the face it
+is written on; text hits come after the names. A stack of more than one says how many in front of where it lies: `X2 ALCOVE`,
 `X3 IN CHEST`; hits of one cell that read the same are one row, so two chests there, opened or not,
 are `CHEST X2`. **Up** and **Down** step
 through the hits and jump the map to each, **Enter** centres the selected hit, a click on a hit
@@ -436,7 +440,7 @@ move that far, near the top of a level or with the whole level in view, the resu
 the other side of the window, so they never cover the hit.
 
 The search follows the same spoiler and fog rules as the map: nothing in an unopened chest and
-nothing beyond the explored cells is found.
+nothing beyond the explored cells is found, and a scroll's words only once the party has read it.
 
 ![Searching for KEY OF B: hits on two levels, including the locks that need it](images/automap-search.png)
 

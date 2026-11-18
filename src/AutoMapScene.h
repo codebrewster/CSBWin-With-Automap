@@ -1126,8 +1126,32 @@ enum AutoMapHitKind
   AutoMapHitAlcove,
   AutoMapHitFeature,
   AutoMapHitMonster,
-  AutoMapHitGenerator
+  AutoMapHitGenerator,
+  // Words of a read scroll (where it lies in scrollWhere) or of a wall's writing (slot.side)
+  AutoMapHitScroll,
+  AutoMapHitWallText
 };
+
+// The writing the map shows on a cell, as the search finds it: read scrolls on the floor, in an
+// alcove, in an opened chest or carried by a monster, and the wall texts. The draw list is
+// fog-filtered, so only what the party has read or seen is here. where: AutoMapHitItem for the
+// floor, AutoMapHitAlcove, AutoMapHitInChest or AutoMapHitCarried; side: the alcove's or the
+// wall's face; item: the scroll, for its icon (no picture when the pile no longer has it).
+struct AutoMapCellText
+{
+  AutoMapHitKind kind;
+  AutoMapHitKind where;
+  int side;
+  std::string text;
+  AutoMapItem item;
+  std::string carriedBy;
+};
+std::vector<AutoMapCellText> AutoMapScene_CellTexts(const AutoMapDrawList &drawList, int x, int y);
+// The tag of a text hit in the search results: "SCROLL", "SCROLL IN CHEST", "SCROLL ALCOVE",
+// "SCROLL CARRIED", or "WALL (N)" with the face's initial
+std::string AutoMapScene_TextTag(AutoMapHitKind kind, AutoMapHitKind where, int side);
+// The shortest query a text is searched for: one or two letters would match nearly every text
+static const size_t AUTOMAP_SHORTEST_TEXT_QUERY = 3;
 
 struct AutoMapSearchHit
 {
@@ -1164,6 +1188,10 @@ struct AutoMapSearchHit
   int paletteScheme10 = AUTOMAP_DEFAULT_SCHEME10;
   // Stairs: the level they lead to, AUTOMAP_NO_LEVEL when unknown
   int stairsTarget = AUTOMAP_NO_LEVEL;
+  // A text hit (AutoMapHitScroll, AutoMapHitWallText): the whole text, one line, which name
+  // also holds; and for a scroll where it lies, as AutoMapCellText::where
+  std::string text;
+  AutoMapHitKind scrollWhere = AutoMapHitItem;
 };
 
 // The rows of the search results: a heading per level (the shown level first, then the others in
@@ -1193,7 +1221,8 @@ int AutoMapScene_SearchRank(const std::string &name, const std::string &query);
 typedef bool (*AutoMapItemIsFoodFn)(int nameIndex);
 
 // Match quality of a hit: the better of its name's rank and, for food, the rank of the word
-// FOOD. -1 when neither matches. Every sort of hits uses it.
+// FOOD. -1 when neither matches. A text hit matches anywhere in its text, from three letters
+// on, and ranks 3, after every name. Every sort of hits uses it.
 int AutoMapScene_SearchHitRank(const AutoMapSearchHit &hit, const std::string &query);
 
 // The one order of the search results: rank, level, y, x; on one cell the items before the wall
@@ -1208,7 +1237,8 @@ void AutoMapScene_SortSearchHits(std::vector<AutoMapSearchHit> *hits, const std:
 // then substring; ties in AutoMapScene_SortSearchHits order. A food item
 // (isFood, NULL for none) also matches the word FOOD; its rank is the better of
 // its name's and the word's, and it is listed once, under its own name. Each
-// shown wall face with a feature is a hit too, after the items of its cell.
+// shown wall face with a feature is a hit too, after the items of its cell. So is each text of
+// AutoMapScene_CellTexts that holds the query (three letters or more).
 std::vector<AutoMapSearchHit> AutoMapScene_SearchItems(const AutoMapDrawList &drawList,
                                                        const std::string &query,
                                                        AutoMapItemNameFn nameForIndex,
