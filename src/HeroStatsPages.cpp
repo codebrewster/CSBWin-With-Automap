@@ -858,13 +858,13 @@ HeroStatsTopicPage HeroStatsPages_Topic(const HeroStats &stats, const std::vecto
   for (size_t g = 0; g < info.groups.size(); g++)
   {
     const HeroStatsTopicGroup &group = info.groups[g];
-    bool applied[3] = {false, false, false};  // whether the last row of each depth applies
+    bool applied[4] = {false, false, false, false};  // whether the last row of each depth applies
     bool begun = false;
     for (size_t r = 0; r < group.rows.size(); r++)
     {
       const HeroStatsTopicRow &topicRow = group.rows[r];
       HeroStatsNumber number = topicRow.number;
-      int depth = std::max(0, std::min(2, topicRow.depth));
+      int depth = std::max(0, std::min(3, topicRow.depth));
       applied[depth] = HeroStatsCatalogue_Applies(number, who, level);
       if (!applied[depth]) continue;
       if (!begun)

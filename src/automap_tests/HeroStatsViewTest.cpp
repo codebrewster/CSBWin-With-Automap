@@ -101,7 +101,7 @@ static void RecordsReadLikeTheMockup(void)
   stats.CreditMonsterDamage(3, ball, 3130);
   halk = HeroStatsCatalogue_Record(stats, 7, HERO_STATS_WHOLE_RUN);
   CHECK(halk.value[HeroNumCasts] == 150);  // 149 that worked and the one that failed
-  CHECK(halk.value[HeroNumManaWasted] == 292);
+  CHECK(halk.value[HeroNumManaFailed] == 292);
   // Spells cast as runes are no attacks: the hit rate stays the axe's
   CHECK(halk.value[HeroNumAttacks] == 636 && halk.value[HeroNumHitRate] == 64);
 

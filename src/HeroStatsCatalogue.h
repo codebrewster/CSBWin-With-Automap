@@ -19,7 +19,7 @@ enum HeroStatsNumber {
   HeroNumDamage, HeroNumMelee, HeroNumRanged, HeroNumMagic, HeroNumKills, HeroNumAttacks, HeroNumHits,
   HeroNumHitRate, HeroNumDamagePerHit, HeroNumOtherActions, HeroNumFriendlyFire,
   HeroNumManaGenerated, HeroNumManaRegeneration, HeroNumManaPotions, HeroNumManaRegenLost, HeroNumManaSpent, HeroNumManaOnSpells,
-  HeroNumManaSuccessful, HeroNumManaWasted, HeroNumManaMeaningless,
+  HeroNumManaSuccessful, HeroNumManaWasted, HeroNumManaFailed, HeroNumManaMeaningless,
   HeroNumRunesCleared, HeroNumRunesNotCast,
   HeroNumCasts, HeroNumCastsSuccessful, HeroNumCastsFailed,
   HeroNumTaken, HeroNumHealed, HeroNumHealRegeneration, HeroNumHealPotions, HeroNumHealPotionsOwn,
@@ -61,7 +61,7 @@ bool HeroStatsCatalogue_IsRecord(HeroStatsNumber number);
 HeroRecordKind HeroStatsCatalogue_RecordOf(HeroStatsNumber number);  // for a record
 const HeroStatsNumberInfo &HeroStatsCatalogue_Info(HeroStatsNumber number);
 
-// depth 1: a part of the row above, 2: a part of that. label: what the row is called in this
+// depth 1: a part of the row above, 2: a part of that, 3: a part of that. label: what the row is called in this
 // place ("onto monsters" under Teleports), or NULL for the number's own label.
 struct HeroStatsTopicRow { HeroStatsNumber number; int depth; const char *label; };
 const char *HeroStatsCatalogue_RowLabel(const HeroStatsTopicRow &row);

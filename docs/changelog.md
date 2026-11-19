@@ -8,7 +8,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 ## Unreleased
 
 **Statistics**
-- Magic splits the mana of spells that went wrong: Wasted on failed casts (needs more practice) and Wasted on meaningless spells (runes that form no spell). Older saves keep the meaningless spells among the failed casts.
+- Magic splits the mana of spells that went wrong: Wasted under Spells, with Failed casts (needs more practice) and Meaningless spells (runes that form no spell) below it. Wasted is the Wasted of All spells in the Spells table, and the Magic tile shows it. Older saves keep the meaningless spells among the failed casts. In csb.cfg `mana_wasted` is all of it; `mana_failed` is the failed casts alone.
 - Magic counts Regeneration lost (mana full): the mana regeneration would have given while a champion's mana was full, or the part a nearly full champion could not take. Spend mana before it fills up and it is not lost.
 - Survival splits Potions under Healed by who brewed them: Own brews, Brewed by others and Found. The Healing by source table, which showed the same numbers again, is gone.
 - Exploration counts Stair dances under Travel: two stair changes or more with no step away from the stairs in between (fighting from the stairs and turning to get away). A step to a square next to the stairs and back keeps a dance going; Strict stair dances, which never leave the stairs, are counted beside them to compare. Each has its Dance moves (the stair changes after the one that brought the party onto the stairs), and Records has the Longest stair dance and the Longest strict stair dance.

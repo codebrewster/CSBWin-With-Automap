@@ -104,15 +104,16 @@ static void RecordMatchesTheStore(void)
   HeroStatsRecord syra = HeroStatsCatalogue_Record(stats, 9, 2);
   CHECK(syra.value[HeroNumManaPotions] == 12);
   CHECK(syra.value[HeroNumCasts] == 2 && syra.value[HeroNumCastsSuccessful] == 1 && syra.value[HeroNumCastsFailed] == 1);
-  CHECK(syra.value[HeroNumManaWasted] == stats.ManaWasted(9, 2));
+  CHECK(syra.value[HeroNumManaFailed] == stats.ManaWasted(9, 2));
   CHECK(syra.value[HeroNumRunesCleared] == stats.RunesCleared(9, 2));
-  CHECK(syra.value[HeroNumManaWasted] == 3 && syra.value[HeroNumManaMeaningless] == 5);
+  CHECK(syra.value[HeroNumManaFailed] == 3 && syra.value[HeroNumManaMeaningless] == 5);
   CHECK(syra.value[HeroNumManaRegenLost] == 7 && syra.value[HeroNumManaGenerated] == 12);
   CHECK(syra.value[HeroNumHealPotions] == 13 && syra.value[HeroNumHealPotionsOwn] == 2 &&
         syra.value[HeroNumHealPotionsOthers] == 11 && syra.value[HeroNumHealPotionsFound] == 0);
-  // Spells is its three parts, and with the cleared runes and those not cast yet makes Mana spent
-  CHECK(syra.value[HeroNumManaOnSpells] ==
-        syra.value[HeroNumManaSuccessful] + syra.value[HeroNumManaWasted] + syra.value[HeroNumManaMeaningless]);
+  // Wasted is the failed and the meaningless casts; Spells is the successful casts and Wasted,
+  // and with the cleared runes and those not cast yet makes Mana spent
+  CHECK(syra.value[HeroNumManaWasted] == 8);
+  CHECK(syra.value[HeroNumManaOnSpells] == syra.value[HeroNumManaSuccessful] + syra.value[HeroNumManaWasted]);
   CHECK(syra.value[HeroNumManaSpent] == syra.value[HeroNumManaOnSpells] + syra.value[HeroNumRunesCleared] +
                                         syra.value[HeroNumRunesNotCast]);
   HeroStatsRecord party = HeroStatsCatalogue_Record(stats, HERO_STATS_PARTY, 2);
@@ -371,6 +372,20 @@ static void TopicsHaveGroups(void)
   CHECK(std::string(HeroStatsCatalogue_RowLabel(exploration.groups[1].rows[0])) == "Teleports");
   CHECK(std::string(exploration.groups[4].title) == "Doors" && !exploration.groups[4].panel);
   CHECK(HeroStatsCatalogue_Topic(HeroTopicCombat).groups.size() == 2 && HeroStatsCatalogue_Topic(HeroTopicMagic).groups.size() == 3);
+  // Mana out: Wasted is a part of Spells, and the failed and meaningless casts are its parts
+  const std::vector<HeroStatsTopicRow> &out = HeroStatsCatalogue_Topic(HeroTopicMagic).groups[1].rows;
+  CHECK(out.size() == 8);
+  if (out.size() == 8)
+  {
+    CHECK(out[1].number == HeroNumManaOnSpells && out[1].depth == 1);
+    CHECK(out[3].number == HeroNumManaWasted && out[3].depth == 2 && std::string(HeroStatsCatalogue_RowLabel(out[3])) == "Wasted");
+    CHECK(out[4].number == HeroNumManaFailed && out[4].depth == 3 && std::string(HeroStatsCatalogue_RowLabel(out[4])) == "Failed casts");
+    CHECK(out[5].number == HeroNumManaMeaningless && out[5].depth == 3);
+    CHECK(out[6].number == HeroNumRunesCleared && out[6].depth == 1);
+  }
+  // mana_wasted in a csb.cfg is all of it, as it was before the meaningless spells had a line
+  CHECK(HeroStatsCatalogue_ParseNumbers("mana_wasted mana_failed", 4) ==
+        std::vector<HeroStatsNumber>({HeroNumManaWasted, HeroNumManaFailed}));
   CHECK(HeroStatsCatalogue_Topic(HeroTopicMonsters).groups.size() == 1 && std::string(HeroStatsCatalogue_Topic(HeroTopicMonsters).groups[0].title).empty());
   // The Key numbers csb.cfg chooses are one group too
   HeroStatsCatalogue_ApplySetting(HeroSettingKeyNumbers, "kills, damage");

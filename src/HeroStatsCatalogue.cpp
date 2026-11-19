@@ -24,6 +24,7 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Mana spent", "Spent as each rune is entered, on the level it is entered on, whatever becomes of the spell; staffs, wands and the shield and heal actions as they are used. The lines below add up to it.", false, false, false, false, false},
     {"Spells", "Runes of the spells cast, successful, failed or meaningless, staffs, wands and the shield and heal actions: the Mana of All spells in the Spells table. On one level the two can differ: here runes count where they were entered, the table counts a spell where it was cast.", false, false, false, false, false},
     {"Successful casts", "Runes of spells that worked, staffs and wands, the shield and heal actions.", false, false, false, false, false},
+    {"Mana wasted", "Runes of spells that failed or formed no spell: the Wasted of All spells in the Spells table. On one level the two can differ: here runes count where they were entered, the table counts a spell where it was cast.", false, false, true, false, false},
     {"Wasted on failed casts", "Runes of spells the champion needed more practice for.", false, false, true, false, false},
     {"Wasted on meaningless spells", "Runes that form no spell: the champion mumbles a meaningless spell.", false, false, true, false, false},
     {"Runes cleared", "Runes entered and never cast: cleared, replaced by a new incantation, or lost when the caster died.", false, false, true, false, false},
@@ -154,7 +155,7 @@ static const char *const KEYS[] = {
     "damage", "melee", "ranged", "magic", "kills", "attacks", "hits", "hit_rate", "damage_per_hit", "other_actions",
     "friendly_fire",
     "mana_generated", "mana_regeneration", "mana_potions", "mana_regen_lost", "mana_spent", "mana_on_spells", "mana_successful",
-    "mana_wasted", "mana_meaningless",
+    "mana_wasted", "mana_failed", "mana_meaningless",
     "runes_cleared", "runes_not_cast",
     "casts", "casts_successful", "casts_failed",
     "taken", "healed", "heal_regeneration", "heal_potions", "heal_potions_own",
@@ -224,8 +225,8 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
             {{"Mana in", false,
               {{HeroNumManaGenerated, 0}, {HeroNumManaRegeneration, 1}, {HeroNumManaPotions, 1}, {HeroNumManaRegenLost, 0}}},
              {"Mana out", false,
-              {{HeroNumManaSpent, 0}, {HeroNumManaOnSpells, 1}, {HeroNumManaSuccessful, 2}, {HeroNumManaWasted, 2},
-               {HeroNumManaMeaningless, 2},
+              {{HeroNumManaSpent, 0}, {HeroNumManaOnSpells, 1}, {HeroNumManaSuccessful, 2}, {HeroNumManaWasted, 2, "Wasted"},
+               {HeroNumManaFailed, 3, "Failed casts"}, {HeroNumManaMeaningless, 3, "Meaningless spells"},
                {HeroNumRunesCleared, 1}, {HeroNumRunesNotCast, 1}}},
              {"Casts", false, {{HeroNumCasts, 0}, {HeroNumCastsSuccessful, 1}, {HeroNumCastsFailed, 1}}}});
   topics[HeroTopicSurvival] = {"Survival", {}, {HeroNumTaken, HeroNumHealed, HeroNumDeaths, HeroNumResurrected}, {}};
@@ -480,12 +481,13 @@ static void FillMana(const HeroStats &stats, HeroStatsChampion who, int level, i
   v[HeroNumManaRegenLost] = stats.ManaGainedBy(who, level, HeroManaRegenLost);
   v[HeroNumManaGenerated] = stats.ManaGained(who, level);
   v[HeroNumManaSpent] = stats.ManaSpent(who, level);
-  v[HeroNumManaWasted] = stats.ManaWasted(who, level);
+  v[HeroNumManaFailed] = stats.ManaWasted(who, level);
   v[HeroNumManaMeaningless] = stats.ManaMeaningless(who, level);
   v[HeroNumRunesCleared] = stats.RunesCleared(who, level);
   v[HeroNumManaSuccessful] = stats.ManaOnSuccessfulCasts(who, level);
   v[HeroNumRunesNotCast] = stats.RunesNotCastYet(who, level);
-  v[HeroNumManaOnSpells] = v[HeroNumManaSuccessful] + v[HeroNumManaWasted] + v[HeroNumManaMeaningless];
+  v[HeroNumManaWasted] = v[HeroNumManaFailed] + v[HeroNumManaMeaningless];
+  v[HeroNumManaOnSpells] = v[HeroNumManaSuccessful] + v[HeroNumManaWasted];
 }
 
 static void FillCasts(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
@@ -709,8 +711,8 @@ static FillGroup GroupOf(HeroStatsNumber number)
   case HeroNumAttacks: case HeroNumHits: case HeroNumHitRate: case HeroNumDamagePerHit: case HeroNumOtherActions: return FillAttacks;
   case HeroNumFriendlyFire: return FillFriendlyFire;
   case HeroNumManaGenerated: case HeroNumManaRegeneration: case HeroNumManaPotions: case HeroNumManaSpent:
-  case HeroNumManaWasted: case HeroNumRunesCleared: case HeroNumManaSuccessful: case HeroNumRunesNotCast:
-  case HeroNumManaOnSpells: case HeroNumManaRegenLost: case HeroNumManaMeaningless:
+  case HeroNumManaFailed: case HeroNumRunesCleared: case HeroNumManaSuccessful: case HeroNumRunesNotCast:
+  case HeroNumManaOnSpells: case HeroNumManaRegenLost: case HeroNumManaMeaningless: case HeroNumManaWasted:
     return FillMana;
   case HeroNumCasts: case HeroNumCastsSuccessful: case HeroNumCastsFailed: return FillCasts;
   case HeroNumTaken: return FillTaken;

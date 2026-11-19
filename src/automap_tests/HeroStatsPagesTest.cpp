@@ -129,6 +129,38 @@ static void SpellLinesCountEveryCast(void)
   CHECK(page.spells.size() == 1);
 }
 
+// Wasted under Mana spent, with the failed and the meaningless casts below it, is the Wasted of
+// All spells in the Spells table
+static void WastedManaMatchesTheSpellsTable(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(9, "SYRA");
+  uint32_t fireball = 0x00006f69;  // Ful Ir
+  stats.EnterRune(9, 1, 7);
+  stats.ResolveRunes(9, HeroRuneFailed);
+  stats.CountFailedCast(9, 1, fireball, 7);
+  stats.EnterRune(9, 1, 4);
+  stats.ResolveRunes(9, HeroRuneMeaningless);
+  stats.CountFailedCast(9, 1, 0x00006f6b, 4);
+  HeroStatsHeroPage hero = HeroStatsPages_Hero(stats, Columns(stats), 9, HERO_STATS_WHOLE_RUN, NAMES);
+  int wasted = 0;
+  for (size_t i = 0; i < hero.spells.size(); i++) wasted += hero.spells[i].wasted;
+  CHECK(wasted == 11);
+  HeroStatsTopicPage magic = HeroStatsPages_Topic(stats, Columns(stats), 9, HERO_STATS_WHOLE_RUN, HeroTopicMagic, NAMES);
+  const HeroStatsNumbersRow *sum = NULL, *failed = NULL, *meaningless = NULL;
+  for (size_t i = 0; i < magic.numbers.size(); i++)
+  {
+    if (magic.numbers[i].number == HeroNumManaWasted) sum = &magic.numbers[i];
+    if (magic.numbers[i].number == HeroNumManaFailed) failed = &magic.numbers[i];
+    if (magic.numbers[i].number == HeroNumManaMeaningless) meaningless = &magic.numbers[i];
+  }
+  CHECK(sum != NULL && failed != NULL && meaningless != NULL);
+  if (sum == NULL || failed == NULL || meaningless == NULL) return;
+  CHECK(sum->party == wasted && sum->depth == 2 && sum->label == "Wasted");
+  CHECK(failed->party == 7 && failed->depth == 3 && failed->label == "Failed casts");
+  CHECK(meaningless->party == 4 && meaningless->depth == 3 && meaningless->label == "Meaningless spells");
+}
+
 static void PartySpellsAreSplitByChampion(void)
 {
   HeroStats stats;
@@ -1086,6 +1118,7 @@ void TestHeroStatsPages(void)
   UnarmedAttacksAreOneWeapon();
   WarCryIsAnUnarmedAction();
   SpellLinesCountEveryCast();
+  WastedManaMatchesTheSpellsTable();
   PartySpellsAreSplitByChampion();
   MonsterSpellsAreNotMonsterAttacks();
   RecordsCarryTheMovement();

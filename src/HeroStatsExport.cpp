@@ -513,7 +513,8 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   tr.grp td { color:var(--dim); text-transform:uppercase; letter-spacing:.05em; font-size:11px; padding-top:9px }
   tr.grp:hover td { background:none; color:var(--dim) } tr.grp:hover td:first-child { box-shadow:none }
   /* A part of the number above it: behind a thin line */
-  tr.g1 td, tr.g2 td { color:var(--part) } tr.g1 td:first-child { padding-left:13px } tr.g2 td:first-child { padding-left:29px }
+  tr.g1 td, tr.g2 td, tr.g3 td { color:var(--part) }
+  tr.g1 td:first-child { padding-left:13px } tr.g2 td:first-child { padding-left:29px } tr.g3 td:first-child { padding-left:45px }
   .ind { display:inline-block; border-left:1px solid var(--faint); padding-left:9px }
   /* A label with a hovertext says so */
   .tip { border-bottom:1px dotted var(--faint); cursor:help }
@@ -522,7 +523,7 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   .fact { background:var(--panel); border-radius:6px; padding:8px 12px 9px }
   .fact h4 { margin:0 0 4px; font:inherit; font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:var(--dim) }
   .fr { display:flex; justify-content:space-between; gap:12px; padding:2px 0 } .fr .v { white-space:nowrap }
-  .fr.g1 .k, .fr.g2 .k { color:var(--part) }
+  .fr.g1 .k, .fr.g2 .k, .fr.g3 .k { color:var(--part) }
   tr.xrow { cursor:pointer } tr.xrow:hover td { background:var(--hover) }
   .gold { color:#e0b54a } .tile .sub { color:var(--text); font-size:11.5px; margin-top:3px } .tile .sub.f { color:var(--faint) }
   .prog { height:5px; background:var(--track); border-radius:2px; overflow:hidden; margin-top:5px } .prog i { display:block; height:100% }
@@ -772,9 +773,9 @@ const PARTY_HELP = 'All the champions together; for a record, the best of them.'
 function groupsOf(t) {
   const out = [];
   for (const g of TOP[t].groups) {
-    const applied = [false, false, false], rows = [];
+    const applied = [false, false, false, false], rows = [];
     for (const [n, d, own] of g.rows) {
-      const depth = Math.max(0, Math.min(2, d));
+      const depth = Math.max(0, Math.min(3, d));
       applied[depth] = applies(n, st.who, st.level);
       if (!applied[depth]) continue;
       if (depth > 0 && !applied[depth - 1]) { applied[0] = true; rows.push({n, depth: 0, label: NUM[n].label}); }
