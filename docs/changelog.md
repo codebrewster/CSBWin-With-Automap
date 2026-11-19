@@ -54,6 +54,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 - Records over all replays: `scripts/export-all-html.sh` writes `records.html` beside the pages, with the Records tab over every replay of each game (Chaos Strikes Back, Dungeon Master): one row per record, for the party or a champion, with the lowest value above 0, the average and the highest, and the replay, hero, weapon or spell and monster behind each.
 
 **Map**
+- An object launcher shows at spoiler level All what it will still throw, next shot first, as icons in its tooltip (`LAUNCHES CHEST (N)`), each chest with what it holds, and its LAUNCHER line says how many are left (`LAUNCHES OBJECT, 8 LEFT`). The search finds these items, tagged `LAUNCHER` and `LAUNCHER CHEST`; the HTML export too. Example: CSB L7 (14, 34).
 - The monster pictures in a tile's tooltip (and in the HTML export) have their own colours and no coloured backdrop: they were drawn with the wrong transparent colour, so a blue, red or white box showed behind them.
 - WALKED also tints the teleporters and pits the party stepped into (it is carried off or falls at once, so it never stood on them for a tick).
 - An illusionary wall (a wall in the 3D view that the party walks through) is drawn with its purple pinstripes on the dark floor, so it no longer looks like a solid false wall; the HTML export too. The tooltip says whether a false wall is `SOLID`, `WALK-THROUGH` or `OPEN`. The pinstripes of false walls keep their look when you zoom in instead of getting denser.

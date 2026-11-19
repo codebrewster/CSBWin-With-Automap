@@ -213,6 +213,9 @@ At **All**, also:
 - **What every lock needs**, such as `NEEDS SOLID KEY (S)`.
 - **What sets off a pad**, such as `TRIGGER: PARTY OR MONSTER`.
 - **Monster generators**: what they create and its hit point range.
+- **What a launcher throws**: `LAUNCHES 2X FIREBALL`. An object launcher, which throws what lies
+  inside its wall, lists what it still holds as icons, next shot first, each chest with what it
+  holds: `LAUNCHES CHEST (N)`, and says how many are left: `LAUNCHES OBJECT, 8 LEFT`.
 
 A generator the map knows that has fired and sleeps for a while is headed `SLEEPING GENERATOR`, with
 when it wakes: `WAKES IN 380 TICKS, ABOUT 1:30`. The time is measured: the map counts how many ticks
@@ -413,6 +416,8 @@ every level and finds:
 - items on the floor, in a chest or in an alcove;
 - items a pad or lock `NEEDS`;
 - items `CARRIED` by a monster (at spoiler level All only);
+- items an object launcher will throw, `LAUNCHER`, and what a chest among them holds,
+  `LAUNCHER CHEST` (at spoiler level All only);
 - monster groups by name, and generators by what they create;
 - water fountains and the Altar of Vi;
 - stairs, as `STAIRS UP` and `STAIRS DOWN`;
@@ -423,7 +428,7 @@ every level and finds:
 
 The results are grouped under a heading per level, the shown level first; a click on a heading
 folds it away. Each hit shows its icon, the cell as the rulers number it, its name and a tag: `X3`,
-`ALCOVE`, `IN CHEST`, `CARRIED BY …`, `NEEDS`, `PAD NEEDS`, `GENERATOR`, or for stairs the level
+`ALCOVE`, `IN CHEST`, `CARRIED BY …`, `LAUNCHER`, `LAUNCHER CHEST`, `NEEDS`, `PAD NEEDS`, `GENERATOR`, or for stairs the level
 they lead to (`TO L4`). A text hit shows the words around the match, the match in gold, and is
 tagged `SCROLL`, `SCROLL ALCOVE`, `SCROLL IN CHEST`, `SCROLL CARRIED` or `WALL (N)` with the face it
 is written on; text hits come after the names. A stack of more than one says how many in front of where it lies: `X2 ALCOVE`,
