@@ -324,7 +324,7 @@ static void WriteDrawList(std::string &f, ExportPictures &sp, const AutoMapDrawL
       if (linesFull != lines) o << ",\"tipFull\":" << linesFull;
       o << ",\"icons\":[";
       for (size_t k = 0; k < tip.size(); k++)
-        o << (k ? "," : "") << "[" << ItemArr(sp, tip[k].item) << "," << tip[k].count << "," << tip[k].nested << "," << tip[k].predicted << "," << tip[k].required << "," << tip[k].carried << "," << tip[k].side << "]";
+        o << (k ? "," : "") << "[" << ItemArr(sp, tip[k].item) << "," << tip[k].count << "," << tip[k].nested << "," << tip[k].predicted << "," << tip[k].required << "," << tip[k].carried << "," << tip[k].side << "," << tip[k].launched << "]";
       o << "]";
       any = true;
     }

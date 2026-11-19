@@ -883,9 +883,13 @@ function buildIndex() {
         // and the stacks of a cell that read the same are one row, their counts added: three
         // opened chests are CHEST X3. What a chest holds or a monster carries follows its stack.
         const rows = {};
-        h.icons.forEach(([it, n, nested, predicted, required, carried, side]) => {
+        // An item nested under a launched stack lies in a chest the launcher will throw
+        let parentLaunched = false;
+        h.icons.forEach(([it, n, nested, predicted, required, carried, side, launched]) => {
+          if (!nested) parentLaunched = !!launched;
           if (!it[2] || predicted || required) return;
-          const tag = nested ? (m ? 'CARRIED BY ' + nice(m.name) : side >= 0 ? 'ALCOVE' : 'IN CHEST') : side >= 0 ? 'ALCOVE' : '';
+          const tag = nested ? (parentLaunched ? 'LAUNCHER CHEST' : m ? 'CARRIED BY ' + nice(m.name) : side >= 0 ? 'ALCOVE' : 'IN CHEST')
+            : launched ? 'LAUNCHER' : side >= 0 ? 'ALCOVE' : '';
           const key = it[2] + '|' + tag; (rows[key] = rows[key] || { n: 0, it, tag }).n += n;
         });
         for (const key in rows) { const { n, it, tag } = rows[key]; add(c.x, c.y, it[2], tag ? counted(n, tag) : n > 1 ? 'X' + n : '', it[1] || it[0], 'item', it[3] === FOOD_KIND); }

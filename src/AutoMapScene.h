@@ -632,6 +632,9 @@ int AutoMapScene_StairsTarget(const std::vector<AutoMapLevelArea> &areas, int le
 
 // A stack in the tooltip: "COPPER COIN X5", the name alone for one
 std::string AutoMapScene_StackLine(const std::string &name, int count);
+// The words before a tooltip stack's name: "NEEDS " for a lock (side >= 0), "NEEDS CARRIED " or
+// "NEEDS ON PAD " for a pad (side -1), "LAUNCHES " for what an object launcher throws, "" else
+const char *AutoMapScene_StackPrefix(bool required, bool carried, bool launched, int side);
 
 struct AutoMapLevelSnapshot
 {

@@ -3206,6 +3206,14 @@ int AutoMapScene_StairsTarget(const std::vector<AutoMapLevelArea> &areas, int le
   return AUTOMAP_NO_LEVEL;
 }
 
+const char *AutoMapScene_StackPrefix(bool required, bool carried, bool launched, int side)
+{
+  if (launched) return "LAUNCHES ";
+  if (!required) return "";
+  if (side == -1) return carried ? "NEEDS CARRIED " : "NEEDS ON PAD ";
+  return "NEEDS ";
+}
+
 std::string AutoMapScene_StackLine(const std::string &name, int count)
 {
   if (count <= 1) return name;

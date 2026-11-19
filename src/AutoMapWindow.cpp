@@ -3750,6 +3750,7 @@ struct TooltipCell
   bool required;
   bool carried;
   int side;
+  bool launched;
 };
 
 static void MergeTooltipItem(std::vector<AutoMapTooltipSlot> *slots, const AutoMapItem &item,
@@ -3876,6 +3877,7 @@ static std::vector<TooltipCell> FlattenTooltipSlots(const std::vector<AutoMapToo
     chest.required = slots[i].required;
     chest.carried = slots[i].carried;
     chest.side = slots[i].side;
+    chest.launched = slots[i].launched;
     cells.push_back(chest);
     for (size_t c = 0; c < slots[i].contents.size(); c++)
     {
@@ -3887,6 +3889,7 @@ static std::vector<TooltipCell> FlattenTooltipSlots(const std::vector<AutoMapToo
       held.required = false;
       held.carried = false;
       held.side = -1;
+      held.launched = false;
       cells.push_back(held);
     }
     for (size_t c = 0; c < slots[i].uncertainContents.size(); c++)
@@ -3899,6 +3902,7 @@ static std::vector<TooltipCell> FlattenTooltipSlots(const std::vector<AutoMapToo
       maybe.required = false;
       maybe.carried = false;
       maybe.side = -1;
+      maybe.launched = false;
       cells.push_back(maybe);
     }
   }
@@ -3962,9 +3966,8 @@ static std::vector<std::string> BuildTooltipNameLines(const std::vector<TooltipC
     const char *rune = AutoMapScene_PotionPowerName(cells[i].item.potionPower);
     if (rune[0] != '\0') named = std::string(rune) + " " + named;
     std::string what = AutoMapScene_StackLine(named, cells[i].count);
-    const char *need = "";
-    if (cells[i].required && cells[i].side == -1) need = cells[i].carried ? "NEEDS CARRIED " : "NEEDS ON PAD ";
-    else if (cells[i].required) need = "NEEDS ";
+    const char *need = AutoMapScene_StackPrefix(cells[i].required, cells[i].carried,
+                                                cells[i].launched, cells[i].side);
     std::snprintf(line, sizeof(line), "%s%s", need, what.c_str());
     char sideInitial = SideInitial(cells[i].side);
     if (sideInitial != '\0')
@@ -4622,6 +4625,8 @@ static std::string SearchTag(const AutoMapSearchHit &hit, SDL_Color *colour)
   case AutoMapHitCarried: return Counted(hit, "CARRIED BY " + WithoutGroupCount(hit.carriedBy));
   case AutoMapHitInChest: return Counted(hit, "IN CHEST");
   case AutoMapHitAlcove: return Counted(hit, "ALCOVE");
+  case AutoMapHitLauncher: return Counted(hit, "LAUNCHER");
+  case AutoMapHitInLauncherChest: return Counted(hit, "LAUNCHER CHEST");
   case AutoMapHitGenerator: *colour = GEN_TEXT; return "GENERATOR";
   case AutoMapHitScroll:
   case AutoMapHitWallText: return AutoMapScene_TextTag(hit.kind, hit.scrollWhere, hit.slot.side);
@@ -5969,7 +5974,7 @@ void AutoMapWindow_TooltipFor(const AutoMapDrawList &list, int x, int y, bool fu
     for (size_t i = 0; i < cells.size(); i++)
     {
       AutoMapTooltipEntry c = {cells[i].item, cells[i].count, cells[i].nested, cells[i].predicted,
-                        cells[i].required, cells[i].carried, cells[i].side};
+                        cells[i].required, cells[i].carried, cells[i].side, cells[i].launched};
       out->push_back(c);
     }
   }

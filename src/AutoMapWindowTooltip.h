@@ -17,6 +17,8 @@ struct AutoMapTooltipEntry
   bool required;
   bool carried;
   int side;
+  // What an object launcher will throw: labelled LAUNCHES
+  bool launched;
 };
 
 // While a scope for list is open, TooltipFor(list, ...) does not copy the list for each call:

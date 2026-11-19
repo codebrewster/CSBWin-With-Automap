@@ -2538,6 +2538,16 @@ static void LauncherItemsAreFoundAtAllOnly(void)
   CHECK(AutoMapScene_SearchItems(learned, "club", FakeName, NULL).empty());
 }
 
+// The words before a tooltip stack's name: what the window and the export print
+static void StackPrefixNamesNeedsAndLaunches(void)
+{
+  CHECK(std::string(AutoMapScene_StackPrefix(false, false, false, -1)) == "");
+  CHECK(std::string(AutoMapScene_StackPrefix(true, false, false, AutoMapSouth)) == "NEEDS ");
+  CHECK(std::string(AutoMapScene_StackPrefix(true, true, false, -1)) == "NEEDS CARRIED ");
+  CHECK(std::string(AutoMapScene_StackPrefix(true, false, false, -1)) == "NEEDS ON PAD ");
+  CHECK(std::string(AutoMapScene_StackPrefix(false, false, true, AutoMapSouth)) == "LAUNCHES ");
+}
+
 void TestAutoMapSpoilers(void)
 {
   AFloorPictureShowsOnceItWasNoticed();
@@ -2642,4 +2652,5 @@ void TestAutoMapSpoilers(void)
   LaunchedSlotNeverMergesWithAlcoveGoods();
   AmmunitionStaysHiddenBelowAllEvenOnceFired();
   LauncherItemsAreFoundAtAllOnly();
+  StackPrefixNamesNeedsAndLaunches();
 }
