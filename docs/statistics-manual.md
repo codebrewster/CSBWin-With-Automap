@@ -71,13 +71,19 @@ After the level, at the right end of the first row, is the **Export as HTML...**
 Every topic is built the same way:
 
 1. **Headline numbers** at the top (called tiles in `csb.cfg`): the topic's main numbers in a strip.
-2. **The party** (Exploration only): the numbers only the party has, in panels, see
+   When a champion has fewer of them than the topic's tiles (Items picked up is the party's), the
+   topic's own top numbers that the champion has fill in.
+2. **The party**: the numbers only the party has (wipes and reloads, items picked up, door
+   buttons, steps, chests opened ...), in panels; for the Party only. See
    [Exploration](#exploration).
-3. **Numbers**: every number of the topic, in groups under small headings (Combat: Dealing damage
+3. **Numbers**: every other number of the topic, in groups under small headings (Combat: Dealing damage
    and Attacks; Magic: Mana in, Mana out and Casts ...). For the Party there is one column per champion, the
    **Total** column (all the champions together), and a **Share** bar that splits the number in the champions' colours. For a
    champion there is their column, the Total column, and **Share of party**, a bar of their part.
-   Numbers kept only for the party as a whole (steps, chests opened ...) show for the Party only.
+   A number only the party has stands here only when it is a part of a sum the champions share
+   in: the causes under Monsters killed. With **one champion**, who is all of the party, the
+   table has the champion's column alone, with the party's own numbers in it on the Party's page,
+   and the detail tables and Per level have no Who, Total or Share.
    A row indented behind a thin line is a part of the row above it. A name with a **dotted line**
    under it has a hovertext: hover it for what the number counts and what is not in it. Names
    that say it all have none.
@@ -107,7 +113,8 @@ is cut off. When the window is too narrow for a table, the table gives up room i
 In a narrow window the champions' buttons, the level picker and the tabs go onto further lines,
 the level numbers become **◀ list ▶**, and the headline numbers stand two or one across. In a wide window
 the sections of a topic stand side by side (Numbers beside Weapons, for example) once each fits
-in half the window, so a name and its numbers stay close together.
+in half the window, so a name and its numbers stay close together. They keep their order: the
+first ones fill the left column, the rest the right, split where the two are most even.
 
 **Finding a number.** The row under the pointer is lit, with a blue edge at its name, and the
 column under the pointer is tinted with its header underlined: where they cross is the number
@@ -115,8 +122,8 @@ you are pointing at.
 
 Throughout the window:
 
-- a **dim dot** (·) is a zero; a **-** is a rate or an average with nothing to work it out from,
-  for example a hit rate without attacks;
+- a **dim dot** (·) is a zero, in the tables and the headline numbers alike; a **-** is a rate or
+  an average with nothing to work it out from, for example a hit rate without attacks;
 - a number on a **red pill** is bad news: friendly fire, deaths, wasted mana, food wasted (in a
   big tile at the top just in red);
 - the last row of a table, shaded, is its total.
@@ -203,7 +210,7 @@ included) plus Wasted, and Wasted is the Wasted of All spells.
 | **Healed** | HP actually gained; with **Regeneration**, **Potions** and **Heal action** below it. Potions is split by who brewed them: **Own brews**, **Brewed by others** (another champion) and **Found** (no champion brewed them: found in the dungeon, or brewed before the statistics began) |
 | **Healing given** | HP healed by potions the champion brewed, whoever drank them |
 | **Deaths**, **Resurrected** | how often the champion died and was brought back |
-| **Party wiped out**, **Reloads** | for the Party and the whole run only |
+| **Party wiped out**, **Reloads** | for the Party and the whole run only, in the **Wipes and reloads** panel under The party |
 
 **Damage taken by source**: one line per source. **Monster attacks** are the blows of monsters
 (claws, weapons, bites), all monsters on one line. Spells and missiles that monsters cast are
@@ -252,8 +259,10 @@ Stance, Wound penalty and Sleep penalty can be below 0: they made protection sma
 the numbers are kept in fractions of a hit point and rounded when shown, so the lines can be a
 point off their sum.
 
-**Deaths** lists each death with its cause and level, for example "Fireball from Lord Order · Lv
-3", "own Fireball · Lv 9", "Fell into a pit · Lv 7". The Party's list names the champion.
+**Deaths** is a table of each death, newest first: **Who** (on the Party's page), **Killed by**
+("Fireball from Lord Order", "own Fireball", "Fell into a pit"), **Lv** and **Tick**. Click a
+header to sort by it. In a replay, click a tick to go there. Games saved before this version kept
+no tick for a death and show "-".
 
 ## Food & items
 
@@ -287,9 +296,10 @@ A gulp from an empty waterskin or flask does not count.
 
 ## Exploration
 
-Most of these are the party's, not a champion's. They stand in four panels under **The party**:
-**Movement**, **Travel**, **Time** and **Discoveries**. The doors are a table under them, with a
-column per champion; a champion's Exploration shows the doors only.
+Most of these are the party's, not a champion's. They stand in panels under **The party**:
+**Movement**, **Travel**, **Time**, **Discoveries** and **Door buttons**. The doors the champions
+opened are the Numbers under them, with a column per champion; a champion's Exploration shows
+those doors only.
 
 | Number | What it counts |
 |---|---|
@@ -376,7 +386,7 @@ Each class has four hidden skills, and what trains them trains the class:
 | Wizard | Fire, Air, Earth, Water |
 
 **Tiles.** For the Party: each class's experience, and the best rank in it with the champion
-who has it. For a champion: their rank in each class now, the experience they gained in it, and a
+who has it; when several champions share that rank, all of them are named. For a champion: their rank in each class now, the experience they gained in it, and a
 bar of the way to the next rank.
 
 | Number | What it counts |

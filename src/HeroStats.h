@@ -161,8 +161,9 @@ const int HERO_ATTACK_ANY_OUTCOME = -1;
 // The damage the defences took off, by harm source, in 64ths of a hit point (HeroStatsDefence.h)
 struct HeroStatsDefenceRow { HeroHarmSource source; long long amount; };
 
-// A champion's death: where, from what, and the blow that did it (monster type, causing champion)
-struct HeroStatsDeath { HeroStatsChampion who; int level; HeroHarmSource cause; HeroStatsBlow by; };
+// A champion's death: where, from what, the blow that did it (monster type, causing champion) and
+// when (the game tick; -1 in a game saved before layout 36 kept it)
+struct HeroStatsDeath { HeroStatsChampion who; int level; HeroHarmSource cause; HeroStatsBlow by; int tick; };
 
 // What the champions did, kept per champion and dungeon level. Sums over champions or levels are
 // made when asked; nothing is cached.
@@ -352,8 +353,9 @@ public:
   // rune mana per level, which is skipped), 22 no experience and no records, 23 no items taken
   // from chests (none counted), 24 no poisonings, wounds or stretches of poison, 29 no climbs onto monsters,
   // 30 no arrivals or stair changes, 32 no monster attacks and no defences, 33 no stair dances,
-  // 34 no meaningless spells (their runes count as failed) and no regeneration lost at full mana.
-  static const int LAYOUT = 35;
+  // 34 no meaningless spells (their runes count as failed) and no regeneration lost at full mana,
+  // 35 no tick of a death.
+  static const int LAYOUT = 36;
   static const int FIRST_LAYOUT_WITH_MOVEMENT = 14;
   static const int FIRST_LAYOUT_WITH_PITS_AND_SLEEP = 15;
   static const int FIRST_LAYOUT_WITH_ITEMS = 16;
@@ -376,6 +378,7 @@ public:
   static const int FIRST_LAYOUT_WITH_DEFENCES = 33;  // monster attacks and what the defences took off
   static const int FIRST_LAYOUT_WITH_STAIR_DANCES = 34;
   static const int FIRST_LAYOUT_WITH_MANA_LOSSES = 35;  // rune outcome 3 (meaningless), mana gain 2 (regeneration lost)
+  static const int FIRST_LAYOUT_WITH_DEATH_TICKS = 36;
   // layout: an older one leaves out what it does not have (the tests write old files with it)
   void Serialize(std::vector<uint8_t> *out, int layout = LAYOUT) const;
   bool Deserialize(const uint8_t *data, size_t size, int layout = LAYOUT);

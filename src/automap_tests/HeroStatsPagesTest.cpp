@@ -837,6 +837,48 @@ static void ClassesOpenToTheirSkills(void)
   CHECK(page.classes[0].skills.size() == 5 && page.classes[0].skills[4].name == "Fighter itself");
 }
 
+// The Party's best rank names every champion who has it, best first
+static void TiedChampionsShareTheBestRank(void)
+{
+  HeroStats stats = ExperiencedParty();
+  HeroStatsTopicPage page = XpPage(stats, HERO_STATS_PARTY, RankFive);
+  CHECK(page.classes.size() == 4 && page.classes[0].best == 7 && page.classes[0].tied == std::vector<HeroStatsChampion>({7, 9}));
+  // Only HALK has a Fighter rank known: HALK alone
+  page = XpPage(stats, HERO_STATS_PARTY, NoRankNow);
+  CHECK(page.classes.size() == 4 && page.classes[0].tied == std::vector<HeroStatsChampion>({7}));
+  CHECK(page.classes.size() == 4 && page.classes[1].tied.empty());
+}
+
+// One champion is all of the party: Per level shares nothing out
+static void OneChampionSharesNothing(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  stats.MarkLevelVisited(1);
+  CHECK(!HeroStatsPages_PerLevelTotals(stats, Columns(stats), HERO_STATS_PARTY, HeroTopicCombat).hasShare);
+  CHECK(!HeroStatsPages_PerLevelGrid(stats, Columns(stats), HeroNumDamage).hasShare);
+  stats.MeetChampion(9, "SYRA");
+  CHECK(HeroStatsPages_PerLevelTotals(stats, Columns(stats), HERO_STATS_PARTY, HeroTopicCombat).hasShare);
+  CHECK(HeroStatsPages_PerLevelGrid(stats, Columns(stats), HeroNumDamage).hasShare);
+}
+
+// Deaths are rows: who, what killed them, the level and the tick
+static void DeathsAreRows(void)
+{
+  HeroStats stats = ExperiencedParty();
+  HeroStatsBlow mummy = HeroStatsBlow_Nobody(HeroBlowByMonster);
+  mummy.monsterType = 6;
+  HeroStatsDeath death = {9, 1, HeroHarmMonster, mummy, 812};
+  stats.CountDeath(death);
+  HeroStatsTopicPage page = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroTopicSurvival, NAMES);
+  CHECK(page.hero.deaths.size() == 1);
+  if (page.hero.deaths.size() != 1) return;
+  const HeroStatsDeathLine &line = page.hero.deaths[0];
+  CHECK(line.who == 9 && line.column == 1 && line.level == 1 && line.tick == 812 && !line.killedBy.empty());
+  HeroStatsExportInfo info = {"dungeon.dat", "2026-11-15 12:00"};
+  CHECK(HeroStatsExport_Json(stats, Columns(stats), NAMES, info).find("\"deaths\":[[1,") != std::string::npos);
+}
+
 static void RankOfAGoneChampionIsTheLastKnown(void)
 {
   HeroStats stats = ExperiencedParty();
@@ -1024,9 +1066,10 @@ static void PagesCarryTheGroups(void)
 {
   HeroStats stats = KillsOnTwoLevels();
   HeroStatsTopicPage party = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroTopicExploration, NAMES);
-  CHECK(party.groups.size() == 5);
-  if (party.groups.size() != 5) return;
+  CHECK(party.groups.size() == 6);
+  if (party.groups.size() != 6) return;
   CHECK(party.groups[1].title == "Travel" && party.groups[1].panel && party.groups[4].title == "Doors" && !party.groups[4].panel);
+  CHECK(party.groups[5].title == "Door buttons" && party.groups[5].panel);
   bool found = false;
   for (size_t r = 0; r < party.numbers.size(); r++)
     if (party.numbers[r].number == HeroNumTelefrags)
@@ -1038,9 +1081,11 @@ static void PagesCarryTheGroups(void)
   HeroStatsTopicPage one = HeroStatsPages_Topic(stats, Columns(stats), 7, HERO_STATS_WHOLE_RUN, HeroTopicExploration, NAMES);
   CHECK(one.groups.size() == 1 && one.groups[0].title == "Doors");
   for (size_t r = 0; r < one.numbers.size(); r++) CHECK(one.numbers[r].group == 0);
-  // Wipes and reloads are the whole run's: on a level the Deaths group stays, without them
+  // Wipes and reloads are the whole run's, in a panel of their own: on a level it is not there
   HeroStatsTopicPage level = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, 4, HeroTopicSurvival, NAMES);
   CHECK(level.groups.size() == 5 && level.groups[4].title == "Deaths");
+  HeroStatsTopicPage run = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroTopicSurvival, NAMES);
+  CHECK(run.groups.size() == 6 && run.groups[5].title == "Wipes and reloads" && run.groups[5].panel);
 }
 
 // With HERO_STATS_EXPORT_OUT naming a file: an export of a party of four with big numbers,
@@ -1157,6 +1202,9 @@ void TestHeroStatsPages(void)
   ChampionSourcesLeaveOutZeros();
   ClassesOpenToTheirSkills();
   RankOfAGoneChampionIsTheLastKnown();
+  TiedChampionsShareTheBestRank();
+  DeathsAreRows();
+  OneChampionSharesNothing();
   RecordLinesShowTheirBlow();
   MeleeAndRangedHitsReplaceTheBiggestHit();
   RecordsPerLevelHaveNoShare();

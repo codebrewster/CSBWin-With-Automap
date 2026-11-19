@@ -156,27 +156,27 @@ static void DeathNames(void)
 {
   HeroStatsBlow none = HeroStatsBlow_Nobody(HeroBlowByOther);
   HeroStatsDeath mummy = {7, 4, HeroHarmMonster, HeroStatsBlow_Nobody(HeroBlowByMonster)};
-  CHECK(HeroStatsView_DeathName(mummy, "Mummy") == "Mummy · Lv 4");
+  CHECK(HeroStatsView_DeathName(mummy, "Mummy") == "Mummy");
   HeroStatsBlow own = ChampionBlow(7, HERO_STATS_NO_WEAPON, Runes(FUL, IR, 0));
   HeroStatsDeath self = {7, 9, HeroHarmFriendlyFire, own};
-  CHECK(HeroStatsView_DeathName(self, "HALK") == "own Fireball · Lv 9");
+  CHECK(HeroStatsView_DeathName(self, "HALK") == "own Fireball");
   HeroStatsBlow theirs = ChampionBlow(3, HERO_STATS_NO_WEAPON, Runes(FUL, IR, 0));
   HeroStatsDeath shot = {9, 5, HeroHarmFriendlyFire, theirs};
-  CHECK(HeroStatsView_DeathName(shot, "Tiggy") == "Fireball from Tiggy · Lv 5");
+  CHECK(HeroStatsView_DeathName(shot, "Tiggy") == "Fireball from Tiggy");
   HeroStatsDeath axed = {9, 5, HeroHarmFriendlyFire, ChampionBlow(3, 13, HERO_STATS_NO_SPELL)};
-  CHECK(HeroStatsView_DeathName(axed, "Tiggy") == "blow from Tiggy · Lv 5");
+  CHECK(HeroStatsView_DeathName(axed, "Tiggy") == "blow from Tiggy");
   HeroStatsDeath pit = {7, 7, HeroHarmPit, none};
-  CHECK(HeroStatsView_DeathName(pit, "") == "Fell into a pit · Lv 7");
+  CHECK(HeroStatsView_DeathName(pit, "") == "Fell into a pit");
   HeroStatsDeath door = {7, 6, HeroHarmDoor, none};
-  CHECK(HeroStatsView_DeathName(door, "") == "Closing door · Lv 6");
+  CHECK(HeroStatsView_DeathName(door, "") == "Closing door");
   HeroStatsDeath poison = {7, 11, HeroHarmPoison, none};
-  CHECK(HeroStatsView_DeathName(poison, "") == "Poison · Lv 11");
+  CHECK(HeroStatsView_DeathName(poison, "") == "Poison");
   HeroStatsDeath cloud = {9, 2, HeroHarmPoisonCloud, ChampionBlow(3, HERO_STATS_NO_WEAPON, Runes(OH, VEN, 0))};
-  CHECK(HeroStatsView_DeathName(cloud, "Tiggy") == "Poison cloud from Tiggy · Lv 2");
+  CHECK(HeroStatsView_DeathName(cloud, "Tiggy") == "Poison cloud from Tiggy");
   HeroStatsDeath wall = {7, 1, HeroHarmWall, none};
-  CHECK(HeroStatsView_DeathName(wall, "") == "Ran into a wall · Lv 1");
+  CHECK(HeroStatsView_DeathName(wall, "") == "Ran into a wall");
   HeroStatsDeath other = {7, 1, HeroHarmOther, none};
-  CHECK(HeroStatsView_DeathName(other, "") == "Unknown · Lv 1");
+  CHECK(HeroStatsView_DeathName(other, "") == "Unknown");
 }
 
 static void HarmNames(void)
@@ -206,7 +206,7 @@ static void MissileNames(void)
   lord.monsterType = 25;
   lord.spell = HERO_SPELL_MONSTER_MISSILE | 0x80;
   HeroStatsDeath burnt = {7, 3, HeroHarmMonsterMissile, lord};
-  CHECK(HeroStatsView_DeathName(burnt, "Lord Order") == "Fireball from Lord Order · Lv 3");
+  CHECK(HeroStatsView_DeathName(burnt, "Lord Order") == "Fireball from Lord Order");
 }
 
 static void GoneChampionFallsBackToParty(void)

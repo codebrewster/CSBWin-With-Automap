@@ -885,6 +885,7 @@ static HeroStatsDeath DeathOf(HeroStatsChampion who, int level, HeroHarmSource c
   death.who = who;
   death.level = level;
   death.cause = cause;
+  death.tick = -1;
   death.by = HeroStatsBlow_Nobody(HeroBlowByMonster);
   death.by.monsterType = 4;
   return death;
@@ -1131,6 +1132,23 @@ static void ManaLossesNeedLayout35(void)
   CHECK(old.Deserialize(as34.data(), as34.size(), 34) && old.ManaGained(7, 2) == 4);
 }
 
+// Layout 36 keeps the tick of each death; an older game's deaths have none (-1)
+static void DeathTicksNeedLayout36(void)
+{
+  HeroStats stats;
+  HeroStatsDeath death = {7, 2, HeroHarmMonster, HeroStatsBlow_Nobody(HeroBlowByMonster), 4321};
+  stats.CountDeath(death);
+  std::vector<uint8_t> bytes;
+  stats.Serialize(&bytes);
+  HeroStats read;
+  CHECK(read.Deserialize(bytes.data(), bytes.size()) && read.Deaths(7).size() == 1 && read.Deaths(7)[0].tick == 4321);
+  bytes.clear();
+  stats.Serialize(&bytes, 35);
+  HeroStats old;
+  CHECK(old.Deserialize(bytes.data(), bytes.size(), 35) && old.Deaths(7).size() == 1 && old.Deaths(7)[0].tick == -1 &&
+        old.Deaths(7)[0].level == 2);
+}
+
 // The engine's tables as Dungeon Master has them: power, element, form and alignment runes, and
 // the factor (in eighths) of each power
 static const int8_t RUNE_COSTS[24] = {1, 2, 3, 4, 5, 6,  2, 3, 4, 5, 6, 7,  4, 5, 6, 7, 7, 9,  2, 2, 3, 4, 6, 7};
@@ -1195,6 +1213,7 @@ void TestHeroStats(void)
   MergeHardshipTakesTheLargerOfEach();
   TakeFromFileReplacesTheRestAndKeepsHardship();
   RuneOutcomesAreKeptAndTakenFromOlderLayouts();
+  DeathTicksNeedLayout36();
   RunesCountWhereEnteredAndCastsWhereCast();
   PendingRunesAreSyncedWithTheEngine();
 }

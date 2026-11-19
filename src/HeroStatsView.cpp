@@ -273,7 +273,7 @@ std::string HeroStatsView_DeathName(const HeroStatsDeath &death, const std::stri
   case HeroHarmTrap: what = "Trap"; break;
   default: what = "Unknown"; break;
   }
-  return what + " · Lv " + std::to_string(death.level);
+  return what;
 }
 
 HeroStatsChampion HeroStatsView_ValidWho(const std::vector<HeroStatsColumn> &columns, HeroStatsChampion who)

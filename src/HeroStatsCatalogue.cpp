@@ -186,6 +186,8 @@ static_assert(sizeof KEYS / sizeof KEYS[0] == HERO_NUMBER_COUNT, "a name for eve
 
 const char *const HERO_STATS_BY_CHAMPIONS_HELP =
     "The part of Monsters killed that the champions killed. The rest were crushed by doors, fell into pits, were telefragged, landed on or died some other way.";
+const char *const HERO_STATS_BEST_RANK_HELP =
+    "Best: the highest rank now in this class. Champions who share it are all named.";
 const char *const HERO_STATS_AVG_HELP =
     "Damage \xc3\xb7 Hits. The spells a weapon or staff casts add to its Damage but make no hits, so they raise it.";
 
@@ -250,13 +252,14 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
              {"Healing", false,
               {{HeroNumHealed, 0}, {HeroNumHealRegeneration, 1}, {HeroNumHealPotions, 1}, {HeroNumHealPotionsOwn, 2},
                {HeroNumHealPotionsOthers, 2}, {HeroNumHealPotionsFound, 2}, {HeroNumHealAction, 1}, {HeroNumHealingGiven, 0}}},
-             {"Deaths", false, {{HeroNumDeaths, 0}, {HeroNumResurrected, 0}, {HeroNumWipes, 0}, {HeroNumReloads, 0}}}});
+             {"Deaths", false, {{HeroNumDeaths, 0}, {HeroNumResurrected, 0}}},
+             {"Wipes and reloads", true, {{HeroNumWipes, 0}, {HeroNumReloads, 0}}}});
   topics[HeroTopicSupplies] = {"Food & items", {}, {HeroNumFoodGained, HeroNumWaterGained, HeroNumPotionsDrunk, HeroNumPickedUp}, {}};
   SetGroups(&topics[HeroTopicSupplies],
             {{"Food and water", false,
               {{HeroNumEaten, 0}, {HeroNumDrunk, 0}, {HeroNumPotionsDrunk, 1}, {HeroNumPotionsBrewed, 0}, {HeroNumFoodGained, 0}, {HeroNumFoodWasted, 0},
                {HeroNumWaterGained, 0}, {HeroNumWaterWasted, 0}}},
-             {"Items", false, {{HeroNumPickedUp, 0}, {HeroNumUsedInWalls, 0}}}});
+             {"Items", true, {{HeroNumPickedUp, 0}, {HeroNumUsedInWalls, 0}}}});
   topics[HeroTopicExploration] = {"Exploration", {}, {HeroNumTilesExplored, HeroNumSteps, HeroNumTicks, HeroNumTeleports}, {}};
   SetGroups(&topics[HeroTopicExploration],
             {{"Movement", true,
@@ -269,8 +272,8 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
              {"Discoveries", true,
               {{HeroNumChests, 0}, {HeroNumScrolls, 0}, {HeroNumWallTexts, 0}, {HeroNumChampionsSeen, 0}, {HeroNumChampionsViewed, 0}}},
              {"Doors", false,
-              {{HeroNumDoorsBashed, 0}, {HeroNumDoorsSmashed, 1}, {HeroNumDoorsShot, 1}, {HeroNumDoorsBySpell, 1}, {HeroNumDoorsByZo, 0},
-               {HeroNumDoorsButtonOpened, 0}, {HeroNumDoorsButtonClosed, 0}}}});
+              {{HeroNumDoorsBashed, 0}, {HeroNumDoorsSmashed, 1}, {HeroNumDoorsShot, 1}, {HeroNumDoorsBySpell, 1}, {HeroNumDoorsByZo, 0}}},
+             {"Door buttons", true, {{HeroNumDoorsButtonOpened, 0}, {HeroNumDoorsButtonClosed, 0}}}});
   // The six causes add up to Monsters killed
   topics[HeroTopicMonsters] = {"Monsters", {}, {HeroNumMonstersKilled, HeroNumKills, HeroNumTelefragged, HeroNumLandedOn}, {}};
   SetRows(&topics[HeroTopicMonsters],
@@ -854,10 +857,16 @@ std::vector<HeroStatsNumber> HeroStatsCatalogue_TilesFor(const std::vector<HeroS
   std::vector<HeroStatsNumber> shown;
   for (size_t i = 0; i < tiles.size(); i++)
     if (HeroStatsCatalogue_Applies(tiles[i], who, level)) shown.push_back(tiles[i]);
-  if (!shown.empty() || tiles.empty()) return shown;
+  // As many tiles as were chosen: the topic's own top rows that apply fill in for the others
+  size_t wanted = std::min(tiles.size(), (size_t)4);
   const HeroStatsTopicInfo &info = HeroStatsCatalogue_Topic(topic);
-  for (size_t i = 0; i < info.rows.size(); i++)
-    if (info.rows[i].depth == 0 && HeroStatsCatalogue_Applies(info.rows[i].number, who, level)) shown.push_back(info.rows[i].number);
+  for (size_t i = 0; i < info.rows.size() && shown.size() < wanted; i++)
+  {
+    HeroStatsNumber number = info.rows[i].number;
+    if (info.rows[i].depth == 0 && HeroStatsCatalogue_Applies(number, who, level) &&
+        std::find(shown.begin(), shown.end(), number) == shown.end())
+      shown.push_back(number);
+  }
   return shown;
 }
 

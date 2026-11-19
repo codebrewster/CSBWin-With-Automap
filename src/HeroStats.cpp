@@ -1314,6 +1314,7 @@ void HeroStats::Serialize(std::vector<uint8_t> *out, int layout) const
     HeroBytes_PutInt(out, m_deaths[i].level);
     HeroBytes_PutInt(out, (int)m_deaths[i].cause);
     HeroBytes_PutBlow(out, m_deaths[i].by);
+    if (layout >= FIRST_LAYOUT_WITH_DEATH_TICKS) HeroBytes_PutInt(out, m_deaths[i].tick);
   }
   HeroBytes_Put(out, (uint32_t)m_resurrections.size(), 4);
   for (std::map<std::pair<HeroStatsChampion, int>, int>::const_iterator it = m_resurrections.begin(); it != m_resurrections.end(); ++it)
@@ -1487,6 +1488,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
   bool hasStairs = layout >= FIRST_LAYOUT_WITH_STAIRS;
   bool hasStairDances = layout >= FIRST_LAYOUT_WITH_STAIR_DANCES;
   bool hasManaLosses = layout >= FIRST_LAYOUT_WITH_MANA_LOSSES;
+  bool hasDeathTicks = layout >= FIRST_LAYOUT_WITH_DEATH_TICKS;
   int gainKinds = hasManaLosses ? HERO_MANA_GAIN_COUNT : (int)HeroManaRegenLost;
   int outcomeKinds = hasManaLosses ? HERO_RUNE_OUTCOME_COUNT : (int)HeroRuneMeaningless;
   HeroBytesReader in(data, size);
@@ -1605,7 +1607,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
     counts.kills = in.GetInt();
     read.m_spells[SpellKey(who, level, spell)] = counts;
   }
-  count = in.GetCount(2 + 4 + 4 + HERO_BYTES_BLOW_SIZE);
+  count = in.GetCount(2 + 4 + 4 + HERO_BYTES_BLOW_SIZE + (hasDeathTicks ? 4 : 0));
   for (uint32_t i = 0; i < count && in.ok; i++)
   {
     HeroStatsDeath death;
@@ -1615,6 +1617,8 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
     if (cause < 0 || cause >= HERO_HARM_SOURCE_COUNT) return false;
     death.cause = (HeroHarmSource)cause;
     if (!in.GetBlow(&death.by)) return false;
+    death.tick = hasDeathTicks ? in.GetInt() : -1;
+    if (death.tick < -1) return false;
     read.m_deaths.push_back(death);
   }
   count = in.GetCount(2 + 4 + 4);

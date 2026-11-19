@@ -44,7 +44,8 @@ float HeroStatsLayout_FullWidth(const HeroStatsTableNeeds &needs);
 int HeroStatsLayout_Across(int count, float available, float smallest, float gap);
 // True when there are at least two sections and each fits in half the page
 bool HeroStatsLayout_TwoColumns(const std::vector<float> &fullWidths, float available, float gap);
-// The column (0 left, 1 right) of each section: in order, each into the column shorter so far
+// The column (0 left, 1 right) of each section, in their order: the first ones on the left, the
+// rest on the right, split where the taller column is least tall (the later split at a tie)
 std::vector<int> HeroStatsLayout_Flow(const std::vector<float> &heights);
 // The value columns of the inventory list (Damage, Kinetic, Armor) at a width. needed: what the
 // list needs with all its columns after its own narrow steps (half padding, wrapped names);

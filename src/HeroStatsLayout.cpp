@@ -86,14 +86,20 @@ bool HeroStatsLayout_TwoColumns(const std::vector<float> &fullWidths, float avai
 
 std::vector<int> HeroStatsLayout_Flow(const std::vector<float> &heights)
 {
-  std::vector<int> columns;
-  float left = 0, right = 0;
-  for (size_t i = 0; i < heights.size(); i++)
+  float total = 0;
+  for (size_t i = 0; i < heights.size(); i++) total += heights[i];
+  // The left column takes the first split sections; the split where the taller column is least
+  // tall, the later one at a tie
+  size_t split = heights.size();
+  float best = total, left = 0;
+  for (size_t k = 1; k < heights.size(); k++)
   {
-    bool goesRight = right < left;
-    columns.push_back(goesRight ? 1 : 0);
-    (goesRight ? right : left) += heights[i];
+    left += heights[k - 1];
+    float taller = std::max(left, total - left);
+    if (taller <= best) { best = taller; split = k; }
   }
+  std::vector<int> columns;
+  for (size_t i = 0; i < heights.size(); i++) columns.push_back(i < split ? 0 : 1);
   return columns;
 }
 

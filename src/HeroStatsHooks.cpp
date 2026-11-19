@@ -1286,6 +1286,7 @@ static void CountDeath(int slot, HeroHarmSource cause, const HeroStatsBlow &blow
   death.level = PartyLevel();
   death.cause = cause;
   death.by = blow;
+  death.tick = (int)d.Time;
   store.CountDeath(death);
 }
 

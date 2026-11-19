@@ -8,6 +8,15 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 ## Unreleased
 
 **Statistics**
+- Every topic has the same layout. The table is always called Numbers, with its group headings shown even when there is only one. The numbers only the party has stand in The party panels on every topic: Wipes and reloads on Survival, Items on Food & items, Door buttons on Exploration. Only the causes under Monsters killed stay in the table, as parts of a sum the champions share in.
+- Side by side, the sections keep their order: the first ones fill the left column and the rest the right, so the order no longer depends on the numbers.
+- A zero is a dim dot on the headline tiles too, as in the tables.
+- Deaths is a table: Who, Killed by, Lv and Tick, newest first and sortable; in a replay a click on the tick goes there. A death's tick is kept from this version on (save layout 36); older games show "-".
+- Ranks gained and Records align text the same way (left), and only what brought a rank or a record (With, How, On / from) is dim; the Tick is not.
+- Eaten and drunk's Who bar splits a drink by who drank it while the table is sorted by Eaten, instead of staying empty.
+- With one champion the pages no longer repeat themselves: no Total, no Share and no Who bars (all would be the champion's), no "100% of damage" on the Overview card, and Per level has no Champions side by side. The Party's Numbers shows the party's own numbers in the champion's column.
+- The Party's Experience tiles name every champion at the best rank ("best: Adept (ZEDA, ELIJAB)"), and the tile's hovertext says what best means.
+- A champion's headline tiles that are the party's are filled in from the topic's own numbers: Food & items shows Eaten in place of Items picked up.
 - One name for one thing: the kill causes are By champions, By doors, Into pits, Telefragged, Landed on and Other causes, as rows and as the Monsters killed table's columns; the protection lost to wounds and sleep is Wound penalty and Sleep penalty; Experience by source says Monster attacks received. Records no longer repeats Poisoned and Wounds as Poison doses suffered and Wounds suffered.
 - More hovertexts: every row of Records, the Weapons table's Avg, the Overview cards' short labels (Taken, Exp, Mana), and Healed, Heal action, Food and Water gained (in the game's units), the Doors rows, Pit climbs, Chests opened, Time, Asleep, Party wiped out, Reloads, Monsters killed, Biggest heal, Biggest experience gain, Longest teleport chain and Longest sleep.
 - Red means waste or a mistake: wasted mana, food and water, failed and meaningless casts, cleared runes, friendly fire, deaths, wipes and now reloads. Harm is no longer red: Poisoned, Wounds, Hits taken and the poison and wound records are the cost of fighting, like Damage taken. Bad news always sits on a faint red pill, on the tiles, the Overview cards and the Champions tab too, so it no longer looks like the red champion's colour.

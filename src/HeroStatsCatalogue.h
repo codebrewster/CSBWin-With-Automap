@@ -66,6 +66,8 @@ HeroRecordKind HeroStatsCatalogue_RecordOf(HeroStatsNumber number);  // for a re
 const HeroStatsNumberInfo &HeroStatsCatalogue_Info(HeroStatsNumber number);
 // The help of Kills beside Monsters killed, where its tile is called By champions
 extern const char *const HERO_STATS_BY_CHAMPIONS_HELP;
+// The help of a class's tile on the Party's Experience: what its best is
+extern const char *const HERO_STATS_BEST_RANK_HELP;
 // The help of the Weapons table's Avg column
 extern const char *const HERO_STATS_AVG_HELP;
 // The unit a record's value is written with ("ticks", "levels"), "" for none
@@ -76,7 +78,10 @@ const char *HeroStatsCatalogue_Unit(HeroStatsNumber number, bool plural);
 struct HeroStatsTopicRow { HeroStatsNumber number; int depth; const char *label; };
 const char *HeroStatsCatalogue_RowLabel(const HeroStatsTopicRow &row);
 // The rows of a topic come in groups with a small heading (title "" for a topic that is one
-// group). panel: numbers only the party has, drawn as a panel of label and value, not as table rows.
+// group). panel: numbers only the party has, drawn as a panel of label and value in the page's
+// The party section, not as table rows. Every number only the party has is in a panel, unless it is
+// a part of a sum the champions have parts in too (the causes under Monsters killed); the
+// Overview's Key numbers, one row from each topic, and the Records are tables of their own.
 struct HeroStatsTopicGroup { const char *title; bool panel; std::vector<HeroStatsTopicRow> rows; };
 // rows: the rows of all the groups, in order
 struct HeroStatsTopicInfo
@@ -104,8 +109,9 @@ enum HeroStatsSetting { HeroSettingOverviewTiles, HeroSettingChampionTiles, Hero
                         HeroSettingKeyNumbers, HERO_SETTING_COUNT };
 const char *HeroStatsCatalogue_SettingEntry(HeroStatsSetting setting);   // "stats_tiles_combat"
 std::string HeroStatsCatalogue_SettingDefault(HeroStatsSetting setting); // the default list as names
-// The tiles of a topic that apply to who and level, in their order. When none of them does (a
-// champion's Exploration: its tiles are the party's numbers), the topic's own top rows that do.
+// The tiles of a topic that apply to who and level, in their order. When fewer of them do than
+// were chosen (a champion's Food & items: Items picked up is the party's), the topic's own top
+// rows that apply fill in, as far as there are any (a champion's Monsters has Kills alone).
 std::vector<HeroStatsNumber> HeroStatsCatalogue_TilesFor(const std::vector<HeroStatsNumber> &tiles, int topic, HeroStatsChampion who, int level);
 // What csb.cfg holds for the setting, brought up to date: a list that is the default an earlier
 // version wrote (the Monsters tiles before Monsters killed, the Exploration tiles before Teleports, the Food & items tiles before Potions drunk) becomes today's default; any other

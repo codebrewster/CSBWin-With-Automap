@@ -300,13 +300,10 @@ static void AddHardship(HeroStatsHeroPage *page, const HeroStats &stats, const s
       const HeroStatsColumn *causer = ColumnOf(columns, death.by.champion);
       if (causer != NULL) causerName = causer->name;
     }
-    std::string text = HeroStatsView_DeathName(death, causerName);
-    if (isParty)
-    {
-      const HeroStatsColumn *victim = ColumnOf(columns, death.who);
-      text = (victim != NULL ? victim->name : std::string("?")) + ": " + text;
-    }
-    page->deathLines.push_back(text);
+    HeroStatsDeathLine line = {death.who, -1, HeroStatsView_DeathName(death, causerName), death.level, death.tick};
+    for (size_t c = 0; c < columns.size(); c++)
+      if (columns[c].id == death.who) line.column = (int)c;
+    page->deaths.push_back(line);
   }
   bool wholeRun = level == HERO_STATS_WHOLE_RUN;
   page->wipes = isParty && wholeRun ? stats.PartyWipes() : 0;
@@ -634,6 +631,11 @@ static std::vector<HeroStatsClassLine> XpClasses(const HeroStats &stats, const s
         int rank = RankOf(stats, columns[c].id, cls, names, &percent);
         if (rank > line.rankNow) { line.rankNow = rank; line.percentToNext = percent; line.best = columns[c].id; }
         line.byColumn.push_back(xp.Gained(columns[c].id, level, cls));
+      }
+      for (size_t c = 0; line.rankNow >= 0 && c < columns.size(); c++)
+      {
+        int percent;
+        if (RankOf(stats, columns[c].id, cls, names, &percent) == line.rankNow) line.tied.push_back(columns[c].id);
       }
     }
     else
@@ -994,7 +996,8 @@ HeroStatsPerLevel HeroStatsPages_PerLevelTotals(const HeroStats &stats, const st
     int deepest = topic == HeroTopicMonsters ? 1 : 0;
     if (info.rows[r].depth > deepest || !HeroStatsCatalogue_Applies(number, who, A_LEVEL)) continue;
     table.numbers.push_back(number);
-    if (who == HERO_STATS_PARTY && !table.hasShare && !HeroStatsCatalogue_Info(number).partyOnly &&
+    // One champion is all of the party: nothing to share out
+    if (who == HERO_STATS_PARTY && columns.size() != 1 && !table.hasShare && !HeroStatsCatalogue_Info(number).partyOnly &&
         HeroStatsCatalogue_Summable(number))
     {
       table.hasShare = true;
@@ -1026,7 +1029,7 @@ HeroStatsPerLevel HeroStatsPages_PerLevelGrid(const HeroStats &stats, const std:
   HeroStatsPerLevel table;
   table.numbers.push_back(number);
   table.shareNumber = number;
-  table.hasShare = HeroStatsCatalogue_Summable(number);
+  table.hasShare = HeroStatsCatalogue_Summable(number) && columns.size() != 1;
   std::vector<int> levels = LevelsAndTheRun(stats);
   for (size_t l = 0; l < levels.size(); l++)
   {

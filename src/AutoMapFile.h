@@ -132,7 +132,8 @@ private:
 //              regeneration lost to full mana), amount
 //     spells: 2 bytes champion, level, 4 byte spell key, casts, mana, failed, wasted, damage, kills
 //     deaths: 2 bytes champion, level, cause, then the blow (1 byte by, 2 champion, 1 kind,
-//             weapon, 1 byte thrown, option, 4 byte spell, monster type)
+//             weapon, 1 byte thrown, option, 4 byte spell, monster type), then (layout 36) the
+//             game tick
 //     resurrections: 2 bytes champion, level, count
 //     then the party wipes and the reloads, 4 bytes each
 //     movement (layout 14): per level 4 bytes level, steps, turns, teleports, ticks, then

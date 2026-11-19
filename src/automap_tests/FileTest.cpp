@@ -1207,6 +1207,7 @@ static HeroStats FilledStats(void)
   death.level = 2;
   death.cause = HeroHarmMonster;
   death.by = bite;
+  death.tick = -1;  // the version 25 file keeps none
   stats.CountDeath(death);
   stats.CountResurrection(3, 2);
   stats.CountStep(0);

@@ -1154,7 +1154,7 @@ static size_t ColumnOf(const std::vector<HeroStatsColumn> &columns, HeroStatsCha
 struct TileText
 {
   std::string big, label, sub;
-  bool bad, gold, hasBar;
+  bool bad, gold, hasBar, zero;  // zero: a dim dot, as in the tables
   int percent;
   size_t dotColumn;  // the champion's column for the dot before sub, columns.size(): none
   std::string help;  // the tooltip, empty for none
@@ -1165,7 +1165,7 @@ static TileText TileTextOf(const HeroStatsTopicPage &page, HeroStatsNumber numbe
 {
   int value = page.record.value[number];
   const HeroStatsNumberInfo &info = HeroStatsCatalogue_Info(number);
-  TileText tile = {HeroStatsCatalogue_Format(number, value), info.label, "", info.isBad && value > 0, false, false, 0, columns.size(), info.help};
+  TileText tile = {HeroStatsCatalogue_Format(number, value), info.label, "", info.isBad && value > 0, false, false, false, 0, columns.size(), info.help};
   int cls = number - HeroNumXpFighter;
   if (cls >= 0 && cls < HERO_XP_CLASS_COUNT && cls < (int)page.classes.size())
   {
@@ -1174,10 +1174,15 @@ static TileText TileTextOf(const HeroStatsTopicPage &page, HeroStatsNumber numbe
     if (isParty)
     {
       tile.label = line.name + " experience";
+      tile.help = HERO_STATS_BEST_RANK_HELP;
       if (!rank.empty())
       {
-        tile.sub = "best: " + rank + " (" + WhoLabel(columns, line.best) + ")";
-        tile.dotColumn = ColumnOf(columns, line.best);
+        // Champions who share the best rank are all named; the dot only for one
+        std::string names;
+        for (size_t k = 0; k < line.tied.size(); k++) names += (k > 0 ? ", " : "") + WhoLabel(columns, line.tied[k]);
+        if (line.tied.empty()) names = WhoLabel(columns, line.best);
+        tile.sub = "best: " + rank + " (" + names + ")";
+        if (line.tied.size() <= 1) tile.dotColumn = ColumnOf(columns, line.best);
       }
     }
     else
@@ -1219,6 +1224,12 @@ static TileText TileTextOf(const HeroStatsTopicPage &page, HeroStatsNumber numbe
           tile.sub = "party: " + record.partyValue + " " + WhoLabel(columns, record.partyHolder);
       }
     }
+  // Zero is written as the tables write it; a rank or a record in its place is no zero
+  if (value == 0 && !HeroStatsCatalogue_IsRecord(number) && tile.big == HeroStatsCatalogue_Format(number, 0))
+  {
+    tile.big = MIDDLE_DOT;
+    tile.zero = true;
+  }
   return tile;
 }
 
@@ -1257,7 +1268,7 @@ static void DrawTiles(const HeroStatsTopicPage &page, const HeroStatsDrawState &
     drawList->AddLine(ImVec2(min.x, min.y + 4), ImVec2(min.x, min.y + height - 4), Packed(LINE_RGB));
     drawList->PushClipRect(min, ImVec2(min.x + tileWidth - 6, min.y + height), true);
     // Bad news on its pill, as everywhere else: red alone reads as the red champion's colour
-    ImU32 bigRgb = tile.bad ? BAD_RGB : tile.gold ? GOLD_RGB : WHITE_RGB;
+    ImU32 bigRgb = tile.bad ? BAD_RGB : tile.gold ? GOLD_RGB : tile.zero ? FAINT_RGB : WHITE_RGB;
     if (tile.bad) PillBehind(drawList, ImVec2(min.x + 14, min.y + 7), ImVec2(TextWidthWithSymbols(bigSize, tile.big), bigSize));
     TextWithSymbols(drawList, bigSize, ImVec2(min.x + 14, min.y + 7), Packed(bigRgb), tile.big);
     drawList->AddText(ImVec2(min.x + 14, min.y + 9 + bigSize), Packed(DIM_RGB), tile.label.c_str());
@@ -1381,14 +1392,16 @@ static void DrawPanels(HeroStatsDrawState *state, const HeroStatsTopicPage &page
 }
 
 // The topic's numbers: the Party's with a column per champion and a share bar, a champion's
-// beside the party's
+// beside the party's. With one champion, who is all of the party, the champion's column alone:
+// on the Party's page it holds the party's own numbers too.
 static void DrawNumbers(const HeroStatsTopicPage &page, const HeroStatsDrawState &state,
                         const std::vector<HeroStatsColumn> &columns)
 {
   bool isParty = state.who == HERO_STATS_PARTY;
   size_t champion = 0;
   while (!isParty && champion < columns.size() && columns[champion].id != state.who) champion++;
-  int count = isParty ? (int)columns.size() + 3 : 4;
+  bool shared = columns.size() != 1;
+  int count = !shared ? 2 : isParty ? (int)columns.size() + 3 : 4;
   ImGui::PushID("numbers");
   if (!BeginPageTable("##numbers", count, false))
   {
@@ -1408,8 +1421,11 @@ static void DrawNumbers(const HeroStatsTopicPage &page, const HeroStatsDrawState
     NumberColumn(columns[champion].name.c_str());
     headerColumns.push_back((int)champion);
   }
-  NumberColumn("Total");
-  BarColumn(isParty ? "Share" : "Share of party");
+  if (shared)
+  {
+    NumberColumn("Total");
+    BarColumn(isParty ? "Share" : "Share of party");
+  }
   HeaderHelps helps(headerColumns.size(), "");
   // Only a table that holds a record says what Total means for one
   bool holdsRecord = false;
@@ -1419,16 +1435,15 @@ static void DrawNumbers(const HeroStatsTopicPage &page, const HeroStatsDrawState
     bool panel = row.group >= 0 && row.group < (int)page.groups.size() && page.groups[row.group].panel;
     if (!panel && HeroStatsCatalogue_IsRecord(row.number)) holdsRecord = true;
   }
-  helps.push_back(holdsRecord ? "All the champions together; for a record, the best of them." : "All the champions together.");
+  if (shared) helps.push_back(holdsRecord ? "All the champions together; for a record, the best of them." : "All the champions together.");
   HeaderRow(headerColumns, columns, "", helps);
-  // The groups have a small heading each, unless there is only the one (the section is named after it)
-  bool headings = TableGroupCount(page) > 1;
+  // Each group with a title has a small heading, a lone one too: the section is always Numbers
   int groupShown = -1;
   for (size_t r = 0; r < page.numbers.size(); r++)
   {
     const HeroStatsNumbersRow &row = page.numbers[r];
     if (row.group >= 0 && row.group < (int)page.groups.size() && page.groups[row.group].panel) continue;  // DrawPanels' rows
-    if (headings && row.group != groupShown && row.group >= 0 && row.group < (int)page.groups.size())
+    if (row.group != groupShown && row.group >= 0 && row.group < (int)page.groups.size() && !page.groups[row.group].title.empty())
       GroupHeadingRow(page.groups[row.group].title, groupShown < 0);
     groupShown = row.group;
     const HeroStatsNumberInfo &info = HeroStatsCatalogue_Info(row.number);
@@ -1437,6 +1452,12 @@ static void DrawNumbers(const HeroStatsTopicPage &page, const HeroStatsDrawState
     // Beside Monsters killed, the champions' kills are a part of it
     bool byChampions = row.number == HeroNumKills && row.label == "By champions";
     LabelCell(row.label, row.depth, row.depth > 0 ? PART_RGB : TEXT_RGB, byChampions ? HERO_STATS_BY_CHAMPIONS_HELP : info.help);
+    if (!shared)
+    {
+      ImGui::TableSetColumnIndex(1);
+      CatalogueCell(row.number, row.byColumn.empty() ? row.party : row.byColumn[0], isParty && columns[0].hasLeft ? DIM_RGB : rgb);
+      continue;
+    }
     for (size_t c = 0; c < row.byColumn.size(); c++)
     {
       ImGui::TableSetColumnIndex((int)c + 1);
@@ -1558,7 +1579,8 @@ static int CompareAttacks(const Line &a, const Line &b, int column)
 
 static void DrawWeapons(HeroStatsDrawState *state, const HeroStatsHeroPage &page, const std::vector<HeroStatsColumn> &columns)
 {
-  bool isParty = state->who == HERO_STATS_PARTY;
+  // The Who column only with champions to tell apart: one champion is all of the party
+  bool withWho = state->who == HERO_STATS_PARTY && columns.size() != 1;
   HeroStatsWeaponLine all;
   all.name = "All weapons";
   all.tries = all.hits = all.damage = all.kills = all.uses = 0;
@@ -1579,7 +1601,7 @@ static void DrawWeapons(HeroStatsDrawState *state, const HeroStatsHeroPage &page
     SectionGap();
     return;
   }
-  int count = isParty ? 8 : 7;
+  int count = withWho ? 8 : 7;
   if (BeginPageTable("##weapons", count, true))
   {
     LabelColumn("Weapon", true);
@@ -1589,14 +1611,14 @@ static void DrawWeapons(HeroStatsDrawState *state, const HeroStatsHeroPage &page
     NumberColumn("Avg", false, true);
     NumberColumn("Damage", true);
     NumberColumn("Kills");
-    if (isParty) BarColumn("Who");
+    if (withWho) BarColumn("Who");
     TableSort sort = CurrentSort();
     static const char *const LABELS[7] = {"Weapon", "Tries", "Hits", "Rate", "Avg", "Damage", "Kills"};
     int measure = WhoMeasure(sort, {1, 2, 5, 6}, 5);
     static const HeaderHelps HELPS = {
         "", "Blows and missiles, and the actions that cannot hit (War Cry, Calm...). The Combat page's Attacks leaves those out; its Other actions counts them.",
         "", "Hits out of the tries that can hit; actions that cannot hit are left out.", HERO_STATS_AVG_HELP};
-    HeaderRow(std::vector<int>(), columns, isParty ? MeasureLabel(LABELS, measure) : "", HELPS);
+    HeaderRow(std::vector<int>(), columns, withWho ? MeasureLabel(LABELS, measure) : "", HELPS);
     std::vector<HeroStatsWeaponLine> weapons = page.weapons;
     SortRows(&weapons, sort, CompareAttacks<HeroStatsWeaponLine>);
     for (size_t w = 0; w < weapons.size(); w++)
@@ -1611,7 +1633,7 @@ static void DrawWeapons(HeroStatsDrawState *state, const HeroStatsHeroPage &page
       NoteWidth(ImGui::CalcTextSize(weapon.name.c_str()).x + ImGui::GetTreeNodeToLabelSpacing());
       bool open = FoldingLabel(weapon.name, ImGuiTreeNodeFlags_SpanLabelWidth, TEXT_RGB);
       AttackCells(weapon, TEXT_RGB);
-      if (isParty)
+      if (withWho)
       {
         ImGui::TableSetColumnIndex(7);
         std::vector<int> split;
@@ -1657,7 +1679,8 @@ static int SpellValue(const Line &line, int column)
 
 static void DrawSpells(HeroStatsDrawState *state, const HeroStatsHeroPage &page, const std::vector<HeroStatsColumn> &columns)
 {
-  bool isParty = state->who == HERO_STATS_PARTY;
+  // The Who column only with champions to tell apart: one champion is all of the party
+  bool withWho = state->who == HERO_STATS_PARTY && columns.size() != 1;
   HeroStatsSpellLine all = {"All spells", 0, 0, 0, 0, 0, 0, 0, std::vector<HeroStatsSpellCounts>()};
   for (size_t i = 0; i < page.spells.size(); i++)
   {
@@ -1678,7 +1701,7 @@ static void DrawSpells(HeroStatsDrawState *state, const HeroStatsHeroPage &page,
     SectionGap();
     return;
   }
-  int count = isParty ? 9 : 8;
+  int count = withWho ? 9 : 8;
   if (BeginPageTable("##spells", count, true))
   {
     LabelColumn("Spell", true);
@@ -1689,7 +1712,7 @@ static void DrawSpells(HeroStatsDrawState *state, const HeroStatsHeroPage &page,
     NumberColumn("Wasted");
     NumberColumn("Damage");
     NumberColumn("Kills");
-    if (isParty) BarColumn("Who");
+    if (withWho) BarColumn("Who");
     TableSort sort = CurrentSort();
     static const char *const LABELS[8] = {"Spell", "Casts", "Successful", "Failed", "Mana", "Wasted", "Damage", "Kills"};
     int measure = WhoMeasure(sort, {1, 2, 3, 4, 5, 6, 7}, 4);
@@ -1697,7 +1720,7 @@ static void DrawSpells(HeroStatsDrawState *state, const HeroStatsHeroPage &page,
         "", "Casts of the spell, the failed ones included.", "The casts that worked.",
         "Casts that failed. On a (no spell) line, the runes formed no spell: the Meaningless casts of Numbers.",
         "The mana of the runes, the mana wasted on failed casts included."};
-    HeaderRow(std::vector<int>(), columns, isParty ? MeasureLabel(LABELS, measure) : "", HELPS);
+    HeaderRow(std::vector<int>(), columns, withWho ? MeasureLabel(LABELS, measure) : "", HELPS);
     std::vector<HeroStatsSpellLine> spells = page.spells;
     SortRows(&spells, sort, [](const HeroStatsSpellLine &a, const HeroStatsSpellLine &b, int column) {
       if (column == 0) return a.name.compare(b.name);
@@ -1716,7 +1739,7 @@ static void DrawSpells(HeroStatsDrawState *state, const HeroStatsHeroPage &page,
         ImGui::TableSetColumnIndex(column);
         PlainCell(SpellValue(line, column), rgb, column == 3 || column == 5);
       }
-      if (isParty && !isAll)
+      if (withWho && !isAll)
       {
         ImGui::TableSetColumnIndex(8);
         std::vector<int> split;
@@ -1734,7 +1757,8 @@ static void DrawAmounts(HeroStatsDrawState *state, int section, const char *titl
                         const char *allLabel, const char *what, const std::vector<HeroStatsAmountLine> &source,
                         const std::vector<HeroStatsColumn> &columns)
 {
-  bool isParty = state->who == HERO_STATS_PARTY;
+  // The Who column only with champions to tell apart: one champion is all of the party
+  bool withWho = state->who == HERO_STATS_PARTY && columns.size() != 1;
   int total = 0;
   for (size_t i = 0; i < source.size(); i++) total += source[i].amount;
   if (!SectionHeader(state, section, title, source.empty() ? "none" : Count(total, what))) return;
@@ -1745,12 +1769,12 @@ static void DrawAmounts(HeroStatsDrawState *state, int section, const char *titl
     return;
   }
   ImGui::PushID(section);
-  if (BeginPageTable("##amounts", isParty ? 3 : 2, true))
+  if (BeginPageTable("##amounts", withWho ? 3 : 2, true))
   {
     LabelColumn("Source", true);
     NumberColumn(column, true);
-    if (isParty) BarColumn("Who");
-    HeaderRow(std::vector<int>(), columns, isParty ? std::string("Who: ") + column : "");
+    if (withWho) BarColumn("Who");
+    HeaderRow(std::vector<int>(), columns, withWho ? std::string("Who: ") + column : "");
     std::vector<HeroStatsAmountLine> lines = source;
     SortRows(&lines, CurrentSort(), [](const HeroStatsAmountLine &a, const HeroStatsAmountLine &b, int c) {
       return c == 0 ? a.text.compare(b.text) : Compare(a.amount, b.amount);
@@ -1761,7 +1785,7 @@ static void DrawAmounts(HeroStatsDrawState *state, int section, const char *titl
       LabelCell(lines[i].text, 0, TEXT_RGB);
       ImGui::TableSetColumnIndex(1);
       PlainCell(lines[i].amount, TEXT_RGB, lines[i].isBad);
-      if (isParty)
+      if (withWho)
       {
         ImGui::TableSetColumnIndex(2);
         WhoCell(lines[i].byColumn, columns);
@@ -1777,13 +1801,77 @@ static void DrawAmounts(HeroStatsDrawState *state, int section, const char *titl
   SectionGap();
 }
 
-static void DrawDeaths(HeroStatsDrawState *state, const HeroStatsHeroPage &page)
+// A table as Ranks gained: who (the Party's page), what killed them, the level and the tick,
+// newest first (a game that kept no ticks: in the order they happened). In a replay the tick
+// goes there.
+static void DrawDeaths(HeroStatsDrawState *state, const HeroStatsHeroPage &page, const std::vector<HeroStatsColumn> &columns)
 {
-  int deaths = (int)page.deathLines.size();
+  int deaths = (int)page.deaths.size();
   std::string summary = deaths == 0 ? "never died" : Count(deaths, deaths == 1 ? "death" : "deaths");
   if (!SectionHeader(state, HeroDetailDeaths, "Deaths", summary)) return;
-  if (deaths == 0) ImGui::TextColored(Colour(DIM_RGB), "Nobody died.");
-  for (size_t i = 0; i < page.deathLines.size(); i++) ImGui::TextColored(Colour(TEXT_RGB), "%s", page.deathLines[i].c_str());
+  if (deaths == 0)
+  {
+    ImGui::TextColored(Colour(DIM_RGB), "Nobody died.");
+    SectionGap();
+    return;
+  }
+  bool isParty = state->who == HERO_STATS_PARTY;
+  if (BeginPageTable("##deaths", isParty ? 4 : 3, true))
+  {
+    if (isParty) LabelColumn("Who", true);
+    if (isParty) TextColumn("Killed by", true);
+    else LabelColumn("Killed by", true);
+    NumberColumn("Lv");
+    NumberColumn("Tick", true);
+    static const char *const TICK_HELP = "When the champion died; empty in a game saved before the statistics kept it.";
+    static const HeaderHelps PARTY_HELPS = {"", "", "", TICK_HELP};
+    static const HeaderHelps CHAMPION_HELPS = {"", "", TICK_HELP};
+    HeaderRow(std::vector<int>(), columns, "", isParty ? PARTY_HELPS : CHAMPION_HELPS);
+    std::vector<HeroStatsDeathLine> lines = page.deaths;
+    int shift = isParty ? 0 : 1;  // a column of the champion's page is one to the left of the party's
+    SortRows(&lines, CurrentSort(), [&](const HeroStatsDeathLine &a, const HeroStatsDeathLine &b, int c) {
+        switch (c + shift)
+        {
+        case 0: return WhoLabel(columns, a.who).compare(WhoLabel(columns, b.who));
+        case 1: return a.killedBy.compare(b.killedBy);
+        case 2: return Compare(a.level, b.level);
+        default: return Compare(a.tick, b.tick);
+        }
+      });
+    for (size_t i = 0; i < lines.size(); i++)
+    {
+      const HeroStatsDeathLine &line = lines[i];
+      NextGuidedRow();
+      int column = 0;
+      if (isParty)
+      {
+        ImGui::TableSetColumnIndex(column++);
+        size_t c = ColumnOf(columns, line.who);
+        ImVec2 at = ImGui::GetCursorScreenPos();
+        if (c < columns.size()) ChampionDot(ImVec2(at.x + 4, at.y + ImGui::GetTextLineHeight() / 2), c, columns[c].hasLeft);
+        NoteWidth(14 + ImGui::CalcTextSize(WhoLabel(columns, line.who).c_str()).x);
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 14);
+        ImGui::TextColored(Colour(TEXT_RGB), "%s", WhoLabel(columns, line.who).c_str());
+      }
+      ImGui::TableSetColumnIndex(column++);
+      TextColoredWithSymbols(TEXT_RGB, line.killedBy);
+      ImGui::TableSetColumnIndex(column++);
+      RightText(std::to_string(line.level), TEXT_RGB);
+      ImGui::TableSetColumnIndex(column++);
+      if (line.tick < 0) RightText("-", FAINT_RGB);
+      else
+      {
+        RightText(HeroStatsView_Number(line.tick), TEXT_RGB);
+        if (tickSink && ImGui::IsItemHovered())
+        {
+          ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+          TooltipWithSymbols("Click: go to tick " + HeroStatsView_Number(line.tick) + " in the replay and pause there");
+          if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) tickSink(line.tick);
+        }
+      }
+    }
+    EndPageTable();
+  }
   SectionGap();
 }
 
@@ -1797,7 +1885,8 @@ struct ConsumedLine
 
 static void DrawConsumed(HeroStatsDrawState *state, const HeroStatsHeroPage &page, const std::vector<HeroStatsColumn> &columns)
 {
-  bool isParty = state->who == HERO_STATS_PARTY;
+  // The Who column only with champions to tell apart: one champion is all of the party
+  bool withWho = state->who == HERO_STATS_PARTY && columns.size() != 1;
   std::vector<ConsumedLine> lines;
   const std::vector<HeroStatsAmountLine> *lists[2] = {&page.eaten, &page.drunk};
   for (int list = 0; list < 2; list++)
@@ -1820,17 +1909,17 @@ static void DrawConsumed(HeroStatsDrawState *state, const HeroStatsHeroPage &pag
     SectionGap();
     return;
   }
-  if (BeginPageTable("##consumed", isParty ? 4 : 3, true))
+  if (BeginPageTable("##consumed", withWho ? 4 : 3, true))
   {
     LabelColumn("Item", true);
     NumberColumn("Eaten", true);
     NumberColumn("Drunk");
-    if (isParty) BarColumn("Who");
+    if (withWho) BarColumn("Who");
     TableSort sort = CurrentSort();
     static const char *const LABELS[3] = {"Item", "Eaten", "Drunk"};
     int measure = WhoMeasure(sort, {1, 2}, 1);
     static const HeaderHelps HELPS = {"", "", "Times the item was drunk; the fountain counts as a drink."};
-    HeaderRow(std::vector<int>(), columns, isParty ? MeasureLabel(LABELS, measure) : "", HELPS);
+    HeaderRow(std::vector<int>(), columns, withWho ? MeasureLabel(LABELS, measure) : "", HELPS);
     SortRows(&lines, sort, [](const ConsumedLine &a, const ConsumedLine &b, int c) {
       if (c == 0) return a.name.compare(b.name);
       if (c == 1) return Compare(a.eaten, b.eaten);
@@ -1848,10 +1937,12 @@ static void DrawConsumed(HeroStatsDrawState *state, const HeroStatsHeroPage &pag
       PlainCell(isAll ? page.eatenTotal : lines[i].eaten, rgb);
       ImGui::TableSetColumnIndex(2);
       PlainCell(isAll ? page.drunkTotal : lines[i].drunk, rgb);
-      if (isParty && !isAll)
+      if (withWho && !isAll)
       {
         ImGui::TableSetColumnIndex(3);
-        WhoCell(measure == 1 ? lines[i].eatenBy : lines[i].drunkBy, columns);
+        // A row with nothing in the measured column splits its other one: a drink sorted by Eaten
+        bool drunk = measure == 1 ? lines[i].eaten == 0 : lines[i].drunk > 0 || lines[i].eaten == 0;
+        WhoCell(drunk ? lines[i].drunkBy : lines[i].eatenBy, columns);
       }
     }
     EndPageTable();
@@ -1924,7 +2015,8 @@ static void DrawMonsters(HeroStatsDrawState *state, const std::vector<HeroStatsM
   // The Party: a column per champion, the doors, pits, telefrags, landings and other causes when there are any, all of them, Who
   bool door = isParty && all.door > 0, pit = isParty && all.pit > 0, other = isParty && all.other > 0;
   bool telefrag = isParty && all.telefrag > 0, landed = isParty && all.landed > 0;
-  int count = 1 + (isParty ? (int)champions + door + pit + telefrag + landed + other + 2 : 1);
+  bool withWho = isParty && champions != 1;  // one champion is all of the party
+  int count = 1 + (isParty ? (int)champions + door + pit + telefrag + landed + other + 1 + withWho : 1);
   if (BeginPageTable("##monsters", count, true))
   {
     LabelColumn("Monster", true);
@@ -1943,7 +2035,7 @@ static void DrawMonsters(HeroStatsDrawState *state, const std::vector<HeroStatsM
       if (landed) NumberColumn(HeroStatsCatalogue_Info(HeroNumLandedOn).label);
       if (other) NumberColumn(HeroStatsCatalogue_Info(HeroNumOtherKills).label);
       NumberColumn("All", true);
-      BarColumn("Who");
+      if (withWho) BarColumn("Who");
     }
     else NumberColumn("Kills", true);
     HeaderHelps helps(1, "");
@@ -1957,7 +2049,7 @@ static void DrawMonsters(HeroStatsDrawState *state, const std::vector<HeroStatsM
       if (other) helps.push_back(HeroStatsCatalogue_Info(HeroNumOtherKills).help);
       helps.push_back("Every kill, whatever the cause.");
     }
-    HeaderRow(headerColumns, columns, isParty ? "Who: Kills" : "", helps);
+    HeaderRow(headerColumns, columns, withWho ? "Who: Kills" : "", helps);
     // The values of a line in table order after the name
     auto values = [&](const HeroStatsMonsterLine &line) {
       std::vector<int> v;
@@ -1969,7 +2061,7 @@ static void DrawMonsters(HeroStatsDrawState *state, const std::vector<HeroStatsM
       if (landed) v.push_back(line.landed);
       if (other) v.push_back(line.other);
       v.push_back(line.total);
-      v.push_back(line.total);  // Who sorts by all of them
+      if (withWho) v.push_back(line.total);  // Who sorts by all of them
       return v;
     };
     std::vector<HeroStatsMonsterLine> lines = source;
@@ -1986,14 +2078,14 @@ static void DrawMonsters(HeroStatsDrawState *state, const std::vector<HeroStatsM
       ImU32 rgb = isAll ? WHITE_RGB : TEXT_RGB;
       LabelCell(line.name, 0, rgb);
       std::vector<int> v = values(line);
-      int numbers = isParty ? (int)v.size() - 1 : 1;
+      int numbers = withWho ? (int)v.size() - 1 : (int)v.size();
       for (int c = 0; c < numbers; c++)
       {
         ImGui::TableSetColumnIndex(c + 1);
         bool dimmed = isParty && c < (int)champions && columns[c].hasLeft;
         PlainCell(v[c], dimmed ? DIM_RGB : rgb);
       }
-      if (isParty && !isAll)
+      if (withWho && !isAll)
       {
         ImGui::TableSetColumnIndex(numbers + 1);
         std::vector<int> split(line.byColumn.begin(), line.byColumn.begin() + champions);
@@ -2014,7 +2106,8 @@ static void DrawSkills(HeroStatsDrawState *state, const std::vector<HeroStatsCla
 {
   if (!SectionHeader(state, HeroDetailSkills, "Skills", "the hidden skills under each class")) return;
   bool isParty = state->who == HERO_STATS_PARTY;
-  int count = isParty ? 4 : 4;
+  bool withWho = isParty && columns.size() != 1;  // one champion is all of the party
+  int count = isParty && !withWho ? 3 : 4;
   if (BeginPageTable("##skills", count, false))
   {
     LabelColumn("Skill");
@@ -2022,7 +2115,7 @@ static void DrawSkills(HeroStatsDrawState *state, const std::vector<HeroStatsCla
     {
       NumberColumn("Experience");
       NumberColumn("Ranks gained");
-      BarColumn("Who: Experience");
+      if (withWho) BarColumn("Who: Experience");
     }
     else
     {
@@ -2048,8 +2141,11 @@ static void DrawSkills(HeroStatsDrawState *state, const std::vector<HeroStatsCla
         PlainCell(line.amount);
         ImGui::TableSetColumnIndex(2);
         PlainCell(line.ranksGained);
-        ImGui::TableSetColumnIndex(3);
-        WhoCell(line.byColumn, columns);
+        if (withWho)
+        {
+          ImGui::TableSetColumnIndex(3);
+          WhoCell(line.byColumn, columns);
+        }
       }
       else
       {
@@ -2076,7 +2172,7 @@ static void DrawSkills(HeroStatsDrawState *state, const std::vector<HeroStatsCla
           LabelCell(skill.name, 1, DIM_RGB);
           ImGui::TableSetColumnIndex(isParty ? 1 : 2);
           PlainCell(skill.amount, PART_RGB);
-          if (isParty)
+          if (withWho)
           {
             ImGui::TableSetColumnIndex(3);
             WhoCell(skill.byColumn, columns);
@@ -2099,7 +2195,9 @@ static void DrawXpSources(HeroStatsDrawState *state, const std::vector<HeroStats
 {
   if (!SectionHeader(state, HeroDetailXpSources, "Experience by source", "click a line to fold it")) return;
   bool isParty = state->who == HERO_STATS_PARTY;
-  int count = isParty ? 3 : 4;
+  // One champion is all of the party: no Who, no Total and no share of it
+  bool shared = columns.size() != 1;
+  int count = !shared ? 2 : isParty ? 3 : 4;
   size_t champion = ColumnOf(columns, state->who);
   if (BeginPageTable("##xpsources", count, false))
   {
@@ -2108,9 +2206,9 @@ static void DrawXpSources(HeroStatsDrawState *state, const std::vector<HeroStats
     else
     {
       NumberColumn(champion < columns.size() ? columns[champion].name.c_str() : "");
-      NumberColumn("Total");
+      if (shared) NumberColumn("Total");
     }
-    BarColumn(isParty ? "Who: Experience" : "Share of party");
+    if (shared) BarColumn(isParty ? "Who: Experience" : "Share of party");
     std::vector<int> headerColumns(1, -1);
     if (!isParty) headerColumns.push_back((int)champion);
     HeaderRow(headerColumns, columns);
@@ -2155,6 +2253,7 @@ static void DrawXpSources(HeroStatsDrawState *state, const std::vector<HeroStats
       if (line.depth > 0) ImGui::Unindent(14.0f * line.depth);
       ImGui::TableSetColumnIndex(1);
       PlainCell(line.amount, rgb);
+      if (!shared) continue;
       if (isParty)
       {
         ImGui::TableSetColumnIndex(2);
@@ -2239,7 +2338,7 @@ static void DrawRankUps(HeroStatsDrawState *state, std::vector<HeroStatsRankUpLi
       ImGui::TableSetColumnIndex(column++);
       RightText(LevelLabel(line.level).substr(3), TEXT_RGB);
       ImGui::TableSetColumnIndex(column++);
-      RightText(HeroStatsView_Number(line.tick), DIM_RGB);
+      RightText(HeroStatsView_Number(line.tick), TEXT_RGB);
     }
     EndPageTable();
   }
@@ -2391,7 +2490,8 @@ static bool DrawCards(const std::vector<HeroStatsCard> &cards, HeroStatsChampion
     drawList->AddRectFilled(min, max, Packed(hovered ? PANEL_HOVERED_RGB : PANEL_RGB), 6.0f);
     drawList->AddRectFilled(ImVec2(min.x + 3, min.y), ImVec2(max.x - 3, min.y + 2), Packed(ChampionRgb(c), card.column.hasLeft ? 0.45f : 1.0f));
     drawList->AddText(ImVec2(min.x + 10, min.y + 9), Packed(card.column.hasLeft ? DIM_RGB : WHITE_RGB), card.column.name.c_str());
-    std::string share = std::to_string(card.damagePercent) + "% of damage";
+    // One champion did all of the party's damage: no share to tell
+    std::string share = cards.size() == 1 ? "" : std::to_string(card.damagePercent) + "% of damage";
     float shareWidth = ImGui::CalcTextSize(share.c_str()).x;
     drawList->AddText(ImVec2(max.x - 10 - shareWidth, min.y + 9), Packed(DIM_RGB), share.c_str());
     for (int r = 0; r < 6; r++)
@@ -2482,13 +2582,8 @@ static void DrawSection(HeroStatsDrawState *state, const HeroStatsTopicPage &pag
   {
   case HERO_STATS_NUMBERS_SECTION:
   {
-    // A page whose table rows are one named group (Exploration's Doors) names the section after it
-    std::string title = "Numbers";
-    if (TableGroupCount(page) == 1)
-      for (size_t g = 0; g < page.groups.size(); g++)
-        if (!page.groups[g].panel && !page.groups[g].title.empty()) title = page.groups[g].title;
     if (TableGroupCount(page) == 0) break;
-    if (SectionHeader(state, HERO_STATS_NUMBERS_SECTION, title.c_str(), whose))
+    if (SectionHeader(state, HERO_STATS_NUMBERS_SECTION, "Numbers", whose))
     {
       DrawNumbers(page, *state, columns);
       SectionGap();
@@ -2504,7 +2599,7 @@ static void DrawSection(HeroStatsDrawState *state, const HeroStatsTopicPage &pag
     DrawAmounts(state, HeroDetailReduced, "Damage reduced by source", "Reduced", "All sources", "reduced", page.hero.reduced,
                 columns);
     break;
-  case HeroDetailDeaths: DrawDeaths(state, page.hero); break;
+  case HeroDetailDeaths: DrawDeaths(state, page.hero, columns); break;
   case HeroDetailConsumed: DrawConsumed(state, page.hero, columns); break;
   case HeroDetailItems: DrawItems(state, page.items, columns); break;
   case HeroDetailMonsters: DrawMonsters(state, page.monsters, columns); break;
@@ -2545,7 +2640,8 @@ static void DrawTopicPage(HeroStatsDrawState *state, const PageData &data, const
   if (state->topic != HeroTopicRecords) sections.push_back(HERO_STATS_NUMBERS_SECTION);
   for (size_t d = 0; d < page.details.size(); d++) sections.push_back(page.details[d]);
   // In a window wide enough for two sections side by side at their full width they stand in two
-  // columns, each in the column shorter so far. Widths and heights are the last frame's.
+  // columns, in their order: the first ones on the left (HeroStatsLayout_Flow). Widths and heights
+  // are the last frame's.
   static std::map<ImGuiID, SectionSize> sizes;
   std::vector<SectionSize *> sizeOf;
   std::vector<float> widths, heights;
@@ -2623,12 +2719,14 @@ static void ChoiceLabel(const char *label)
 }
 
 // The Party's Show switch, and in Champions side by side the Number to show; true for the grid
-static bool DrawPerLevelChoices(HeroStatsDrawState *state)
+static bool DrawPerLevelChoices(HeroStatsDrawState *state, size_t champions)
 {
   std::vector<HeroStatsNumber> numbers = HeroStatsCatalogue_GridNumbers(state->topic);
   if (state->who != HERO_STATS_PARTY || numbers.empty()) return false;
   // Records are one at a time: fifteen side by side, each a best, would say little
   bool recordsOnly = state->topic == HeroTopicRecords;
+  // One champion side by side with nobody would be the party's totals again
+  if (champions == 1 && !recordsOnly) return false;
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(1, 6));
   if (!recordsOnly)
   {
@@ -2686,18 +2784,20 @@ static void LevelCell(HeroStatsDrawState *state, int level)
 
 static void DrawPerLevel(HeroStatsDrawState *state, const HeroStats &stats, const std::vector<HeroStatsColumn> &columns)
 {
-  bool grid = DrawPerLevelChoices(state);
+  bool grid = DrawPerLevelChoices(state, columns.size());
   const HeroStatsPerLevel &table = CachedPerLevel(*state, grid, stats, columns);
   if (table.numbers.empty() || table.rows.empty()) return;
+  // One champion is all of the party: the grid has no Total beside the champion's column
+  bool withTotal = columns.size() != 1;
   int count;
   std::vector<int> headerColumns(1, -1);
-  if (grid) count = 1 + (int)columns.size() + 1 + (table.hasShare ? 1 : 0);
+  if (grid) count = 1 + (int)columns.size() + (withTotal ? 1 : 0) + (table.hasShare ? 1 : 0);
   else count = 1 + (int)table.numbers.size() + (table.hasShare ? 1 : 0);
   std::vector<std::string> labels;
   if (grid)
   {
     for (size_t c = 0; c < columns.size(); c++) labels.push_back(columns[c].name);
-    labels.push_back("Total");
+    if (withTotal) labels.push_back("Total");
     if (table.hasShare) labels.push_back("Share");
   }
   else
@@ -2749,7 +2849,8 @@ static void DrawPerLevel(HeroStatsDrawState *state, const HeroStats &stats, cons
     else NextGuidedRow();
     LevelCell(state, row.level);
     ImU32 rgb = isRun ? WHITE_RGB : TEXT_RGB;
-    for (size_t v = 0; v < row.values.size(); v++)
+    size_t shown = grid && !withTotal ? columns.size() : row.values.size();
+    for (size_t v = 0; v < shown && v < row.values.size(); v++)
     {
       ImGui::TableSetColumnIndex((int)v + 1);
       HeroStatsNumber number = grid ? table.numbers[0] : table.numbers[v];
@@ -2764,7 +2865,7 @@ static void DrawPerLevel(HeroStatsDrawState *state, const HeroStats &stats, cons
     }
     if (table.hasShare)
     {
-      ImGui::TableSetColumnIndex((int)row.values.size() + 1);
+      ImGui::TableSetColumnIndex((int)shown + 1);
       ShareBar(row.share);
     }
   }

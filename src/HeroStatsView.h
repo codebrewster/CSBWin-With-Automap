@@ -45,9 +45,9 @@ std::string HeroStatsView_MissileName(uint32_t spell);
 // causer: the column of row.causer when it is a champion, else 0
 std::string HeroStatsView_HarmName(const HeroStatsHarmRow &row, const HeroStatsColumn *causer,
                                    const std::string &monsterName);
-// "Mummy · Lv 4", "Fireball from Lord Order · Lv 3", "own Fireball · Lv 9", "Fireball from Tiggy · Lv 5", "Fell into a pit · Lv 7".
-// causerName: the monster's name or the causing champion's name; empty when neither. The level
-// is the number the automap shows (the level index, not index + 1).
+// What killed the champion: "Mummy", "Fireball from Lord Order", "own Fireball", "Fireball from
+// Tiggy", "Fell into a pit" (the Deaths table has the level in a column of its own).
+// causerName: the monster's name or the causing champion's name; empty when neither.
 std::string HeroStatsView_DeathName(const HeroStatsDeath &death, const std::string &causerName);
 
 #pragma pack(pop)

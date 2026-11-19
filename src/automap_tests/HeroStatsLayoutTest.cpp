@@ -82,11 +82,20 @@ static void SectionsStandSideBySideWhenEachFitsInHalf(void)
   CHECK(!HeroStatsLayout_TwoColumns(std::vector<float>(1, 300), 2000, 22));
 }
 
-static void EachSectionGoesToTheShorterColumn(void)
+// The sections keep their order: the first ones on the left, the rest on the right, split where
+// the taller column is least tall; at a tie the left one takes more, as a column fills first
+static void TheSectionsFillTheLeftColumnThenTheRight(void)
 {
   static const float HEIGHTS[4] = {300, 200, 150, 400};
-  static const int COLUMNS[4] = {0, 1, 1, 0};
+  static const int COLUMNS[4] = {0, 0, 1, 1};
   CHECK(HeroStatsLayout_Flow(std::vector<float>(HEIGHTS, HEIGHTS + 4)) == std::vector<int>(COLUMNS, COLUMNS + 4));
+  static const float TALL_FIRST[3] = {500, 100, 100};
+  static const int TALL_FIRST_COLUMNS[3] = {0, 1, 1};
+  CHECK(HeroStatsLayout_Flow(std::vector<float>(TALL_FIRST, TALL_FIRST + 3)) == std::vector<int>(TALL_FIRST_COLUMNS, TALL_FIRST_COLUMNS + 3));
+  static const float TIE[3] = {50, 100, 50};
+  static const int TIE_COLUMNS[3] = {0, 0, 1};
+  CHECK(HeroStatsLayout_Flow(std::vector<float>(TIE, TIE + 3)) == std::vector<int>(TIE_COLUMNS, TIE_COLUMNS + 3));
+  CHECK(HeroStatsLayout_Flow(std::vector<float>(1, 300)) == std::vector<int>(1, 0));
 }
 
 // A table too wide gives up, in this order: the bar, the champions' names, half its padding, the
@@ -167,5 +176,5 @@ void TestHeroStatsLayout(void)
   FullWidthIsEverythingWithTheSmallestBar();
   CardsNeverStandThreeAndOne();
   SectionsStandSideBySideWhenEachFitsInHalf();
-  EachSectionGoesToTheShorterColumn();
+  TheSectionsFillTheLeftColumnThenTheRight();
 }

@@ -66,6 +66,9 @@ struct HeroStatsSpellCounts { int casts, successful, failed, mana, wasted, damag
 struct HeroStatsSpellLine { std::string name; int casts, successful, failed, mana, wasted, damage, kills; std::vector<HeroStatsSpellCounts> byColumn; };
 // byColumn: on the Party's page, each column's part of the amount
 struct HeroStatsAmountLine { std::string text; int amount; bool isBad; std::vector<int> byColumn; };
+// A death: who died (column: theirs in the columns, -1 for none), what killed them
+// ("Mummy", "own Poison cloud"), on which level and when (the game tick, -1 when not known)
+struct HeroStatsDeathLine { HeroStatsChampion who; int column; std::string killedBy; int level, tick; };
 
 struct HeroStatsHeroPage
 {
@@ -73,7 +76,7 @@ struct HeroStatsHeroPage
   std::vector<HeroStatsSpellLine> spells;     // most mana first
   std::vector<HeroStatsAmountLine> taken;     // biggest first
   std::vector<HeroStatsAmountLine> reduced;   // damage the defences took off, by harm source, biggest first
-  std::vector<std::string> deathLines;
+  std::vector<HeroStatsDeathLine> deaths;     // in the order they happened
   int wipes, reloads;
   // Food and water: everything eaten and drunk (the fountain included), a line per item (most
   // first; the drunk lines end with "Fountain"), what it gave and what was lost over full
@@ -120,11 +123,13 @@ struct HeroStatsXpLine { std::string name, note; int depth; int id; int amount; 
 // A class: its experience, ranks and hidden skills (depth 1; "<class> itself" for gains straight to
 // it). rankNow: the champion's (the Party's: the best champion's, best), with percentToNext;
 // startRank: when the statistics first knew the champion (-1 unknown, and on the Party's page).
+// tied: the Party's page: every champion at the best rank, best first, in column order.
 struct HeroStatsClassLine
 {
   std::string name;
   int rankNow, startRank, percentToNext, amount, ranksGained;
   HeroStatsChampion best;
+  std::vector<HeroStatsChampion> tied;
   std::vector<int> byColumn;
   std::vector<HeroStatsXpLine> skills;
 };
@@ -183,7 +188,8 @@ struct HeroStatsPerLevel
 // apply to who on a level (Monsters: the causes under Monsters killed too). The party's rows share out the topic's first number kept per champion.
 HeroStatsPerLevel HeroStatsPages_PerLevelTotals(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
                                                 HeroStatsChampion who, int topic);
-// Champions side by side: values are one per column, then the party; share one per column
+// Champions side by side: values are one per column, then the party; share one per column. With
+// one champion, who is all of the party, neither table has a share.
 HeroStatsPerLevel HeroStatsPages_PerLevelGrid(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
                                               HeroStatsNumber number);
 

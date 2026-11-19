@@ -248,6 +248,11 @@ static void SummaryIsEveryTile(void)
   // Tiles that do apply are kept as they are, the others skipped
   std::vector<HeroStatsNumber> party = HeroStatsCatalogue_TilesFor(HeroStatsCatalogue_Topic(HeroTopicExploration).tiles, HeroTopicExploration, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN);
   CHECK(party.size() == 4 && party[3] == HeroNumTeleports);
+  // A champion's tiles that do not apply are filled from the top rows: Food & items gets Eaten
+  std::vector<HeroStatsNumber> food = HeroStatsCatalogue_TilesFor(HeroStatsCatalogue_Topic(HeroTopicSupplies).tiles, HeroTopicSupplies, 7, HERO_STATS_WHOLE_RUN);
+  CHECK(food == std::vector<HeroStatsNumber>({HeroNumFoodGained, HeroNumWaterGained, HeroNumPotionsDrunk, HeroNumEaten}));
+  std::vector<HeroStatsNumber> kills = HeroStatsCatalogue_TilesFor(HeroStatsCatalogue_Topic(HeroTopicMonsters).tiles, HeroTopicMonsters, 7, HERO_STATS_WHOLE_RUN);
+  CHECK(kills == std::vector<HeroStatsNumber>({HeroNumKills}));
 }
 
 // One number alone is what the whole record says (Per level asks for one number per champion)
@@ -417,13 +422,14 @@ static void TopicsHaveGroups(void)
     CHECK(at == info.rows.size());
   }
   const HeroStatsTopicInfo &exploration = HeroStatsCatalogue_Topic(HeroTopicExploration);
-  CHECK(exploration.groups.size() == 5);
-  if (exploration.groups.size() != 5) return;
+  CHECK(exploration.groups.size() == 6);
+  if (exploration.groups.size() != 6) return;
   CHECK(std::string(exploration.groups[0].title) == "Movement" && exploration.groups[0].panel);
   CHECK(std::string(exploration.groups[1].title) == "Travel" && exploration.groups[1].rows[1].number == HeroNumTelefrags &&
         exploration.groups[1].rows[1].depth == 1 && std::string(HeroStatsCatalogue_RowLabel(exploration.groups[1].rows[1])) == "onto monsters");
   CHECK(std::string(HeroStatsCatalogue_RowLabel(exploration.groups[1].rows[0])) == "Teleports");
   CHECK(std::string(exploration.groups[4].title) == "Doors" && !exploration.groups[4].panel);
+  CHECK(std::string(exploration.groups[5].title) == "Door buttons" && exploration.groups[5].panel);
   CHECK(HeroStatsCatalogue_Topic(HeroTopicCombat).groups.size() == 2 && HeroStatsCatalogue_Topic(HeroTopicMagic).groups.size() == 3);
   // Mana out: Wasted is a part of Spells, and the failed and meaningless casts are its parts
   const std::vector<HeroStatsTopicRow> &out = HeroStatsCatalogue_Topic(HeroTopicMagic).groups[1].rows;
@@ -445,6 +451,35 @@ static void TopicsHaveGroups(void)
   const HeroStatsTopicInfo &overview = HeroStatsCatalogue_Topic(HeroTopicOverview);
   CHECK(overview.groups.size() == 1 && overview.groups[0].rows.size() == 2 && overview.groups[0].rows[0].number == HeroNumKills);
   HeroStatsCatalogue_ApplySetting(HeroSettingKeyNumbers, "");
+}
+
+// A number only the party has stands in a panel, not in a table with empty champion columns,
+// unless it is a part of a sum the champions have parts in too (the causes under Monsters
+// killed). The Overview's Key numbers and the Records are tables of their own.
+static void PartyNumbersStandInPanels(void)
+{
+  for (int t = 0; t < HERO_TOPIC_COUNT; t++)
+  {
+    if (t == HeroTopicOverview || t == HeroTopicRecords) continue;
+    const HeroStatsTopicInfo &info = HeroStatsCatalogue_Topic(t);
+    for (size_t g = 0; g < info.groups.size(); g++)
+    {
+      const std::vector<HeroStatsTopicRow> &rows = info.groups[g].rows;
+      for (size_t r = 0; r < rows.size(); r++)
+      {
+        bool partyOnly = HeroStatsCatalogue_Info(rows[r].number).partyOnly;
+        if (info.groups[g].panel) { CHECK(partyOnly); continue; }
+        if (!partyOnly) continue;
+        // The sum it is in: from its top row to the next top row
+        size_t top = r;
+        while (top > 0 && rows[top].depth > 0) top--;
+        bool championPart = false;
+        for (size_t k = top; k < rows.size() && (k == top || rows[k].depth > 0); k++)
+          championPart = championPart || !HeroStatsCatalogue_Info(rows[k].number).partyOnly;
+        CHECK(championPart);
+      }
+    }
+  }
 }
 
 // The six causes add up to Monsters killed; an older save's telefrag kills leave Other causes
@@ -561,6 +596,7 @@ static void TimeIsAShareOfTheRun(void)
 void TestHeroStatsCatalogue(void)
 {
   TopicsHaveGroups();
+  PartyNumbersStandInPanels();
   KillCausesAddUp();
   HovertextsSayWhatLabelsDoNot();
   ExperienceAndRecordsHaveTopics();
