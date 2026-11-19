@@ -81,6 +81,18 @@ static void DumpOne(const HeroStats &stats, HeroStatsChampion who, std::string *
     Line(out, name, "harm source %d by " + InFormat(NameOf(stats, h.causer)) + " monster %d amount %d" + missile,
          (int)h.source, h.monsterType, h.amount);
   }
+  if (stats.MonsterAttacks(who, run) != 0)
+    Line(out, name, "monster attacks %d hits %d dodged %d lucky %d too weak %d blocked %d", stats.MonsterAttacks(who, run),
+         stats.MonsterAttacks(who, run, HeroAttackHit), stats.MonsterAttacks(who, run, HeroAttackDodged),
+         stats.MonsterAttacks(who, run, HeroAttackLucky), stats.MonsterAttacks(who, run, HeroAttackTooWeak),
+         stats.MonsterAttacks(who, run, HeroAttackBlocked));
+  // What the defences took off, in 64ths of a hit point as the store keeps it (HeroDefencePart)
+  for (int source = 0; source < HERO_HARM_SOURCE_COUNT; source++)
+    for (int part = 0; part < HERO_DEFENCE_PART_COUNT; part++)
+    {
+      long long amount = stats.Defence(who, run, part, source);
+      if (amount != 0) Line(out, name, "reduced source %d part %d amount %d/64", source, part, (int)amount);
+    }
   Number(out, name, "friendly fire caused %d", stats.FriendlyFireCaused(who, run));
   Number(out, name, "healed %d", stats.Healed(who, run));
   std::vector<HeroStatsHealRow> heals = stats.HealRows(who, run);

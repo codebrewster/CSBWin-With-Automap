@@ -169,8 +169,37 @@ static void FriendlyFireDeathNamesItsKiller(void)
   CHECK(HeroStatsDump_Text(stats) == expected);
 }
 
+static void MonsterAttacksAndDefencesGetLines(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  stats.CountMonsterAttack(7, 2, 10, HeroAttackHit);
+  stats.CountMonsterAttack(7, 2, 10, HeroAttackDodged);
+  stats.CountMonsterAttack(7, 3, 10, HeroAttackBlocked);
+  int parts[HERO_DEFENCE_PART_COUNT] = {};
+  parts[HeroDefenceArmour] = 444;
+  parts[HeroDefenceAsleep] = -22;
+  stats.CreditDefence(7, 2, HeroHarmMonster, parts);
+  int walls[HERO_DEFENCE_PART_COUNT] = {};
+  walls[HeroDefenceVitality] = 70;
+  stats.CreditDefence(7, 3, HeroHarmWall, walls);
+  std::string expected =
+    "HALK\n"
+    "HALK monster attacks 3 hits 1 dodged 1 lucky 0 too weak 0 blocked 1\n"
+    "HALK reduced source 0 part 3 amount 444/64\n"
+    "HALK reduced source 0 part 10 amount -22/64\n"
+    "HALK reduced source 7 part 5 amount 70/64\n"
+    "PARTY\n"
+    "PARTY monster attacks 3 hits 1 dodged 1 lucky 0 too weak 0 blocked 1\n"
+    "PARTY reduced source 0 part 3 amount 444/64\n"
+    "PARTY reduced source 0 part 10 amount -22/64\n"
+    "PARTY reduced source 7 part 5 amount 70/64\n";
+  CHECK(HeroStatsDump_Text(stats) == expected);
+}
+
 void TestHeroStatsDump(void)
 {
+  MonsterAttacksAndDefencesGetLines();
   NothingDumpsAsNames();
   EveryNumberGetsALine();
   SpellsFriendlyFireAndManaGetLines();
