@@ -8,6 +8,9 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 ## Unreleased
 
 **Statistics**
+- Magic splits the mana of spells that went wrong: Wasted on failed casts (needs more practice) and Wasted on meaningless spells (runes that form no spell). Older saves keep the meaningless spells among the failed casts.
+- Magic counts Regeneration lost (mana full): the mana regeneration would have given while a champion's mana was full, or the part a nearly full champion could not take. Spend mana before it fills up and it is not lost.
+- Survival splits Potions under Healed by who brewed them: Own brews, Brewed by others and Found. The Healing by source table, which showed the same numbers again, is gone.
 - Exploration counts Stair dances under Travel: two stair changes or more with no step away from the stairs in between (fighting from the stairs and turning to get away). A step to a square next to the stairs and back keeps a dance going; Strict stair dances, which never leave the stairs, are counted beside them to compare. Each has its Dance moves (the stair changes after the one that brought the party onto the stairs), and Records has the Longest stair dance and the Longest strict stair dance.
 - Magic's Spells table has a Successful column: each spell's casts that worked, next to Casts and Failed (also in the HTML export).
 - Survival counts the monster attacks each champion received and how they ended: Hits taken, Dodged, Lucky, Too weak and Blocked.

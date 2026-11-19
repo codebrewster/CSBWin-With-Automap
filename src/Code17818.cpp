@@ -245,11 +245,22 @@ void TenSecondUpdate(void)
 
         AdjustStamina(chIdx, staminaAdjust);
         HeroStats_OnManaRegenerated(chIdx, Smaller(manaAdjust, pcA3->MaxMana()-pcA3->Mana()));
+        HeroStats_OnManaRegenLost(chIdx, manaAdjust - Smaller(manaAdjust, pcA3->MaxMana()-pcA3->Mana()));
         pcA3->Mana(pcA3->Mana() + Smaller(manaAdjust, pcA3->MaxMana()-pcA3->Mana()));
       };
     }
     else
     {
+      // Statistics only: the regeneration full mana kept out. The same roll and gain as above,
+      // made without touching the game (DetermineMastery and random112 change nothing).
+      {
+        i32 magicMastery = DetermineMastery(chIdx, SKILL_Wizard) + DetermineMastery(chIdx, SKILL_Priest);
+        i32 magicMasteryPlusWisdom = magicMastery + pcA3->Attributes[Wisdom].Current();
+        bool regenerates = legacyManaRegenInverted ? (random112 >= magicMasteryPlusWisdom)
+                                                   : (random112 < magicMasteryPlusWisdom);
+        if (regenerates)
+          HeroStats_OnManaRegenLost(chIdx, pcA3->MaxMana() / 40 * (d.PartySleeping ? 2 : 1) + 1);
+      }
 //tag0179b0:
       if (pcA3->Mana() > pcA3->MaxMana())
       {

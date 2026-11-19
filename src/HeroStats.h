@@ -55,7 +55,10 @@ enum HeroHarmSource { HeroHarmMonster, HeroHarmMonsterMissile, HeroHarmTrap, Her
                       HeroHarmStarvation, HeroHarmExhaustion, HeroHarmPotion, HeroHarmOther,
                       HERO_HARM_SOURCE_COUNT };
 enum HeroHealKind { HeroHealRegeneration, HeroHealPotion, HeroHealAction, HERO_HEAL_KIND_COUNT };
-enum HeroManaGain { HeroManaRegeneration, HeroManaPotion, HERO_MANA_GAIN_COUNT };
+// HeroManaRegenLost is no gain: what regeneration would have given but for full mana (the roll
+// made and won at or above maximum, or the part of a gain the maximum cut off). ManaGained
+// leaves it out.
+enum HeroManaGain { HeroManaRegeneration, HeroManaPotion, HeroManaRegenLost, HERO_MANA_GAIN_COUNT };
 
 // Spell rows that are not rune spells
 const uint32_t HERO_SPELL_RUNES_CLEARED = 0x01000000;
@@ -84,8 +87,9 @@ const char *HeroStats_TwinDetail(int type, const char *const *itemNames, int nam
 struct HeroStatsChampionInfo { HeroStatsChampion id; std::string name; };
 // A rune entered: the level it was entered on and the mana the engine took for it
 struct HeroStatsRune { int level; int mana; };
-// What became of a rune's mana: its spell was cast, failed, or the rune was thrown away
-enum HeroRuneOutcome { HeroRuneCast, HeroRuneFailed, HeroRuneCleared, HERO_RUNE_OUTCOME_COUNT };
+// What became of a rune's mana: its spell was cast, failed, or the rune was thrown away; or the
+// runes formed no spell ("mumbles a meaningless spell")
+enum HeroRuneOutcome { HeroRuneCast, HeroRuneFailed, HeroRuneCleared, HeroRuneMeaningless, HERO_RUNE_OUTCOME_COUNT };
 // uses: actions that cannot hit (War Cry, Calm, Spellshield ...), counted apart from the tries
 struct HeroStatsAttackRow { int weapon; bool thrown; int option; int tries, hits, damage, kills, uses; };
 struct HeroStatsMonsterRow { int monsterType, variant; HeroBlowBy by; HeroStatsChampion champion; int count; };
@@ -216,13 +220,17 @@ public:
   int Healed(HeroStatsChampion who, int level) const;
   int HealingGiven(HeroStatsChampion who, int level) const;                // potion healing with brewer == who
   std::vector<HeroStatsHealRow> HealRows(HeroStatsChampion who, int level) const;  // biggest first
+  // Potion healing by brewer: brewed and drunk by the same champion, brewed by another, or by no
+  // champion (HERO_STATS_NOBODY: found, or brewed before the statistics began)
+  void PotionHealingByBrewer(HeroStatsChampion who, int level, int *own, int *fromOthers, int *found) const;
   int ManaGained(HeroStatsChampion who, int level) const;
   int ManaGainedBy(HeroStatsChampion who, int level, HeroManaGain gain) const;  // one source of ManaGained
   // Runes entered (on the level they were entered on), staffs and wands, shield and heal actions:
-  // the sum of the four below
+  // the sum of the five below
   int ManaSpent(HeroStatsChampion who, int level) const;
   int ManaOnSuccessfulCasts(HeroStatsChampion who, int level) const;       // runes cast, staffs, actions
   int ManaWasted(HeroStatsChampion who, int level) const;                  // runes of failed casts
+  int ManaMeaningless(HeroStatsChampion who, int level) const;             // runes that formed no spell
   int RunesCleared(HeroStatsChampion who, int level) const;                // runes thrown away
   int RunesNotCastYet(HeroStatsChampion who, int level) const;             // runes entered, still kept
   std::vector<HeroStatsSpellRow> Spells(HeroStatsChampion who, int level) const;  // most mana first
@@ -343,8 +351,9 @@ public:
   // outcomes are taken from the rune spells' rows, on the level of the cast; 21 has a table of
   // rune mana per level, which is skipped), 22 no experience and no records, 23 no items taken
   // from chests (none counted), 24 no poisonings, wounds or stretches of poison, 29 no climbs onto monsters,
-  // 30 no arrivals or stair changes, 32 no monster attacks and no defences, 33 no stair dances.
-  static const int LAYOUT = 34;
+  // 30 no arrivals or stair changes, 32 no monster attacks and no defences, 33 no stair dances,
+  // 34 no meaningless spells (their runes count as failed) and no regeneration lost at full mana.
+  static const int LAYOUT = 35;
   static const int FIRST_LAYOUT_WITH_MOVEMENT = 14;
   static const int FIRST_LAYOUT_WITH_PITS_AND_SLEEP = 15;
   static const int FIRST_LAYOUT_WITH_ITEMS = 16;
@@ -366,6 +375,7 @@ public:
   static const int FIRST_LAYOUT_WITH_BREWS = 32;   // the event kind of a potion brewed
   static const int FIRST_LAYOUT_WITH_DEFENCES = 33;  // monster attacks and what the defences took off
   static const int FIRST_LAYOUT_WITH_STAIR_DANCES = 34;
+  static const int FIRST_LAYOUT_WITH_MANA_LOSSES = 35;  // rune outcome 3 (meaningless), mana gain 2 (regeneration lost)
   // layout: an older one leaves out what it does not have (the tests write old files with it)
   void Serialize(std::vector<uint8_t> *out, int layout = LAYOUT) const;
   bool Deserialize(const uint8_t *data, size_t size, int layout = LAYOUT);

@@ -32,6 +32,13 @@ static HeroStats TwoChampions(void)
   stats.CreditManaGained(9, 2, HeroManaPotion, 12);
   stats.CountCast(9, 2, 0x0405, 10);
   stats.CountFailedCast(9, 2, 0x0405, 4);
+  stats.EnterRune(9, 2, 5);
+  stats.ResolveRunes(9, HeroRuneMeaningless);
+  stats.EnterRune(9, 2, 3);
+  stats.ResolveRunes(9, HeroRuneFailed);
+  stats.CreditManaGained(9, 2, HeroManaRegenLost, 7);
+  stats.CreditHealing(9, 2, HeroHealPotion, 7, 11);
+  stats.CreditHealing(9, 2, HeroHealPotion, 9, 2);
   stats.CountConsumed(7, 1, 3, HeroConsumeEaten);
   stats.CreditFood(7, 1, 500, 300);
   stats.CountDoorBashed(7, 2, HeroDoorSmashed);
@@ -99,8 +106,13 @@ static void RecordMatchesTheStore(void)
   CHECK(syra.value[HeroNumCasts] == 2 && syra.value[HeroNumCastsSuccessful] == 1 && syra.value[HeroNumCastsFailed] == 1);
   CHECK(syra.value[HeroNumManaWasted] == stats.ManaWasted(9, 2));
   CHECK(syra.value[HeroNumRunesCleared] == stats.RunesCleared(9, 2));
-  // Spells is its two parts, and with the cleared runes and those not cast yet makes Mana spent
-  CHECK(syra.value[HeroNumManaOnSpells] == syra.value[HeroNumManaSuccessful] + syra.value[HeroNumManaWasted]);
+  CHECK(syra.value[HeroNumManaWasted] == 3 && syra.value[HeroNumManaMeaningless] == 5);
+  CHECK(syra.value[HeroNumManaRegenLost] == 7 && syra.value[HeroNumManaGenerated] == 12);
+  CHECK(syra.value[HeroNumHealPotions] == 13 && syra.value[HeroNumHealPotionsOwn] == 2 &&
+        syra.value[HeroNumHealPotionsOthers] == 11 && syra.value[HeroNumHealPotionsFound] == 0);
+  // Spells is its three parts, and with the cleared runes and those not cast yet makes Mana spent
+  CHECK(syra.value[HeroNumManaOnSpells] ==
+        syra.value[HeroNumManaSuccessful] + syra.value[HeroNumManaWasted] + syra.value[HeroNumManaMeaningless]);
   CHECK(syra.value[HeroNumManaSpent] == syra.value[HeroNumManaOnSpells] + syra.value[HeroNumRunesCleared] +
                                         syra.value[HeroNumRunesNotCast]);
   HeroStatsRecord party = HeroStatsCatalogue_Record(stats, HERO_STATS_PARTY, 2);

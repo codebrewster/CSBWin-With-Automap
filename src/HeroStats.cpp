@@ -525,11 +525,27 @@ std::vector<HeroStatsHealRow> HeroStats::HealRows(HeroStatsChampion who, int lev
   return rows;
 }
 
+void HeroStats::PotionHealingByBrewer(HeroStatsChampion who, int level, int *own, int *fromOthers, int *found) const
+{
+  *own = *fromOthers = *found = 0;
+  for (std::map<HealKey, int>::const_iterator at = m_healing.begin(); at != m_healing.end(); ++at)
+  {
+    const HealKey &key = at->first;
+    if (std::get<2>(key) != HeroHealPotion) continue;
+    if (!Matches(who, std::get<0>(key)) || !LevelMatches(level, std::get<1>(key))) continue;
+    HeroStatsChampion brewer = std::get<3>(key);
+    if (brewer == HERO_STATS_NOBODY) *found += at->second;
+    else if (brewer == std::get<0>(key)) *own += at->second;
+    else *fromOthers += at->second;
+  }
+}
+
 int HeroStats::ManaGained(HeroStatsChampion who, int level) const
 {
   int sum = 0;
   for (std::map<GainKey, int>::const_iterator at = m_manaGained.begin(); at != m_manaGained.end(); ++at)
   {
+    if (std::get<2>(at->first) == HeroManaRegenLost) continue;  // never gained
     if (Matches(who, std::get<0>(at->first)) && LevelMatches(level, std::get<1>(at->first))) sum += at->second;
   }
   return sum;
@@ -575,8 +591,8 @@ int HeroStats::SpecialRowsMana(HeroStatsChampion who, int level) const
 
 int HeroStats::ManaSpent(HeroStatsChampion who, int level) const
 {
-  return ManaOnSuccessfulCasts(who, level) + ManaWasted(who, level) + RunesCleared(who, level) +
-         RunesNotCastYet(who, level);
+  return ManaOnSuccessfulCasts(who, level) + ManaWasted(who, level) + ManaMeaningless(who, level) +
+         RunesCleared(who, level) + RunesNotCastYet(who, level);
 }
 
 int HeroStats::ManaOnSuccessfulCasts(HeroStatsChampion who, int level) const
@@ -587,6 +603,11 @@ int HeroStats::ManaOnSuccessfulCasts(HeroStatsChampion who, int level) const
 int HeroStats::ManaWasted(HeroStatsChampion who, int level) const
 {
   return RuneOutcome(who, level, HeroRuneFailed);
+}
+
+int HeroStats::ManaMeaningless(HeroStatsChampion who, int level) const
+{
+  return RuneOutcome(who, level, HeroRuneMeaningless);
 }
 
 int HeroStats::RunesCleared(HeroStatsChampion who, int level) const
@@ -1465,6 +1486,9 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
   bool hasClimbLandings = layout >= FIRST_LAYOUT_WITH_CLIMB_LANDINGS;
   bool hasStairs = layout >= FIRST_LAYOUT_WITH_STAIRS;
   bool hasStairDances = layout >= FIRST_LAYOUT_WITH_STAIR_DANCES;
+  bool hasManaLosses = layout >= FIRST_LAYOUT_WITH_MANA_LOSSES;
+  int gainKinds = hasManaLosses ? HERO_MANA_GAIN_COUNT : (int)HeroManaRegenLost;
+  int outcomeKinds = hasManaLosses ? HERO_RUNE_OUTCOME_COUNT : (int)HeroRuneMeaningless;
   HeroBytesReader in(data, size);
   HeroStats read;
   uint32_t count = in.GetCount(3);
@@ -1563,7 +1587,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
     int level = in.GetInt();
     int gain = in.GetInt();
     int amount = in.GetInt();
-    if (gain < 0 || gain >= HERO_MANA_GAIN_COUNT) return false;
+    if (gain < 0 || gain >= gainKinds) return false;
     read.m_manaGained[GainKey(who, level, gain)] = amount;
   }
   count = in.GetCount(2 + 4 + 4 + 24);
@@ -1727,7 +1751,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
       int level = in.GetInt();
       int outcome = in.GetInt();
       int mana = in.GetInt();
-      if (outcome < 0 || outcome >= HERO_RUNE_OUTCOME_COUNT) return false;
+      if (outcome < 0 || outcome >= outcomeKinds) return false;
       read.m_runeOutcomes[RuneOutcomeKey(who, level, outcome)] = mana;
     }
     count = in.GetCount(2 + 4);

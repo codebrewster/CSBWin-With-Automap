@@ -170,7 +170,8 @@ hit), Damage, Kills.
 | Number | What it counts |
 |---|---|
 | **Mana generated** | with **Regeneration** and **Mana potions** below it |
-| **Mana spent** | counted as each rune is entered, as the game takes it, whatever becomes of the spell; below it what became of that mana, which adds up to it: **Spells** (split into **Successful casts** and **Wasted on failures**), **Runes cleared** and **Not cast yet** |
+| **Regeneration lost (mana full)** | the mana regeneration would have given had the champion's mana not been full: all of a regeneration at or above the maximum, and the part over the maximum when the champion was nearly full (at 48 of 50, a gain of 3 gives 2 and loses 1). Spend mana before it fills up and this mana is not lost. Full mana spends no stamina on regenerating either. Not part of Mana generated. Counted from this version on; older saves show 0 |
+| **Mana spent** | counted as each rune is entered, as the game takes it, whatever becomes of the spell; below it what became of that mana, which adds up to it: **Spells** (split into **Successful casts**, **Wasted on failed casts** and **Wasted on meaningless spells**, runes that form no spell: "mumbles a meaningless spell"), **Runes cleared** and **Not cast yet**. In saves from before this version the meaningless spells are among the failed casts |
 | **Spells cast** | every attempt; with **Successful** and **Failed** below it, which add up to it |
 
 **Spells** has one row per spell, all power levels together (Lo Ful Ir and Mon Ful Ir are both
@@ -186,11 +187,11 @@ the game does not refund it). It is under Mana spent instead, with **Not cast ye
 in an incantation, whose mana is spent already.
 
 **Which level.** Mana counts on the level where the runes were entered, and so does what became
-of it (the four lines under Mana spent); a spell in the Spells table counts on the level where it
+of it (the lines under Mana spent); a spell in the Spells table counts on the level where it
 was cast. Enter a fireball's runes, sleep, take the stairs and cast it below: the mana is spent on
 the level above, the fireball is cast on the level below. For the whole run the Mana of **All
 spells** is the **Spells** line under Mana spent: Successful casts (staffs, wands and actions
-included) plus Wasted on failures.
+included) plus Wasted on failed casts and Wasted on meaningless spells.
 
 ## Survival
 
@@ -199,7 +200,7 @@ included) plus Wasted on failures.
 | **Damage taken** | after armour and resistances |
 | **Monster attacks received** | the blows of monsters at the champion (not their missiles or spells, not a theft), with how each ended below it: **Hits taken** (it did damage), **Dodged** (the champion was quick enough), **Lucky** (the champion's Luck turned it aside; neither happens while the party sleeps), **Too weak** (the monster's attack did not get past the champion's skill at parrying) and **Blocked** (it landed, but the defences left no damage). The five add up to the attacks received |
 | **Damage reduced** | the damage the defences took off every hit, from monsters or anything else, with what took it off below it. See [Damage reduced](#damage-reduced) |
-| **Healed** | HP actually gained; with **Regeneration**, **Potions** and **Heal action** below it |
+| **Healed** | HP actually gained; with **Regeneration**, **Potions** and **Heal action** below it. Potions is split by who brewed them: **Own brews**, **Brewed by others** (another champion) and **Found** (no champion brewed them: found in the dungeon, or brewed before the statistics began) |
 | **Healing given** | HP healed by potions the champion brewed, whoever drank them |
 | **Deaths**, **Resurrected** | how often the champion died and was brought back |
 | **Party wiped out**, **Reloads** | for the Party and the whole run only |
@@ -245,9 +246,6 @@ Each part of the sum gets its share of what protection took off:
 Stance, Wounds and Asleep can be below 0: they made protection smaller, and the hits bigger. All
 the numbers are kept in fractions of a hit point and rounded when shown, so the lines can be a
 point off their sum.
-
-**Healing by source**: regeneration, the Heal action and potions (from whom, own, or found in the
-dungeon).
 
 **Deaths** lists each death with its cause and level, for example "Fireball from Lord Order · Lv
 3", "own Fireball · Lv 9", "Fell into a pit · Lv 7". The Party's list names the champion.
@@ -656,7 +654,7 @@ The window keeps these in the `[settings]` section of `csb.cfg`:
 | `stats_layout` | 2: `stats_page` holds a topic. Without it, `stats_page` is read as the front page of earlier versions (3 Monsters, 4 Items; the others open the Overview). |
 | `stats_separator` | The mark between thousands: `comma` (4,261, the default), `dot` (4.261), `space` (4 261), `apostrophe` (4'261) or `none` (4261). Edit it while the game is closed. |
 | `stats_zoom` | The zoom in percent: 70, 80, 90, 100 (the default), 110, 125, 150, 175, 200 or 250. Another number is taken as the nearest of these. |
-| `stats_closed` | Which sections are folded, added up: 1 Weapons, 2 Spells, 4 Damage taken by source, 8 Healing by source, 16 Deaths, 32 Eaten and drunk, 64 Items, 128 Monsters killed, 256 Numbers, 512 Key numbers, 1024 Skills, 2048 Experience by source, 4096 Ranks gained, 8192 Records, 16384 Attributes, 32768 Ranks, 65536 Inventory (the last three on the Champions tab), 131072 The party (Exploration's panels), 262144 Damage reduced by source; 0 none |
+| `stats_closed` | Which sections are folded, added up: 1 Weapons, 2 Spells, 4 Damage taken by source, 8 (no longer used), 16 Deaths, 32 Eaten and drunk, 64 Items, 128 Monsters killed, 256 Numbers, 512 Key numbers, 1024 Skills, 2048 Experience by source, 4096 Ranks gained, 8192 Records, 16384 Attributes, 32768 Ranks, 65536 Inventory (the last three on the Champions tab), 131072 The party (Exploration's panels), 262144 Damage reduced by source; 0 none |
 | `stats_inventory` | How the Champions tab shows a champion's inventory: `picture` (the default) or `list` |
 
 Who is picked, Per level and its choices are not kept: the window opens on the Party.
@@ -697,8 +695,8 @@ closed: the game writes `csb.cfg` again when you leave it.
 | Topic | Names |
 |---|---|
 | Combat | `damage`, `melee`, `ranged`, `magic`, `kills`, `attacks`, `hits`, `hit_rate`, `damage_per_hit`, `other_actions`, `friendly_fire` |
-| Magic | `mana_generated`, `mana_regeneration`, `mana_potions`, `mana_spent`, `mana_on_spells`, `mana_successful`, `mana_wasted`, `runes_cleared`, `runes_not_cast`, `casts`, `casts_successful`, `casts_failed` |
-| Survival | `taken`, `attacks_received`, `hits_taken`, `dodged`, `lucky`, `too_weak`, `blocked`, `damage_reduced`, `reduced_resistance`, `reduced_shield_spells`, `reduced_protection`, `reduced_armour`, `reduced_hand_shields`, `reduced_vitality`, `reduced_shield_potion`, `reduced_party_shield`, `reduced_stance`, `reduced_wounds`, `reduced_asleep`, `reduced_wisdom`, `healed`, `heal_regeneration`, `heal_potions`, `heal_action`, `healing_given`, `deaths`, `resurrected`, `wipes`, `reloads` |
+| Magic | `mana_generated`, `mana_regeneration`, `mana_potions`, `mana_regen_lost`, `mana_spent`, `mana_on_spells`, `mana_successful`, `mana_wasted`, `mana_meaningless`, `runes_cleared`, `runes_not_cast`, `casts`, `casts_successful`, `casts_failed` |
+| Survival | `taken`, `attacks_received`, `hits_taken`, `dodged`, `lucky`, `too_weak`, `blocked`, `damage_reduced`, `reduced_resistance`, `reduced_shield_spells`, `reduced_protection`, `reduced_armour`, `reduced_hand_shields`, `reduced_vitality`, `reduced_shield_potion`, `reduced_party_shield`, `reduced_stance`, `reduced_wounds`, `reduced_asleep`, `reduced_wisdom`, `healed`, `heal_regeneration`, `heal_potions`, `heal_potions_own`, `heal_potions_others`, `heal_potions_found`, `heal_action`, `healing_given`, `deaths`, `resurrected`, `wipes`, `reloads` |
 | Food & items | `eaten`, `drunk`, `potions_drunk`, `potions_brewed`, `food_gained`, `food_wasted`, `water_gained`, `water_wasted`, `picked_up`, `used_in_walls` |
 | Exploration | `steps`, `tiles_walked`, `tiles_explored`, `turns`, `wall_bumps`, `monster_bumps`, `teleports`, `telefrags`, `pit_falls`, `landings`, `pit_climbs`, `climb_landings`, `ticks`, `sleep_ticks`, `doors_bashed`, `doors_smashed`, `doors_shot`, `doors_by_spell`, `doors_by_zo`, `doors_button_opened`, `doors_button_closed`, `chests`, `scrolls`, `wall_texts`, `champions_seen`, `champions_viewed` |
 | Monsters | `monsters_killed`, `kills`, `door_kills`, `pit_kills`, `telefragged` (also read as `telefrag_kills`), `landed_on`, `other_kills` |

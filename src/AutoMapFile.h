@@ -128,7 +128,8 @@ private:
 //     harm: 2 bytes victim, level, source, 2 bytes causer, monster type, amount, then (version
 //           14) the 4 byte missile kind of a monster's missile (HERO_SPELL_MONSTER_MISSILE | kind)
 //     healing: 2 bytes champion, level, kind, 2 bytes brewer, amount
-//     mana gained: 2 bytes champion, level, gain, amount
+//     mana gained: 2 bytes champion, level, gain (0 regeneration, 1 potion, (layout 35) 2
+//              regeneration lost to full mana), amount
 //     spells: 2 bytes champion, level, 4 byte spell key, casts, mana, failed, wasted, damage, kills
 //     deaths: 2 bytes champion, level, cause, then the blow (1 byte by, 2 champion, 1 kind,
 //             weapon, 1 byte thrown, option, 4 byte spell, monster type)
@@ -154,7 +155,7 @@ private:
 //     scrolls read (layout 20): level, count
 //     rune mana (layout 21 only, skipped when read): 2 bytes champion, level, mana
 //     rune outcomes (layout 22): 2 bytes champion, level the runes were entered on, outcome
-//              (0 cast, 1 failed, 2 cleared), mana; then the runes kept: per champion 2 bytes
+//              (0 cast, 1 failed, 2 cleared, (layout 35) 3 no such spell), mana; then the runes kept: per champion 2 bytes
 //              champion, rune count, per rune level entered on, mana
 //     experience (layout 23): per champion, level, 1 byte skill and source (1 byte kind,
 //              weapon, option, 4 bytes spell, monster type) the amount; the ranks gained (2 bytes
@@ -186,7 +187,7 @@ private:
 // door methods and no food and water, layout 18 no tiles walked, layout 19 no scrolls read,
 // layouts 20 and 21 no rune outcomes (taken from the rune spells' rows), layout 22 no experience
 // and no records, layout 23 no items taken from chests, layout 24 no poisonings, wounds or
-// stretches of poison, layout 25 no bumps into monsters, layout 26 no telefrags, layout 27 no count of their kills, layout 28 no landings and no monster kills by telefrag or landing (a telefrag's kills are among the "other" kills and counted with the movement), layout 29 no climbs down a rope onto monsters, layout 30 no arrivals or stair changes, layout 31 no potions brewed, layout 32 no monster attacks or defences, layout 33 no stair dances. These older layouts come only inside map files of those versions.
+// stretches of poison, layout 25 no bumps into monsters, layout 26 no telefrags, layout 27 no count of their kills, layout 28 no landings and no monster kills by telefrag or landing (a telefrag's kills are among the "other" kills and counted with the movement), layout 29 no climbs down a rope onto monsters, layout 30 no arrivals or stair changes, layout 31 no potions brewed, layout 32 no monster attacks or defences, layout 33 no stair dances, layout 34 no meaningless spells (among the failed) and no regeneration lost. These older layouts come only inside map files of those versions.
 class AutoMapStatsFile
 {
 public:

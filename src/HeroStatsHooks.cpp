@@ -1473,7 +1473,8 @@ void HeroStats_OnSpellFailed(int slot, uint32_t spell, bool noSuchSpell)
 {
   if (!IsHero(slot)) return;
   uint32_t key = noSuchSpell ? (spell | HERO_SPELL_NO_SUCH_SPELL) : spell;
-  store.CountFailedCast(MetChampion(slot), PartyLevel(), key, TakeRuneCastMana(HeroRuneFailed));
+  int mana = TakeRuneCastMana(noSuchSpell ? HeroRuneMeaningless : HeroRuneFailed);
+  store.CountFailedCast(MetChampion(slot), PartyLevel(), key, mana);
 }
 
 void HeroStats_OnSpellNeedsFlask(int slot, uint32_t spell)
@@ -1523,6 +1524,12 @@ void HeroStats_OnManaRegenerated(int slot, int amount)
 {
   if (!IsHero(slot) || amount <= 0) return;
   store.CreditManaGained(MetChampion(slot), PartyLevel(), HeroManaRegeneration, amount);
+}
+
+void HeroStats_OnManaRegenLost(int slot, int amount)
+{
+  if (!IsHero(slot) || amount <= 0) return;
+  store.CreditManaGained(MetChampion(slot), PartyLevel(), HeroManaRegenLost, amount);
 }
 
 void HeroStats_OnHpRegenerated(int slot, int amount)

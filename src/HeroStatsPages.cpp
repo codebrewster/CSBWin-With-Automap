@@ -276,35 +276,6 @@ static void AddReduced(HeroStatsHeroPage *page, const HeroStats &stats, HeroStat
   std::stable_sort(page->reduced.begin(), page->reduced.end(), LineBefore);
 }
 
-static void AddHealing(HeroStatsHeroPage *page, const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
-                       HeroStatsChampion who, int level, bool isParty)
-{
-  page->healedTotal = stats.Healed(who, level);
-  std::vector<HeroStatsHealRow> heals = stats.HealRows(who, level);
-  for (size_t i = 0; i < heals.size(); i++)
-  {
-    const HeroStatsHealRow &row = heals[i];
-    if (row.amount <= 0) continue;
-    std::string text = "Regeneration";
-    if (row.kind == HeroHealAction) text = "Heal action";
-    else if (row.kind == HeroHealPotion)
-    {
-      text = "Potions";
-      if (!isParty)
-      {
-        const HeroStatsColumn *brewer = ColumnOf(columns, row.brewer);
-        if (row.brewer == who) text += " (own)";
-        else if (brewer != NULL) text += " (from " + brewer->name + ")";
-        else text += " (found)";
-      }
-    }
-    AddLine(&page->healing, text, row.amount, false);
-  }
-  std::stable_sort(page->healing.begin(), page->healing.end(), LineBefore);
-  page->given = stats.HealingGiven(who, level);
-  page->resurrected = stats.Resurrections(who, level);
-}
-
 // Only the deaths on the picked level; wipes and reloads are the whole run's
 static void AddHardship(HeroStatsHeroPage *page, const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
                         HeroStatsChampion who, int level, const HeroStatsNames &names)
@@ -374,7 +345,6 @@ static HeroStatsHeroPage BuildHero(const HeroStats &stats, const std::vector<Her
   AddSpells(&page, stats, who, level);
   AddHarm(&page, stats, columns, who, level, names, partyNames);
   AddReduced(&page, stats, who, level);
-  AddHealing(&page, stats, columns, who, level, partyNames);
   AddFood(&page, stats, who, level, names);
   AddHardship(&page, stats, columns, who, level, names);
   return page;
@@ -433,7 +403,6 @@ HeroStatsHeroPage HeroStatsPages_Hero(const HeroStats &stats, const std::vector<
         }
     SplitAmounts(&page.taken, one.taken, c, n);
     SplitAmounts(&page.reduced, one.reduced, c, n);
-    SplitAmounts(&page.healing, one.healing, c, n);
     SplitAmounts(&page.eaten, one.eaten, c, n);
     SplitAmounts(&page.drunk, one.drunk, c, n);
   }
@@ -453,7 +422,6 @@ std::vector<HeroStatsDetail> HeroStatsPages_Details(int topic, HeroStatsChampion
   case HeroTopicSurvival:
     details.push_back(HeroDetailHarm);
     details.push_back(HeroDetailReduced);
-    details.push_back(HeroDetailHealing);
     details.push_back(HeroDetailDeaths);
     break;
   case HeroTopicSupplies:

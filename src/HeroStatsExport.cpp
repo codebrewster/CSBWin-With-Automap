@@ -188,7 +188,6 @@ static std::string PageJson(const HeroStatsHeroPage &page)
   }
   out += "],\"taken\":" + AmountLinesJson(page.taken, true);
   out += ",\"reduced\":" + AmountLinesJson(page.reduced, false);
-  out += ",\"healing\":" + AmountLinesJson(page.healing, false);
   out += ",\"deaths\":[";
   for (size_t i = 0; i < page.deathLines.size(); i++)
     out += (i > 0 ? "," : "") + HeroStatsExport_JsonString(page.deathLines[i]);
@@ -1062,7 +1061,6 @@ function topicPage() {
     else if (d === DETAIL.SPELLS) html += spells(p);
     else if (d === DETAIL.HARM) html += amounts(DETAIL.HARM, 'Damage taken by source', 'Damage', 'taken', p.taken, true);
     else if (d === DETAIL.REDUCED) html += amounts(DETAIL.REDUCED, 'Damage reduced by source', 'Reduced', 'reduced', p.reduced, false);
-    else if (d === DETAIL.HEALING) html += amounts(DETAIL.HEALING, 'Healing by source', 'Healed', 'healed', p.healing, false);
     else if (d === DETAIL.DEATHS) html += deaths(p);
     else if (d === DETAIL.CONSUMED) html += consumed(p);
     else if (d === DETAIL.ITEMS) html += items();

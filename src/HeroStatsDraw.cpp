@@ -2473,9 +2473,6 @@ static void DrawSection(HeroStatsDrawState *state, const HeroStatsTopicPage &pag
     DrawAmounts(state, HeroDetailReduced, "Damage reduced by source", "Reduced", "All sources", "reduced", page.hero.reduced,
                 columns);
     break;
-  case HeroDetailHealing:
-    DrawAmounts(state, HeroDetailHealing, "Healing by source", "Healed", "All sources", "healed", page.hero.healing, columns);
-    break;
   case HeroDetailDeaths: DrawDeaths(state, page.hero); break;
   case HeroDetailConsumed: DrawConsumed(state, page.hero, columns); break;
   case HeroDetailItems: DrawItems(state, page.items, columns); break;

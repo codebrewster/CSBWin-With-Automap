@@ -279,7 +279,8 @@ void HeroStats_EndRuneCast(bool incantationKept);
 // paid for, so nothing counts.
 void HeroStats_OnSpellAborted(int slot, int action);
 void HeroStats_OnSpellCast(int slot, uint32_t spell);      // all rune mana to the spell row
-// A failure: all rune mana is wasted; noSuchSpell marks the key HERO_SPELL_NO_SUCH_SPELL
+// A failure: all rune mana is wasted; noSuchSpell (the runes form no spell) marks the key
+// HERO_SPELL_NO_SUCH_SPELL and the runes' outcome meaningless instead of failed
 void HeroStats_OnSpellFailed(int slot, uint32_t spell, bool noSuchSpell);
 // A potion spell with no empty flask in hand: a failure, but CastMagic keeps the incantation, so
 // its runes' mana stays for the next try
@@ -290,6 +291,9 @@ void HeroStats_OnItemSpellMana(int slot, int mana);       // CharacterThrowsSpel
 void HeroStats_OnShieldActionMana(int slot, int mana);
 void HeroStats_OnHealAction(int slot, int mana, int hpGained);
 void HeroStats_OnManaRegenerated(int slot, int amount);
+// Regeneration that full mana kept out: the whole gain when the roll was won at or above the
+// maximum, or the part of a gain the maximum cut off
+void HeroStats_OnManaRegenLost(int slot, int amount);
 void HeroStats_OnHpRegenerated(int slot, int amount);
 // HP and mana actually added: HP is capped at the maximum by the engine, mana may go above it
 // (the engine allows that for potions). Forgets the potion's brewer.

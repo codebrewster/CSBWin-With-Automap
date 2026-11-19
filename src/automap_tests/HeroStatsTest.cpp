@@ -756,6 +756,17 @@ static void HealingRemembersTheBrewer(void)
     CHECK(rows[0].kind == HeroHealPotion && rows[0].brewer == 7 && rows[0].amount == 25);
     CHECK(rows[1].kind == HeroHealRegeneration && rows[1].brewer == HERO_STATS_NOBODY);
   }
+  // Potion healing by brewer: own, another champion's, or nobody's (found)
+  stats.CreditHealing(9, 3, HeroHealPotion, 9, 10);
+  stats.CreditHealing(9, 3, HeroHealPotion, HERO_STATS_NOBODY, 6);
+  stats.CreditHealing(7, 3, HeroHealPotion, 7, 3);
+  int own, others, found;
+  stats.PotionHealingByBrewer(9, 3, &own, &others, &found);
+  CHECK(own == 10 && others == 25 && found == 6);
+  stats.PotionHealingByBrewer(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, &own, &others, &found);
+  CHECK(own == 13 && others == 25 && found == 6);
+  stats.PotionHealingByBrewer(9, 2, &own, &others, &found);
+  CHECK(own == 0 && others == 0 && found == 0);
 }
 
 static void ManaIsKeptPerSpell(void)
@@ -771,7 +782,7 @@ static void ManaIsKeptPerSpell(void)
   stats.EnterRune(7, 3, 6);
   stats.CountFailedCast(7, 3, K, stats.ResolveRunes(7, HeroRuneFailed));
   stats.EnterRune(7, 3, 8);
-  stats.CountFailedCast(7, 3, K | HERO_SPELL_NO_SUCH_SPELL, stats.ResolveRunes(7, HeroRuneFailed));
+  stats.CountFailedCast(7, 3, K | HERO_SPELL_NO_SUCH_SPELL, stats.ResolveRunes(7, HeroRuneMeaningless));
   stats.EnterRune(7, 3, 1);
   stats.EnterRune(7, 3, 3);
   stats.TakeBackRune(7);
@@ -781,7 +792,8 @@ static void ManaIsKeptPerSpell(void)
   CHECK(stats.ManaGained(7, 3) == 23);
   CHECK(stats.ManaSpent(7, 3) == 78);
   CHECK(stats.ManaOnSuccessfulCasts(7, 3) == 60);
-  CHECK(stats.ManaWasted(7, 3) == 14);
+  CHECK(stats.ManaWasted(7, 3) == 6);
+  CHECK(stats.ManaMeaningless(7, 3) == 8);
   CHECK(stats.RunesCleared(7, 3) == 4);
   CHECK(stats.RunesNotCastYet(7, 3) == 0);
   CHECK(stats.ManaSpent(9, 3) == 0);
@@ -1089,6 +1101,34 @@ static void ManaGainIsKeptBySource(void)
   CHECK(stats.ManaGainedBy(7, HERO_STATS_WHOLE_RUN, HeroManaPotion) == 12);
   CHECK(stats.ManaGainedBy(HERO_STATS_PARTY, 1, HeroManaPotion) == 5);
   CHECK(stats.ManaGainedBy(7, 1, HeroManaRegeneration) + stats.ManaGainedBy(7, 1, HeroManaPotion) == stats.ManaGained(7, 1));
+  // Regeneration lost to full mana is kept apart and never gained
+  stats.CreditManaGained(7, 1, HeroManaRegenLost, 9);
+  CHECK(stats.ManaGainedBy(7, 1, HeroManaRegenLost) == 9 && stats.ManaGained(7, 1) == 30);
+  CHECK(stats.ManaGainedBy(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroManaRegenLost) == 9);
+}
+
+// Layout 35 adds the meaningless rune outcome and regeneration lost; older layouts refuse them
+static void ManaLossesNeedLayout35(void)
+{
+  HeroStats stats;
+  stats.EnterRune(7, 2, 8);
+  stats.CountFailedCast(7, 2, 0x0405 | HERO_SPELL_NO_SUCH_SPELL, stats.ResolveRunes(7, HeroRuneMeaningless));
+  stats.CreditManaGained(7, 2, HeroManaRegenLost, 4);
+  std::vector<uint8_t> bytes;
+  stats.Serialize(&bytes);
+  HeroStats read;
+  CHECK(read.Deserialize(bytes.data(), bytes.size()));
+  CHECK(read.ManaMeaningless(7, 2) == 8 && read.ManaWasted(7, 2) == 0 && read.ManaSpent(7, 2) == 8);
+  CHECK(read.ManaGainedBy(7, 2, HeroManaRegenLost) == 4 && read.ManaGained(7, 2) == 0);
+  std::vector<uint8_t> as34;
+  stats.Serialize(&as34, 34);
+  HeroStats old;
+  CHECK(!old.Deserialize(as34.data(), as34.size(), 34));
+  HeroStats plain;
+  plain.CreditManaGained(7, 2, HeroManaRegeneration, 4);
+  as34.clear();
+  plain.Serialize(&as34, 34);
+  CHECK(old.Deserialize(as34.data(), as34.size(), 34) && old.ManaGained(7, 2) == 4);
 }
 
 // The engine's tables as Dungeon Master has them: power, element, form and alignment runes, and
@@ -1124,6 +1164,7 @@ void TestHeroStats(void)
 {
   RunesOfALoadedGameGetTheEnginesCosts();
   ManaGainIsKeptBySource();
+  ManaLossesNeedLayout35();
   RuneSpellKeyLeavesOutThePowerRune();
   WeaponNamesComeFromTheItemNames();
   ChampionsKeepOrderAndRename();

@@ -73,9 +73,6 @@ struct HeroStatsHeroPage
   std::vector<HeroStatsSpellLine> spells;     // most mana first
   std::vector<HeroStatsAmountLine> taken;     // biggest first
   std::vector<HeroStatsAmountLine> reduced;   // damage the defences took off, by harm source, biggest first
-  int healedTotal;
-  std::vector<HeroStatsAmountLine> healing;   // biggest first
-  int given, resurrected;
   std::vector<std::string> deathLines;
   int wipes, reloads;
   // Food and water: everything eaten and drunk (the fountain included), a line per item (most
@@ -107,6 +104,8 @@ struct HeroStatsNumbersRow
 };
 // A group of the page's numbers (HeroStatsTopicGroup) that has a row for who on the level
 struct HeroStatsNumbersGroup { std::string title; bool panel; };
+// HeroDetailHealing is no longer shown (the Numbers split potion healing by brewer); it keeps its
+// place so the later sections keep their numbers (fold state, the HTML export)
 enum HeroStatsDetail { HeroDetailWeapons, HeroDetailSpells, HeroDetailHarm, HeroDetailHealing, HeroDetailDeaths,
                        HeroDetailConsumed, HeroDetailItems, HeroDetailMonsters, HeroDetailSkills, HeroDetailXpSources,
                        HeroDetailRankUps, HeroDetailRecords, HeroDetailReduced, HERO_DETAIL_COUNT };
@@ -154,7 +153,7 @@ struct HeroStatsTopicPage
   std::vector<HeroStatsNumbersRow> numbers;   // the topic's rows that apply
   std::vector<HeroStatsNumbersGroup> groups;  // their groups, in order
   std::vector<HeroStatsDetail> details;       // in drawing order
-  HeroStatsHeroPage hero;                     // weapons, spells, taken, healing, deaths, eaten, drunk
+  HeroStatsHeroPage hero;                     // weapons, spells, taken, deaths, eaten, drunk
   std::vector<HeroStatsMonsterLine> monsters;
   std::vector<HeroStatsItemLine> items;
   std::vector<HeroStatsClassLine> classes;    // Experience: Fighter, Ninja, Priest, Wizard
