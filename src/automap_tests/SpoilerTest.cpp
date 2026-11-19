@@ -2410,6 +2410,134 @@ static void PlayerNoteLinesWording(void)
   CHECK(AutoMapScene_PlayerNoteLines(drawList, 3, 1).empty());
 }
 
+// An object launcher at (1,0) firing south: the stone cell holds CLUB, CHEST{SWORD}, CLUB in
+// firing order (the reader's chain order)
+static const int CLUB = 13;
+static const AutoMapRecordId LAUNCHER_RECORD = 31;
+
+static AutoMapAlcoveEntry Ammo(int picture, int nameIndex, AutoMapRecordId record, AutoMapRecordId inChest)
+{
+  AutoMapAlcoveEntry entry;
+  entry.item = ItemOf(picture, nameIndex);
+  entry.side = AutoMapSouth;
+  entry.record = record;
+  entry.inChest = inChest;
+  entry.isChest = picture == CHEST;
+  return entry;
+}
+
+static AutoMapLauncher ObjectLauncher(int type)
+{
+  AutoMapLauncher launcher;
+  launcher.actuatorType = type;
+  launcher.side = AutoMapSouth;
+  launcher.actuator = LAUNCHER_RECORD;
+  return launcher;
+}
+
+static AutoMapLevelSnapshot WithObjectLauncher(int type)
+{
+  AutoMapLevelSnapshot snapshot = Corridor();
+  AutoMapLauncher launcher = ObjectLauncher(type);
+  launcher.ammunition.push_back(Ammo(CLUB, 4, 41, AUTOMAP_NO_RECORD));
+  launcher.ammunition.push_back(Ammo(CHEST, 1, CHEST_RECORD, AUTOMAP_NO_RECORD));
+  launcher.ammunition.push_back(Ammo(SWORD, 2, 42, CHEST_RECORD));
+  launcher.ammunition.push_back(Ammo(CLUB, 4, 43, AUTOMAP_NO_RECORD));
+  At(&snapshot, 1, 0).wallLaunchers.push_back(launcher);
+  return snapshot;
+}
+
+static size_t LaunchedSlots(const std::vector<AutoMapTooltipSlot> &slots)
+{
+  size_t n = 0;
+  for (size_t i = 0; i < slots.size(); i++) n += slots[i].launched ? 1 : 0;
+  return n;
+}
+
+static void LaunchedItemsShowAtAllInFiringOrder(void)
+{
+  AutoMapDrawList all = Build(WithObjectLauncher(14), AutoMapSpoilersAll, NULL);
+  std::vector<AutoMapTooltipSlot> slots = AutoMapScene_TooltipSlots(all, 1, 0);
+  CHECK(slots.size() == 3);
+  if (slots.size() != 3) return;
+  CHECK(slots[0].launched && !slots[0].isChest && slots[0].item.nameIndex == 4 && slots[0].side == AutoMapSouth);
+  CHECK(slots[1].launched && slots[1].isChest && slots[1].side == AutoMapSouth);
+  CHECK(slots[1].contents.size() == 1 && slots[1].contents[0].item.nameIndex == 2);
+  CHECK(slots[2].launched && slots[2].item.nameIndex == 4 && slots[2].count == 1);
+  CHECK(HasLine(Texts(AutoMapScene_RelayLines(all, 1, 0)), "  LAUNCHES OBJECT, 3 LEFT"));
+}
+
+static void DoubleLauncherCountsItemsNotShots(void)
+{
+  AutoMapDrawList all = Build(WithObjectLauncher(15), AutoMapSpoilersAll, NULL);
+  CHECK(HasLine(Texts(AutoMapScene_RelayLines(all, 1, 0)), "  LAUNCHES 2X OBJECT, 3 LEFT"));
+}
+
+static void EmptyObjectLauncherSaysEmpty(void)
+{
+  AutoMapLevelSnapshot snapshot = Corridor();
+  At(&snapshot, 1, 0).wallLaunchers.push_back(ObjectLauncher(14));
+  AutoMapDrawList all = Build(snapshot, AutoMapSpoilersAll, NULL);
+  CHECK(HasLine(Texts(AutoMapScene_RelayLines(all, 1, 0)), "  LAUNCHES OBJECT, EMPTY"));
+  CHECK(LaunchedSlots(AutoMapScene_TooltipSlots(all, 1, 0)) == 0);
+}
+
+// Neighbours that read the same group, in order; chests never do
+static void LaunchedItemsGroupButChestsDoNot(void)
+{
+  AutoMapLevelSnapshot snapshot = Corridor();
+  AutoMapLauncher launcher = ObjectLauncher(14);
+  launcher.ammunition.push_back(Ammo(CLUB, 4, 41, AUTOMAP_NO_RECORD));
+  launcher.ammunition.push_back(Ammo(CLUB, 4, 42, AUTOMAP_NO_RECORD));
+  launcher.ammunition.push_back(Ammo(CHEST, 1, 43, AUTOMAP_NO_RECORD));
+  launcher.ammunition.push_back(Ammo(CHEST, 1, 44, AUTOMAP_NO_RECORD));
+  At(&snapshot, 1, 0).wallLaunchers.push_back(launcher);
+  std::vector<AutoMapTooltipSlot> slots = AutoMapScene_TooltipSlots(Build(snapshot, AutoMapSpoilersAll, NULL), 1, 0);
+  CHECK(slots.size() == 3);
+  if (slots.size() != 3) return;
+  CHECK(slots[0].item.nameIndex == 4 && slots[0].count == 2);
+  CHECK(slots[1].isChest && slots[1].count == 1);
+  CHECK(slots[2].isChest && slots[2].count == 1);
+}
+
+static void LaunchedSlotNeverMergesWithAlcoveGoods(void)
+{
+  AutoMapLevelSnapshot snapshot = Corridor();
+  AutoMapLauncher launcher = ObjectLauncher(14);
+  launcher.ammunition.push_back(Ammo(CLUB, 4, 41, AUTOMAP_NO_RECORD));
+  At(&snapshot, 1, 0).wallLaunchers.push_back(launcher);
+  At(&snapshot, 1, 0).alcoveContents.push_back(Ammo(CLUB, 4, 45, AUTOMAP_NO_RECORD));
+  std::vector<AutoMapTooltipSlot> slots = AutoMapScene_TooltipSlots(Build(snapshot, AutoMapSpoilersAll, NULL), 1, 0);
+  CHECK(slots.size() == 2);
+  CHECK(LaunchedSlots(slots) == 1);
+}
+
+static void AmmunitionStaysHiddenBelowAllEvenOnceFired(void)
+{
+  AutoMapKnowledge knowledge;
+  knowledge.Learn(AutoMapFact_OfRecord(AutoMapFactActuator, LAUNCHER_RECORD));
+  AutoMapDrawList learned = Build(WithObjectLauncher(14), AutoMapSpoilersLearned, &knowledge);
+  const AutoMapShownCell *cell = FindCell(learned, 1, 0);
+  CHECK(cell != NULL && cell->cell.wallLaunchers.size() == 1);
+  if (cell != NULL && cell->cell.wallLaunchers.size() == 1) CHECK(cell->cell.wallLaunchers[0].ammunition.empty());
+  CHECK(LaunchedSlots(AutoMapScene_TooltipSlots(learned, 1, 0)) == 0);
+  CHECK(!HasLineStartingWith(Texts(AutoMapScene_RelayLines(learned, 1, 0)), "  LAUNCHES"));
+}
+
+static void LauncherItemsAreFoundAtAllOnly(void)
+{
+  AutoMapDrawList all = Build(WithObjectLauncher(14), AutoMapSpoilersAll, NULL);
+  std::vector<AutoMapSearchHit> sword = AutoMapScene_SearchItems(all, "sword", FakeName, NULL);
+  CHECK(sword.size() == 1 && sword[0].kind == AutoMapHitInLauncherChest);
+  std::vector<AutoMapSearchHit> club = AutoMapScene_SearchItems(all, "club", FakeName, NULL);
+  CHECK(club.size() == 1 && club[0].kind == AutoMapHitLauncher && club[0].count == 2);
+  AutoMapKnowledge knowledge;
+  knowledge.Learn(AutoMapFact_OfRecord(AutoMapFactActuator, LAUNCHER_RECORD));
+  AutoMapDrawList learned = Build(WithObjectLauncher(14), AutoMapSpoilersLearned, &knowledge);
+  CHECK(AutoMapScene_SearchItems(learned, "sword", FakeName, NULL).empty());
+  CHECK(AutoMapScene_SearchItems(learned, "club", FakeName, NULL).empty());
+}
+
 void TestAutoMapSpoilers(void)
 {
   AFloorPictureShowsOnceItWasNoticed();
@@ -2507,4 +2635,11 @@ void TestAutoMapSpoilers(void)
   PlayerNoteLinesWording();
   RimRockTakesNoNotes();
   NotesFollowTheBoundaryMargin();
+  LaunchedItemsShowAtAllInFiringOrder();
+  DoubleLauncherCountsItemsNotShots();
+  EmptyObjectLauncherSaysEmpty();
+  LaunchedItemsGroupButChestsDoNot();
+  LaunchedSlotNeverMergesWithAlcoveGoods();
+  AmmunitionStaysHiddenBelowAllEvenOnceFired();
+  LauncherItemsAreFoundAtAllOnly();
 }

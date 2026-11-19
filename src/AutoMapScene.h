@@ -183,7 +183,8 @@ struct AutoMapChestContents
 struct AutoMapAlcoveEntry
 {
   AutoMapAlcoveEntry(void)
-    : side(-1), record(AUTOMAP_NO_RECORD), scroll(AUTOMAP_NO_RECORD), inChest(AUTOMAP_NO_RECORD)
+    : side(-1), record(AUTOMAP_NO_RECORD), scroll(AUTOMAP_NO_RECORD), inChest(AUTOMAP_NO_RECORD),
+      isChest(false)
   {
   }
   AutoMapItem item;
@@ -199,6 +200,8 @@ struct AutoMapAlcoveEntry
   // The chest record when the item lies in a chest in the alcove (the reader flattens the
   // chest's contents next to it), AUTOMAP_NO_RECORD otherwise.
   AutoMapRecordId inChest;
+  // The item is a chest, empty or not (launcher ammunition: a chest never groups)
+  bool isChest;
 };
 
 // One wall actuator that wants an object in the party's hand or niche: the side
@@ -235,6 +238,10 @@ struct AutoMapLauncher
   int value;
   int side;
   AutoMapRecordId actuator;
+  // What an object launcher (types 14/15) still holds, in firing order: the items of its stone
+  // cell lying on side or the side after it, in chain order, since each shot takes the first.
+  // A chest's contents follow it, each with inChest set to the chest. Cleared below All.
+  std::vector<AutoMapAlcoveEntry> ammunition;
 };
 
 // What the actuator sends its target: the engine's ACTUATORACTION numbering
@@ -1050,7 +1057,7 @@ std::vector<AutoMapItemStack> AutoMapScene_TooltipItems(const AutoMapDrawList &d
 struct AutoMapTooltipSlot
 {
   AutoMapTooltipSlot(void) : count(1), isChest(false), side(-1), required(false),
-                              carried(false)
+                              carried(false), launched(false)
   {
   }
   AutoMapItem item;
@@ -1068,6 +1075,9 @@ struct AutoMapTooltipSlot
   // (Possession, "NEEDS CARRIED"), false when it must lie on the pad (Object,
   // "NEEDS ON PAD"). Wall locks keep false and read as bare NEEDS with a side.
   bool carried;
+  // What an object launcher will throw (side: the side it fires to): never merges with alcove
+  // goods, the window labels it LAUNCHES
+  bool launched;
   std::vector<AutoMapItemStack> contents;
   // Predicted rather than present: death-residue chance drops nest without an
   // outline, guaranteed contents with one.
@@ -1129,7 +1139,10 @@ enum AutoMapHitKind
   AutoMapHitGenerator,
   // Words of a read scroll (where it lies in scrollWhere) or of a wall's writing (slot.side)
   AutoMapHitScroll,
-  AutoMapHitWallText
+  AutoMapHitWallText,
+  // An item an object launcher will throw, and an item inside a chest it will throw (All only)
+  AutoMapHitLauncher,
+  AutoMapHitInLauncherChest
 };
 
 // The writing the map shows on a cell, as the search finds it: read scrolls on the floor, in an

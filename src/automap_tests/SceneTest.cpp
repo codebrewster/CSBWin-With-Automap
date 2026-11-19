@@ -2716,7 +2716,7 @@ static void RelayLinesDescribeLaunchers(void)
   CHECK(lines[2] == "LAUNCHER (S)");
   CHECK(lines[3] == "  LAUNCHES 2X FIREBALL");
   CHECK(lines[4] == "LAUNCHER");
-  CHECK(lines[5] == "  LAUNCHES OBJECT");
+  CHECK(lines[5] == "  LAUNCHES OBJECT, EMPTY");
 }
 
 static void PressLinesNameBothTriggersOnOneTarget(void)

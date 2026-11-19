@@ -1,4 +1,5 @@
 // AutoMapScene.cpp : turns plain records of a level into the list of things the map window draws.
+#include <cstring>
 #include "AutoMapScene.h"
 #include "AutoMapTickRate.h"
 #include "AutoMapSceneInternal.h"
@@ -405,6 +406,8 @@ static void HideWallSecrets(const AutoMapFog &fog, AutoMapCellRecord *record)
     if (Known(fog, AutoMapFact_OfRecord(AutoMapFactActuator, record->wallLaunchers[i].actuator)))
     {
       knownLaunchers.push_back(record->wallLaunchers[i]);
+      // Firing shows that it throws, not what it still holds
+      knownLaunchers.back().ammunition.clear();
     }
   }
   record->wallLaunchers = knownLaunchers;
@@ -1996,7 +1999,7 @@ std::vector<AutoMapTipLine> AutoMapScene_RelayLines(const AutoMapDrawList &drawL
     const AutoMapLauncher &launcher = shown->cell.wallLaunchers[l];
     const char *missile = LauncherMissileName(launcher);
     if (missile == NULL) continue;
-    char launches[64];
+    char launches[96];
     if (LauncherShots(launcher) > 1)
     {
       std::snprintf(launches, sizeof(launches), "LAUNCHES 2X %s", missile);
@@ -2004,6 +2007,18 @@ std::vector<AutoMapTipLine> AutoMapScene_RelayLines(const AutoMapDrawList &drawL
     else
     {
       std::snprintf(launches, sizeof(launches), "LAUNCHES %s", missile);
+    }
+    // An object launcher says how many items it still holds (not shots: a pair takes two)
+    if (launcher.actuatorType == 14 || launcher.actuatorType == 15)
+    {
+      int left = 0;
+      for (size_t a = 0; a < launcher.ammunition.size(); a++)
+      {
+        if (launcher.ammunition[a].inChest == AUTOMAP_NO_RECORD) left++;
+      }
+      size_t used = std::strlen(launches);
+      if (left == 0) std::snprintf(launches + used, sizeof(launches) - used, ", EMPTY");
+      else std::snprintf(launches + used, sizeof(launches) - used, ", %d LEFT", left);
     }
     std::string header("LAUNCHER");
     if (launcher.side >= AutoMapNorth && launcher.side <= AutoMapWest)
@@ -2218,8 +2233,8 @@ std::vector<AutoMapTooltipSlot> AutoMapScene_TooltipSlots(const AutoMapDrawList 
     bool counted = false;
     for (size_t s = 0; s < slots.size(); s++)
     {
-      if (!slots[s].isChest && !slots[s].required && slots[s].item == entry.item
-          && slots[s].side == entry.side)
+      if (!slots[s].isChest && !slots[s].required && !slots[s].launched
+          && slots[s].item == entry.item && slots[s].side == entry.side)
       {
         slots[s].count++;
         counted = true;
@@ -2251,15 +2266,15 @@ std::vector<AutoMapTooltipSlot> AutoMapScene_TooltipSlots(const AutoMapDrawList 
     {
       if (lock.required)
       {
-        if (!slots[s].isChest && slots[s].required && slots[s].item == lock.object
-            && slots[s].side == lock.side)
+        if (!slots[s].isChest && slots[s].required && !slots[s].launched
+            && slots[s].item == lock.object && slots[s].side == lock.side)
         {
           known = true;
           break;
         }
       }
-      else if (!slots[s].isChest && !slots[s].required && slots[s].item == lock.object
-               && slots[s].side == lock.side)
+      else if (!slots[s].isChest && !slots[s].required && !slots[s].launched
+               && slots[s].item == lock.object && slots[s].side == lock.side)
       {
         known = true;
         break;
@@ -2273,6 +2288,45 @@ std::vector<AutoMapTooltipSlot> AutoMapScene_TooltipSlots(const AutoMapDrawList 
       slot.isChest = false;
       slot.side = lock.side;
       slot.required = lock.required;
+      slots.push_back(slot);
+    }
+  }
+  // What object launchers will throw, next shot first: neighbours that read the same group (the
+  // order between them does not matter), a chest keeps a slot of its own with its contents
+  for (size_t l = 0; l < shown->cell.wallLaunchers.size(); l++)
+  {
+    const AutoMapLauncher &launcher = shown->cell.wallLaunchers[l];
+    const std::vector<AutoMapAlcoveEntry> &ammunition = launcher.ammunition;
+    for (size_t i = 0; i < ammunition.size(); i++)
+    {
+      const AutoMapAlcoveEntry &entry = ammunition[i];
+      if (entry.inChest != AUTOMAP_NO_RECORD) continue;
+      if (entry.item.worldPicture == AUTOMAP_NO_PICTURE) continue;
+      std::vector<AutoMapItem> held;
+      bool isChest = false;
+      for (size_t c = 0; c < ammunition.size(); c++)
+      {
+        if (entry.record == AUTOMAP_NO_RECORD || ammunition[c].inChest != entry.record) continue;
+        isChest = true;
+        held.push_back(ammunition[c].item);
+      }
+      isChest = isChest || entry.isChest;
+      if (!isChest && !slots.empty())
+      {
+        AutoMapTooltipSlot &last = slots.back();
+        if (last.launched && !last.isChest && last.item == entry.item && last.side == launcher.side)
+        {
+          last.count++;
+          continue;
+        }
+      }
+      AutoMapTooltipSlot slot;
+      slot.item = entry.item;
+      slot.count = 1;
+      slot.isChest = isChest;
+      slot.side = launcher.side;
+      slot.launched = true;
+      slot.contents = AutoMapScene_GroupItems(held);
       slots.push_back(slot);
     }
   }
@@ -2488,7 +2542,7 @@ std::vector<AutoMapSearchHit> AutoMapScene_SearchItems(const AutoMapDrawList &dr
         inside.slot.item = slots[s].contents[c].item;
         inside.slot.count = slots[s].contents[c].count;
         inside.slot.side = slots[s].side;
-        inside.kind = AutoMapHitInChest;
+        inside.kind = slots[s].launched ? AutoMapHitInLauncherChest : AutoMapHitInChest;
         candidates.push_back(inside);
       }
     }
@@ -2540,12 +2594,13 @@ std::vector<AutoMapSearchHit> AutoMapScene_SearchItems(const AutoMapDrawList &dr
       hit.name = RequiredObjectName(nameForIndex, hit.slot.item);
       hit.count = hit.slot.count;
       // An item in a chest got its kind with the candidate
-      if (hit.kind != AutoMapHitInChest)
+      if (hit.kind != AutoMapHitInChest && hit.kind != AutoMapHitInLauncherChest)
       {
         if (hit.monsterCarried) hit.kind = AutoMapHitCarried;
         else if (hit.slot.required) hit.kind = AutoMapHitNeeds;
         // A chest is told by where it lies, as any item: an opened one keeps a slot of its own
         // for its contents in the tooltip, but in the results it joins the others below
+        else if (hit.slot.launched) hit.kind = AutoMapHitLauncher;
         else if (hit.slot.side >= 0) hit.kind = AutoMapHitAlcove;
       }
       if (hit.monsterCarried) hit.carriedBy = AutoMapScene_MonsterNameLine(drawList, x, y);
