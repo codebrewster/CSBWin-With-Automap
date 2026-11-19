@@ -1,6 +1,7 @@
 #include "TestSupport.h"
 #include <cstdio>
 #include <cstdlib>
+#include <algorithm>
 #include "../HeroStatsExport.h"
 #include "../HeroStatsPages.h"
 #include "../HeroStatsCatalogue.h"
@@ -610,6 +611,53 @@ static void GridMatchesTheRecords(void)
   CHECK(grid.rows[2].values == std::vector<int>({2, 2, 4}));
 }
 
+// Exploration's Time panel and Per level show a level's ticks as a share of the whole run's
+static void TimeShowsItsShareOfTheRun(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  stats.MeetChampion(9, "SYRA");
+  stats.MarkLevelVisited(1);
+  stats.MarkLevelVisited(3);
+  for (int t = 0; t < 30; t++) stats.CountTick(1, false);
+  for (int t = 0; t < 90; t++) stats.CountTick(3, t < 10);
+  HeroStatsTopicPage page = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, 3, HeroTopicExploration, NAMES);
+  bool found = false;
+  for (size_t r = 0; r < page.numbers.size(); r++)
+  {
+    if (page.numbers[r].number == HeroNumTicks) { found = true; CHECK(page.numbers[r].runShare == "75%"); }
+    else CHECK(page.numbers[r].runShare.empty());  // Asleep is not a share of the run
+  }
+  CHECK(found);
+  HeroStatsTopicPage run = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroTopicExploration, NAMES);
+  for (size_t r = 0; r < run.numbers.size(); r++) CHECK(run.numbers[r].runShare.empty());
+
+  HeroStatsPerLevel table = HeroStatsPages_PerLevelTotals(stats, Columns(stats), HERO_STATS_PARTY, HeroTopicExploration);
+  size_t ticks = std::find(table.numbers.begin(), table.numbers.end(), HeroNumTicks) - table.numbers.begin();
+  CHECK(ticks < table.numbers.size());
+  CHECK(table.rows.size() == 3);
+  if (ticks >= table.numbers.size() || table.rows.size() != 3) return;
+  for (size_t l = 0; l < table.rows.size(); l++) CHECK(table.rows[l].runShare.size() == table.numbers.size());
+  CHECK(table.rows[0].runShare[ticks] == "25%");
+  CHECK(table.rows[1].runShare[ticks] == "75%");
+  CHECK(table.rows[2].runShare[ticks] == "");  // the whole run
+  CHECK(HeroStatsPages_PerLevelGrid(stats, Columns(stats), HeroNumSteps).rows[0].runShare.empty());
+}
+
+// A run with no ticks yet: no share, and nothing divides by zero
+static void NoTicksNoShare(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  stats.MarkLevelVisited(0);
+  stats.CountStep(0);
+  HeroStatsTopicPage page = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, 0, HeroTopicExploration, NAMES);
+  for (size_t r = 0; r < page.numbers.size(); r++) CHECK(page.numbers[r].runShare.empty());
+  HeroStatsPerLevel table = HeroStatsPages_PerLevelTotals(stats, Columns(stats), HERO_STATS_PARTY, HeroTopicExploration);
+  for (size_t l = 0; l < table.rows.size(); l++)
+    for (size_t n = 0; n < table.rows[l].runShare.size(); n++) CHECK(table.rows[l].runShare[n].empty());
+}
+
 static void WipesStayOutOfPerLevel(void)
 {
   HeroStats stats = KillsOnTwoLevels();
@@ -1027,6 +1075,8 @@ void TestHeroStatsPages(void)
   ChampionTotalsSkipPartyNumbers();
   GridMatchesTheRecords();
   WipesStayOutOfPerLevel();
+  TimeShowsItsShareOfTheRun();
+  NoTicksNoShare();
   PartyWeaponsAreSplitByChampion();
   ChampionPageDropsPartyOnlyRows();
   LeftChampionStillCounts();

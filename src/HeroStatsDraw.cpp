@@ -1345,6 +1345,7 @@ static void DrawPanels(HeroStatsDrawState *state, const HeroStatsTopicPage &page
         if (row.depth > 0) drawList->AddLine(ImVec2(x - 9, rowY - 1), ImVec2(x - 9, rowY + ImGui::GetTextLineHeight() + 1), Packed(FAINT_RGB));
         drawList->AddText(ImVec2(x, rowY), Packed(row.depth > 0 ? PART_RGB : TEXT_RGB), row.label.c_str());
         std::string value = row.party == 0 ? MIDDLE_DOT : HeroStatsCatalogue_Format(row.number, row.party);
+        if (!row.runShare.empty()) value += " (" + row.runShare + ")";  // the time's share of the run
         float valueWidth = ImGui::CalcTextSize(value.c_str()).x;
         drawList->AddText(ImVec2(min.x + panelWidth - inset - valueWidth, rowY), Packed(row.party == 0 ? FAINT_RGB : TEXT_RGB), value.c_str());
         if (info.help[0] != 0)
@@ -2716,6 +2717,12 @@ static void DrawPerLevel(HeroStatsDrawState *state, const HeroStats &stats, cons
       ImGui::TableSetColumnIndex((int)v + 1);
       HeroStatsNumber number = grid ? table.numbers[0] : table.numbers[v];
       bool dimmed = grid && v < columns.size() && columns[v].hasLeft;
+      if (v < row.runShare.size() && !row.runShare[v].empty())  // the time's share of the run
+      {
+        NumberCell(HeroStatsCatalogue_Format(number, row.values[v]) + " (" + row.runShare[v] + ")", row.values[v],
+                   HeroStatsCatalogue_Info(number).isBad, rgb);
+        continue;
+      }
       CatalogueCell(number, row.values[v], dimmed ? DIM_RGB : rgb);
     }
     if (table.hasShare)

@@ -108,6 +108,10 @@ bool HeroStatsCatalogue_Applies(HeroStatsNumber number, HeroStatsChampion who, i
 bool HeroStatsCatalogue_Summable(HeroStatsNumber number);
 // "4,412", "63%", "-" for an undefined ratio
 std::string HeroStatsCatalogue_Format(HeroStatsNumber number, int value);
+// A level's time as a share of the whole run's: "12%", "<1%" for a little time. "" for any
+// number but the time (Time (ticks)), for the whole run itself, for no time on the level and for
+// a run with no ticks. Only shown, never counted.
+std::string HeroStatsCatalogue_RunShare(HeroStatsNumber number, int level, int value, int runValue);
 // The numbers Per level's "Champions side by side" offers: the topic's rows that are neither
 // party-only nor ratios, in row order
 std::vector<HeroStatsNumber> HeroStatsCatalogue_GridNumbers(int topic);

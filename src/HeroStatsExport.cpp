@@ -13,7 +13,7 @@
 //             "grid": [number, ...] (Champions side by side), "details": [HeroStatsDetail, ...] (the party's),
 //             "heroDetails": [...] (a champion's)}],
 //   "heroTiles": [number, ...] (a champion's Overview), "xpFirst", "recFirst": the numbers of Fighter and of
-//   the first record,
+//   the first record, "time": the number of Time (ticks), whose share of the run a level shows,
 //   "views": { "-1" for the whole run and one per visited level: {
 //     "records": per hero then the party, a value per number, null where it does not apply,
 //     "summaries": per hero then the party, one line per topic,
@@ -415,7 +415,7 @@ std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroS
   }
   std::vector<int> heroTiles(HeroStatsCatalogue_ChampionTiles().begin(), HeroStatsCatalogue_ChampionTiles().end());
   out += "],\"heroTiles\":" + Ints(heroTiles);
-  out += ",\"xpFirst\":" + Number(HeroNumXpFighter) + ",\"recFirst\":" + Number(HeroNumRecFirst);
+  out += ",\"xpFirst\":" + Number(HeroNumXpFighter) + ",\"recFirst\":" + Number(HeroNumRecFirst) + ",\"time\":" + Number(HeroNumTicks);
   out += ",\"views\":{\"-1\":" + ViewJson(stats, columns, names, HERO_STATS_WHOLE_RUN);
   for (size_t i = 0; i < levels.size(); i++)
     out += ",\"" + Number(levels[i]) + "\":" + ViewJson(stats, columns, names, levels[i]);
@@ -611,6 +611,13 @@ const page = () => view(st.level).pages[st.who];
 const applies = (n, i, l) => !(NUM[n].party && i < N) && !(NUM[n].run && l !== -1);
 const text = (n, v) => (NUM[n].ratio || NUM[n].rec) && v < 0 ? '-' : NUM[n].pct ? v + '%' :
   n === D.recFirst + 11 ? fmt(Math.floor(v / 10)) + '.' + (v % 10) + ' kg' : n === D.recFirst + 7 ? fmt(v) + ' HP left' : fmt(v);
+// A level's time as a share of the whole run's, as HeroStatsCatalogue_RunShare: ' (12%)', ' (<1%)';
+// '' for any other number, the whole run, no time on the level or a run with no ticks
+function runShare(n, l, v) {
+  const run = rec(N, -1)[n];
+  if (n !== D.time || l === -1 || !(v > 0) || !(run > 0)) return '';
+  return ' (' + (v * 200 < run ? '<1' : Math.floor((Math.min(v, run) * 100 + Math.floor(run / 2)) / run)) + '%)';
+}
 const sum = a => a.reduce((x, y) => x + Math.max(0, y || 0), 0);
 const dotOf = i => `<span class="dot" style="background:${COLOUR(i)}"></span>`;
 
@@ -813,7 +820,7 @@ function panels(t) {
   if (!groups.length) return '';
   return section('panels', 'The party', '', '<div class="facts">' + groups.map(g => `<div class="fact"><h4>${esc(g.title)}</h4>` +
     g.rows.map(row => `<div class="fr g${row.depth}"><span class="k">${labelOf(row)}</span>` +
-      `<span class="v${party[row.n] === 0 ? ' z' : ''}">${party[row.n] === 0 ? '·' : text(row.n, party[row.n])}</span></div>`).join('') + '</div>').join('') + '</div>');
+      `<span class="v${party[row.n] === 0 ? ' z' : ''}">${party[row.n] === 0 ? '·' : esc(text(row.n, party[row.n]) + runShare(row.n, st.level, party[row.n]))}</span></div>`).join('') + '</div>').join('') + '</div>');
 }
 
 const attackCells = (l, cls) => {
@@ -1098,7 +1105,8 @@ function perLevel() {
     const head = n => t === TOPIC_MONSTERS && isParty() && NUM[n].label === 'Kills' ? 'By champions' : NUM[n].label;
     cols = [nameCol('Level')].concat(numbers.map(n => numCol(head(n))));
     if (share !== undefined) cols.push(numCol('Who: ' + NUM[share].label));
-    rowOf = l => [levelTd(l)].concat(numbers.map(n => td(rec(st.who, l)[n], numCell(n, rec(st.who, l)[n]))),
+    const valueCell = (n, v, l) => v === null ? cell(v) : cell(v, NUM[n].bad, NUM[n].ratio, esc(text(n, v) + runShare(n, l, v)));
+    rowOf = l => [levelTd(l)].concat(numbers.map(n => td(rec(st.who, l)[n], valueCell(n, rec(st.who, l)[n], l))),
       share === undefined ? [] : [td(rec(N, l)[share], `<td class="whobar">${shareBar(H.map((h, i) => rec(i, l)[share]))}</td>`)]);
   }
   const rows = D.levels.map(l => ({cls: 'lv', act: `set({per:false,level:${l}})`, cells: rowOf(l)}));

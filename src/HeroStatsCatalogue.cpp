@@ -684,6 +684,13 @@ std::string HeroStatsCatalogue_Format(HeroStatsNumber number, int value)
   return HeroStatsView_Number(value);
 }
 
+std::string HeroStatsCatalogue_RunShare(HeroStatsNumber number, int level, int value, int runValue)
+{
+  if (number != HeroNumTicks || level == HERO_STATS_WHOLE_RUN || value <= 0 || runValue <= 0) return "";
+  if ((long long)value * 200 < runValue) return "<1%";  // what would round to 0%
+  return HeroStatsView_Percent(std::min(value, runValue), runValue);
+}
+
 std::vector<HeroStatsNumber> HeroStatsCatalogue_GridNumbers(int topic)
 {
   std::vector<HeroStatsNumber> numbers;

@@ -451,6 +451,22 @@ static void HovertextsSayWhatLabelsDoNot(void)
   CHECK(HeroStatsCatalogue_CurrentSetting(HeroSettingSuppliesTiles, "eaten, food_wasted") == "eaten, food_wasted");
 }
 
+// A level's ticks as a share of the whole run's: only the time, only on a level, never a division by zero
+static void TimeIsAShareOfTheRun(void)
+{
+  CHECK(HeroStatsCatalogue_RunShare(HeroNumTicks, 2, 250, 1000) == "25%");
+  CHECK(HeroStatsCatalogue_RunShare(HeroNumTicks, 2, 1000, 1000) == "100%");
+  CHECK(HeroStatsCatalogue_RunShare(HeroNumTicks, 2, 1, 1000) == "<1%");
+  CHECK(HeroStatsCatalogue_RunShare(HeroNumTicks, 2, 5, 1000) == "1%");  // 0.5% rounds up, as HeroStatsView_Percent
+  CHECK(HeroStatsCatalogue_RunShare(HeroNumTicks, HERO_STATS_WHOLE_RUN, 1000, 1000) == "");
+  CHECK(HeroStatsCatalogue_RunShare(HeroNumTicks, 2, 0, 1000) == "");
+  CHECK(HeroStatsCatalogue_RunShare(HeroNumTicks, 2, 0, 0) == "");    // a run with no ticks
+  CHECK(HeroStatsCatalogue_RunShare(HeroNumTicks, 2, 30, 0) == "");   // time on a level of a run said to have none
+  CHECK(HeroStatsCatalogue_RunShare(HeroNumTicks, 2, 1500, 1000) == "100%");  // never more than the whole run
+  CHECK(HeroStatsCatalogue_RunShare(HeroNumSleepTicks, 2, 250, 1000) == "");
+  CHECK(HeroStatsCatalogue_RunShare(HeroNumSteps, 2, 250, 1000) == "");
+}
+
 void TestHeroStatsCatalogue(void)
 {
   TopicsHaveGroups();
@@ -471,4 +487,5 @@ void TestHeroStatsCatalogue(void)
   GridOffersChampionNumbersOnly();
   OldPagesMapToTopics();
   SummaryIsTheFirstThreeTiles();
+  TimeIsAShareOfTheRun();
 }

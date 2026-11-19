@@ -844,6 +844,12 @@ HeroStatsTopicPage HeroStatsPages_Topic(const HeroStats &stats, const std::vecto
   page.record = HeroStatsCatalogue_Record(stats, who, level);
   HeroStatsRecord party = isParty ? page.record : HeroStatsCatalogue_Record(stats, HERO_STATS_PARTY, level);
   std::vector<HeroStatsRecord> perColumn;
+  // The whole run's time, for a level's share of it (only the time on a level is shown that way)
+  int runTicks = level == HERO_STATS_WHOLE_RUN ? party.value[HeroNumTicks] : 0;
+  bool needsRunTicks = false;
+  for (size_t r = 0; r < info.rows.size() && level != HERO_STATS_WHOLE_RUN; r++)
+    if (info.rows[r].number == HeroNumTicks) needsRunTicks = true;
+  if (needsRunTicks) runTicks = HeroStatsCatalogue_Value(stats, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroNumTicks);
   if (isParty)
     for (size_t c = 0; c < columns.size(); c++) perColumn.push_back(HeroStatsCatalogue_Record(stats, columns[c].id, level));
 
@@ -886,6 +892,7 @@ HeroStatsTopicPage HeroStatsPages_Topic(const HeroStats &stats, const std::vecto
       row.group = (int)page.groups.size() - 1;
       row.partyOnly = HeroStatsCatalogue_Info(number).partyOnly;
       row.party = party.value[number];
+      row.runShare = HeroStatsCatalogue_RunShare(number, level, row.party, runTicks);
       if (!isParty) row.byColumn.push_back(page.record.value[number]);
       else if (!row.partyOnly)
         for (size_t c = 0; c < perColumn.size(); c++) row.byColumn.push_back(perColumn[c].value[number]);
@@ -1001,6 +1008,11 @@ HeroStatsPerLevel HeroStatsPages_PerLevelTotals(const HeroStats &stats, const st
     if (table.hasShare) row.share = ShareOf(stats, columns, row.level, table.shareNumber);
     table.rows.push_back(row);
   }
+  // The whole run's row is the last
+  const HeroStatsLevelRow &run = table.rows.back();
+  for (size_t l = 0; l < table.rows.size(); l++)
+    for (size_t n = 0; n < table.numbers.size(); n++)
+      table.rows[l].runShare.push_back(HeroStatsCatalogue_RunShare(table.numbers[n], table.rows[l].level, table.rows[l].values[n], run.values[n]));
   return table;
 }
 

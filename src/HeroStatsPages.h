@@ -102,6 +102,7 @@ struct HeroStatsNumbersRow
   bool partyOnly;
   std::string label;
   int group;
+  std::string runShare;  // HeroStatsCatalogue_RunShare of the party's value: the time on a level
 };
 // A group of the page's numbers (HeroStatsTopicGroup) that has a row for who on the level
 struct HeroStatsNumbersGroup { std::string title; bool panel; };
@@ -169,7 +170,8 @@ struct HeroStatsCard { HeroStatsColumn column; HeroStatsRecord record; int damag
 std::vector<HeroStatsCard> HeroStatsPages_Cards(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns, int level);
 
 // Per level: one row per visited level (ascending), then the whole run (level HERO_STATS_WHOLE_RUN)
-struct HeroStatsLevelRow { int level; std::vector<int> values; std::vector<int> share; };
+// runShare: one per value, HeroStatsCatalogue_RunShare (the time's share of the run); empty in the grid
+struct HeroStatsLevelRow { int level; std::vector<int> values; std::vector<int> share; std::vector<std::string> runShare; };
 struct HeroStatsPerLevel
 {
   std::vector<HeroStatsNumber> numbers;  // the columns after the level

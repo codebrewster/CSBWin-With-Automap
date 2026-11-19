@@ -8,6 +8,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 ## Unreleased
 
 **Statistics**
+- Exploration shows a level's time as a share of the whole run: "4,321 (12%)" in the Time panel and in Per level's Time (ticks) column, also in the HTML export.
 - Food & items shows its new headline numbers in games that had run before: a csb.cfg that still held the old default tiles (Eaten, Drunk, Food wasted, Items picked up) gets the new ones; a list you chose stays.
 - Food & items counts Potions brewed: each potion a champion made, per level, in the table under Potions drunk.
 - Exploration's Turns explains that a turn on stairs is a Step and takes the stairs.
@@ -81,6 +82,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 - Playfiles of the oldest versions, which have no header line, no longer lose their first event (the click on Resume): CSBMovie2 and 4 to 8 start instead of waiting at the prison door, and CSBMovie8 replays to its end.
 
 **Statistics**
+- Exploration shows a level's time as a share of the whole run: "4,321 (12%)" in the Time panel and in Per level's Time (ticks) column, also in the HTML export.
 - Champions tab: a card per champion, the inventory as picture or list with icons, weight, charges, wounded slots and chest contents; also in the HTML export.
 - Food and water an item gives: in the tooltip and as sortable Food and Water columns (window and export).
 - Items with the same name are told apart (MAGICAL BOX (BLUE)); a dead champion's bones carry the champion's name (TIGGY BONES); THE FIRESTAFF (COMPLETE).
@@ -120,6 +122,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 - .map files are zipped (about a sixth of the size), format version 23.
 
 **Statistics**
+- Exploration shows a level's time as a share of the whole run: "4,321 (12%)" in the Time panel and in Per level's Time (ticks) column, also in the HTML export.
 - Two new topics, nine in all: Experience and Records.
 - A Champions tab (vitals, ranks, food and water bars, poison, wounds), also in the export.
 - New counts and records (poisonings, wounds, items taken out of chests); zoom with Ctrl and the wheel; one row per weapon; csb.cfg chooses the tiles; fixes for poison cloud damage, mana spent and resurrections.
@@ -127,6 +130,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 ## 1.2.0 (2026-10-31)
 
 **Statistics**
+- Exploration shows a level's time as a share of the whole run: "4,321 (12%)" in the Time panel and in Per level's Time (ticks) column, also in the HTML export.
 - A Statistics window (Misc > Statistics > Window) that counts while you play, opens by itself on a win and is kept in the .map file.
 - Seven topics: Overview, Combat, Magic, Survival, Food & items, Exploration, Monsters; whole run, one level or per level; Party or a champion; a Who bar in every table.
 - Hardship (deaths, party wipes, reloads) survives loading an earlier save; Export as HTML writes the window into one file.
