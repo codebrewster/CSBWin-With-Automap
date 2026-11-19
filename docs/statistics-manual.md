@@ -159,6 +159,12 @@ The tiles of every topic and the Key numbers can be chosen in `csb.cfg`, see
 it; click a weapon to show its actions. Columns: Tries, Hits, Rate (hits per try), Avg (damage per
 hit), Damage, Kills.
 
+- The spells a weapon, staff or wand casts as a missile (FIREBALL, LIGHTNING, INVOKE, DISPELL ...)
+  are its tries, hits and damage, as Damage per hit counts them: a fireball that hurts a whole
+  group is one hit with all of its damage, so they raise Avg. They are not in the Spells table,
+  whose **Spells from items** line has their mana but no damage; Damage of Weapons and of Spells
+  add up to Damage dealt.
+
 - Actions with an empty hand (PUNCH, KICK, WAR CRY) are listed under **UNARMED**.
 - Actions that cannot hit are listed too: WAR CRY, CALM, BRANDISH, BLOW HORN, CONFUSE, the shields
   and spells of wands and staffs that make no missile (SPELLSHIELD, FIRESHIELD, LIGHT, FREEZE LIFE,
@@ -220,7 +226,7 @@ listed by what they are and who cast them: **Fireball (Lord Order)**, **Lightnin
 **Harmful potions or food**.
 
 **Damage reduced by source**: the same per source of the harm (Monster attacks, Monster
-missiles, Traps, Walls ...).
+missiles, Traps, Walls ...). Its lines are rounded so that they add up to Damage reduced.
 
 ### Damage reduced
 
@@ -506,12 +512,12 @@ Above the cards is the item on the cursor, or "nothing" when the cursor is empty
 ![A champion on the Champions tab: the bars, attributes and ranks, and the inventory as in the game with a chest's contents under the pointer](images/statistics-champions.png)
 
 **A champion** shows the same bars, then **Attributes** (current and max; drained in red, raised
-above the max in gold), **Ranks** and the **Inventory**.
+above the max in violet), **Ranks** and the **Inventory**.
 
 Each attribute has a bar **against the best** champion of the party: the full length is the
 highest value anyone in the party has. The solid part is what the champion has now. When the
 attribute is drained, the missing part up to the max is hatched in red; when it is raised, the bar
-goes on in gold past the max. So the end of the bar compares the champion with the best, and its
+goes on in violet past the max. So the end of the bar compares the champion with the best, and its
 filling shows the present state. Point at a bar for the numbers and the percent of the best.
 In a narrow window the bar is the first thing the table gives up. Click a title to fold its section, as on
 the topics.

@@ -8,11 +8,15 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 ## Unreleased
 
 **Statistics**
+- Records can be sorted by any column, within each group; a click on Record puts them back in their order. The Value header no longer looks sorted while nothing is.
+- Damage reduced by source adds up to Damage reduced: its lines are rounded together, not one by one (1,154, not 1,153).
+- An attribute raised above its max is violet, no longer gold next to the yellow champion; gold is only a party record, always with its ★.
+- Hovertexts say how the Weapons and Spells tables add up: a staff's or weapon's spells count with the item in Weapons, so Spells from items has mana but no damage, and the two Damage columns together are Damage dealt. Avg says it counts those spells as Damage per hit does, and Mana wasted says why Runes cleared are not in it.
 - Every topic has the same layout. The table is always called Numbers, with its group headings shown even when there is only one. The numbers only the party has stand in The party panels on every topic: Wipes and reloads on Survival, Items on Food & items, Door buttons on Exploration. Only the causes under Monsters killed stay in the table, as parts of a sum the champions share in.
 - Side by side, the sections keep their order: the first ones fill the left column and the rest the right, so the order no longer depends on the numbers.
 - A zero is a dim dot on the headline tiles too, as in the tables.
 - Deaths is a table: Who, Killed by, Lv and Tick, newest first and sortable; in a replay a click on the tick goes there. A death's tick is kept from this version on (save layout 36); older games show "-".
-- Ranks gained and Records align text the same way (left), and only what brought a rank or a record (With, How, On / from) is dim; the Tick is not.
+- Ranks gained and Records align text the same way (left), and what brought a rank or a record (With, How, On / from) is a lighter grey than a zero or a hint, so it no longer looks disabled; the Tick is plain. The skill notes in Experience by source are no longer faint either.
 - Eaten and drunk's Who bar splits a drink by who drank it while the table is sorted by Eaten, instead of staying empty.
 - With one champion the pages no longer repeat themselves: no Total, no Share and no Who bars (all would be the champion's), no "100% of damage" on the Overview card, and Per level has no Champions side by side. The Party's Numbers shows the party's own numbers in the champion's column.
 - The Party's Experience tiles name every champion at the best rank ("best: Adept (ZEDA, ELIJAB)"), and the tile's hovertext says what best means.

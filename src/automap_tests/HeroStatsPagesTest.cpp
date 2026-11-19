@@ -983,6 +983,45 @@ static void SourcesAndStreaksSayMore(void)
   CHECK(streak != NULL && streak->level == 2);
 }
 
+// Damage reduced by source is rounded as a whole: three sources of 1.34 points are 4, as Numbers
+// says, not 1 + 1 + 1. The point goes to the biggest fraction.
+static void ReducedLinesAddUpToTheirTotal(void)
+{
+  HeroStats stats = ExperiencedParty();
+  int parts[HERO_DEFENCE_PART_COUNT] = {};
+  parts[HeroDefenceArmour] = 86;
+  stats.CreditDefence(7, 2, HeroHarmMonster, parts);
+  stats.CreditDefence(7, 2, HeroHarmTrap, parts);
+  parts[HeroDefenceArmour] = 90;
+  stats.CreditDefence(7, 2, HeroHarmWall, parts);
+  HeroStatsTopicPage page = HeroStatsPages_Topic(stats, Columns(stats), 7, HERO_STATS_WHOLE_RUN, HeroTopicSurvival, NAMES);
+  int sum = 0, walls = 0;
+  for (size_t i = 0; i < page.hero.reduced.size(); i++)
+  {
+    sum += page.hero.reduced[i].amount;
+    if (page.hero.reduced[i].amount == 2) walls++;
+  }
+  CHECK(page.hero.reduced.size() == 3 && sum == 4 && walls == 1);
+  CHECK(page.hero.reduced[0].amount == 2);
+  CHECK(HeroStatsCatalogue_Value(stats, 7, HERO_STATS_WHOLE_RUN, HeroNumReduced) == 4);
+}
+
+// A record line carries its value as a number, and the party's, for sorting
+static void RecordLinesCarryTheirAmounts(void)
+{
+  HeroStats stats = ExperiencedParty();
+  for (int i = 0; i < 5; i++) stats.Records().CountKill(7, 2, 100 + i, 6);
+  HeroStatsTopicPage records = HeroStatsPages_Topic(stats, Columns(stats), 7, HERO_STATS_WHOLE_RUN, HeroTopicRecords, NAMES);
+  const HeroStatsRecordLine *streak = NULL, *none = NULL;
+  for (size_t i = 0; i < records.records.size(); i++)
+  {
+    if (records.records[i].kind == HeroRecKillStreak) streak = &records.records[i];
+    if (!records.records[i].has && none == NULL) none = &records.records[i];
+  }
+  CHECK(streak != NULL && streak->amount == 5 && streak->partyAmount == 5);
+  CHECK(none != NULL && none->amount == -1);
+}
+
 // A streak names its two most killed kinds and says how many kills it leaves out
 static void StreakCountsTheKindsItLeavesOut(void)
 {
@@ -1116,6 +1155,17 @@ static void WriteASampleExport(void)
         stats.CountMonsterKill(level, i % 2 == 0 ? 6 : 25, 0, blow);
       }
       stats.CreditMonsterDamage(level, blow, damage[c] / 3);
+      // Records to sort: kill streaks of different lengths on each level
+      for (int i = 0; i < 2 + c + level; i++) stats.Records().CountKill(7 + c, level, 1000 * level + 10 * c + i, 6);
+      HeroRecordEntry hit = {};
+      hit.value = 40 + 30 * c - 10 * level;
+      hit.who = 7 + c;
+      hit.level = level;
+      hit.time = 1000 * level + 10 * c;
+      hit.monsterType = 6;
+      stats.Records().Offer(HeroRecBiggestMeleeHit, hit);
+      hit.value = 15 * (4 - c) + level;
+      stats.Records().Offer(HeroRecBiggestRangedHit, hit);
       stats.CreditHarm(7 + c, level, HeroHarmMonster, HeroStatsBlow_Nobody(HeroBlowByMonster), 14 + 9 * c);
       stats.Experience().Credit(7 + c, level, c, XpSource(HeroXpAttack, 5, 1, 0, -1), 401626 * (c + 1) / (level + 1));
     }
@@ -1195,6 +1245,8 @@ static void WriteASampleExport(void)
 void TestHeroStatsPages(void)
 {
   WriteASampleExport();
+  ReducedLinesAddUpToTheirTotal();
+  RecordLinesCarryTheirAmounts();
   MonstersKnowTelefragsAndLandings();
   PagesCarryTheGroups();
   ExportHasExperienceAndRecords();

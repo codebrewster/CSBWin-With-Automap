@@ -24,7 +24,7 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Mana spent", "Spent as each rune is entered, on the level it is entered on, whatever becomes of the spell; staffs, wands and the shield and heal actions as they are used. The lines below add up to it.", false, false, false, false, false},
     {"Mana on spells", "Runes of the spells cast, successful, failed or meaningless, staffs, wands and the shield and heal actions: the Mana of All spells in the Spells table. On one level the two can differ: here runes count where they were entered, the table counts a spell where it was cast.", false, false, false, false, false},
     {"Mana on successful casts", "Runes of spells that worked, staffs and wands, the shield and heal actions.", false, false, false, false, false},
-    {"Mana wasted", "Runes of spells that failed or formed no spell: the Wasted of All spells in the Spells table. On one level the two can differ: here runes count where they were entered, the table counts a spell where it was cast.", false, false, true, false, false},
+    {"Mana wasted", "Runes of spells that failed or formed no spell: the Wasted of All spells in the Spells table. On one level the two can differ: here runes count where they were entered, the table counts a spell where it was cast. Runes cleared are not in it, as they never became a cast: they are wasted too, on their own line below.", false, false, true, false, false},
     {"Mana on failed casts", "Runes of spells the champion needed more practice for.", false, false, true, false, false},
     {"Mana on meaningless spells", "Runes that form no spell: the champion mumbles a meaningless spell.", false, false, true, false, false},
     {"Runes cleared", "Runes entered and never cast: cleared, replaced by a new incantation, or lost when the caster died.", false, false, true, false, false},
@@ -189,7 +189,15 @@ const char *const HERO_STATS_BY_CHAMPIONS_HELP =
 const char *const HERO_STATS_BEST_RANK_HELP =
     "Best: the highest rank now in this class. Champions who share it are all named.";
 const char *const HERO_STATS_AVG_HELP =
-    "Damage \xc3\xb7 Hits. The spells a weapon or staff casts add to its Damage but make no hits, so they raise it.";
+    "Damage \xc3\xb7 Hits, as Damage per hit on the Combat page. The spells a weapon or staff casts (FIREBALL, INVOKE...) are in it: "
+    "a fireball that hurts a whole group is one hit with all of its damage, so they raise it. Open the weapon for each option's own.";
+const char *const HERO_STATS_RECORDS_SORT_HELP =
+    "Click a header to sort the records within each group; a click on Record puts them back in their order.";
+const char *const HERO_STATS_WEAPON_DAMAGE_HELP =
+    "Blows, missiles and the spells the weapon or staff casts. With the Damage of the Spells table it adds up to Damage dealt.";
+const char *const HERO_STATS_SPELL_DAMAGE_HELP =
+    "Damage of the spells entered as runes. The spells of staffs, wands and weapons count with their item in the Weapons table, "
+    "so Spells from items has mana but no damage. With the Damage of the Weapons table it adds up to Damage dealt.";
 
 const HeroStatsNumberInfo &HeroStatsCatalogue_Info(HeroStatsNumber number)
 {

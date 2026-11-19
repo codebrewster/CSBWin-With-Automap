@@ -265,13 +265,28 @@ static void AddHarm(HeroStatsHeroPage *page, const HeroStats &stats, const std::
   std::stable_sort(page->taken.begin(), page->taken.end(), LineBefore);
 }
 
-// One line per harm source, in whole hit points (the store keeps 64ths)
+// One line per harm source, in whole hit points (the store keeps 64ths). Largest remainder: each
+// line is rounded down, and the points the rounding lost go to the lines with the biggest
+// fractions, so the lines add up to their total rounded once, the Damage reduced of Numbers.
 static void AddReduced(HeroStatsHeroPage *page, const HeroStats &stats, HeroStatsChampion who, int level)
 {
-  std::vector<HeroStatsDefenceRow> rows = stats.DefenceRows(who, level);
+  std::vector<HeroStatsDefenceRow> rows = stats.DefenceRows(who, level);  // all above 0
+  std::vector<long long> whole(rows.size());
+  std::vector<size_t> byFraction(rows.size());
+  long long all = 0, given = 0;
   for (size_t i = 0; i < rows.size(); i++)
   {
-    int amount = (int)((rows[i].amount + 32) / 64);
+    all += rows[i].amount;
+    whole[i] = rows[i].amount / 64;
+    given += whole[i];
+    byFraction[i] = i;
+  }
+  std::stable_sort(byFraction.begin(), byFraction.end(),
+                   [&rows](size_t a, size_t b) { return rows[a].amount % 64 > rows[b].amount % 64; });
+  for (long long k = 0; k < (all + 32) / 64 - given && k < (long long)rows.size(); k++) whole[byFraction[k]]++;
+  for (size_t i = 0; i < rows.size(); i++)
+  {
+    int amount = (int)whole[i];
     if (amount <= 0) continue;
     HeroStatsHarmRow row = {rows[i].source, HERO_STATS_NOBODY, -1, 0, 0};
     AddLine(&page->reduced, HeroStatsView_HarmName(row, NULL, ""), amount, false);
@@ -809,12 +824,14 @@ static std::vector<HeroStatsRecordLine> RecordLines(const HeroStats &stats, cons
     line.tick = -1;
     line.held = false;
     line.partyHolder = HERO_STATS_NOBODY;
+    line.amount = line.partyAmount = -1;
     HeroRecordEntry entry;
     line.has = stats.Records().Best(kind, who, level, &entry);
     line.value = line.has ? RecordValue(kind, entry) : "-";
     if (line.has)
     {
       line.who = ChampionName(columns, entry.who);
+      line.amount = entry.value;
       // A streak or chain is a record of the level it began on; where it ended is in the text
       line.level = HeroRecord_Level(kind, entry);
       line.tick = (int)entry.time;
@@ -833,6 +850,7 @@ static std::vector<HeroStatsRecordLine> RecordLines(const HeroStats &stats, cons
     {
       line.partyValue = RecordValue(kind, party);
       line.partyHolder = party.who;
+      line.partyAmount = party.value;
       // The champion's own streak can be longer than the party's; the party's own records are no champion's
       line.held = !isParty && line.has && !HeroRecord_PartyHasItsOwn(kind) && party.who == who;
     }

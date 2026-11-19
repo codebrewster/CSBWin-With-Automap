@@ -148,6 +148,7 @@ struct HeroStatsRecordLine
   bool has, held;
   std::string partyValue;
   HeroStatsChampion partyHolder;
+  int amount, partyAmount;  // the records' values as numbers, for sorting; -1 without one
 };
 // The detail tables of a topic for who, in drawing order (Items only for the party)
 std::vector<HeroStatsDetail> HeroStatsPages_Details(int topic, HeroStatsChampion who);

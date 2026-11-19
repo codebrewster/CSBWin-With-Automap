@@ -14,7 +14,8 @@
 //             "heroDetails": [...] (a champion's)}],
 //   "heroTiles": [number, ...] (a champion's Overview), "xpFirst", "recFirst": the numbers of Fighter and of
 //   the first record, "time": the number of Time (ticks), whose share of the run a level shows,
-//   "byChampionsHelp", "avgHelp", "bestRankHelp": tooltips, "doorKills" ... "otherKills": the numbers of the kill causes,
+//   "byChampionsHelp", "avgHelp", "weaponDamageHelp", "spellDamageHelp", "recordsSortHelp",
+//   "bestRankHelp": tooltips, "doorKills" ... "otherKills": the numbers of the kill causes,
 //   "views": { "-1" for the whole run and one per visited level: {
 //     "records": per hero then the party, a value per number, null where it does not apply,
 //     "summaries": per hero then the party, one line per topic,
@@ -29,7 +30,8 @@
 //                           [heroes at the best rank]], ...],
 //              "sources": [[name, note, depth, experience, [by hero; a hero's page: the party's], has children, help], ...],
 //              "rankups": [[hero, class, rank, with, level, rank reached as a number, tick], ...]},
-//       "records": [[kind, group, label, value, who, how, whom, when, level, has, held, party value, party's hero], ...] },
+//       "records": [[kind, group, label, value, who, how, whom, when, level, has, held, party value, party's hero,
+//                    amount, party amount (the values as numbers, for sorting; -1 without one)], ...] },
 //     "monsters": [[name, [kills per hero], door, pit, telefrag, landed, other, total], ...] most killed first,
 //     "items": [[name, picked up, used in walls, from chests], ...] } } },
 //   "live": the party when the page was written (the Champions tab): {"cursor": the item on the cursor
@@ -258,7 +260,8 @@ static std::string RecordLinesJson(const std::vector<HeroStatsRecordLine> &lines
            HeroStatsExport_JsonString(l.label) + "," + HeroStatsExport_JsonString(l.value) + "," + HeroStatsExport_JsonString(l.who) +
            "," + HeroStatsExport_JsonString(l.how) + "," + HeroStatsExport_JsonString(l.whom) + "," + HeroStatsExport_JsonString(l.when) +
            "," + Number(l.level) + "," + Bool(l.has) + "," + Bool(l.held) + "," + HeroStatsExport_JsonString(l.partyValue) + "," +
-           Number(l.partyHolder == HERO_STATS_NOBODY ? -1 : HeroIndex(columns, l.partyHolder)) + "]";
+           Number(l.partyHolder == HERO_STATS_NOBODY ? -1 : HeroIndex(columns, l.partyHolder)) + "," + Number(l.amount) + "," +
+           Number(l.partyAmount) + "]";
   }
   return out + "]";
 }
@@ -429,6 +432,9 @@ std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroS
   out += ",\"xpFirst\":" + Number(HeroNumXpFighter) + ",\"recFirst\":" + Number(HeroNumRecFirst) + ",\"time\":" + Number(HeroNumTicks);
   out += ",\"byChampionsHelp\":" + HeroStatsExport_JsonString(HERO_STATS_BY_CHAMPIONS_HELP);
   out += ",\"avgHelp\":" + HeroStatsExport_JsonString(HERO_STATS_AVG_HELP);
+  out += ",\"weaponDamageHelp\":" + HeroStatsExport_JsonString(HERO_STATS_WEAPON_DAMAGE_HELP);
+  out += ",\"spellDamageHelp\":" + HeroStatsExport_JsonString(HERO_STATS_SPELL_DAMAGE_HELP);
+  out += ",\"recordsSortHelp\":" + HeroStatsExport_JsonString(HERO_STATS_RECORDS_SORT_HELP);
   out += ",\"bestRankHelp\":" + HeroStatsExport_JsonString(HERO_STATS_BEST_RANK_HELP);
   // The kill causes, for the Monsters table's columns
   out += ",\"doorKills\":" + Number(HeroNumDoorKills) + ",\"pitKills\":" + Number(HeroNumPitKills) +
@@ -546,9 +552,9 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   tr.xrow { cursor:pointer } tr.xrow:hover td { background:var(--hover) }
   .gold { color:#e0b54a } .tile .sub { color:var(--text); font-size:11.5px; margin-top:3px } .tile .sub.f { color:var(--faint) }
   .prog { height:5px; background:var(--track); border-radius:2px; overflow:hidden; margin-top:5px } .prog i { display:block; height:100% }
-  .nt { color:var(--faint) } table td.l, table th.l { text-align:left }
+  .nt { color:var(--faint) } .sn { color:var(--dim) } table td.l, table th.l { text-align:left }
   /* secondary data beside a row's own: what brought a rank, how a record came */
-  table td.sd { color:var(--dim) }
+  table td.sd { color:var(--part) }  /* secondary data: grey, but not as faint as a zero or a hint */
   .z, table tr td.z { color:var(--faint) } .gone { color:var(--dim) }  /* a zero is faint in part and total rows too */
   .pill { color:var(--bad); background:rgba(229,115,95,.16); border-radius:3px; padding:0 4px }
   .share { display:flex; height:9px; background:var(--track); border-radius:2px; overflow:hidden; min-width:60px } .share i { display:block; height:100% }
@@ -560,7 +566,7 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   .vit .fold { color:var(--dim); cursor:pointer; user-select:none } .vit .fold:hover { color:#fff }
   .vit .l, .lranks .l { color:var(--dim) } .vit .v { text-align:right; white-space:nowrap } .vit .w { grid-column:2 / 4 } .vit .w.bad { justify-self:start; white-space:normal }
   /* Bad news is always on its pill, never red alone: red is also a champion's colour */
-  .bad { color:var(--bad); background:rgba(229,115,95,.16); border-radius:3px; padding:0 4px } .none { color:var(--dim) } .raised { color:#e0b54a }
+  .bad { color:var(--bad); background:rgba(229,115,95,.16); border-radius:3px; padding:0 4px } .none { color:var(--dim) } .raised { color:#b48ce6 }
   .vbar { height:9px; background:var(--track); border-radius:2px; overflow:hidden } .vbar i { display:block; height:100% }
   .lranks { display:grid; grid-template-columns:max-content max-content minmax(30px,1fr); gap:3px 10px; align-items:center }
   .chead { display:flex; gap:10px; align-items:center; min-width:0 }
@@ -589,7 +595,7 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   .abar { position:relative; height:9px; background:var(--track); border-radius:2px; overflow:hidden; min-width:90px }
   .abar i { position:absolute; top:0; bottom:0; display:block }
   .abar .lost { background:repeating-linear-gradient(135deg, var(--bad) 0 2px, transparent 2px 4px) }
-  .abar .over { background:#e0b54a; box-shadow:inset 2px 0 var(--panel) }
+  .abar .over { background:#b48ce6; box-shadow:inset 2px 0 var(--panel) }
   td.c-bar .abar { min-width:110px }
   .cfull { display:grid; gap:10px } .psec { border-top:1px solid var(--line); padding-top:10px }
   .lcards:not(.full) .cfull, .lcards.full .strip { display:none }
@@ -881,7 +887,7 @@ function weapons(p) {
   for (const w of p.weapons) for (let k = 0; k < 5; k++) all[k] += w[k + 1];
   const summary = p.weapons.length ? `${fmt(all[2])} damage · ${fmt(all[3])} kills` : 'none';
   if (!p.weapons.length) return section(DETAIL.WEAPONS, 'Weapons', summary, '<div class="note">No attacks.</div>');
-  const cols = [nameCol('Weapon'), numCol('Tries', 'Blows and missiles, and the actions that cannot hit (War Cry, Calm...). The Combat page\'s Attacks leaves those out; its Other actions counts them.'), numCol('Hits'), numCol('Rate', 'Hits out of the tries that can hit; actions that cannot hit are left out.'), numCol('Avg', D.avgHelp), numCol('Damage'), numCol('Kills')];
+  const cols = [nameCol('Weapon'), numCol('Tries', 'Blows and missiles, and the actions that cannot hit (War Cry, Calm...). The Combat page\'s Attacks leaves those out; its Other actions counts them.'), numCol('Hits'), numCol('Rate', 'Hits out of the tries that can hit; actions that cannot hit are left out.'), numCol('Avg', D.avgHelp), numCol('Damage', D.weaponDamageHelp), numCol('Kills')];
   if (withWho()) cols.push(whoColumn([1, 2, 5, 6], 5));
   // A champion's [tries, hits, damage, kills, uses] in a column of the table
   const attack = (c, k) => k === 1 ? c[0] + c[4] : k === 2 ? c[1] : k === 6 ? c[3] : c[2];
@@ -902,7 +908,7 @@ function spells(p) {
   for (const s of p.spells) for (let k = 0; k < 7; k++) all[k] += s[k + 1];
   const summary = p.spells.length ? `${fmt(all[0])} casts · ${fmt(all[3])} mana` : 'none';
   if (!p.spells.length) return section(DETAIL.SPELLS, 'Spells', summary, '<div class="note">No spells cast.</div>');
-  const spellHelp = {Casts: 'Casts of the spell, the failed ones included.', Successful: 'The casts that worked.', Failed: 'Casts that failed. On a (no spell) line, the runes formed no spell: the Meaningless casts of Numbers.', Mana: 'The mana of the runes, the mana wasted on failed casts included.'};
+  const spellHelp = {Casts: 'Casts of the spell, the failed ones included.', Successful: 'The casts that worked.', Failed: 'Casts that failed. On a (no spell) line, the runes formed no spell: the Meaningless casts of Numbers.', Mana: 'The mana of the runes, the mana wasted on failed casts included.', Damage: D.spellDamageHelp};
   const cols = ['Casts', 'Successful', 'Failed', 'Mana', 'Wasted', 'Damage', 'Kills'].map(l => numCol(l, spellHelp[l]));
   cols.unshift(nameCol('Spell'));
   if (withWho()) cols.push(whoColumn([1, 2, 3, 4, 5, 6, 7], 4));
@@ -1049,7 +1055,7 @@ function xpSources(p) {
     if (kids && !open) hideBelow = depth;
     const arrow = kids ? (open ? '&#9662; ' : '&#9656; ') : '';
     const act = kids ? ` onclick="st.open[${JSON.stringify(key).replace(/"/g, '&quot;')}]=${!open};draw()"` : '';
-    body += `<tr class="d${Math.min(depth, 2)}${kids ? ' xrow' : ''}"${act}><td${help ? tipOf(esc(help)) : ''}>${arrow}${esc(name)}${note ? ` <span class="nt">${esc(note)}</span>` : ''}</td>`;
+    body += `<tr class="d${Math.min(depth, 2)}${kids ? ' xrow' : ''}"${act}><td${help ? tipOf(esc(help)) : ''}>${arrow}${esc(name)}${note ? ` <span class="sn">${esc(note)}</span>` : ''}</td>`;
     if (!shared()) body += plain(amount);
     else if (isParty()) body += plain(amount) + `<td class="whobar">${shareBar(by)}</td>`;
     else body += plain(amount) + plain(by[0] || 0) + `<td class="bar">${by[0] > 0 ? partBar(amount, by[0], st.who) : ''}</td>`;
@@ -1061,7 +1067,7 @@ function xpSources(p) {
 function rankUps(p) {
   const ups = p.xp.rankups, n = ups.length;
   if (!n) return section(DETAIL.RANK_UPS, 'Ranks gained', 'none yet', '<div class="note">No new rank yet.</div>');
-  // Text left, numbers right; what brought the rank is secondary, dim as How in Records
+  // Text left, numbers right; what brought the rank is secondary, in the part grey as How in Records
   const cols = (isParty() ? [nameCol('Who')] : []).concat([isParty() ? textCol('Class') : nameCol('Class'), textCol('Rank', 'Sorts by the rank reached.'),
     textCol('With', 'What gave the experience that made the rank: an action, a spell, or a monster attacking the champion (Parry).'), numCol('Lv'), numCol('Tick', 'When the rank came: newest first.')]);
   const rows = ups.map((u, i) => ({cells: (isParty() ? [td(whoName(u[0]), `<td>${u[0] < N ? dotOf(u[0]) + ' ' : ''}${esc(whoName(u[0]))}</td>`)] : [])
@@ -1073,12 +1079,28 @@ function rankUps(p) {
 function records(p) {
   const lines = p.records, held = lines.filter(l => l[10]).length;
   const summary = isParty() ? 'the best of the run · hover a value for when' : `${esc(H[st.who].name)}'s best · &#9733; ${held} party ${held === 1 ? 'record' : 'records'}`;
-  let head = '<tr><th>Record</th>' + (isParty() ? '<th class="l">Value</th><th class="l">Who</th>' : `<th class="l">${dotOf(st.who)} ${esc(H[st.who].name)}</th>`) +
-    '<th class="l">How</th><th class="l">On / from</th><th>Lv</th>' + (isParty() ? '' : '<th class="l">Party best</th>');
+  // Sorted within the groups, which keep their order; by Record (the default) in the listed order.
+  // keys[k](line, index): the sort key of table column k; values as numbers, a missing one lowest
+  const keys = [(l, i) => i, l => l[13]].concat(isParty() ? [l => l[9] ? l[4] : ''] : [],
+    [l => l[5], l => l[6], l => l[9] ? l[8] : -1], isParty() ? [] : [l => l[14]]);
+  // [label, class, help, numbers: biggest first]
+  const heads = [['Record', '', D.recordsSortHelp], [isParty() ? 'Value' : `${dotOf(st.who)} ${esc(H[st.who].name)}`, 'l', '', 1]]
+    .concat(isParty() ? [['Who', 'l']] : [], [['How', 'l'], ['On / from', 'l'], ['Lv', '', '', 1]], isParty() ? [] : [['Party best', 'l', '', 1]]);
+  const s = st.sort.records || {col: 0, desc: false};
+  const groupAt = {};
+  lines.forEach((l, i) => { if (!(l[1] in groupAt)) groupAt[l[1]] = i; });
+  const sorted = lines.map((l, i) => [l, i]).sort((a, b) => {
+    if (a[0][1] !== b[0][1]) return groupAt[a[0][1]] - groupAt[b[0][1]];
+    const x = keys[s.col](a[0], a[1]), y = keys[s.col](b[0], b[1]);
+    const c = typeof x === 'number' ? x - y : String(x).localeCompare(String(y));
+    return (s.desc ? -c : c) || a[1] - b[1];
+  }).map(p => p[0]);
+  let head = '<tr>' + heads.map((h, i) => `<th class="sort${h[1] ? ' ' + h[1] : ''}"${h[2] ? tipOf(esc(h[2])) : ''} onclick="sortBy('records',${i},${h[3] ? 1 : 0})">` +
+    `${h[0]}${s.col === i ? ` <span class="arrow">${s.desc ? '&#9660;' : '&#9650;'}</span>` : ''}</th>`).join('');
   let body = '', group = '';
-  const span = isParty() ? 6 : 6;
-  for (const l of lines) {
-    // [kind, group, label, value, who, how, whom, when, level, has, held, party value, party's hero]
+  const span = heads.length;
+  for (const l of sorted) {
+    // [kind, group, label, value, who, how, whom, when, level, has, held, party value, party's hero, amount, party amount]
     if (l[1] !== group) { group = l[1]; body += `<tr class="grp"><td colspan="${span}">${esc(group)}</td></tr>`; }
     const value = l[9] ? `<td class="l${l[10] ? ' gold' : ''}"${l[7] ? tipOf(esc(l[7])) : ''}>${esc(l[3])}${l[10] ? ' &#9733;' : ''}</td>` : '<td class="l z">-</td>';
     const help = NUM[D.recFirst + l[0]].help;
@@ -1245,7 +1267,7 @@ function liveHead(c, colour) {
 const liveRanks = (c, colour) => '<div class="lranks">' + c.ranks.map(r => `<span class="l">${esc(r[0])}</span><span class="${r[1] ? '' : 'none'}">${r[1] ? esc(r[1]) : '-'}</span>` +
   `<div class="vbar"${tipOf(r[2] + '% of the way to the next rank')}><i style="width:${r[2]}%;background:${colour}"></i></div>`).join('') + '</div>';
 // An attribute's bar against the best of the party (HeroStatsLive_AttributeBar, _AttributeTop and
-// _AttributeHelp in the game): solid up to now, a drained part hatched up to the max, a raised part in gold past it
+// _AttributeHelp in the game): solid up to now, a drained part hatched up to the max, a raised part in violet past it
 function attributeBar(c, i, colour) {
   const all = LIVE.champions, now0 = c.attrs[i][1], most0 = c.attrs[i][2];
   const top = Math.max(1, ...all.map(o => Math.max(o.attrs[i][1], o.attrs[i][2])));

@@ -41,7 +41,8 @@ static const ImU32 BAD_RGB = 0xe5735f;
 static const ImU32 YELLOW_RGB = 0xe8d44a;     // food and water below 0
 static const ImU32 FOOD_RGB = 0x9b6a3c;       // the food bar, brown as in the game
 static const ImU32 WATER_RGB = 0x4a8fe0;      // the water bar
-static const ImU32 GOLD_RGB = 0xe0b54a;       // a champion's record that is the party's
+static const ImU32 GOLD_RGB = 0xe0b54a;       // a champion's record that is the party's, always with its star
+static const ImU32 RAISED_RGB = 0xb48ce6;     // an attribute above its max: violet, no champion's colour
 static const ImU32 DAMAGE_RGB = 0xe39a7c;     // a weapon's damage and kinetic energy
 static const ImU32 ARMOR_RGB = 0xa9b8cf;      // a piece of armor's strength
 // The game's own champion colours, by party slot, softened for the dark background
@@ -1617,7 +1618,8 @@ static void DrawWeapons(HeroStatsDrawState *state, const HeroStatsHeroPage &page
     int measure = WhoMeasure(sort, {1, 2, 5, 6}, 5);
     static const HeaderHelps HELPS = {
         "", "Blows and missiles, and the actions that cannot hit (War Cry, Calm...). The Combat page's Attacks leaves those out; its Other actions counts them.",
-        "", "Hits out of the tries that can hit; actions that cannot hit are left out.", HERO_STATS_AVG_HELP};
+        "", "Hits out of the tries that can hit; actions that cannot hit are left out.", HERO_STATS_AVG_HELP,
+        HERO_STATS_WEAPON_DAMAGE_HELP};
     HeaderRow(std::vector<int>(), columns, withWho ? MeasureLabel(LABELS, measure) : "", HELPS);
     std::vector<HeroStatsWeaponLine> weapons = page.weapons;
     SortRows(&weapons, sort, CompareAttacks<HeroStatsWeaponLine>);
@@ -1719,7 +1721,7 @@ static void DrawSpells(HeroStatsDrawState *state, const HeroStatsHeroPage &page,
     static const HeaderHelps HELPS = {
         "", "Casts of the spell, the failed ones included.", "The casts that worked.",
         "Casts that failed. On a (no spell) line, the runes formed no spell: the Meaningless casts of Numbers.",
-        "The mana of the runes, the mana wasted on failed casts included."};
+        "The mana of the runes, the mana wasted on failed casts included.", "", HERO_STATS_SPELL_DAMAGE_HELP};
     HeaderRow(std::vector<int>(), columns, withWho ? MeasureLabel(LABELS, measure) : "", HELPS);
     std::vector<HeroStatsSpellLine> spells = page.spells;
     SortRows(&spells, sort, [](const HeroStatsSpellLine &a, const HeroStatsSpellLine &b, int column) {
@@ -2248,7 +2250,7 @@ static void DrawXpSources(HeroStatsDrawState *state, const std::vector<HeroStats
       if (!line.note.empty())
       {
         ImGui::SameLine();
-        ImGui::TextColored(Colour(FAINT_RGB), "%s", line.note.c_str());
+        ImGui::TextColored(Colour(DIM_RGB), "%s", line.note.c_str());
       }
       if (line.depth > 0) ImGui::Unindent(14.0f * line.depth);
       ImGui::TableSetColumnIndex(1);
@@ -2334,7 +2336,7 @@ static void DrawRankUps(HeroStatsDrawState *state, std::vector<HeroStatsRankUpLi
       ImGui::TableSetColumnIndex(column++);
       TextColoredWithSymbols(TEXT_RGB, line.rank);
       ImGui::TableSetColumnIndex(column++);
-      ImGui::TextColored(Colour(DIM_RGB), "%s", line.with.c_str());
+      ImGui::TextColored(Colour(PART_RGB), "%s", line.with.c_str());
       ImGui::TableSetColumnIndex(column++);
       RightText(LevelLabel(line.level).substr(3), TEXT_RGB);
       ImGui::TableSetColumnIndex(column++);
@@ -2347,6 +2349,42 @@ static void DrawRankUps(HeroStatsDrawState *state, std::vector<HeroStatsRankUpLi
 
 // Records: one table in its four groups. A champion's page: their best, gold with a star when it
 // is the party's, and the party's best beside it.
+// The records sorted by a column within their groups, which keep their order; by Record they are
+// in the order they are listed in. Values compare as numbers, a missing one below the rest.
+static std::vector<HeroStatsRecordLine> SortedRecords(const std::vector<HeroStatsRecordLine> &lines, const TableSort &sort,
+                                                      bool isParty)
+{
+  std::vector<size_t> order(lines.size());
+  std::map<std::string, size_t> groupAt;
+  for (size_t i = 0; i < lines.size(); i++)
+  {
+    order[i] = i;
+    groupAt.insert(std::make_pair(lines[i].group, i));
+  }
+  // The party's page has Who after Value; a champion's has Party best at the end
+  int column = sort.column < 0 ? 0 : !isParty && sort.column >= 2 ? sort.column + 1 : sort.column;
+  std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+    const HeroStatsRecordLine &x = lines[a], &y = lines[b];
+    size_t gx = groupAt[x.group], gy = groupAt[y.group];
+    if (gx != gy) return gx < gy;
+    int c;
+    switch (column)
+    {
+    case 1: c = Compare(x.amount, y.amount); break;
+    case 2: c = x.who.compare(y.who); break;
+    case 3: c = x.how.compare(y.how); break;
+    case 4: c = x.whom.compare(y.whom); break;
+    case 5: c = Compare(x.has ? x.level : -1, y.has ? y.level : -1); break;
+    case 6: c = Compare(x.partyAmount, y.partyAmount); break;
+    default: c = Compare((double)a, (double)b); break;
+    }
+    return sort.descending ? c > 0 : c < 0;
+  });
+  std::vector<HeroStatsRecordLine> sorted;
+  for (size_t i = 0; i < order.size(); i++) sorted.push_back(lines[order[i]]);
+  return sorted;
+}
+
 static void DrawRecords(HeroStatsDrawState *state, const std::vector<HeroStatsRecordLine> &lines,
                         const std::vector<HeroStatsColumn> &columns)
 {
@@ -2359,20 +2397,22 @@ static void DrawRecords(HeroStatsDrawState *state, const std::vector<HeroStatsRe
   if (!SectionHeader(state, HeroDetailRecords, "Records", summary)) return;
   size_t champion = ColumnOf(columns, state->who);
   int count = 6;
-  if (BeginPageTable("##records", count, false))
+  if (BeginPageTable("##records", count, true))
   {
-    LabelColumn("Record");
-    TextColumn(isParty ? "Value" : (champion < columns.size() ? columns[champion].name.c_str() : "Value"));
-    if (isParty) TextColumn("Who");
-    TextColumn("How");
-    TextColumn("On / from");
+    LabelColumn("Record", true, true);
+    TextColumn(isParty ? "Value" : (champion < columns.size() ? columns[champion].name.c_str() : "Value"), true);
+    if (isParty) TextColumn("Who", true);
+    TextColumn("How", true);
+    TextColumn("On / from", true);
     NumberColumn("Lv");
-    if (!isParty) TextColumn("Party best");
-    HeaderRow(std::vector<int>(), columns);
+    if (!isParty) TextColumn("Party best", true);
+    static const HeaderHelps HELPS = {HERO_STATS_RECORDS_SORT_HELP};
+    HeaderRow(std::vector<int>(), columns, "", HELPS);
+    std::vector<HeroStatsRecordLine> sorted = SortedRecords(lines, CurrentSort(), isParty);
     std::string group;
-    for (size_t i = 0; i < lines.size(); i++)
+    for (size_t i = 0; i < sorted.size(); i++)
     {
-      const HeroStatsRecordLine &line = lines[i];
+      const HeroStatsRecordLine &line = sorted[i];
       if (line.group != group)
       {
         group = line.group;
@@ -2410,9 +2450,9 @@ static void DrawRecords(HeroStatsDrawState *state, const std::vector<HeroStatsRe
         ImGui::TextColored(Colour(line.who == "party" ? DIM_RGB : TEXT_RGB), "%s", line.who.c_str());
       }
       ImGui::TableSetColumnIndex(column++);
-      TextColoredWithSymbols(DIM_RGB, line.how);
+      TextColoredWithSymbols(PART_RGB, line.how);
       ImGui::TableSetColumnIndex(column++);
-      ImGui::TextColored(Colour(DIM_RGB), "%s", line.whom.c_str());
+      ImGui::TextColored(Colour(PART_RGB), "%s", line.whom.c_str());
       ImGui::TableSetColumnIndex(column++);
       if (line.has) RightText(std::to_string(line.level), TEXT_RGB);
       if (!isParty)
@@ -3228,8 +3268,8 @@ static void LiveHead(const HeroStatsLiveChampion &live, ImU32 rgb, float width)
 
 // An attribute's bar against the best of the party: the track is the largest value any champion
 // has. Solid in the champion's colour up to what they have now; a drained part hatched in red up
-// to the max; a raised part in gold past the max, after a small gap so that gold reads beside a
-// yellow champion. Hovered: the numbers and the percent of the best.
+// to the max; a raised part in violet past the max, after a small gap so that it reads beside a
+// blue champion. Hovered: the numbers and the percent of the best.
 static void AttributeBar(const HeroStatsLiveParty &party, const HeroStatsLiveChampion &live, int attribute, ImU32 rgb, float width)
 {
   float lineHeight = ImGui::GetTextLineHeight();
@@ -3253,13 +3293,13 @@ static void AttributeBar(const HeroStatsLiveParty &party, const HeroStatsLiveCha
   {
     float raisedEnd = solidEnd + width * bar.raised;
     float from = raisedEnd - solidEnd > 4 ? solidEnd + 2 : solidEnd;
-    drawList->AddRectFilled(ImVec2(from, top.y), ImVec2(raisedEnd, bottom.y), Packed(GOLD_RGB));
+    drawList->AddRectFilled(ImVec2(from, top.y), ImVec2(raisedEnd, bottom.y), Packed(RAISED_RGB));
   }
   ImGui::Dummy(ImVec2(width, lineHeight));
   if (ImGui::IsItemHovered()) WrappedTooltip(HeroStatsLive_AttributeHelp(party, live, attribute).c_str());
 }
 
-// The attributes, current and max: drained below the max in red, raised above it in gold; the
+// The attributes, current and max: drained below the max in red, raised above it in violet; the
 // bar against the best of the party is the first the table gives up when it is narrow
 static void LiveAttributes(const HeroStatsLiveParty &party, const HeroStatsLiveChampion &live, ImU32 rgb)
 {
@@ -3283,7 +3323,7 @@ static void LiveAttributes(const HeroStatsLiveParty &party, const HeroStatsLiveC
       if (room > 4) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + room - 4);
       PillText(nowText);
     }
-    else RightText(std::to_string(now), now > most ? GOLD_RGB : TEXT_RGB);
+    else RightText(std::to_string(now), now > most ? RAISED_RGB : TEXT_RGB);
     ImGui::TableSetColumnIndex(2);
     RightText(std::to_string(most), TEXT_RGB);
     if (ImGui::TableSetColumnIndex(3)) AttributeBar(party, live, a, rgb, ImGui::GetContentRegionAvail().x);
@@ -3301,7 +3341,7 @@ static void CardRule(float width)
 }
 
 // The attributes on a Party card, as its vitals stand: the name, the bar against the best of the
-// party taking the room left, then current / max with the current red when drained, gold when raised
+// party taking the room left, then current / max with the current red when drained, violet when raised
 static void CardAttributes(const HeroStatsLiveParty &party, const HeroStatsLiveChampion &live, ImU32 rgb, float width)
 {
   float labels = 0, numbers = 0;
@@ -3323,7 +3363,7 @@ static void CardAttributes(const HeroStatsLiveParty &party, const HeroStatsLiveC
     float textWidth = ImGui::CalcTextSize((nowText + rest).c_str()).x;
     ImGui::SameLine(left + labels + barWidth + 10 + numbers - textWidth);
     if (now < most) PillText(nowText);
-    else ImGui::TextColored(Colour(now > most ? GOLD_RGB : TEXT_RGB), "%s", nowText.c_str());
+    else ImGui::TextColored(Colour(now > most ? RAISED_RGB : TEXT_RGB), "%s", nowText.c_str());
     ImGui::SameLine(0, 0);
     ImGui::TextColored(Colour(TEXT_RGB), "%s", rest.c_str());
   }

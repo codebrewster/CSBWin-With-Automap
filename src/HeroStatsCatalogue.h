@@ -70,6 +70,9 @@ extern const char *const HERO_STATS_BY_CHAMPIONS_HELP;
 extern const char *const HERO_STATS_BEST_RANK_HELP;
 // The help of the Weapons table's Avg column
 extern const char *const HERO_STATS_AVG_HELP;
+extern const char *const HERO_STATS_WEAPON_DAMAGE_HELP;  // the Damage columns of Weapons and Spells
+extern const char *const HERO_STATS_SPELL_DAMAGE_HELP;
+extern const char *const HERO_STATS_RECORDS_SORT_HELP;   // the Records table's Record header
 // The unit a record's value is written with ("ticks", "levels"), "" for none
 const char *HeroStatsCatalogue_Unit(HeroStatsNumber number, bool plural);
 
