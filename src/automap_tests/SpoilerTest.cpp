@@ -2538,6 +2538,24 @@ static void LauncherItemsAreFoundAtAllOnly(void)
   CHECK(AutoMapScene_SearchItems(learned, "club", FakeName, NULL).empty());
 }
 
+// Two launchers on one face draw from one pool: its items show once, not once per launcher
+static void LaunchersOnOneFaceListTheirPoolOnce(void)
+{
+  AutoMapLevelSnapshot snapshot = Corridor();
+  AutoMapLauncher first = ObjectLauncher(14);
+  first.ammunition.push_back(Ammo(CLUB, 4, 41, AUTOMAP_NO_RECORD));
+  AutoMapLauncher second = first;
+  second.actuator = LAUNCHER_RECORD + 1;
+  At(&snapshot, 1, 0).wallLaunchers.push_back(first);
+  At(&snapshot, 1, 0).wallLaunchers.push_back(second);
+  AutoMapDrawList all = Build(snapshot, AutoMapSpoilersAll, NULL);
+  std::vector<AutoMapTooltipSlot> slots = AutoMapScene_TooltipSlots(all, 1, 0);
+  CHECK(slots.size() == 1);
+  if (slots.size() == 1) CHECK(slots[0].launched && slots[0].count == 1);
+  std::vector<AutoMapSearchHit> club = AutoMapScene_SearchItems(all, "club", FakeName, NULL);
+  CHECK(club.size() == 1 && club[0].count == 1);
+}
+
 // The words before a tooltip stack's name: what the window and the export print
 static void StackPrefixNamesNeedsAndLaunches(void)
 {
@@ -2653,4 +2671,5 @@ void TestAutoMapSpoilers(void)
   AmmunitionStaysHiddenBelowAllEvenOnceFired();
   LauncherItemsAreFoundAtAllOnly();
   StackPrefixNamesNeedsAndLaunches();
+  LaunchersOnOneFaceListTheirPoolOnce();
 }

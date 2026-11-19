@@ -2296,6 +2296,16 @@ std::vector<AutoMapTooltipSlot> AutoMapScene_TooltipSlots(const AutoMapDrawList 
   for (size_t l = 0; l < shown->cell.wallLaunchers.size(); l++)
   {
     const AutoMapLauncher &launcher = shown->cell.wallLaunchers[l];
+    // Launchers on one face draw from one pool: list it once
+    bool listed = false;
+    for (size_t e = 0; e < l; e++)
+    {
+      if (shown->cell.wallLaunchers[e].side == launcher.side && !shown->cell.wallLaunchers[e].ammunition.empty())
+      {
+        listed = true;
+      }
+    }
+    if (listed) continue;
     const std::vector<AutoMapAlcoveEntry> &ammunition = launcher.ammunition;
     for (size_t i = 0; i < ammunition.size(); i++)
     {
