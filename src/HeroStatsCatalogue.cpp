@@ -85,6 +85,10 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Climb landings", "Climbs down a rope that ended on a square with monsters: the whole group dies at once. The monsters are on the Monsters tab.", true, false, false, false, false},
     {"Arrivals", "Each time the party came onto a level, by stairs, a teleporter, a pit or any other way. The level the party started on is no arrival.", true, false, false, false, false},
     {"Stair changes", "Each time the party went up or down stairs, by a step or a turn on the stairs. Counted on the level it left.", true, false, false, false, false},
+    {"Stair dances", "Two stair changes or more one after the other, with no step away from the stairs between them; fights and spells in between are part of the dance. A step to a square next to the stairs and back keeps it going. Counted on the level it began on.", true, false, false, false, false},
+    {"Dance moves", "The stair changes in the stair dances after the first, which only brought the party onto the stairs.", true, false, false, false, false},
+    {"Strict stair dances", "Stair dances that never left the stairs: any step off them ends one.", true, false, false, false, false},
+    {"Strict dance moves", "The turns on the stairs in the strict stair dances, after the stair change that brought the party onto them.", true, false, false, false, false},
     {"Time (ticks)", "", true, false, false, false, true},
     {"Asleep (ticks)", "", true, false, false, false, true},
     {"Doors bashed open", "", false, false, false, false, false},
@@ -136,6 +140,8 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Most poison per 36 ticks", "The most HP a champion's poison could take at one poison tick (every 36 ticks), all doses added up.", false, false, true, false, false, true},
     {"Biggest melee hit", "The most damage a blow at close range, with a weapon or an empty hand, did to one monster.", false, false, false, false, false, true},
     {"Biggest ranged hit", "The most damage a thrown item or a shot did to one monster.", false, false, false, false, false, true},
+    {"Longest stair dance", "The most dance moves in one stair dance; a step to a square next to the stairs and back keeps it going.", true, false, false, false, false, true},
+    {"Longest strict stair dance", "The most dance moves in one stair dance that never left the stairs.", true, false, false, false, false, true},
 };
 
 // The names csb.cfg knows the numbers by, in the order of HeroStatsNumber
@@ -154,7 +160,8 @@ static const char *const KEYS[] = {
     "eaten", "drunk", "potions_drunk", "potions_brewed", "food_gained", "food_wasted", "water_gained", "water_wasted",
     "picked_up", "used_in_walls",
     "steps", "tiles_walked", "tiles_explored", "turns", "wall_bumps", "monster_bumps", "teleports", "telefrags", "telefragged", "landings",
-    "pit_falls", "pit_climbs", "climb_landings", "arrivals", "stair_changes", "ticks", "sleep_ticks",
+    "pit_falls", "pit_climbs", "climb_landings", "arrivals", "stair_changes",
+    "stair_dances", "stair_dance_moves", "strict_stair_dances", "strict_stair_dance_moves", "ticks", "sleep_ticks",
     "doors_bashed", "doors_smashed", "doors_shot", "doors_by_spell", "doors_by_zo",
     "doors_button_opened", "doors_button_closed", "chests", "scrolls", "wall_texts",
     "champions_seen", "champions_viewed",
@@ -165,7 +172,7 @@ static const char *const KEYS[] = {
     "biggest_experience_gain", "heaviest_load", "longest_fall", "longest_teleport_chain", "longest_sleep",
     "most_poison", "longest_poisoned", "most_poisonings", "most_wounds", "most_wounds_one_blow",
     "poison_doses_suffered", "wounds_suffered", "most_poison_doses", "most_poison_per_36_ticks",
-    "biggest_melee_hit", "biggest_ranged_hit"};
+    "biggest_melee_hit", "biggest_ranged_hit", "longest_stair_dance", "longest_strict_stair_dance"};
 static_assert(sizeof KEYS / sizeof KEYS[0] == HERO_NUMBER_COUNT, "a name for every number");
 
 const HeroStatsNumberInfo &HeroStatsCatalogue_Info(HeroStatsNumber number)
@@ -238,7 +245,8 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
               {{HeroNumSteps, 0}, {HeroNumTurns, 0}, {HeroNumTilesWalked, 0}, {HeroNumTilesExplored, 0}, {HeroNumBumps, 0}, {HeroNumMonsterBumps, 0}}},
              {"Travel", true,
               {{HeroNumTeleports, 0}, {HeroNumTelefrags, 1, "onto monsters"}, {HeroNumPitFalls, 0}, {HeroNumLandings, 1, "onto monsters"},
-               {HeroNumPitClimbs, 0}, {HeroNumClimbLandings, 1, "onto monsters"}, {HeroNumArrivals, 0}, {HeroNumStairChanges, 0}}},
+               {HeroNumPitClimbs, 0}, {HeroNumClimbLandings, 1, "onto monsters"}, {HeroNumArrivals, 0}, {HeroNumStairChanges, 0},
+               {HeroNumStairDances, 0}, {HeroNumStairDanceMoves, 1}, {HeroNumStrictStairDances, 0}, {HeroNumStrictStairDanceMoves, 1}}},
              {"Time", true, {{HeroNumTicks, 0}, {HeroNumSleepTicks, 1, "Asleep"}}},
              {"Discoveries", true,
               {{HeroNumChests, 0}, {HeroNumScrolls, 0}, {HeroNumWallTexts, 0}, {HeroNumChampionsSeen, 0}, {HeroNumChampionsViewed, 0}}},
@@ -260,8 +268,17 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
   records.push_back({HeroNumRecBiggestMeleeHit, 0});
   records.push_back({HeroNumRecBiggestRangedHit, 0});
   for (int k = 0; k < HERO_RECORD_COUNT; k++)
-    if (k != HeroRecBiggestHit && k != HeroRecBiggestMeleeHit && k != HeroRecBiggestRangedHit)
+    if (k != HeroRecBiggestHit && k != HeroRecBiggestMeleeHit && k != HeroRecBiggestRangedHit &&
+        k != HeroRecLongestStairDance && k != HeroRecLongestStrictStairDance)
+    {
       records.push_back({(HeroStatsNumber)(HeroNumRecFirst + k), 0});
+      // The stair dances with the other chains of moves
+      if (k == HeroRecLongestTeleportChain)
+      {
+        records.push_back({HeroNumRecLongestStairDance, 0});
+        records.push_back({HeroNumRecLongestStrictStairDance, 0});
+      }
+    }
   SetRows(&topics[HeroTopicRecords], records);
   return topics;
 }
@@ -556,6 +573,10 @@ static void FillMovement(const HeroStats &stats, HeroStatsChampion, int level, i
   v[HeroNumClimbLandings] = move.climbLandings;
   v[HeroNumArrivals] = move.arrivals;
   v[HeroNumStairChanges] = move.stairChanges;
+  v[HeroNumStairDances] = move.stairDances;
+  v[HeroNumStairDanceMoves] = move.stairDanceMoves;
+  v[HeroNumStrictStairDances] = move.strictStairDances;
+  v[HeroNumStrictStairDanceMoves] = move.strictStairDanceMoves;
   v[HeroNumTicks] = move.ticks;
   v[HeroNumSleepTicks] = move.sleepTicks;
 }
@@ -695,7 +716,8 @@ static FillGroup GroupOf(HeroStatsNumber number)
   case HeroNumWaterWasted: return FillFood;
   case HeroNumPickedUp: case HeroNumUsedInWalls: return FillItems;
   case HeroNumSteps: case HeroNumTilesWalked: case HeroNumTilesExplored: case HeroNumTurns: case HeroNumBumps:
-  case HeroNumMonsterBumps: case HeroNumTeleports: case HeroNumTelefrags: case HeroNumLandings: case HeroNumPitFalls: case HeroNumPitClimbs: case HeroNumClimbLandings: case HeroNumArrivals: case HeroNumStairChanges: case HeroNumTicks:
+  case HeroNumMonsterBumps: case HeroNumTeleports: case HeroNumTelefrags: case HeroNumLandings: case HeroNumPitFalls: case HeroNumPitClimbs: case HeroNumClimbLandings: case HeroNumArrivals: case HeroNumStairChanges:
+  case HeroNumStairDances: case HeroNumStairDanceMoves: case HeroNumStrictStairDances: case HeroNumStrictStairDanceMoves: case HeroNumTicks:
   case HeroNumSleepTicks:
     return FillMovement;
   case HeroNumDoorsBashed: case HeroNumDoorsSmashed: case HeroNumDoorsShot: case HeroNumDoorsBySpell:

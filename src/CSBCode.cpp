@@ -7901,7 +7901,7 @@ void TraverseStairway(i32 UpOrDown, bool setFacing)
     CallPartyMoveFilter(&partyMoveData);
     if (partyMoveData.flags & PM_INHIBITMOVE) return;
   };
-  HeroStats_OnStairwayTaken();
+  HeroStats_OnStairwayTaken(newPartyLevel, x, y);
 
 
   MoveObject(RN(RNnul), d.partyX, d.partyY, -1, 0, NULL, NULL);

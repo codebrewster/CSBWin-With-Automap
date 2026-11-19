@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 HeroStatsBlow HeroStatsBlow_Nobody(HeroBlowBy by)
@@ -130,6 +131,9 @@ void HeroStats::Forget(void)
   m_wallTextsRead.clear();
   m_championsSeen.clear();
   m_championsViewed.clear();
+  for (int i = 0; i < 2; i++) m_dances[i] = StairDance();
+  m_danceLevel = -1;
+  m_danceX = m_danceY = 0;
   m_partyWipes = 0;
   m_reloads = 0;
   m_experience.Forget();
@@ -643,7 +647,7 @@ std::vector<HeroStatsSpellRow> HeroStats::Spells(HeroStatsChampion who, int leve
 
 static HeroStatsMovement NoMovement(void)
 {
-  HeroStatsMovement none = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  HeroStatsMovement none = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
   return none;
 }
 
@@ -719,6 +723,58 @@ void HeroStats::CountStairChange(int level)
   m_movement.insert(std::make_pair(level, NoMovement())).first->second.stairChanges++;
 }
 
+void HeroStats::TrackStairDance(int level, int x, int y, int toLevel, int toX, int toY, uint32_t time)
+{
+  bool fromTheStairs = level == m_danceLevel && x == m_danceX && y == m_danceY;
+  for (int i = 0; i < 2; i++)
+  {
+    StairDance &dance = m_dances[i];
+    if (!dance.going || !fromTheStairs)
+    {
+      dance = StairDance();
+      dance.firstLevel = level;
+      dance.otherLevel = toLevel;
+      dance.firstTime = time;
+    }
+    dance.count++;
+    dance.going = true;
+    if (dance.count < 2) continue;
+    HeroStatsMovement &movement = m_movement.insert(std::make_pair(dance.firstLevel, NoMovement())).first->second;
+    // The second stair change makes it a dance. The first one only brought the party onto the
+    // stairs: each one after it is a dance move.
+    int &dances = i == 0 ? movement.stairDances : movement.strictStairDances;
+    int &moves = i == 0 ? movement.stairDanceMoves : movement.strictStairDanceMoves;
+    if (dance.count == 2) dances++;
+    moves++;
+    HeroRecordEntry entry = HeroRecordEntry_Empty();
+    entry.value = dance.count - 1;
+    entry.level = entry.firstLevel = dance.firstLevel;
+    entry.time = time;
+    entry.firstTime = dance.firstTime;
+    entry.extra = dance.otherLevel;
+    m_records.Offer(i == 0 ? HeroRecLongestStairDance : HeroRecLongestStrictStairDance, entry);
+  }
+  m_danceLevel = toLevel;
+  m_danceX = toX;
+  m_danceY = toY;
+}
+
+void HeroStats::TrackStepFrom(int level, int x, int y)
+{
+  if (level != m_danceLevel || x != m_danceX || y != m_danceY) m_dances[1].going = false;
+  if (level != m_danceLevel || abs(x - m_danceX) + abs(y - m_danceY) > 1) m_dances[0].going = false;
+}
+
+void HeroStats::TrackPartyLevel(int level)
+{
+  if (level != m_danceLevel) EndStairDances();
+}
+
+void HeroStats::EndStairDances(void)
+{
+  m_dances[0].going = m_dances[1].going = false;
+}
+
 void HeroStats::SetLegacyTelefragKills(int level, int kills)
 {
   m_movement.insert(std::make_pair(level, NoMovement())).first->second.telefragKills = kills;
@@ -758,6 +814,10 @@ HeroStatsMovement HeroStats::Movement(int level) const
     sum.landings += at->second.landings;
     sum.climbLandings += at->second.climbLandings;
     sum.arrivals += at->second.arrivals;
+    sum.stairDances += at->second.stairDances;
+    sum.stairDanceMoves += at->second.stairDanceMoves;
+    sum.strictStairDances += at->second.strictStairDances;
+    sum.strictStairDanceMoves += at->second.strictStairDanceMoves;
     sum.stairChanges += at->second.stairChanges;
   }
   return sum;
@@ -1265,6 +1325,13 @@ void HeroStats::Serialize(std::vector<uint8_t> *out, int layout) const
       HeroBytes_PutInt(out, it->second.arrivals);
       HeroBytes_PutInt(out, it->second.stairChanges);
     }
+    if (layout >= FIRST_LAYOUT_WITH_STAIR_DANCES)
+    {
+      HeroBytes_PutInt(out, it->second.stairDances);
+      HeroBytes_PutInt(out, it->second.stairDanceMoves);
+      HeroBytes_PutInt(out, it->second.strictStairDances);
+      HeroBytes_PutInt(out, it->second.strictStairDanceMoves);
+    }
   }
   HeroBytes_Put(out, (uint32_t)m_items.size(), 4);
   for (std::map<std::pair<int, int>, ItemCounts>::const_iterator it = m_items.begin(); it != m_items.end(); ++it)
@@ -1373,6 +1440,18 @@ void HeroStats::Serialize(std::vector<uint8_t> *out, int layout) const
     HeroBytes_Put(out, (uint32_t)((unsigned long long)it->second & 0xffffffffu), 4);
     HeroBytes_Put(out, (uint32_t)((unsigned long long)it->second >> 32), 4);
   }
+  if (layout < FIRST_LAYOUT_WITH_STAIR_DANCES) return;
+  for (int i = 0; i < 2; i++)
+  {
+    HeroBytes_PutInt(out, m_dances[i].going ? 1 : 0);
+    HeroBytes_PutInt(out, m_dances[i].count);
+    HeroBytes_PutInt(out, m_dances[i].firstLevel);
+    HeroBytes_PutInt(out, m_dances[i].otherLevel);
+    HeroBytes_Put(out, m_dances[i].firstTime, 4);
+  }
+  HeroBytes_PutInt(out, m_danceLevel);
+  HeroBytes_PutInt(out, m_danceX);
+  HeroBytes_PutInt(out, m_danceY);
 }
 
 bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
@@ -1385,6 +1464,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
   bool hasLandings = layout >= FIRST_LAYOUT_WITH_LANDINGS;
   bool hasClimbLandings = layout >= FIRST_LAYOUT_WITH_CLIMB_LANDINGS;
   bool hasStairs = layout >= FIRST_LAYOUT_WITH_STAIRS;
+  bool hasStairDances = layout >= FIRST_LAYOUT_WITH_STAIR_DANCES;
   HeroBytesReader in(data, size);
   HeroStats read;
   uint32_t count = in.GetCount(3);
@@ -1522,7 +1602,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
   }
   read.m_partyWipes = in.GetInt();
   read.m_reloads = in.GetInt();
-  count = hasMovement ? in.GetCount((hasStairs ? 16 : hasClimbLandings ? 14 : hasLandings ? 13 : hasTelefragKills ? 12 : hasTelefrags ? 11 : hasMonsterBumps ? 10 : hasPitsAndSleep ? 9 : 5) * 4) : 0;
+  count = hasMovement ? in.GetCount((hasStairDances ? 20 : hasStairs ? 16 : hasClimbLandings ? 14 : hasLandings ? 13 : hasTelefragKills ? 12 : hasTelefrags ? 11 : hasMonsterBumps ? 10 : hasPitsAndSleep ? 9 : 5) * 4) : 0;
   for (uint32_t i = 0; i < count && in.ok; i++)
   {
     int level = in.GetInt();
@@ -1546,6 +1626,13 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
       {
         movement.arrivals = in.GetInt();
         movement.stairChanges = in.GetInt();
+      }
+      if (hasStairDances)
+      {
+        movement.stairDances = in.GetInt();
+        movement.stairDanceMoves = in.GetInt();
+        movement.strictStairDances = in.GetInt();
+        movement.strictStairDanceMoves = in.GetInt();
       }
     }
     read.m_movement[level] = movement;
@@ -1726,6 +1813,23 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
     unsigned long long high = in.Get(4);
     if (source < 0 || source >= HERO_HARM_SOURCE_COUNT || part < 0 || part >= HERO_DEFENCE_PART_COUNT) return false;
     read.m_defences[DefenceKey(who, level, source, part)] = (long long)(low | high << 32);
+  }
+  for (int i = 0; hasStairDances && i < 2 && in.ok; i++)
+  {
+    uint32_t going = in.Get(4);
+    StairDance &dance = read.m_dances[i];
+    dance.going = going != 0;
+    dance.count = in.GetInt();
+    dance.firstLevel = in.GetInt();
+    dance.otherLevel = in.GetInt();
+    dance.firstTime = in.Get(4);
+    if (going > 1 || dance.count < 0) return false;
+  }
+  if (hasStairDances)
+  {
+    read.m_danceLevel = in.GetInt();
+    read.m_danceX = in.GetInt();
+    read.m_danceY = in.GetInt();
   }
   if (!in.ok || in.left != 0) return false;
   *this = read;

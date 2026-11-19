@@ -11,7 +11,8 @@ bool HeroRecord_LowerIsBetter(HeroRecordKind kind)
 
 bool HeroRecord_PartyOnly(HeroRecordKind kind)
 {
-  return kind == HeroRecLongestFall || kind == HeroRecLongestTeleportChain || kind == HeroRecLongestSleep;
+  return kind == HeroRecLongestFall || kind == HeroRecLongestTeleportChain || kind == HeroRecLongestSleep ||
+         kind == HeroRecLongestStairDance || kind == HeroRecLongestStrictStairDance;
 }
 
 bool HeroRecord_PartyHasItsOwn(HeroRecordKind kind)

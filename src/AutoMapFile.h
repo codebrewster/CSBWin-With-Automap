@@ -139,7 +139,8 @@ private:
 //              then (layout 26) bumps into monsters, (layout 27) telefrags, (layout 28) monsters killed by them (only
 //              in games saved before layout 29), (layout 29) landings on monsters,
 //              (layout 30) climbs down a rope onto monsters, (layout 31) arrivals on the level,
-//              stair changes
+//              stair changes, (layout 34) stair dances, their stair changes, strict stair
+//              dances, their stair changes
 //     items (layout 16): per row level, item (basic object type), picked up, used in walls,
 //              then (layout 24) taken from chests (a part of picked up)
 //     eaten and drunk (layout 17): 2 bytes champion, level, item, kind (0 drunk, 1 eaten), count
@@ -173,6 +174,9 @@ private:
 //              resistance, 1 fire and spell shields, 2 wisdom, 3 armour, 4 shields in hand,
 //              5 vitality, 6 shield potion, 7 party shield, 8 stance, 9 wounds, 10 asleep),
 //              8 bytes amount in 64ths of a hit point (signed)
+//     stair dances going on (layout 34): the dance, then the strict dance, each 4 bytes going
+//              (0 or 1), stair changes, first level, level danced to, 4 bytes first time; then
+//              the stairs the party came out of last: level (-1 none), x, y
 //     origins: missiles and clouds (4 byte index, the blow), brewers (4 byte index, 2 bytes
 //              champion), then (layout 16) the held items, (layout 17) the opened chests and
 //              (layout 20) the read scrolls (4 byte record key each)
@@ -182,7 +186,7 @@ private:
 // door methods and no food and water, layout 18 no tiles walked, layout 19 no scrolls read,
 // layouts 20 and 21 no rune outcomes (taken from the rune spells' rows), layout 22 no experience
 // and no records, layout 23 no items taken from chests, layout 24 no poisonings, wounds or
-// stretches of poison, layout 25 no bumps into monsters, layout 26 no telefrags, layout 27 no count of their kills, layout 28 no landings and no monster kills by telefrag or landing (a telefrag's kills are among the "other" kills and counted with the movement), layout 29 no climbs down a rope onto monsters, layout 30 no arrivals or stair changes, layout 31 no potions brewed, layout 32 no monster attacks or defences. These older layouts come only inside map files of those versions.
+// stretches of poison, layout 25 no bumps into monsters, layout 26 no telefrags, layout 27 no count of their kills, layout 28 no landings and no monster kills by telefrag or landing (a telefrag's kills are among the "other" kills and counted with the movement), layout 29 no climbs down a rope onto monsters, layout 30 no arrivals or stair changes, layout 31 no potions brewed, layout 32 no monster attacks or defences, layout 33 no stair dances. These older layouts come only inside map files of those versions.
 class AutoMapStatsFile
 {
 public:

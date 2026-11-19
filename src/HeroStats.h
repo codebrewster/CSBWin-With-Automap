@@ -115,6 +115,11 @@ struct HeroStatsMovement
   int climbLandings; // climbs down a pit with a rope that ended on a cell with monsters, which they killed
   int arrivals;      // times the party came onto the level, by any way (not the level it started on)
   int stairChanges;  // times the party went up or down stairs, counted on the level it left
+  // Stair dances (HeroStats::TrackStairDance), on the level a dance began: the dances, and their
+  // moves (the stair changes in them after the first, which only brought the party onto the stairs). A dance may step to a square next to its stairs; a strict one never
+  // leaves the stairs.
+  int stairDances, stairDanceMoves;
+  int strictStairDances, strictStairDanceMoves;
 };
 
 // What the party did with items, by item (its basic object type, like a weapon key): items picked
@@ -238,6 +243,20 @@ public:
   void CountClimbLanding(int level);
   void CountArrival(int level);
   void CountStairChange(int level);
+  // Stair dances: stair changes one after the other, with no step away from the stairs between
+  // them; fighting and casting between them is part of the dance. Two kinds are kept: a dance may
+  // step to the four squares next to the stairs it came out of and back (a monster backed off), a
+  // strict dance never leaves the stairs. Two stair changes or more make a dance; it counts on the
+  // level of its first stair change. That one brought the party onto the stairs: each stair change
+  // after it is a dance move, and the most moves of a dance are a record (the longest).
+  // The party took the stairs at (level, x, y) and comes out of them at (toLevel, toX, toY)
+  void TrackStairDance(int level, int x, int y, int toLevel, int toX, int toY, uint32_t time);
+  // The party steps away from (level, x, y): a turn on the stairs is a step from them too
+  void TrackStepFrom(int level, int x, int y);
+  // The party is on level: another level than the stairs it came out of ends the dances (a pit)
+  void TrackPartyLevel(int level);
+  // A teleporter or anything else that moved the party ends the dances
+  void EndStairDances(void);
   // For the tests: the telefrag kills of a level as a file before layout 29 has them
   void SetLegacyTelefragKills(int level, int kills);
   // The party stands on the cell (any number of times: it counts once)
@@ -324,8 +343,8 @@ public:
   // outcomes are taken from the rune spells' rows, on the level of the cast; 21 has a table of
   // rune mana per level, which is skipped), 22 no experience and no records, 23 no items taken
   // from chests (none counted), 24 no poisonings, wounds or stretches of poison, 29 no climbs onto monsters,
-  // 30 no arrivals or stair changes, 32 no monster attacks and no defences.
-  static const int LAYOUT = 33;
+  // 30 no arrivals or stair changes, 32 no monster attacks and no defences, 33 no stair dances.
+  static const int LAYOUT = 34;
   static const int FIRST_LAYOUT_WITH_MOVEMENT = 14;
   static const int FIRST_LAYOUT_WITH_PITS_AND_SLEEP = 15;
   static const int FIRST_LAYOUT_WITH_ITEMS = 16;
@@ -346,6 +365,7 @@ public:
   static const int FIRST_LAYOUT_WITH_STAIRS = 31;  // arrivals and stair changes
   static const int FIRST_LAYOUT_WITH_BREWS = 32;   // the event kind of a potion brewed
   static const int FIRST_LAYOUT_WITH_DEFENCES = 33;  // monster attacks and what the defences took off
+  static const int FIRST_LAYOUT_WITH_STAIR_DANCES = 34;
   // layout: an older one leaves out what it does not have (the tests write old files with it)
   void Serialize(std::vector<uint8_t> *out, int layout = LAYOUT) const;
   bool Deserialize(const uint8_t *data, size_t size, int layout = LAYOUT);
@@ -424,6 +444,12 @@ private:
   std::map<int, int> m_championsSeen, m_championsViewed;  // per level, not stored
   static int SumOverLevels(const std::map<int, int> &perLevel, int level);
   int ConsumedOfKind(HeroStatsChampion who, int level, int kind) const;
+  // A stair dance going on: its stair changes, where and when it began, the level it dances to.
+  // going: no step away from the stairs since the last stair change.
+  struct StairDance { bool going; int count, firstLevel, otherLevel; uint32_t firstTime; };
+  StairDance m_dances[2] = {};  // 0 the dance, 1 the strict dance
+  // The stairs the party came out of last (level -1: none)
+  int m_danceLevel = -1, m_danceX = 0, m_danceY = 0;
   int m_partyWipes = 0;
   int m_reloads = 0;
   HeroStatsExperience m_experience;

@@ -703,6 +703,7 @@ static std::vector<HeroStatsRankUpLine> XpRankUps(const HeroStats &stats, HeroSt
 static const char *RecordGroup(HeroRecordKind kind)
 {
   if (kind == HeroRecBiggestMeleeHit || kind == HeroRecBiggestRangedHit) return "Dealt";
+  if (kind == HeroRecLongestStairDance || kind == HeroRecLongestStrictStairDance) return "Carrying & moving";
   if (kind <= HeroRecKillStreak) return "Dealt";
   if (kind <= HeroRecClosestCall) return "Taken";
   if (kind <= HeroRecBiggestXpGain) return "Magic & healing";
@@ -783,6 +784,9 @@ static void DescribeRecord(HeroRecordKind kind, const HeroRecordEntry &entry, co
   case HeroRecLongestFall:
     line->how = "Lv " + std::to_string(entry.firstLevel) + " \xe2\x86\x92 " + std::to_string(FallLanding(entry));
     break;
+  case HeroRecLongestStairDance: case HeroRecLongestStrictStairDance:
+    line->how = "Lv " + std::to_string(entry.firstLevel) + " \xe2\x86\x94 " + std::to_string(entry.extra);
+    break;
   case HeroRecLongestTeleportChain:
     if (entry.firstLevel != entry.level) line->how = "Lv " + std::to_string(entry.firstLevel) + " \xe2\x86\x92 " + std::to_string(entry.level);
     break;
@@ -803,8 +807,12 @@ static std::vector<HeroStatsRecordLine> RecordLines(const HeroStats &stats, cons
   order.push_back(HeroRecBiggestRangedHit);
   for (int k = 0; k < HERO_RECORD_COUNT; k++)
     if (k != HeroRecTotalPoisonings && k != HeroRecTotalWounds && k != HeroRecMostPoisonDoses && k != HeroRecMostPoisonPerTurn &&
-        k != HeroRecBiggestHit && k != HeroRecBiggestMeleeHit && k != HeroRecBiggestRangedHit)
+        k != HeroRecBiggestHit && k != HeroRecBiggestMeleeHit && k != HeroRecBiggestRangedHit &&
+        k != HeroRecLongestStairDance && k != HeroRecLongestStrictStairDance)
       order.push_back(k);
+  // The stair dances with the other chains of moves
+  order.insert(std::find(order.begin(), order.end(), (int)HeroRecLongestTeleportChain) + 1, (int)HeroRecLongestStrictStairDance);
+  order.insert(std::find(order.begin(), order.end(), (int)HeroRecLongestTeleportChain) + 1, (int)HeroRecLongestStairDance);
   order.insert(std::find(order.begin(), order.end(), (int)HeroRecLongestPoisoned), (int)HeroRecMostPoisonDoses);
   order.insert(std::find(order.begin(), order.end(), (int)HeroRecLongestPoisoned), (int)HeroRecMostPoisonPerTurn);
   order.insert(std::find(order.begin(), order.end(), (int)HeroRecMostWoundsAtOnce), (int)HeroRecTotalPoisonings);
@@ -833,7 +841,9 @@ static std::vector<HeroStatsRecordLine> RecordLines(const HeroStats &stats, cons
       line.tick = (int)entry.time;
       line.when = "tick " + HeroStatsView_Number((int)entry.time);
       // A streak or chain: where and when it began and ended
-      if (kind == HeroRecKillStreak || kind == HeroRecLongestFall || kind == HeroRecLongestTeleportChain || kind == HeroRecLongestSleep ||
+      if (kind == HeroRecLongestStairDance || kind == HeroRecLongestStrictStairDance)
+        line.when = "tick " + HeroStatsView_Number((int)entry.firstTime) + " \xe2\x86\x92 " + HeroStatsView_Number((int)entry.time);
+      else if (kind == HeroRecKillStreak || kind == HeroRecLongestFall || kind == HeroRecLongestTeleportChain || kind == HeroRecLongestSleep ||
           kind == HeroRecLongestPoisoned || kind == HeroRecMostPoisonings)
         line.when = "Lv " + std::to_string(entry.firstLevel) + ", tick " + HeroStatsView_Number((int)entry.firstTime) + " \xe2\x86\x92 Lv " +
                     std::to_string(kind == HeroRecLongestFall ? FallLanding(entry) : entry.level) + ", tick " + HeroStatsView_Number((int)entry.time);

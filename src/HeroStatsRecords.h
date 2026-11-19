@@ -24,10 +24,11 @@ enum HeroRecordKind { HeroRecBiggestHit, HeroRecBiggestSpellHit, HeroRecBiggestS
                       HeroRecMostWoundsAtOnce, HeroRecMostWoundsInOneBlow,
                       HeroRecTotalPoisonings, HeroRecTotalWounds,
                       HeroRecMostPoisonDoses, HeroRecMostPoisonPerTurn,
-                      HeroRecBiggestMeleeHit, HeroRecBiggestRangedHit, HERO_RECORD_COUNT };
+                      HeroRecBiggestMeleeHit, HeroRecBiggestRangedHit,
+                      HeroRecLongestStairDance, HeroRecLongestStrictStairDance, HERO_RECORD_COUNT };
 bool HeroRecord_IsTotal(HeroRecordKind kind);        // a sum over the levels, not a best of them
 bool HeroRecord_LowerIsBetter(HeroRecordKind kind);  // the closest call
-bool HeroRecord_PartyOnly(HeroRecordKind kind);      // falls, teleport chains, sleep
+bool HeroRecord_PartyOnly(HeroRecordKind kind);      // falls, teleport chains, sleep, stair dances
 // Kept for the party as its own (not the best champion's): the party-only ones and the kill streak
 bool HeroRecord_PartyHasItsOwn(HeroRecordKind kind);
 
@@ -35,7 +36,8 @@ bool HeroRecord_PartyHasItsOwn(HeroRecordKind kind);
 // the weapon and action, the spell, or the monster (whose blow or spell it was taken from), as
 // experience keeps its sources. monsterType, variant, count: on whom (count: the members of the
 // group). extra: the most a champion can carry (tenths of kg) for the heaviest load, the class
-// for the biggest experience gain. firstLevel, firstTime: where and when a streak or chain began.
+// for the biggest experience gain, the level danced to for a stair dance (whose level is the one
+// it began on). firstLevel, firstTime: where and when a streak or chain began.
 // kinds: a streak's two most killed (monster type, count), type -1 for none.
 struct HeroRecordEntry
 {

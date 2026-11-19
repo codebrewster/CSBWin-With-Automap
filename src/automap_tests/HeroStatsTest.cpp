@@ -330,6 +330,113 @@ static void MovementIsKeptPerLevel(void)
   CHECK(readAs30.Deserialize(as30.data(), as30.size(), 30) && readAs30.Movement(1).arrivals == 0 && readAs30.Movement(1).stairChanges == 0);
 }
 
+// The longest stair dance of a kind over the whole run, or -1
+static int LongestDance(const HeroStats &stats, HeroRecordKind kind, int level = HERO_STATS_WHOLE_RUN)
+{
+  HeroRecordEntry entry;
+  return stats.Records().Best(kind, HERO_STATS_PARTY, level, &entry) ? entry.value : -1;
+}
+
+// Stairs between level 3 (at 5,5) and level 4 (at 5,5): a turn on them is a step from them and
+// a stair change, as the engine reports it
+static void TurnOnStairs(HeroStats *stats, int level, uint32_t time)
+{
+  stats->TrackStepFrom(level, 5, 5);
+  stats->TrackStairDance(level, 5, 5, level == 3 ? 4 : 3, 5, 5, time);
+  stats->TrackPartyLevel(level == 3 ? 4 : 3);
+}
+
+// Stair dances: stair changes with no step away from the stairs between them. A step to a square
+// next to the stairs and back keeps a dance going, not a strict one.
+static void StairDancesAreCounted(void)
+{
+  HeroStats stats;
+  // Walked onto the stairs and back: a dance of two, strict too, on the level it began on
+  stats.TrackStepFrom(3, 5, 4);
+  stats.TrackStairDance(3, 5, 5, 4, 5, 5, 100);
+  stats.TrackPartyLevel(4);
+  CHECK(stats.Movement(3).stairDances == 0 && LongestDance(stats, HeroRecLongestStairDance) == -1);
+  TurnOnStairs(&stats, 4, 110);
+  // The stair change onto the stairs is no dance move; the turn is
+  CHECK(stats.Movement(3).stairDances == 1 && stats.Movement(3).stairDanceMoves == 1);
+  CHECK(stats.Movement(3).strictStairDances == 1 && stats.Movement(3).strictStairDanceMoves == 1);
+  CHECK(stats.Movement(4).stairDances == 0);
+  // On, with a fight between the turns: still the same dance
+  TurnOnStairs(&stats, 3, 120);
+  TurnOnStairs(&stats, 4, 130);
+  CHECK(stats.Movement(3).stairDances == 1 && stats.Movement(3).stairDanceMoves == 3 && stats.Movement(3).strictStairDanceMoves == 3);
+  CHECK(LongestDance(stats, HeroRecLongestStairDance) == 3 && LongestDance(stats, HeroRecLongestStrictStairDance) == 3);
+  // Now on level 3: a step out to the monster that backed off, and back onto the stairs. The
+  // strict dance ends; the other goes on.
+  stats.TrackStepFrom(3, 5, 5);
+  stats.TrackStepFrom(3, 6, 5);
+  stats.TrackStairDance(3, 5, 5, 4, 5, 5, 140);
+  stats.TrackPartyLevel(4);
+  CHECK(stats.Movement(3).stairDances == 1 && stats.Movement(3).stairDanceMoves == 4);
+  CHECK(stats.Movement(3).strictStairDances == 1 && stats.Movement(3).strictStairDanceMoves == 3);
+  // A new strict dance begins with that stair change, on level 3, and the turn back makes it one
+  TurnOnStairs(&stats, 4, 150);
+  CHECK(stats.Movement(3).stairDanceMoves == 5 && LongestDance(stats, HeroRecLongestStairDance) == 5);
+  CHECK(stats.Movement(3).strictStairDances == 2 && stats.Movement(3).strictStairDanceMoves == 4 && stats.Movement(4).strictStairDances == 0);
+  CHECK(LongestDance(stats, HeroRecLongestStrictStairDance) == 3);
+  // Two squares away ends the dance: the next stair change begins a new one
+  stats.TrackStepFrom(3, 5, 5);
+  stats.TrackStepFrom(3, 6, 5);
+  stats.TrackStepFrom(3, 7, 5);
+  stats.TrackStepFrom(3, 6, 5);
+  stats.TrackStairDance(3, 5, 5, 4, 5, 5, 200);
+  stats.TrackPartyLevel(4);
+  CHECK(stats.Movement(3).stairDanceMoves == 5);
+  TurnOnStairs(&stats, 4, 210);
+  CHECK(stats.Movement(3).stairDances == 2 && stats.Movement(3).stairDanceMoves == 6);
+  // A diagonal square is two steps away too
+  stats.TrackStepFrom(3, 5, 5);
+  stats.TrackStepFrom(3, 6, 5);
+  stats.TrackStepFrom(3, 6, 6);
+  stats.TrackStepFrom(3, 6, 5);
+  stats.TrackStairDance(3, 5, 5, 4, 5, 5, 220);
+  CHECK(stats.Movement(3).stairDanceMoves == 6);
+  // A teleporter, or a pit to another level, ends the dances too
+  stats.TrackPartyLevel(4);
+  TurnOnStairs(&stats, 4, 230);
+  CHECK(stats.Movement(3).stairDances == 3);
+  stats.EndStairDances();
+  TurnOnStairs(&stats, 3, 240);
+  stats.TrackPartyLevel(5);
+  TurnOnStairs(&stats, 4, 250);
+  CHECK(stats.Movement(HERO_STATS_WHOLE_RUN).stairDances == 3);
+  // Other stairs next to the ones the party came out of: a new dance
+  stats.TrackStairDance(4, 5, 5, 3, 5, 5, 260);
+  stats.TrackStepFrom(3, 5, 5);
+  stats.TrackStairDance(3, 5, 6, 2, 5, 6, 270);
+  CHECK(stats.Movement(HERO_STATS_WHOLE_RUN).stairDances == 3);
+  // The longest of a level is the longest begun there; the record tells the other level
+  HeroRecordEntry entry;
+  CHECK(stats.Records().Best(HeroRecLongestStairDance, HERO_STATS_PARTY, 3, &entry) && entry.value == 5 && entry.extra == 4 &&
+        entry.firstTime == 100 && entry.time == 150);
+  CHECK(LongestDance(stats, HeroRecLongestStairDance, 4) == -1);
+  // A dance going on is in the file: read back, the next turn goes on with it
+  HeroStats going;
+  TurnOnStairs(&going, 3, 10);
+  TurnOnStairs(&going, 4, 20);
+  std::vector<uint8_t> bytes, as33;
+  going.Serialize(&bytes);
+  going.Serialize(&as33, 33);
+  HeroStats read, readAs33;
+  CHECK(read.Deserialize(bytes.data(), bytes.size()));
+  TurnOnStairs(&read, 3, 30);
+  CHECK(read.Movement(3).stairDances == 1 && read.Movement(3).stairDanceMoves == 2 && read.Movement(3).strictStairDanceMoves == 2);
+  // Layout 33 has no stair dances: one level of movement with four counts less, and no dance going
+  CHECK(bytes.size() == as33.size() + 16 + 2 * 20 + 12);
+  CHECK(readAs33.Deserialize(as33.data(), as33.size(), 33) && readAs33.Movement(3).stairDances == 0);
+  TurnOnStairs(&readAs33, 3, 30);
+  CHECK(readAs33.Movement(3).stairDances == 0);
+  // Forgetting the run forgets the dance going on
+  read.Forget();
+  TurnOnStairs(&read, 3, 40);
+  CHECK(read.Movement(HERO_STATS_WHOLE_RUN).stairDances == 0);
+}
+
 // The layout of version 13: harm rows without the missile kind, no movement table. A store with
 // one harm row, written now, becomes that by cutting the kind and the ten empty counts at the
 // end (movement, items, eaten and drunk, doors bashed, chests opened, food and water, tiles, scrolls,
@@ -1029,6 +1136,7 @@ void TestHeroStats(void)
   MonsterHarmNamesTheMonsterType();
   MonsterMissilesKeepTheirKind();
   MovementIsKeptPerLevel();
+  StairDancesAreCounted();
   LayoutThirteenIsStillRead();
   ActionUsesAreKeptApartFromTries();
   LayoutFourteenIsStillRead();

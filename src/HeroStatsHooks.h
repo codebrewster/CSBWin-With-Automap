@@ -57,7 +57,8 @@ void HeroStats_OnPartyStepped(void);
 void HeroStats_OnPartyTurned(void);
 // The party is about to take the stairs (TraverseStairway, after the party move filter let it): the
 // stair change counts on the level it leaves. Its arrival on the next level counts in OnPartyOnLevel.
-void HeroStats_OnStairwayTaken(void);
+// (toLevel, toX, toY): the stairs it comes out of, for the stair dances.
+void HeroStats_OnStairwayTaken(int toLevel, int toX, int toY);
 // A teleporter on level took the party (each teleporter of a chain counts)
 void HeroStats_OnPartyTeleported(int level, int x, int y);
 // The party went down the pit on level: climbed down with a rope (the engine suppresses the

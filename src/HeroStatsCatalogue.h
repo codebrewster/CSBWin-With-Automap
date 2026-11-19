@@ -30,7 +30,8 @@ enum HeroStatsNumber {
   HeroNumEaten, HeroNumDrunk, HeroNumPotionsDrunk, HeroNumPotionsBrewed, HeroNumFoodGained, HeroNumFoodWasted, HeroNumWaterGained, HeroNumWaterWasted,
   HeroNumPickedUp, HeroNumUsedInWalls,
   HeroNumSteps, HeroNumTilesWalked, HeroNumTilesExplored, HeroNumTurns, HeroNumBumps, HeroNumMonsterBumps, HeroNumTeleports, HeroNumTelefrags, HeroNumTelefragged, HeroNumLandings,
-  HeroNumPitFalls, HeroNumPitClimbs, HeroNumClimbLandings, HeroNumArrivals, HeroNumStairChanges, HeroNumTicks, HeroNumSleepTicks,
+  HeroNumPitFalls, HeroNumPitClimbs, HeroNumClimbLandings, HeroNumArrivals, HeroNumStairChanges,
+  HeroNumStairDances, HeroNumStairDanceMoves, HeroNumStrictStairDances, HeroNumStrictStairDanceMoves, HeroNumTicks, HeroNumSleepTicks,
   HeroNumDoorsBashed, HeroNumDoorsSmashed, HeroNumDoorsShot, HeroNumDoorsBySpell, HeroNumDoorsByZo,
   HeroNumDoorsButtonOpened, HeroNumDoorsButtonClosed, HeroNumChests, HeroNumScrolls, HeroNumWallTexts,
   HeroNumChampionsSeen, HeroNumChampionsViewed,
@@ -45,6 +46,7 @@ enum HeroStatsNumber {
   HeroNumRecMostWoundsAtOnce, HeroNumRecMostWoundsInOneBlow, HeroNumRecTotalPoisonings, HeroNumRecTotalWounds,
   HeroNumRecMostPoisonDoses, HeroNumRecMostPoisonPerTurn,
   HeroNumRecBiggestMeleeHit, HeroNumRecBiggestRangedHit,
+  HeroNumRecLongestStairDance, HeroNumRecLongestStrictStairDance,
   HERO_NUMBER_COUNT };
 const HeroStatsNumber HeroNumRecFirst = HeroNumRecBiggestHit;
 

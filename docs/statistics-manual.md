@@ -304,6 +304,8 @@ column per champion; a champion's Exploration shows the doors only.
 | **onto monsters** (under Pit climbs) | Climbs down a rope that ended on a square with monsters, which kills the whole group as a landing does. No part of the Pit falls or of their "onto monsters"; the monsters are Landed on on the Monsters tab, with those of the falls. In a game saved with an earlier version it starts at 0. |
 | **Arrivals** | Each time the party came onto a level, by stairs, a teleporter, a pit or any other way. The level it started on is no arrival, and a game loaded from a save starts counting from its level. Counted on the level arrived at. |
 | **Stair changes** | Each time the party went up or down stairs, by a step or a turn on the stairs. Counted on the level it left, so a stair change is an arrival on the next level too. |
+| **Stair dances** | The fighting trick of standing on stairs, hitting a monster and turning to get away: two stair changes or more one after the other, with no step away from the stairs between them. Attacks, spells, item use and doors in between are part of the dance. When a monster backs off, a step to one of the four squares next to the stairs and back onto them keeps the dance going; a step further (a diagonal square is two steps), other stairs, a teleporter or a pit ends it. Counted on the level of the dance's first stair change. **Dance moves** below it are the stair changes in the dances after the first: the stair change that brought the party onto the stairs is no dance move, each turn after it (or step back onto the stairs) is one. |
+| **Strict stair dances** | The same, but any step off the stairs ends the dance, so it is only turns on the stairs. A dance with a step out holds a strict dance before the step and one after it: compare the two to see how often you stepped out. **Strict dance moves** below it are their turns on the stairs. In a game saved with an earlier version all four start at 0. |
 | **Time (ticks)** | Game ticks spent on the level, by the game's own clock, with **Asleep (ticks)** below it. How long a tick lasts in real time depends on the game speed. |
 | **Doors bashed open** | Doors a champion broke down ("bashed" is the game's own word), with **Smashed** (an attack), **Shot open** (a thrown or fired item) and **By spell** (a spell's missile or its explosion) below it. Doors broken by monsters or traps are not counted. |
 | **Opened with Zo** | Closed doors a champion's Zo spell opened: the spell works the door's switch like its button and leaves the door whole, so these are not bashed. A Zo on an open door closes it and does not count. |
@@ -424,6 +426,8 @@ the earlier one stays.
 | **Heaviest load** | the most weight a champion carried, and the share of what they could carry |
 | **Longest fall** | pits fallen through one after the other (the party), on the level the fall began; the level it landed on is in the text |
 | **Longest teleport chain** | teleporters one after the other (the party) |
+| **Longest stair dance** | the most dance moves in one stair dance (the party), on the level it began; the level it danced to is in the text |
+| **Longest strict stair dance** | the same for a strict stair dance, which never left the stairs |
 | **Longest sleep** | the ticks of one sleep (the party) |
 | **Most poison at once** | the most poison working on a champion at one time, all doses added up |
 | **Most poison doses at once** | the most doses of poison working on a champion at the same time |

@@ -500,6 +500,7 @@ void HeroStats_OnPartyOnLevel(void)
   if (d.Time > 0 && store.Movement(HERO_STATS_WHOLE_RUN).ticks == 0) store.CountTicksBefore(d.partyLevel, (int)d.Time);
   store.CountTick(d.partyLevel, d.PartySleeping != 0);
   store.MarkTileWalked(d.partyLevel, d.partyX, d.partyY);
+  store.TrackPartyLevel(d.partyLevel);
   store.Records().CountSleepTick(d.partyLevel, (uint32_t)d.Time, d.PartySleeping != 0);
   for (int slot = 0; slot < d.NumCharacter && slot < 4; slot++)
   {
@@ -702,6 +703,8 @@ void HeroStats_OnPartyStepped(void)
   if (d.partyLevel == LEVEL_OF_THE_PRISON_SCREEN) return;
   store.CountStep(PartyLevel());
   store.Records().CountMove();
+  // Called before the party moves: it steps away from where it stands (a turn on the stairs too)
+  store.TrackStepFrom(d.partyLevel, d.partyX, d.partyY);
 }
 
 void HeroStats_RefreshMapCounts(bool force)
@@ -725,10 +728,11 @@ void HeroStats_RefreshMapCounts(bool force)
   store.SetChampionsSeen(seen, viewed);
 }
 
-void HeroStats_OnStairwayTaken(void)
+void HeroStats_OnStairwayTaken(int toLevel, int toX, int toY)
 {
   if (d.partyLevel == LEVEL_OF_THE_PRISON_SCREEN) return;
   store.CountStairChange(PartyLevel());
+  store.TrackStairDance(d.partyLevel, d.partyX, d.partyY, toLevel, toX, toY, (uint32_t)d.Time);
 }
 
 void HeroStats_OnPartyTurned(void)
@@ -745,6 +749,7 @@ void HeroStats_OnPartyTeleported(int level, int x, int y)
   // The pad the party stepped into is walked too: the party never stands on it for a tick
   store.MarkTileWalked(level, x, y);
   store.CountTeleport(level);
+  store.EndStairDances();
   store.Records().CountTeleport(level, (uint32_t)d.Time);
 }
 
