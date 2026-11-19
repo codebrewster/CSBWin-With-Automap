@@ -1620,11 +1620,12 @@ static int SpellValue(const Line &line, int column)
   switch (column)
   {
   case 1: return line.casts;
-  case 2: return line.failed;
-  case 3: return line.mana;
-  case 4: return line.wasted;
-  case 5: return line.damage;
-  case 6: return line.kills;
+  case 2: return line.successful;
+  case 3: return line.failed;
+  case 4: return line.mana;
+  case 5: return line.wasted;
+  case 6: return line.damage;
+  case 7: return line.kills;
   default: return line.mana;
   }
 }
@@ -1636,6 +1637,7 @@ static void DrawSpells(HeroStatsDrawState *state, const HeroStatsHeroPage &page,
   for (size_t i = 0; i < page.spells.size(); i++)
   {
     all.casts += page.spells[i].casts;
+    all.successful += page.spells[i].successful;
     all.failed += page.spells[i].failed;
     all.mana += page.spells[i].mana;
     all.wasted += page.spells[i].wasted;
@@ -1651,11 +1653,12 @@ static void DrawSpells(HeroStatsDrawState *state, const HeroStatsHeroPage &page,
     SectionGap();
     return;
   }
-  int count = isParty ? 8 : 7;
+  int count = isParty ? 9 : 8;
   if (BeginPageTable("##spells", count, true))
   {
     LabelColumn("Spell", true);
     NumberColumn("Casts");
+    NumberColumn("Successful");
     NumberColumn("Failed");
     NumberColumn("Mana", true);
     NumberColumn("Wasted");
@@ -1663,10 +1666,10 @@ static void DrawSpells(HeroStatsDrawState *state, const HeroStatsHeroPage &page,
     NumberColumn("Kills");
     if (isParty) BarColumn("Who");
     TableSort sort = CurrentSort();
-    static const char *const LABELS[7] = {"Spell", "Casts", "Failed", "Mana", "Wasted", "Damage", "Kills"};
-    int measure = WhoMeasure(sort, {1, 2, 3, 4, 5, 6}, 3);
+    static const char *const LABELS[8] = {"Spell", "Casts", "Successful", "Failed", "Mana", "Wasted", "Damage", "Kills"};
+    int measure = WhoMeasure(sort, {1, 2, 3, 4, 5, 6, 7}, 4);
     static const HeaderHelps HELPS = {
-        "", "Casts of the spell, the failed ones included.", "",
+        "", "Casts of the spell, the failed ones included.", "The casts that worked.", "",
         "The mana of the runes, the mana wasted on failed casts included."};
     HeaderRow(std::vector<int>(), columns, isParty ? MeasureLabel(LABELS, measure) : "", HELPS);
     std::vector<HeroStatsSpellLine> spells = page.spells;
@@ -1682,14 +1685,14 @@ static void DrawSpells(HeroStatsDrawState *state, const HeroStatsHeroPage &page,
       if (isAll) TotalRow();
       else NextGuidedRow();
       LabelCell(line.name, 0, rgb);
-      for (int column = 1; column <= 6; column++)
+      for (int column = 1; column <= 7; column++)
       {
         ImGui::TableSetColumnIndex(column);
-        PlainCell(SpellValue(line, column), rgb, column == 2 || column == 4);
+        PlainCell(SpellValue(line, column), rgb, column == 3 || column == 5);
       }
       if (isParty && !isAll)
       {
-        ImGui::TableSetColumnIndex(7);
+        ImGui::TableSetColumnIndex(8);
         std::vector<int> split;
         for (size_t c = 0; c < line.byColumn.size(); c++) split.push_back(SpellValue(line.byColumn[c], measure));
         WhoCell(split, columns);

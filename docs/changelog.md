@@ -8,6 +8,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 ## Unreleased
 
 **Statistics**
+- Magic's Spells table has a Successful column: each spell's casts that worked, next to Casts and Failed (also in the HTML export).
 - Survival counts the monster attacks each champion received and how they ended: Hits taken, Dodged, Lucky, Too weak and Blocked.
 - Survival shows Damage reduced: what resistance, the fire and spell shields, protection and wisdom took off each hit, measured from the damage with no defence at all (no protection about doubles a hit). Protection is split into armour, shields in hand, vitality, the shield potion, the party shield, stance, wounds and sleep. A new table, Damage reduced by source, splits it by what did the harm.
 - Exploration shows a level's time as a share of the whole run: "4,321 (12%)" in the Time panel and in Per level's Time (ticks) column, also in the HTML export.

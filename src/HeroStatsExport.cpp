@@ -20,7 +20,7 @@
 //     "pages": per hero then the party {
 //       "weapons": [[name, tries, hits, damage, kills, uses, [[option, tries, hits, damage, kills, uses], ...], [by hero]], ...]
 //                  (tries: blows and missiles; uses: actions that cannot hit),
-//       "spells": [[name, casts, failed, mana, wasted, damage, kills, [by hero]], ...],
+//       "spells": [[name, casts, successful, failed, mana, wasted, damage, kills, [by hero]], ...],
 //       "taken": [[text, amount, isBad, [by hero]], ...], "healing": [[text, amount, [by hero]], ...],
 //       "deaths": [text, ...], "eaten": [[text, amount, [by hero]], ...], "drunk": [...], "eatenTotal", "drunkTotal",
 //       "xp": {"classes": [[name, rank now, rank at the start, % to next, next rank, experience, ranks gained,
@@ -173,15 +173,15 @@ static std::string PageJson(const HeroStatsHeroPage &page)
   for (size_t i = 0; i < page.spells.size(); i++)
   {
     const HeroStatsSpellLine &spell = page.spells[i];
-    int counts[6] = {spell.casts, spell.failed, spell.mana, spell.wasted, spell.damage, spell.kills};
+    int counts[7] = {spell.casts, spell.successful, spell.failed, spell.mana, spell.wasted, spell.damage, spell.kills};
     out += (i > 0 ? ",[" : "[") + HeroStatsExport_JsonString(spell.name);
-    for (int k = 0; k < 6; k++) out += "," + Number(counts[k]);
-    // Each column's own [casts, failed, mana, wasted, damage, kills] with it
+    for (int k = 0; k < 7; k++) out += "," + Number(counts[k]);
+    // Each column's own [casts, successful, failed, mana, wasted, damage, kills] with it
     out += ",[";
     for (size_t c = 0; c < spell.byColumn.size(); c++)
     {
       const HeroStatsSpellCounts &mine = spell.byColumn[c];
-      out += std::string(c > 0 ? "," : "") + "[" + Number(mine.casts) + "," + Number(mine.failed) + "," + Number(mine.mana) +
+      out += std::string(c > 0 ? "," : "") + "[" + Number(mine.casts) + "," + Number(mine.successful) + "," + Number(mine.failed) + "," + Number(mine.mana) +
              "," + Number(mine.wasted) + "," + Number(mine.damage) + "," + Number(mine.kills) + "]";
     }
     out += "]]";
@@ -859,20 +859,20 @@ function weapons(p) {
 function toggleWeapon(key) { st.open[key] = !st.open[key]; draw(); }
 
 function spells(p) {
-  const all = [0, 0, 0, 0, 0, 0];
-  for (const s of p.spells) for (let k = 0; k < 6; k++) all[k] += s[k + 1];
-  const summary = p.spells.length ? `${fmt(all[0])} casts · ${fmt(all[2])} mana` : 'none';
+  const all = [0, 0, 0, 0, 0, 0, 0];
+  for (const s of p.spells) for (let k = 0; k < 7; k++) all[k] += s[k + 1];
+  const summary = p.spells.length ? `${fmt(all[0])} casts · ${fmt(all[3])} mana` : 'none';
   if (!p.spells.length) return section(DETAIL.SPELLS, 'Spells', summary, '<div class="note">No spells cast.</div>');
-  const spellHelp = {Casts: 'Casts of the spell, the failed ones included.', Mana: 'The mana of the runes, the mana wasted on failed casts included.'};
-  const cols = ['Casts', 'Failed', 'Mana', 'Wasted', 'Damage', 'Kills'].map(l => numCol(l, spellHelp[l]));
+  const spellHelp = {Casts: 'Casts of the spell, the failed ones included.', Successful: 'The casts that worked.', Mana: 'The mana of the runes, the mana wasted on failed casts included.'};
+  const cols = ['Casts', 'Successful', 'Failed', 'Mana', 'Wasted', 'Damage', 'Kills'].map(l => numCol(l, spellHelp[l]));
   cols.unshift(nameCol('Spell'));
-  if (isParty()) cols.push(whoColumn([1, 2, 3, 4, 5, 6], 3));
-  const cellsOf = v => v.map((x, k) => td(x, plain(x, k === 1 || k === 3)));
-  // Each champion's [casts, failed, mana, wasted, damage, kills]: table column k is k - 1
-  const rows = p.spells.map(s => ({cells: [nameTd(s[0])].concat(cellsOf(s.slice(1, 7)),
-    isParty() ? [whoBy(s[3], k => s[7].map(c => c[k - 1]))] : [])}));
+  if (isParty()) cols.push(whoColumn([1, 2, 3, 4, 5, 6, 7], 4));
+  const cellsOf = v => v.map((x, k) => td(x, plain(x, k === 2 || k === 4)));
+  // Each champion's [casts, successful, failed, mana, wasted, damage, kills]: table column k is k - 1
+  const rows = p.spells.map(s => ({cells: [nameTd(s[0])].concat(cellsOf(s.slice(1, 8)),
+    isParty() ? [whoBy(s[4], k => s[8].map(c => c[k - 1]))] : [])}));
   const foot = {cls: 'all', cells: [nameTd('All spells')].concat(cellsOf(all), isParty() ? [td(0, '<td></td>')] : [])};
-  return section(DETAIL.SPELLS, 'Spells', summary, sortTable('spells', cols, rows, foot, 3));
+  return section(DETAIL.SPELLS, 'Spells', summary, sortTable('spells', cols, rows, foot, 4));
 }
 
 function amounts(id, title, column, what, lines, withBad) {

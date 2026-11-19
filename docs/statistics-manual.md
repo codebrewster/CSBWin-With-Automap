@@ -174,7 +174,7 @@ hit), Damage, Kills.
 | **Spells cast** | every attempt; with **Successful** and **Failed** below it, which add up to it |
 
 **Spells** has one row per spell, all power levels together (Lo Ful Ir and Mon Ful Ir are both
-"Fireball"). Columns: **Casts** (every attempt), **Failed** (needs more practice, fizzled, no flask
+"Fireball"). Columns: **Casts** (every attempt), **Successful** (the casts that worked), **Failed** (needs more practice, fizzled, no flask
 for a potion ...), **Mana** (the runes of every cast, the failed ones included), **Wasted** (the
 failed casts' part of it), and the **Damage** and **Kills** of the spell, including the cloud or
 explosion it made. Extra rows: runes that form no spell ("Ful Bro Ku (no spell)"), **Shield
