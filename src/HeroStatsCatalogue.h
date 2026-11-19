@@ -66,6 +66,8 @@ HeroRecordKind HeroStatsCatalogue_RecordOf(HeroStatsNumber number);  // for a re
 const HeroStatsNumberInfo &HeroStatsCatalogue_Info(HeroStatsNumber number);
 // The help of Kills beside Monsters killed, where its tile is called By champions
 extern const char *const HERO_STATS_BY_CHAMPIONS_HELP;
+// The help of the Weapons table's Avg column
+extern const char *const HERO_STATS_AVG_HELP;
 // The unit a record's value is written with ("ticks", "levels"), "" for none
 const char *HeroStatsCatalogue_Unit(HeroStatsNumber number, bool plural);
 

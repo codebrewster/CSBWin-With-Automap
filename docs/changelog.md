@@ -8,6 +8,8 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 ## Unreleased
 
 **Statistics**
+- One name for one thing: the kill causes are By champions, By doors, Into pits, Telefragged, Landed on and Other causes, as rows and as the Monsters killed table's columns; the protection lost to wounds and sleep is Wound penalty and Sleep penalty; Experience by source says Monster attacks received. Records no longer repeats Poisoned and Wounds as Poison doses suffered and Wounds suffered.
+- More hovertexts: every row of Records, the Weapons table's Avg, the Overview cards' short labels (Taken, Exp, Mana), and Healed, Heal action, Food and Water gained (in the game's units), the Doors rows, Pit climbs, Chests opened, Time, Asleep, Party wiped out, Reloads, Monsters killed, Biggest heal, Biggest experience gain, Longest teleport chain and Longest sleep.
 - Red means waste or a mistake: wasted mana, food and water, failed and meaningless casts, cleared runes, friendly fire, deaths, wipes and now reloads. Harm is no longer red: Poisoned, Wounds, Hits taken and the poison and wound records are the cost of fighting, like Damage taken. Bad news always sits on a faint red pill, on the tiles, the Overview cards and the Champions tab too, so it no longer looks like the red champion's colour.
 - A poison cloud nobody is known to have made is no longer shown as friendly fire. Damage taken by source names the champion behind a cloud or friendly fire on the Party's page too ("Poison clouds (from SYRA)").
 - Magic's Mana out rows say they are mana (On spells, On successful casts, On failed casts, On meaningless spells), and Casts counts Meaningless spells apart from Failed, as the mana does. In csb.cfg the new count is `casts_meaningless`.

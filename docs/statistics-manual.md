@@ -125,7 +125,7 @@ Throughout the window:
 
 For the **Party**: tiles with the damage dealt, kills, deaths and tiles explored; a **card per
 champion** with their share of the party's damage and bars for damage, kills, damage taken,
-experience (**Exp**), mana spent and deaths; and **Key numbers**, one row from each topic. Each
+experience (**Exp**), mana spent and deaths (hover a label for the number's full name); and **Key numbers**, one row from each topic. Each
 bar is measured against the best champion, and all bars start at the same place and are equally
 long on every card, so a champion's longest bar is what they are best at. Click a card to see
 that champion.
@@ -245,10 +245,10 @@ Each part of the sum gets its share of what protection took off:
 | **Shield potion** | the champion's own shield, from a Ya potion |
 | **Party shield** | the party shield spell |
 | **Stance** | the champion's last action: some raise protection for a moment, others lower it |
-| **Wounds** | a wounded part of the body is less well protected |
-| **Asleep** | sleep halves protection |
+| **Wound penalty** | a wounded part of the body is less well protected |
+| **Sleep penalty** | sleep halves protection |
 
-Stance, Wounds and Asleep can be below 0: they made protection smaller, and the hits bigger. All
+Stance, Wound penalty and Sleep penalty can be below 0: they made protection smaller, and the hits bigger. All
 the numbers are kept in fractions of a hit point and rounded when shown, so the lines can be a
 point off their sum.
 
@@ -293,7 +293,7 @@ column per champion; a champion's Exploration shows the doors only.
 
 | Number | What it counts |
 |---|---|
-| **Steps** | Moves you made to another square: forward, back, sideways, and up or down stairs |
+| **Steps** | Moves the party made to another square: forward, back, sideways, and up or down stairs |
 | **Tiles walked** | The different squares the party stood on, however it got there; each square counts once |
 | **Tiles explored** | The squares the map shows as explored that are not solid wall: floors, doors, stairs, pits, teleporters ... A false wall counts once it is seen to be passable. This comes from the map itself, so it is there for games saved before the statistics existed. |
 | **Turns** | Turns left or right you made. Turning while on stairs takes the stairs, so it counts as a step. |
@@ -341,15 +341,15 @@ that add up to it:
 
 | Cause | What it counts |
 |---|---|
-| **Champions** | the champions' kills (Kills on the other tabs) |
-| **Crushed by doors** | monsters a closing door killed |
-| **Fell into pits** | monsters killed by their own fall into a pit |
+| **By champions** | the champions' kills (Kills on the other tabs) |
+| **By doors** | monsters a closing door crushed |
+| **Into pits** | monsters killed by their own fall into a pit |
 | **Telefragged** | the party was teleported onto their square |
 | **Landed on** | the party came down a pit onto their square |
 | **Other causes** | clouds nobody is known to have made, traps, other monsters, the game removing them |
 
 **Monsters killed** (the table) has one row per kind of monster. For the Party: one column per
-champion, **Door**, **Pit**, **Telefrag**, **Landed** and **Other** when something was killed that
+champion, **By doors**, **Into pits**, **Telefragged**, **Landed on** and **Other causes** when something was killed that
 way, **All**, and a **Who** bar.
 
 In a game saved with an earlier version (1.4.0 or before), landings are among the Other causes, and the monsters that
@@ -393,7 +393,7 @@ or open it:
 
 - **Attacks**: blows, shots and throws, by weapon, each action with the class and hidden skill it
   trained ("SWING Fighter · Swing").
-- **Monsters attacking you**: each time a monster attacks a champion, hit or miss, the champion
+- **Monster attacks received**: each time a monster attacks a champion, hit or miss, the champion
   gains Parry (Fighter). A hit taken gives no experience of its own.
 - **Other actions**: War Cry, Calm, Brandish, Blow Horn and the like. They train Influence (Priest).
 - **Spells**: by class (Priest, Wizard), each spell with the hidden skill it trained. A spell that
@@ -439,14 +439,12 @@ the earlier one stays.
 | **Most poisonings in a row** | the most new doses of poison taken within one stretch of being poisoned |
 | **Most wounds at once** | the most wounded parts of the body of one champion at the same time |
 | **Most wounds from one blow** | the most parts of the body one blow, missile or explosion newly wounded |
-| **Poison doses suffered** | all the doses of poison a champion took, added up over the levels asked for; each new dose counts once |
-| **Wounds suffered** | all the parts of the body wounded that were whole before, added up over the levels asked for |
 
 **Kills without a scratch.** The kills are the ones credited to a champion; monsters crushed by
 doors, killed by falls or by other causes do not count. Any damage a champion takes ends the streak:
 monsters, their spells, friendly fire, poison, pits, traps, starvation. For the Party it is the
 kills of anyone until any champion is hurt; for a champion, their own kills until they themselves
-are hurt. A streak goes on across levels; its level is the level of its last kill. **On / from**
+are hurt. A streak goes on across levels; its level is the level it began on. **On / from**
 names the monsters it killed most.
 
 A step or a turn ends a fall or a teleport chain.
@@ -457,7 +455,7 @@ ticks. Doses taken while another works go on side by side. The poison on a champ
 the strengths still to tick. A *stretch* of poison begins with the first dose and ends when the last
 one is spent, a cure removes them all, or the champion dies. The **Poisoned** number in Survival
 counts the doses taken (each once, not each tick), **Wounds** the parts of the body wounded that
-were whole before.
+were whole before; Records does not repeat them.
 
 For the **Party**, the table shows the best of the run and who holds it. For a **champion**, it
 shows their own best, and the party's best beside it; a record the champion holds for the party is

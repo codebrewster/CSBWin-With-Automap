@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
+#include <cstring>
 #include <string>
 #include <vector>
 #include <map>
@@ -1433,7 +1434,9 @@ static void DrawNumbers(const HeroStatsTopicPage &page, const HeroStatsDrawState
     const HeroStatsNumberInfo &info = HeroStatsCatalogue_Info(row.number);
     ImU32 rgb = row.depth > 0 ? PART_RGB : TEXT_RGB;
     NextGuidedRow();
-    LabelCell(row.label, row.depth, row.depth > 0 ? PART_RGB : TEXT_RGB, info.help);
+    // Beside Monsters killed, the champions' kills are a part of it
+    bool byChampions = row.number == HeroNumKills && row.label == "By champions";
+    LabelCell(row.label, row.depth, row.depth > 0 ? PART_RGB : TEXT_RGB, byChampions ? HERO_STATS_BY_CHAMPIONS_HELP : info.help);
     for (size_t c = 0; c < row.byColumn.size(); c++)
     {
       ImGui::TableSetColumnIndex((int)c + 1);
@@ -1592,7 +1595,7 @@ static void DrawWeapons(HeroStatsDrawState *state, const HeroStatsHeroPage &page
     int measure = WhoMeasure(sort, {1, 2, 5, 6}, 5);
     static const HeaderHelps HELPS = {
         "", "Blows and missiles, and the actions that cannot hit (War Cry, Calm...). The Combat page's Attacks leaves those out; its Other actions counts them.",
-        "", "Hits out of the tries that can hit; actions that cannot hit are left out."};
+        "", "Hits out of the tries that can hit; actions that cannot hit are left out.", HERO_STATS_AVG_HELP};
     HeaderRow(std::vector<int>(), columns, isParty ? MeasureLabel(LABELS, measure) : "", HELPS);
     std::vector<HeroStatsWeaponLine> weapons = page.weapons;
     SortRows(&weapons, sort, CompareAttacks<HeroStatsWeaponLine>);
@@ -1933,11 +1936,12 @@ static void DrawMonsters(HeroStatsDrawState *state, const std::vector<HeroStatsM
         NumberColumn(columns[c].name.c_str());
         headerColumns.push_back((int)c);
       }
-      if (door) NumberColumn("Door");
-      if (pit) NumberColumn("Pit");
-      if (telefrag) NumberColumn("Telefrag");
-      if (landed) NumberColumn("Landed");
-      if (other) NumberColumn("Other");
+      // Named as the rows of the Numbers table above
+      if (door) NumberColumn(HeroStatsCatalogue_Info(HeroNumDoorKills).label);
+      if (pit) NumberColumn(HeroStatsCatalogue_Info(HeroNumPitKills).label);
+      if (telefrag) NumberColumn(HeroStatsCatalogue_Info(HeroNumTelefragged).label);
+      if (landed) NumberColumn(HeroStatsCatalogue_Info(HeroNumLandedOn).label);
+      if (other) NumberColumn(HeroStatsCatalogue_Info(HeroNumOtherKills).label);
       NumberColumn("All", true);
       BarColumn("Who");
     }
@@ -1946,11 +1950,11 @@ static void DrawMonsters(HeroStatsDrawState *state, const std::vector<HeroStatsM
     if (isParty)
     {
       for (size_t c = 0; c < champions; c++) helps.push_back("");
-      if (door) helps.push_back("");
-      if (pit) helps.push_back("");
-      if (telefrag) helps.push_back("The party was teleported onto their square.");
-      if (landed) helps.push_back("The party came down a pit onto their square.");
-      if (other) helps.push_back("Clouds nobody is known to have made, traps, other monsters.");
+      if (door) helps.push_back(HeroStatsCatalogue_Info(HeroNumDoorKills).help);
+      if (pit) helps.push_back(HeroStatsCatalogue_Info(HeroNumPitKills).help);
+      if (telefrag) helps.push_back(HeroStatsCatalogue_Info(HeroNumTelefragged).help);
+      if (landed) helps.push_back(HeroStatsCatalogue_Info(HeroNumLandedOn).help);
+      if (other) helps.push_back(HeroStatsCatalogue_Info(HeroNumOtherKills).help);
       helps.push_back("Every kill, whatever the cause.");
     }
     HeaderRow(headerColumns, columns, isParty ? "Who: Kills" : "", helps);
@@ -2396,6 +2400,10 @@ static bool DrawCards(const std::vector<HeroStatsCard> &cards, HeroStatsChampion
       int value = card.record.value[ROWS[r]];
       bool bad = HeroStatsCatalogue_Info(ROWS[r]).isBad && value > 0;
       drawList->AddText(ImVec2(min.x + 10, y), Packed(DIM_RGB), LABELS[r]);
+      // The short label's full name, as the tables have it
+      ImVec2 mouse = ImGui::GetIO().MousePos;
+      if (hovered && std::strcmp(LABELS[r], HeroStatsCatalogue_Info(ROWS[r]).label) != 0 && mouse.y >= y && mouse.y < y + line && mouse.x >= min.x + 10 && mouse.x < min.x + 10 + labelWidth)
+        ImGui::SetTooltip("%s", HeroStatsCatalogue_Info(ROWS[r]).label);
       std::string text = value == 0 ? MIDDLE_DOT : HeroStatsView_Number(value);
       ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
       if (bad) PillBehind(drawList, ImVec2(max.x - 10 - textSize.x, y), textSize);

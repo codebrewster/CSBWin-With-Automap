@@ -92,8 +92,10 @@ static void EveryNumberHasOneTopic(void)
   for (int n = 0; n < HERO_NUMBER_COUNT; n++)
   {
     // Kills belongs to Combat and is the first row of Monsters as well; the biggest hit, split
-    // into melee and ranged, is in none
-    int expected = n == HeroNumKills ? 2 : n == HeroNumRecBiggestHit ? 0 : 1;
+    // into melee and ranged, is in none, nor are the poison doses and wounds suffered, which are
+    // Poisoned and Wounds on Survival
+    bool inNone = n == HeroNumRecBiggestHit || n == HeroNumRecTotalPoisonings || n == HeroNumRecTotalWounds;
+    int expected = n == HeroNumKills ? 2 : inNone ? 0 : 1;
     if (seen[n] != expected) std::printf("number %d (%s) is in %d topics\n", n, HeroStatsCatalogue_Info((HeroStatsNumber)n).label, seen[n]);
     CHECK(seen[n] == expected);
   }
@@ -335,7 +337,10 @@ static void ExperienceAndRecordsHaveTopics(void)
   CHECK(xp.tiles == std::vector<HeroStatsNumber>(xpTiles, xpTiles + 4));
   const HeroStatsTopicInfo &records = HeroStatsCatalogue_Topic(HeroTopicRecords);
   // Every record but the biggest hit (melee and ranged took its place, first)
-  CHECK(std::string(records.label) == "Records" && records.rows.size() == HERO_RECORD_COUNT - 1);
+  CHECK(std::string(records.label) == "Records" && records.rows.size() == HERO_RECORD_COUNT - 3);
+  // Poisoned and Wounds on Survival are not repeated as records
+  for (size_t i = 0; i < records.rows.size(); i++)
+    CHECK(records.rows[i].number != HeroNumRecTotalPoisonings && records.rows[i].number != HeroNumRecTotalWounds);
   CHECK(records.rows.size() >= 3 && records.rows[0].number == HeroNumRecBiggestMeleeHit &&
         records.rows[1].number == HeroNumRecBiggestRangedHit && records.rows[2].number == HeroNumRecBiggestSpellHit);
   for (size_t r = 0; r < records.rows.size(); r++) CHECK(records.rows[r].number != HeroNumRecBiggestHit);
@@ -395,7 +400,7 @@ static void RecordsAreNotSummable(void)
   CHECK(!HeroStatsCatalogue_Summable(HeroNumRecBiggestHit) && HeroStatsCatalogue_Summable(HeroNumExperience));
   CHECK(!HeroStatsCatalogue_Applies(HeroNumRecLongestFall, 7, HERO_STATS_WHOLE_RUN));
   CHECK(HeroStatsCatalogue_Applies(HeroNumRecLongestFall, HERO_STATS_PARTY, 3));
-  CHECK(HeroStatsCatalogue_GridNumbers(HeroTopicRecords).size() == HERO_RECORD_COUNT - 1);
+  CHECK(HeroStatsCatalogue_GridNumbers(HeroTopicRecords).size() == HERO_RECORD_COUNT - 3);
   CHECK(HeroStatsCatalogue_GridNumbers(HeroTopicExperience).size() == 6);
 }
 
@@ -494,13 +499,24 @@ static void KillCausesAddUp(void)
   CHECK(under);
 }
 
-// A hovertext only where the label and its place do not say it
+// A hovertext for the numbers whose label leaves something open: a unit, what counts, what is a part
 static void HovertextsSayWhatLabelsDoNot(void)
 {
-  CHECK(std::string(HeroStatsCatalogue_Info(HeroNumFoodGained).help).empty());
-  CHECK(std::string(HeroStatsCatalogue_Info(HeroNumDoorsBashed).help).empty());
-  CHECK(std::string(HeroStatsCatalogue_Info(HeroNumDoorKills).help).empty());
-  CHECK(std::string(HeroStatsCatalogue_Info(HeroNumRecLongestSleep).help).empty());
+  static const HeroStatsNumber EXPLAINED[] = {
+      HeroNumPitClimbs, HeroNumChests, HeroNumTicks, HeroNumSleepTicks, HeroNumDoorsBashed, HeroNumDoorsSmashed,
+      HeroNumDoorsShot, HeroNumDoorsBySpell, HeroNumDoorsButtonOpened, HeroNumDoorsButtonClosed, HeroNumFoodGained,
+      HeroNumWaterGained, HeroNumHealed, HeroNumHealAction, HeroNumWipes, HeroNumReloads, HeroNumDoorKills, HeroNumPitKills,
+      HeroNumMonstersKilled, HeroNumRecBiggestHeal, HeroNumRecBiggestXpGain, HeroNumRecLongestTeleportChain, HeroNumRecLongestSleep};
+  for (size_t i = 0; i < sizeof EXPLAINED / sizeof EXPLAINED[0]; i++) CHECK(*HeroStatsCatalogue_Info(EXPLAINED[i]).help != 0);
+  CHECK(std::string(HeroStatsCatalogue_Info(HeroNumFoodGained).help).find("2,048") != std::string::npos);
+  CHECK(*HERO_STATS_AVG_HELP != 0);
+  // One name for one thing: the protection penalties are not the Wounds count, the kill causes
+  // are named alike as rows and as columns (which take the number's label)
+  CHECK(std::string(HeroStatsCatalogue_Info(HeroNumReducedWounds).label) == "Wound penalty");
+  CHECK(std::string(HeroStatsCatalogue_Info(HeroNumReducedAsleep).label) == "Sleep penalty");
+  CHECK(std::string(HeroStatsCatalogue_Info(HeroNumDoorKills).label) == "By doors");
+  CHECK(std::string(HeroStatsCatalogue_Info(HeroNumPitKills).label) == "Into pits");
+  CHECK(std::string(HeroStatsCatalogue_Info(HeroNumSteps).help).find("you") == std::string::npos);
   CHECK(std::string(HeroStatsCatalogue_Info(HeroNumTaken).help).find("walls run into") != std::string::npos);
   CHECK(std::string(HeroStatsCatalogue_Info(HeroNumHitRate).help) == "Hits \xc3\xb7 Attacks.");
   CHECK(!std::string(HeroStatsCatalogue_Info(HeroNumLandedOn).help).empty());

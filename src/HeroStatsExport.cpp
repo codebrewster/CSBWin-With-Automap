@@ -14,6 +14,7 @@
 //             "heroDetails": [...] (a champion's)}],
 //   "heroTiles": [number, ...] (a champion's Overview), "xpFirst", "recFirst": the numbers of Fighter and of
 //   the first record, "time": the number of Time (ticks), whose share of the run a level shows,
+//   "byChampionsHelp", "avgHelp": tooltips, "doorKills" ... "otherKills": the numbers of the kill causes,
 //   "views": { "-1" for the whole run and one per visited level: {
 //     "records": per hero then the party, a value per number, null where it does not apply,
 //     "summaries": per hero then the party, one line per topic,
@@ -419,6 +420,11 @@ std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroS
   out += "],\"heroTiles\":" + Ints(heroTiles);
   out += ",\"xpFirst\":" + Number(HeroNumXpFighter) + ",\"recFirst\":" + Number(HeroNumRecFirst) + ",\"time\":" + Number(HeroNumTicks);
   out += ",\"byChampionsHelp\":" + HeroStatsExport_JsonString(HERO_STATS_BY_CHAMPIONS_HELP);
+  out += ",\"avgHelp\":" + HeroStatsExport_JsonString(HERO_STATS_AVG_HELP);
+  // The kill causes, for the Monsters table's columns
+  out += ",\"doorKills\":" + Number(HeroNumDoorKills) + ",\"pitKills\":" + Number(HeroNumPitKills) +
+         ",\"telefragged\":" + Number(HeroNumTelefragged) + ",\"landedOn\":" + Number(HeroNumLandedOn) +
+         ",\"otherKills\":" + Number(HeroNumOtherKills);
   out += ",\"views\":{\"-1\":" + ViewJson(stats, columns, names, HERO_STATS_WHOLE_RUN);
   for (size_t i = 0; i < levels.size(); i++)
     out += ",\"" + Number(levels[i]) + "\":" + ViewJson(stats, columns, names, levels[i]);
@@ -792,7 +798,8 @@ function groupsOf(t) {
   return out;
 }
 const labelOf = row => {
-  const help = NUM[row.n].help, label = help ? `<span class="tip"${tipOf(esc(help))}>${esc(row.label)}</span>` : esc(row.label);
+  // Beside Monsters killed, the champions' kills are a part of it
+  const help = row.label === 'By champions' ? D.byChampionsHelp : NUM[row.n].help, label = help ? `<span class="tip"${tipOf(esc(help))}>${esc(row.label)}</span>` : esc(row.label);
   return row.depth ? `<span class="ind">${label}</span>` : label;
 };
 function numbersTable(t) {
@@ -849,7 +856,7 @@ function weapons(p) {
   for (const w of p.weapons) for (let k = 0; k < 5; k++) all[k] += w[k + 1];
   const summary = p.weapons.length ? `${fmt(all[2])} damage · ${fmt(all[3])} kills` : 'none';
   if (!p.weapons.length) return section(DETAIL.WEAPONS, 'Weapons', summary, '<div class="note">No attacks.</div>');
-  const cols = [nameCol('Weapon'), numCol('Tries', 'Blows and missiles, and the actions that cannot hit (War Cry, Calm...). The Combat page\'s Attacks leaves those out; its Other actions counts them.'), numCol('Hits'), numCol('Rate', 'Hits out of the tries that can hit; actions that cannot hit are left out.'), numCol('Avg'), numCol('Damage'), numCol('Kills')];
+  const cols = [nameCol('Weapon'), numCol('Tries', 'Blows and missiles, and the actions that cannot hit (War Cry, Calm...). The Combat page\'s Attacks leaves those out; its Other actions counts them.'), numCol('Hits'), numCol('Rate', 'Hits out of the tries that can hit; actions that cannot hit are left out.'), numCol('Avg', D.avgHelp), numCol('Damage'), numCol('Kills')];
   if (isParty()) cols.push(whoColumn([1, 2, 5, 6], 5));
   // A champion's [tries, hits, damage, kills, uses] in a column of the table
   const attack = (c, k) => k === 1 ? c[0] + c[4] : k === 2 ? c[1] : k === 6 ? c[3] : c[2];
@@ -936,9 +943,9 @@ function monsters() {
   const summary = `${fmt(all[7])} kills · ${lines.length} kinds`;
   let cols, cellsOf;
   if (isParty()) {
-    const extra = [[2, 'Door'], [3, 'Pit'], [4, 'Telefrag'], [5, 'Landed'], [6, 'Other']].filter(([k]) => all[k] > 0);
-    const extraHelp = {Telefrag: 'The party was teleported onto their square.', Landed: 'The party came down a pit onto their square.', Other: 'Clouds nobody is known to have made, traps, other monsters.'};
-    cols = [nameCol('Monster')].concat(H.map((h, i) => heroCol(i)), extra.map(([, l]) => numCol(l, extraHelp[l] || '')), [numCol('All', 'Every kill, whatever the cause.'), numCol('Who: Kills')]);
+    // Named as the rows of the Numbers table above
+    const extra = [[2, D.doorKills], [3, D.pitKills], [4, D.telefragged], [5, D.landedOn], [6, D.otherKills]].filter(([k]) => all[k] > 0);
+    cols = [nameCol('Monster')].concat(H.map((h, i) => heroCol(i)), extra.map(([, n]) => numCol(NUM[n].label, NUM[n].help)), [numCol('All', 'Every kill, whatever the cause.'), numCol('Who: Kills')]);
     cellsOf = (m, foot) => [nameTd(m[0])].concat(m[1].map((v, i) => td(v, plain(v, false, H[i].left ? 'gone' : ''))),
       extra.map(([k]) => td(m[k], plain(m[k]))), [td(m[7], plain(m[7])), foot ? td(0, '<td></td>') : whoTd(m[1])]);
   } else {
@@ -963,7 +970,7 @@ function cards() {
       `<div class="nm">${esc(h.name)}<span>${party ? Math.round(100 * r[ids[0][0]] / party) : 0}% of damage</span></div>` +
       ids.map(([n, l], k) => {
         const v = r[n], bad = NUM[n].bad && v > 0;
-        return `<div class="cr"><span class="l">${l}</span><div class="mini"><i style="width:${100 * v / largest[k]}%;background:${COLOUR(i)}"></i></div>` +
+        return `<div class="cr"><span class="l"${NUM[n].label !== l ? tipOf(esc(NUM[n].label)) : ''}>${l}</span><div class="mini"><i style="width:${100 * v / largest[k]}%;background:${COLOUR(i)}"></i></div>` +
           `<span class="n${v === 0 ? ' z' : ''}">${v === 0 ? '·' : bad ? `<span class="pill">${fmt(v)}</span>` : fmt(v)}</span></div>`;
       }).join('') + '</div>';
   }).join('') + '</div>';
@@ -1037,7 +1044,8 @@ function records(p) {
     // [kind, group, label, value, who, how, whom, when, level, has, held, party value, party's hero]
     if (l[1] !== group) { group = l[1]; body += `<tr class="grp"><td colspan="${span}">${esc(group)}</td></tr>`; }
     const value = l[9] ? `<td${l[10] ? ' class="gold"' : ''}${l[7] ? tipOf(esc(l[7])) : ''}>${esc(l[3])}${l[10] ? ' &#9733;' : ''}</td>` : '<td class="z">-</td>';
-    body += `<tr><td>${esc(l[2])}</td>${value}`;
+    const help = NUM[D.recFirst + l[0]].help;
+    body += `<tr><td>${help ? `<span class="tip"${tipOf(esc(help))}>${esc(l[2])}</span>` : esc(l[2])}</td>${value}`;
     if (isParty()) body += `<td class="l">${l[9] && l[4] !== 'party' && l[12] >= 0 && l[12] < N ? dotOf(l[12]) + ' ' : ''}${esc(l[9] ? l[4] : '')}</td>`;
     body += `<td class="l nt">${esc(l[5])}</td><td class="l nt">${esc(l[6])}</td><td>${l[9] ? l[8] : ''}</td>`;
     if (!isParty()) body += `<td>${l[10] ? '<span class="nt">this one</span>' : l[11] ? esc(l[11]) + (l[12] >= 0 && l[12] < N ? ' ' + dotOf(l[12]) : '') : ''}</td>`;

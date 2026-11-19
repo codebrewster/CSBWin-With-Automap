@@ -506,7 +506,7 @@ static XpNode &Child(XpNode &parent, const std::string &key, const std::string &
   return parent.children[key] = node;
 }
 
-static const char *const SOURCE_NAMES[5] = {"Attacks", "Monsters attacking you", "Other actions", "Spells", "Other"};
+static const char *const SOURCE_NAMES[5] = {"Attacks", "Monster attacks received", "Other actions", "Spells", "Other"};
 static const char *const SOURCE_HELP[5] = {
     "Blows, shots and throws, by weapon: each action with the class and hidden skill it trained.",
     "Each time a monster attacks a champion, hit or miss, the champion gains Parry (Fighter).",
@@ -779,7 +779,8 @@ static std::vector<HeroStatsRecordLine> RecordLines(const HeroStats &stats, cons
   std::vector<HeroStatsRecordLine> lines;
   // Shown in the order of the enum, except that the melee and ranged hits come first, where the
   // biggest hit was (it is no longer shown), and the poison records come before the wound records
-  // (the enum is the order of the save file, so it stays as it is)
+  // (the enum is the order of the save file, so it stays as it is). The doses of poison and the
+  // wounds suffered in all are not shown: they are Poisoned and Wounds on the Survival tab.
   std::vector<int> order;
   order.push_back(HeroRecBiggestMeleeHit);
   order.push_back(HeroRecBiggestRangedHit);
@@ -793,8 +794,6 @@ static std::vector<HeroStatsRecordLine> RecordLines(const HeroStats &stats, cons
   order.insert(std::find(order.begin(), order.end(), (int)HeroRecLongestTeleportChain) + 1, (int)HeroRecLongestStairDance);
   order.insert(std::find(order.begin(), order.end(), (int)HeroRecLongestPoisoned), (int)HeroRecMostPoisonDoses);
   order.insert(std::find(order.begin(), order.end(), (int)HeroRecLongestPoisoned), (int)HeroRecMostPoisonPerTurn);
-  order.insert(std::find(order.begin(), order.end(), (int)HeroRecMostWoundsAtOnce), (int)HeroRecTotalPoisonings);
-  order.push_back(HeroRecTotalWounds);
   for (size_t o = 0; o < order.size(); o++)
   {
     int k = order[o];

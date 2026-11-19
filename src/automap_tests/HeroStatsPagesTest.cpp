@@ -878,7 +878,7 @@ static void RecordLinesShowTheirBlow(void)
   stats.Records().CountPitFall(3, 10);
   stats.Records().CountMove();
   HeroStatsTopicPage party = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroTopicRecords, NAMES);
-  CHECK(party.records.size() == HERO_RECORD_COUNT - 1);
+  CHECK(party.records.size() == HERO_RECORD_COUNT - 3);
   const HeroStatsRecordLine *spell = NULL, *fall = NULL;
   for (size_t i = 0; i < party.records.size(); i++)
   {
@@ -910,7 +910,7 @@ static void MeleeAndRangedHitsReplaceTheBiggestHit(void)
   stats.Records().Offer(HeroRecBiggestMeleeHit, RecordEntry(7, 120));
   stats.Records().Offer(HeroRecBiggestRangedHit, RecordEntry(9, 60));
   HeroStatsTopicPage party = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroTopicRecords, NAMES);
-  CHECK(party.records.size() == HERO_RECORD_COUNT - 1);
+  CHECK(party.records.size() == HERO_RECORD_COUNT - 3);
   for (size_t i = 0; i < party.records.size(); i++) CHECK(party.records[i].kind != HeroRecBiggestHit);
   CHECK(party.records.size() >= 3 && party.records[0].kind == HeroRecBiggestMeleeHit && party.records[1].kind == HeroRecBiggestRangedHit &&
         party.records[2].kind == HeroRecBiggestSpellHit);
@@ -1009,7 +1009,7 @@ static void MonstersKnowTelefragsAndLandings(void)
   if (halk.numbers.size() == 1) CHECK(halk.numbers[0].number == HeroNumKills && halk.numbers[0].depth == 0 && halk.numbers[0].label == "Kills");
   HeroStatsTopicPage party = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroTopicMonsters, NAMES);
   CHECK(party.numbers.size() == 7);
-  if (party.numbers.size() == 7) CHECK(party.numbers[1].number == HeroNumKills && party.numbers[1].depth == 1 && party.numbers[1].label == "Champions");
+  if (party.numbers.size() == 7) CHECK(party.numbers[1].number == HeroNumKills && party.numbers[1].depth == 1 && party.numbers[1].label == "By champions");
   // Per level keeps the causes: the party's Monsters table has a column for each
   HeroStatsPerLevel table = HeroStatsPages_PerLevelTotals(stats, Columns(stats), HERO_STATS_PARTY, HeroTopicMonsters);
   CHECK(table.numbers.size() == 7 && table.numbers[0] == HeroNumMonstersKilled && table.numbers[4] == HeroNumTelefragged);

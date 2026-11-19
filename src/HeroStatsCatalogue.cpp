@@ -34,13 +34,13 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Failed", "Casts of a real spell that failed: the champion needed more practice.", false, false, true, false, false},
     {"Meaningless", "Casts whose runes form no spell: the champion mumbles a meaningless spell.", false, false, true, false, false},
     {"Damage taken", "All hit points lost, whatever took them: monster attacks, their missiles and spells, friendly fire, poison and poison clouds, traps, pits, walls run into, closing doors, starvation, exhaustion and harmful potions. Survival lists each cause.", false, false, false, false, false},
-    {"Healed", "", false, false, false, false, false},
+    {"Healed", "Hit points won back. The lines below add up to it.", false, false, false, false, false},
     {"Regeneration", "", false, false, false, false, false},
     {"Potions", "", false, false, false, false, false},
     {"Own brews", "Potions the champion brewed and drank.", false, false, false, false, false},
     {"Brewed by others", "Potions another champion brewed.", false, false, false, false, false},
     {"Found", "Potions no champion brewed: found in the dungeon, or brewed before the statistics began.", false, false, false, false, false},
-    {"Heal action", "", false, false, false, false, false},
+    {"Heal action", "Hit points the HEAL action of an item gave, for the mana it took.", false, false, false, false, false},
     {"Healing given", "HP healed by potions this champion brewed, whoever drank them.", false, false, false, false, false},
     {"Poisoned", "Times poisoned: each new dose of poison counts once, not each tick of it.", false, false, false, false, false},
     {"Wounds", "Parts of the body wounded that were whole before; a part wounded again does not count.", false, false, false, false, false},
@@ -60,24 +60,24 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Shield potion", "The champion's own shield, from a Ya potion.", false, false, false, false, false},
     {"Party shield", "The party shield spell.", false, false, false, false, false},
     {"Stance", "The champion's last action: some raise protection for a moment, others lower it (below 0).", false, false, false, false, false},
-    {"Wounds", "A wounded part of the body is less well protected (below 0).", false, false, false, false, false},
-    {"Asleep", "Sleep halves protection (below 0).", false, false, false, false, false},
+    {"Wound penalty", "A wounded part of the body is less well protected (below 0).", false, false, false, false, false},
+    {"Sleep penalty", "Sleep halves protection (below 0).", false, false, false, false, false},
     {"Wisdom", "Against psychic attacks.", false, false, false, false, false},
     {"Deaths", "", false, false, true, false, false},
     {"Resurrected", "Times this champion was brought back from the dead.", false, false, false, false, false},
-    {"Party wiped out", "", true, true, true, false, false},
-    {"Reloads", "", true, true, true, false, false},
+    {"Party wiped out", "Times every champion was dead at once and the game was over.", true, true, true, false, false},
+    {"Reloads", "Times a saved game of this run was loaded again, after a wipe or to try something once more.", true, true, true, false, false},
     {"Eaten", "Items eaten.", false, false, false, false, false},
     {"Drunk", "Drinks, the fountain included.", false, false, false, false, false},
     {"Potions drunk", "Potions drunk: the potions are part of Drunk. A Water Flask or a waterskin is water and no potion.", false, false, false, false, false},
     {"Potions brewed", "Potions this champion made: each spell that filled an empty flask, counted on the level of the cast.", false, false, false, false, false},
-    {"Food gained", "", false, false, false, false, false},
+    {"Food gained", "Food that went into the champion, in the game's own units: a full stomach holds 2,048.", false, false, false, false, false},
     {"Food wasted (over full)", "Food that did not fit because the champion was full. Not part of Food gained.", false, false, true, false, false},
-    {"Water gained", "", false, false, false, false, false},
+    {"Water gained", "Water that went into the champion, in the game's own units: a champion holds 2,048, a drink from a fountain gives 1,600.", false, false, false, false, false},
     {"Water wasted (over full)", "Water that did not fit because the champion was full. Not part of Water gained.", false, false, true, false, false},
     {"Items picked up", "Items taken from the dungeon into the hand, each only the first time.", true, false, false, false, false},
     {"Used in walls", "Items a wall took: keys in locks, coins and gems in slots.", true, false, false, false, false},
-    {"Steps", "Moves you made to another square, stairs included. Falls and teleports are no steps.", true, false, false, false, false},
+    {"Steps", "Moves the party made to another square, stairs included. Falls and teleports are no steps.", true, false, false, false, false},
     {"Tiles walked", "The different squares the party stood on; each counts once.", true, false, false, false, false},
     {"Tiles explored", "The squares the map shows as explored that are not solid wall.", true, false, false, false, false},
     {"Turns", "Turns left or right on a square. A turn on stairs takes the stairs, so it is a Step.", true, false, false, false, false},
@@ -88,7 +88,7 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Telefragged", "The party was teleported onto their square: the whole group dies at once.", true, false, false, false, false},
     {"Landings", "Falls down a pit that ended on a square with monsters: the whole group dies at once. The monsters are on the Monsters tab.", true, false, false, false, false},
     {"Pit falls", "Each pit of a chain counts. Climbing down a rope is a Pit climb.", true, false, false, false, false},
-    {"Pit climbs", "", true, false, false, false, false},
+    {"Pit climbs", "Climbs down a rope into a pit, unhurt. Not part of Pit falls.", true, false, false, false, false},
     {"Climb landings", "Climbs down a rope that ended on a square with monsters: the whole group dies at once. The monsters are on the Monsters tab.", true, false, false, false, false},
     {"Arrivals", "Each time the party came onto a level, by stairs, a teleporter, a pit or any other way. The level the party started on is no arrival.", true, false, false, false, false},
     {"Stair changes", "Each time the party went up or down stairs, by a step or a turn on the stairs. Counted on the level it left.", true, false, false, false, false},
@@ -96,24 +96,24 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Dance moves", "The stair changes in the stair dances after the first, which only brought the party onto the stairs.", true, false, false, false, false},
     {"Strict stair dances", "Runs of stair changes that never left the stairs: any step off them ends one, and the next stair change begins a new one. So one stair dance can hold several of these, or none.", true, false, false, false, false},
     {"Strict dance moves", "The turns on the stairs in the strict stair dances, after the stair change that brought the party onto them.", true, false, false, false, false},
-    {"Time (ticks)", "", true, false, false, false, true},
-    {"Asleep (ticks)", "", true, false, false, false, true},
-    {"Doors bashed open", "", false, false, false, false, false},
-    {"Smashed", "", false, false, false, false, false},
-    {"Shot open", "", false, false, false, false, false},
-    {"By spell", "", false, false, false, false, false},
+    {"Time (ticks)", "Game ticks the party spent, on the level it was on, sleep included.", true, false, false, false, true},
+    {"Asleep (ticks)", "Game ticks the party slept. Part of Time.", true, false, false, false, true},
+    {"Doors bashed open", "Doors the champion broke: the lines below add up to it.", false, false, false, false, false},
+    {"Smashed", "Broken with a blow.", false, false, false, false, false},
+    {"Shot open", "Broken by a thrown item or a shot.", false, false, false, false, false},
+    {"By spell", "Broken by a spell, a fireball or the like.", false, false, false, false, false},
     {"Opened with Zo", "Closed doors a Zo spell opened; the door stays whole. Not part of Doors bashed open.", false, false, false, false, false},
-    {"Opened with button", "", true, false, false, false, false},
-    {"Closed with button", "", true, false, false, false, false},
-    {"Chests opened", "", true, false, false, false, false},
+    {"Opened with button", "Door buttons pressed while the door was closed.", true, false, false, false, false},
+    {"Closed with button", "Door buttons pressed while the door was open.", true, false, false, false, false},
+    {"Chests opened", "The different chests opened; each counts once.", true, false, false, false, false},
     {"Scrolls read", "Scrolls read, each the first time it is opened.", true, false, false, false, false},
     {"Wall texts read", "The wall texts the map knows as read.", true, false, false, false, false},
     {"Champions seen", "Champion portraits in mirrors seen face to face; each mirror once.", true, false, false, false, false},
     {"Champions viewed", "Mirrors clicked to look at the champion; each mirror once.", true, false, false, false, false},
-    {"Crushed by doors", "", true, false, false, false, false},
-    {"Fell into pits", "", true, false, false, false, false},
+    {"By doors", "Monsters a closing door crushed.", true, false, false, false, false},
+    {"Into pits", "Monsters killed by their own fall into a pit.", true, false, false, false, false},
     {"Other causes", "Clouds nobody is known to have made, traps, other monsters.", true, false, false, false, false},
-    {"Monsters killed", "", true, false, false, false, false},
+    {"Monsters killed", "Every monster killed, whatever the cause. The lines below add up to it.", true, false, false, false, false},
     {"Landed on", "The party came down a pit onto their square: the whole group dies at once.", true, false, false, false, false},
     {"Experience gained", "Experience as the game added it: with the level's multiplier, the bonus in combat and the dungeon's own rules.", false, false, false, false, false},
     {"Fighter", "", false, false, false, false, false},
@@ -129,13 +129,13 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Biggest hit taken", "The most damage one monster attack did, after armour.", false, false, false, false, false, true},
     {"Biggest spell hit taken", "The most damage one monster spell or missile did.", false, false, false, false, false, true},
     {"Closest call", "The fewest hit points left after taking damage and living.", false, false, false, false, false, true},
-    {"Biggest heal", "", false, false, false, false, false, true},
+    {"Biggest heal", "The most hit points one potion, one heal action or one tick of regeneration gave.", false, false, false, false, false, true},
     {"Most mana on one spell", "The mana of the runes of one spell that worked.", false, false, false, false, false, true},
-    {"Biggest experience gain", "", false, false, false, false, false, true},
+    {"Biggest experience gain", "The most experience one action, spell or monster attack gave in one skill.", false, false, false, false, false, true},
     {"Heaviest load", "The most weight carried, and the share of what the champion could carry.", false, false, false, false, false, true},
     {"Longest fall", "Pits fallen through one after the other.", true, false, false, false, false, true},
-    {"Longest teleport chain", "", true, false, false, false, false, true},
-    {"Longest sleep", "", true, false, false, false, true, true},
+    {"Longest teleport chain", "Teleporters passed one after the other without the party taking a step.", true, false, false, false, false, true},
+    {"Longest sleep", "Ticks of the longest sleep without waking.", true, false, false, false, true, true},
     {"Most poison at once", "The most poison working on a champion at one time, all doses added up; it is the number of poison ticks still to come.", false, false, false, false, false, true},
     {"Longest poisoned", "Ticks of the longest time a champion stayed poisoned without a break, with the poison damage taken in it. Death or a cure ends it.", false, false, false, false, true, true},
     {"Most poisonings in a row", "The most new doses of poison taken within one stretch of being poisoned.", false, false, false, false, false, true},
@@ -186,6 +186,8 @@ static_assert(sizeof KEYS / sizeof KEYS[0] == HERO_NUMBER_COUNT, "a name for eve
 
 const char *const HERO_STATS_BY_CHAMPIONS_HELP =
     "The part of Monsters killed that the champions killed. The rest were crushed by doors, fell into pits, were telefragged, landed on or died some other way.";
+const char *const HERO_STATS_AVG_HELP =
+    "Damage \xc3\xb7 Hits. The spells a weapon or staff casts add to its Damage but make no hits, so they raise it.";
 
 const HeroStatsNumberInfo &HeroStatsCatalogue_Info(HeroStatsNumber number)
 {
@@ -272,7 +274,7 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
   // The six causes add up to Monsters killed
   topics[HeroTopicMonsters] = {"Monsters", {}, {HeroNumMonstersKilled, HeroNumKills, HeroNumTelefragged, HeroNumLandedOn}, {}};
   SetRows(&topics[HeroTopicMonsters],
-          {{HeroNumMonstersKilled, 0}, {HeroNumKills, 1, "Champions"}, {HeroNumDoorKills, 1}, {HeroNumPitKills, 1},
+          {{HeroNumMonstersKilled, 0}, {HeroNumKills, 1, "By champions"}, {HeroNumDoorKills, 1}, {HeroNumPitKills, 1},
            {HeroNumTelefragged, 1}, {HeroNumLandedOn, 1}, {HeroNumOtherKills, 1}});
   topics[HeroTopicExperience] = {"Experience", {}, {HeroNumXpFighter, HeroNumXpNinja, HeroNumXpPriest, HeroNumXpWizard}, {}};
   SetRows(&topics[HeroTopicExperience],
@@ -285,7 +287,9 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
   records.push_back({HeroNumRecBiggestRangedHit, 0});
   for (int k = 0; k < HERO_RECORD_COUNT; k++)
     if (k != HeroRecBiggestHit && k != HeroRecBiggestMeleeHit && k != HeroRecBiggestRangedHit &&
-        k != HeroRecLongestStairDance && k != HeroRecLongestStrictStairDance)
+        k != HeroRecLongestStairDance && k != HeroRecLongestStrictStairDance &&
+        // Poisoned and Wounds on the Survival tab
+        k != HeroRecTotalPoisonings && k != HeroRecTotalWounds)
     {
       records.push_back({(HeroStatsNumber)(HeroNumRecFirst + k), 0});
       // The stair dances with the other chains of moves
