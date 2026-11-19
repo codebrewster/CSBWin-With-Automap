@@ -2390,6 +2390,8 @@ i16 TAG01680a(i32 chIdx,i32 possessionIndex)
   RN objD4;
   CHARDESC *pcA3;
   DB6      *DB6A2;
+  // Each component's points, for the statistics (HeroStats_OnProtectionPart)
+  int statsPoints[HERO_DEFENCE_PROTECTION_PARTS] = {};
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   pcA3 = &d.hero[chIdx];
   D5W = (UI16)(possessionIndex & 0x8000);
@@ -2446,6 +2448,11 @@ i16 TAG01680a(i32 chIdx,i32 possessionIndex)
             "  Tag01680a D7W=%d,word64=%d,shieldStrength=%d,PartyShield=%d,D6W=%d\n",
             D7W, pcA3->word64,pcA3->shieldStrength,d.PartyShield,D6W);
   };
+  statsPoints[HeroDefenceVitality - HERO_DEFENCE_FIRST_PROTECTION] = D7W;
+  statsPoints[HeroDefenceStance - HERO_DEFENCE_FIRST_PROTECTION] = pcA3->word64;
+  statsPoints[HeroDefenceChampionShield - HERO_DEFENCE_FIRST_PROTECTION] = pcA3->shieldStrength;
+  statsPoints[HeroDefencePartyShield - HERO_DEFENCE_FIRST_PROTECTION] = d.PartyShield;
+  statsPoints[HeroDefenceHandShields - HERO_DEFENCE_FIRST_PROTECTION] = D6W;
   D7W = sw(  D7W
            + pcA3->word64   // Adjustment due to recent character attacks
            + pcA3->shieldStrength
@@ -2463,7 +2470,9 @@ i16 TAG01680a(i32 chIdx,i32 possessionIndex)
          && (objD4.dbType() == dbCLOTHING))
     {
       DB6A2 = GetRecordAddressDB6(objD4);
-      D7W = sw(D7W + getDefenseScaled(&d.ClothingDesc[DB6A2->clothingType()], D5W!=0));
+      i32 armour = getDefenseScaled(&d.ClothingDesc[DB6A2->clothingType()], D5W!=0);
+      statsPoints[HeroDefenceArmour - HERO_DEFENCE_FIRST_PROTECTION] = armour;
+      D7W = sw(D7W + armour);
       if (TimerTraceActive)
       {
         fprintf(GETFILE(TraceFile),
@@ -2478,13 +2487,17 @@ i16 TAG01680a(i32 chIdx,i32 possessionIndex)
     // vitality (0 to 65535) was subtracted instead, in 16 bits: a wounded
     // part's protection could wrap around to a large value.
     if (legacyWoundPenalty) penalty = vitalityRandom;
+    statsPoints[HeroDefenceWounds - HERO_DEFENCE_FIRST_PROTECTION] = -(penalty + 8);
     D7W = sw(D7W - (penalty + 8));
   };
   if (d.PartySleeping)
   {
+    i32 awake = D7W;
     D7W >>= 1;
+    statsPoints[HeroDefenceAsleep - HERO_DEFENCE_FIRST_PROTECTION] = D7W - awake;
   };
   D0W = ApplyLimits(0, D7W >>1, 100);
+  HeroStats_OnProtectionPart(statsPoints, D0W);
   if (TimerTraceActive)
   {
     fprintf(GETFILE(TraceFile),
@@ -2737,6 +2750,10 @@ i32 DamageCharacter(i32 chIdx,i32 damage,i16 mask,i16 P4)
   if (pcA3->HP() == 0) return 0;
   if (P4 != 0)
   {
+    // The damage after each step, for the statistics (HeroStats_OnDefences)
+    i32 statsRaw = D7W, statsAfterResistance = D7W, statsAfterShield = D7W;
+    HeroDefenceScale statsScale = HeroScaleProtection;
+    HeroStats_BeginProtection();
     for (D4W=D5W=D6W=0; D6W<=5; D6W++)
     {
       if ((mask & (1<<D6W)) == 0) continue;
@@ -2760,6 +2777,7 @@ i32 DamageCharacter(i32 chIdx,i32 damage,i16 mask,i16 P4)
     };
     if (P4 == 6)
     {
+      statsScale = HeroScaleWisdom;
       D0W = 115;
       D3W = (UI8)(pcA3->Attributes[Wisdom].Current());
       D6W = sw(D0W - D3W);
@@ -2776,15 +2794,20 @@ i32 DamageCharacter(i32 chIdx,i32 damage,i16 mask,i16 P4)
     {
       if (P4 == 5)
       {
+        statsScale = HeroScaleNone;
         D7W = TAG016426(pcA3, AntiMagic, D7W);
+        statsAfterResistance = D7W;
         D7W = sw(D7W - d.SpellShield);
+        statsAfterShield = D7W;
       }
       else
       {
         if (P4 == 1)
         {
           D7W = TAG016426(pcA3, AntiFire, D7W);
+          statsAfterResistance = D7W;
           D7W = sw(D7W - d.FireShield);
+          statsAfterShield = D7W;
         }
         else
         {
@@ -2793,13 +2816,17 @@ i32 DamageCharacter(i32 chIdx,i32 damage,i16 mask,i16 P4)
             D5W >>= 1;
           }
         }
-        if (D7W <= 0) return 0;
+        if (D7W <= 0)
+        {
+          HeroStats_OnDefences(chIdx, statsRaw, statsAfterResistance, statsAfterShield, 0, statsScale);
+          return 0;
+        };
 
         D0W = sw(130 - D5W);
-	printf("damage = %d * (130 - %d) / 64 = %d mask %d P4 %d\n",D7W,D5W,ScaledMultiply(D7W, 6,D0W),mask,P4);
         D7W = ScaledMultiply(D7W, 6,D0W); //D6*D7/64
       };
     };
+    HeroStats_OnDefences(chIdx, statsRaw, statsAfterResistance, statsAfterShield, D7W, statsScale);
     if (D7W <= 0) return 0;
     // Below : chance of wound
     D0W = sw(STRandom(128) + 10);

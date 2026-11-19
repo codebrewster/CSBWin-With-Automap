@@ -213,6 +213,17 @@ void HeroStats_BeginHarmByExplosion(void);
 void HeroStats_BeginHarmByCloud(int cloudIndex);
 void HeroStats_BeginHarmByMonster(int monsterType);
 void HeroStats_EndHarm(void);
+// MonsterDamagesCharacter: a monster's blow at the slot ended. Every blow that gets past the
+// first checks (a champion in the party and alive) counts once: the champion dodged it, was
+// lucky, it was too weak, or DamageCharacter hurt (HeroAttackHit) or left no damage (Blocked).
+void HeroStats_OnMonsterAttack(int slot, int monsterType, HeroAttackOutcome outcome);
+// DamageCharacter: what the defences took off (HeroStatsDefence.h). BeginProtection before the
+// parts of the body are added up; TAG01680a reports each part (points in the order of
+// HeroDefenceArmour ... HeroDefenceAsleep) only in between. OnDefences, at every return after
+// the damage steps, splits and counts by the harm source the Begin/EndHarm pair names.
+void HeroStats_BeginProtection(void);
+void HeroStats_OnProtectionPart(const int points[HERO_DEFENCE_PROTECTION_PARTS], int value);
+void HeroStats_OnDefences(int slot, int raw, int afterResistance, int afterShield, int final, HeroDefenceScale scale);
 // End of DamageCharacter: the final damage, credited to the source and kept as pending damage
 // until DisplayCharacterDamage applies it. Without a Begin the source is HeroHarmOther.
 void HeroStats_OnHeroHarmed(int slot, int finalDamage);

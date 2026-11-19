@@ -109,7 +109,7 @@ static void ExperienceSurvivesTheFile(void)
   HeroStats old;
   old.MeetChampion(7, "HALK");
   std::vector<uint8_t> oldBytes;
-  old.Serialize(&oldBytes);
+  old.Serialize(&oldBytes, 32);
   oldBytes.resize(oldBytes.size() - HeroStatsExperience().SerializedSize() - HeroStatsRecords().SerializedSize() - 4);
   CHECK(read.Deserialize(oldBytes.data(), oldBytes.size(), 22));
   CHECK(read.Experience().Gained(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, -1) == 0);

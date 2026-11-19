@@ -4660,9 +4660,17 @@ i16 MonsterDamagesCharacter(DB4 *pDB4,i32 chIdx, bool supressPoison)
     D3W = mtDesc.dexterity12; // uByte8[4];
     D1W = sw(D1W + D3W + w_2 - 16);
 
-    if ( (D0W >= D1W) && (STRandom0_3() != 0) ) return 0;
+    if ( (D0W >= D1W) && (STRandom0_3() != 0) )
+    {
+      HeroStats_OnMonsterAttack(chIdx, DB4A3->monsterType(), HeroAttackDodged);
+      return 0;
+    };
     // character is slower (or monster is lucky!)
-    if (IsCharacterLucky(chA2, 60)) return 0;
+    if (IsCharacterLucky(chA2, 60))
+    {
+      HeroStats_OnMonsterAttack(chIdx, DB4A3->monsterType(), HeroAttackLucky);
+      return 0;
+    };
   };
   D6W = (i16)STRandom();
   if (D6W & 0x70)
@@ -4684,7 +4692,11 @@ i16 MonsterDamagesCharacter(DB4 *pDB4,i32 chIdx, bool supressPoison)
   D7W = sw(D0W - 2*D1W);
   if (D7W <= 1)
   {
-    if (STRandomBool() != 0) return 0;
+    if (STRandomBool() != 0)
+    {
+      HeroStats_OnMonsterAttack(chIdx, DB4A3->monsterType(), HeroAttackTooWeak);
+      return 0;
+    };
     D7W = sw(STRandom0_3() + 2);
   };
   D7W /= 2;
@@ -4701,6 +4713,7 @@ i16 MonsterDamagesCharacter(DB4 *pDB4,i32 chIdx, bool supressPoison)
   HeroStats_BeginHarmByMonster(DB4A3->monsterType());
   D7W = sw(DamageCharacter(chIdx, D7W, D4W, mtDesc.uByte22[2]));
   HeroStats_EndHarm();
+  HeroStats_OnMonsterAttack(chIdx, DB4A3->monsterType(), D7W != 0 ? HeroAttackHit : HeroAttackBlocked);
   if (D7W != 0)
   {
     QueueSound(chIdx + 9, d.partyX, d.partyY, 2);

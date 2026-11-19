@@ -197,6 +197,8 @@ included) plus Wasted on failures.
 | Number | What it counts |
 |---|---|
 | **Damage taken** | after armour and resistances |
+| **Monster attacks received** | the blows of monsters at the champion (not their missiles or spells, not a theft), with how each ended below it: **Hits taken** (it did damage), **Dodged** (the champion was quick enough), **Lucky** (the champion's Luck turned it aside; neither happens while the party sleeps), **Too weak** (the monster's attack did not get past the champion's skill at parrying) and **Blocked** (it landed, but the defences left no damage). The five add up to the attacks received |
+| **Damage reduced** | the damage the defences took off every hit, from monsters or anything else, with what took it off below it. See [Damage reduced](#damage-reduced) |
 | **Healed** | HP actually gained; with **Regeneration**, **Potions** and **Heal action** below it |
 | **Healing given** | HP healed by potions the champion brewed, whoever drank them |
 | **Deaths**, **Resurrected** | how often the champion died and was brought back |
@@ -208,6 +210,41 @@ listed by what they are and who cast them: **Fireball (Lord Order)**, **Lightnin
 **Poison bolt**, **Poison blob**, **Poison cloud** ... Then **Friendly fire** (from whom, or
 "own"), **Poison**, **Pits**, **Walls**, **Doors**, **Starvation**, **Exhaustion**, **Traps**,
 **Harmful potions or food**.
+
+**Damage reduced by source**: the same per source of the harm (Monster attacks, Monster
+missiles, Traps, Walls ...).
+
+### Damage reduced
+
+The game lowers a hit in steps that depend on the kind of attack. **Resistance** (Anti-fire against
+fire, Anti-magic against magic) and the party's **Fire and spell shields** take points off. Then,
+against blows, missiles, fire and walls, **Protection** multiplies what is left by
+(130 − protection) ÷ 64; against a psychic attack **Wisdom** does the same with
+(115 − wisdom) ÷ 64. Protection is at most 100, so it takes off at most 77% of a hit. Below 66
+it makes a hit *bigger* than the monster's roll: a champion with no protection at all takes about
+twice the roll.
+
+So Damage reduced is counted from the damage the champion would have taken with no defence at
+all (twice the roll, and so on), and is never below 0. Resistance and the shields count in the same
+measure, so a point they take off is worth as much as a point of protection.
+
+Protection is a sum, worked out for each part of the body the blow is aimed at and averaged.
+Each part of the sum gets its share of what protection took off:
+
+| Line | What it is |
+|---|---|
+| **Armour** | the armour worn on the parts of the body hit |
+| **Shields in hand** | a shield held in either hand |
+| **Vitality** | a random share of Vitality, so even a champion without armour has some protection |
+| **Shield potion** | the champion's own shield, from a Ya potion |
+| **Party shield** | the party shield spell |
+| **Stance** | the champion's last action: some raise protection for a moment, others lower it |
+| **Wounds** | a wounded part of the body is less well protected |
+| **Asleep** | sleep halves protection |
+
+Stance, Wounds and Asleep can be below 0: they made protection smaller, and the hits bigger. All
+the numbers are kept in fractions of a hit point and rounded when shown, so the lines can be a
+point off their sum.
 
 **Healing by source**: regeneration, the Heal action and potions (from whom, own, or found in the
 dungeon).
@@ -615,7 +652,7 @@ The window keeps these in the `[settings]` section of `csb.cfg`:
 | `stats_layout` | 2: `stats_page` holds a topic. Without it, `stats_page` is read as the front page of earlier versions (3 Monsters, 4 Items; the others open the Overview). |
 | `stats_separator` | The mark between thousands: `comma` (4,261, the default), `dot` (4.261), `space` (4 261), `apostrophe` (4'261) or `none` (4261). Edit it while the game is closed. |
 | `stats_zoom` | The zoom in percent: 70, 80, 90, 100 (the default), 110, 125, 150, 175, 200 or 250. Another number is taken as the nearest of these. |
-| `stats_closed` | Which sections are folded, added up: 1 Weapons, 2 Spells, 4 Damage taken by source, 8 Healing by source, 16 Deaths, 32 Eaten and drunk, 64 Items, 128 Monsters killed, 256 Numbers, 512 Key numbers, 1024 Skills, 2048 Experience by source, 4096 Ranks gained, 8192 Records, 16384 Attributes, 32768 Ranks, 65536 Inventory (the last three on the Champions tab), 131072 The party (Exploration's panels); 0 none |
+| `stats_closed` | Which sections are folded, added up: 1 Weapons, 2 Spells, 4 Damage taken by source, 8 Healing by source, 16 Deaths, 32 Eaten and drunk, 64 Items, 128 Monsters killed, 256 Numbers, 512 Key numbers, 1024 Skills, 2048 Experience by source, 4096 Ranks gained, 8192 Records, 16384 Attributes, 32768 Ranks, 65536 Inventory (the last three on the Champions tab), 131072 The party (Exploration's panels), 262144 Damage reduced by source; 0 none |
 | `stats_inventory` | How the Champions tab shows a champion's inventory: `picture` (the default) or `list` |
 
 Who is picked, Per level and its choices are not kept: the window opens on the Party.
@@ -657,7 +694,7 @@ closed: the game writes `csb.cfg` again when you leave it.
 |---|---|
 | Combat | `damage`, `melee`, `ranged`, `magic`, `kills`, `attacks`, `hits`, `hit_rate`, `damage_per_hit`, `other_actions`, `friendly_fire` |
 | Magic | `mana_generated`, `mana_regeneration`, `mana_potions`, `mana_spent`, `mana_on_spells`, `mana_successful`, `mana_wasted`, `runes_cleared`, `runes_not_cast`, `casts`, `casts_successful`, `casts_failed` |
-| Survival | `taken`, `healed`, `heal_regeneration`, `heal_potions`, `heal_action`, `healing_given`, `deaths`, `resurrected`, `wipes`, `reloads` |
+| Survival | `taken`, `attacks_received`, `hits_taken`, `dodged`, `lucky`, `too_weak`, `blocked`, `damage_reduced`, `reduced_resistance`, `reduced_shield_spells`, `reduced_protection`, `reduced_armour`, `reduced_hand_shields`, `reduced_vitality`, `reduced_shield_potion`, `reduced_party_shield`, `reduced_stance`, `reduced_wounds`, `reduced_asleep`, `reduced_wisdom`, `healed`, `heal_regeneration`, `heal_potions`, `heal_action`, `healing_given`, `deaths`, `resurrected`, `wipes`, `reloads` |
 | Food & items | `eaten`, `drunk`, `potions_drunk`, `potions_brewed`, `food_gained`, `food_wasted`, `water_gained`, `water_wasted`, `picked_up`, `used_in_walls` |
 | Exploration | `steps`, `tiles_walked`, `tiles_explored`, `turns`, `wall_bumps`, `monster_bumps`, `teleports`, `telefrags`, `pit_falls`, `landings`, `pit_climbs`, `climb_landings`, `ticks`, `sleep_ticks`, `doors_bashed`, `doors_smashed`, `doors_shot`, `doors_by_spell`, `doors_by_zo`, `doors_button_opened`, `doors_button_closed`, `chests`, `scrolls`, `wall_texts`, `champions_seen`, `champions_viewed` |
 | Monsters | `monsters_killed`, `kills`, `door_kills`, `pit_kills`, `telefragged` (also read as `telefrag_kills`), `landed_on`, `other_kills` |

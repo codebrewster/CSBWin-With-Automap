@@ -949,7 +949,7 @@ static void PagesCarryTheGroups(void)
   for (size_t r = 0; r < one.numbers.size(); r++) CHECK(one.numbers[r].group == 0);
   // Wipes and reloads are the whole run's: on a level the Deaths group stays, without them
   HeroStatsTopicPage level = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, 4, HeroTopicSurvival, NAMES);
-  CHECK(level.groups.size() == 3 && level.groups[2].title == "Deaths");
+  CHECK(level.groups.size() == 5 && level.groups[4].title == "Deaths");
 }
 
 // With HERO_STATS_EXPORT_OUT naming a file: an export of a party of four with big numbers,

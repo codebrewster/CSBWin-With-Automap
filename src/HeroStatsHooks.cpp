@@ -62,6 +62,10 @@ static HeroStatsBlow explosionBlow = HeroStatsBlow_Nobody(HeroBlowByOther);
 static int harmDepth = 0;
 static HeroHarmSource harmSource = HeroHarmOther;
 static HeroStatsBlow harmBlow = HeroStatsBlow_Nobody(HeroBlowByOther);
+// Between HeroStats_BeginProtection and HeroStats_OnDefences (inside one DamageCharacter): the
+// parts of the body TAG01680a added up protection for
+static bool protectionOpen = false;
+static std::vector<HeroProtectionPart> protectionParts;
 // The harm added to each hero's pending damage since DisplayCharacterDamage last applied it
 static HeroStatsPending pending;
 // The mana of the runes of each slot's incantation
@@ -1206,6 +1210,43 @@ void HeroStats_BeginHarmByMonster(int monsterType)
   HeroStatsBlow blow = HeroStatsBlow_Nobody(HeroBlowByMonster);
   blow.monsterType = monsterType;
   BeginHarmWith(HeroHarmMonster, blow);
+}
+
+void HeroStats_OnMonsterAttack(int slot, int monsterType, HeroAttackOutcome outcome)
+{
+  if (!IsHero(slot)) return;
+  MeetHero(slot);
+  store.CountMonsterAttack(d.hero[slot].fingerPrint, PartyLevel(), monsterType, outcome);
+}
+
+void HeroStats_BeginProtection(void)
+{
+  protectionOpen = true;
+  protectionParts.clear();
+}
+
+void HeroStats_OnProtectionPart(const int points[HERO_DEFENCE_PROTECTION_PARTS], int value)
+{
+  if (!protectionOpen) return;
+  HeroProtectionPart part;
+  for (int k = 0; k < HERO_DEFENCE_PROTECTION_PARTS; k++) part.points[k] = points[k];
+  part.value = value;
+  protectionParts.push_back(part);
+}
+
+void HeroStats_OnDefences(int slot, int raw, int afterResistance, int afterShield, int final, HeroDefenceScale scale)
+{
+  HeroDamageSteps steps = {raw, afterResistance, afterShield, final, scale, protectionParts};
+  protectionOpen = false;
+  protectionParts.clear();
+  if (!IsHero(slot)) return;
+  int parts[HERO_DEFENCE_PART_COUNT];
+  HeroDefence_Split(steps, parts);
+  bool any = false;
+  for (int k = 0; k < HERO_DEFENCE_PART_COUNT; k++) any = any || parts[k] != 0;
+  if (!any) return;
+  MeetHero(slot);
+  store.CreditDefence(d.hero[slot].fingerPrint, PartyLevel(), harmDepth > 0 ? harmSource : HeroHarmOther, parts);
 }
 
 void HeroStats_EndHarm(void)

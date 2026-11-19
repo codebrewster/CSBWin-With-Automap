@@ -167,6 +167,12 @@ private:
 //              then (layout 25) the stretches of poison running (2 bytes champion, first level,
 //              level, 4 bytes first time, 4 bytes time, poison damage, doses)
 //     events (layout 25): 2 bytes champion, level, kind (0 poisoned, 1 wounded, (layout 32) 2 potion brewed), count
+//     monster attacks (layout 33): 2 bytes champion, level, monster type, outcome (0 hit,
+//              1 dodged, 2 lucky, 3 too weak, 4 blocked), count
+//     defences (layout 33): 2 bytes champion, level, harm source, part (HeroDefencePart: 0
+//              resistance, 1 fire and spell shields, 2 wisdom, 3 armour, 4 shields in hand,
+//              5 vitality, 6 shield potion, 7 party shield, 8 stance, 9 wounds, 10 asleep),
+//              8 bytes amount in 64ths of a hit point (signed)
 //     origins: missiles and clouds (4 byte index, the blow), brewers (4 byte index, 2 bytes
 //              champion), then (layout 16) the held items, (layout 17) the opened chests and
 //              (layout 20) the read scrolls (4 byte record key each)
@@ -176,7 +182,7 @@ private:
 // door methods and no food and water, layout 18 no tiles walked, layout 19 no scrolls read,
 // layouts 20 and 21 no rune outcomes (taken from the rune spells' rows), layout 22 no experience
 // and no records, layout 23 no items taken from chests, layout 24 no poisonings, wounds or
-// stretches of poison, layout 25 no bumps into monsters, layout 26 no telefrags, layout 27 no count of their kills, layout 28 no landings and no monster kills by telefrag or landing (a telefrag's kills are among the "other" kills and counted with the movement), layout 29 no climbs down a rope onto monsters, layout 30 no arrivals or stair changes, layout 31 no potions brewed. These older layouts come only inside map files of those versions.
+// stretches of poison, layout 25 no bumps into monsters, layout 26 no telefrags, layout 27 no count of their kills, layout 28 no landings and no monster kills by telefrag or landing (a telefrag's kills are among the "other" kills and counted with the movement), layout 29 no climbs down a rope onto monsters, layout 30 no arrivals or stair changes, layout 31 no potions brewed, layout 32 no monster attacks or defences. These older layouts come only inside map files of those versions.
 class AutoMapStatsFile
 {
 public:

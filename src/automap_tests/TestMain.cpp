@@ -38,6 +38,7 @@ int main(void)
   TestHeroStatsCatalogue();
   TestHeroStatsExperience();
   TestHeroStatsRecords();
+  TestHeroStatsDefence();
   TestHeroStatsLive();
   TestHeroStatsLayout();
   if (failedCheckCount != 0)

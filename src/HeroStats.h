@@ -9,6 +9,7 @@
 #include <tuple>
 #include <utility>
 #include <vector>
+#include "HeroStatsDefence.h"
 #include "HeroStatsExperience.h"
 #include "HeroStatsRecords.h"
 
@@ -140,6 +141,16 @@ const int HERO_DOOR_ANY_METHOD = -1;
 // each tick of it), wounds (a part of the body wounded that was whole before) and potions brewed
 // (each spell that filled an empty flask, on the level of the cast)
 enum HeroEventKind { HeroEventPoisoned, HeroEventWounded, HeroEventBrewed, HERO_EVENT_KIND_COUNT };
+
+// How a monster's melee attack on a champion ended (MonsterDamagesCharacter): it hurt, the champion
+// dodged it (quicker than the monster), was lucky, the attack was too weak to hurt (against the
+// champion's parry), or it landed and the defences (resistance, shields, protection, wisdom, a
+// dungeon's damage filter) left no damage. The values are in the save: new ones go to the end.
+enum HeroAttackOutcome { HeroAttackHit, HeroAttackDodged, HeroAttackLucky, HeroAttackTooWeak, HeroAttackBlocked,
+                         HERO_ATTACK_OUTCOME_COUNT };
+const int HERO_ATTACK_ANY_OUTCOME = -1;
+// The damage the defences took off, by harm source, in 64ths of a hit point (HeroStatsDefence.h)
+struct HeroStatsDefenceRow { HeroHarmSource source; long long amount; };
 
 // A champion's death: where, from what, and the blow that did it (monster type, causing champion)
 struct HeroStatsDeath { HeroStatsChampion who; int level; HeroHarmSource cause; HeroStatsBlow by; };
@@ -282,6 +293,15 @@ public:
   void CountEvent(HeroStatsChampion who, int level, HeroEventKind kind, int times = 1);
   int Events(HeroStatsChampion who, int level, HeroEventKind kind) const;
   void CountPartyWipe(void);
+  // Monster attacks on the champion and how they ended; HERO_ATTACK_ANY_OUTCOME counts them all
+  void CountMonsterAttack(HeroStatsChampion who, int level, int monsterType, HeroAttackOutcome outcome);
+  int MonsterAttacks(HeroStatsChampion who, int level, int outcome = HERO_ATTACK_ANY_OUTCOME) const;
+  // What the defences took off one hit: each part's 64ths (HeroDefence_Split)
+  void CreditDefence(HeroStatsChampion who, int level, HeroHarmSource source, const int parts[HERO_DEFENCE_PART_COUNT]);
+  // One part's 64ths, or (part -1) all of them; source -1: every source
+  long long Defence(HeroStatsChampion who, int level, int part, int source = -1) const;
+  // All parts by source, most first; sources that took nothing off are left out
+  std::vector<HeroStatsDefenceRow> DefenceRows(HeroStatsChampion who, int level) const;
   void CountReload(void);
   std::vector<HeroStatsDeath> Deaths(HeroStatsChampion who) const;   // in the order they happened
   int Resurrections(HeroStatsChampion who, int level) const;
@@ -304,8 +324,8 @@ public:
   // outcomes are taken from the rune spells' rows, on the level of the cast; 21 has a table of
   // rune mana per level, which is skipped), 22 no experience and no records, 23 no items taken
   // from chests (none counted), 24 no poisonings, wounds or stretches of poison, 29 no climbs onto monsters,
-  // 30 no arrivals or stair changes.
-  static const int LAYOUT = 32;
+  // 30 no arrivals or stair changes, 32 no monster attacks and no defences.
+  static const int LAYOUT = 33;
   static const int FIRST_LAYOUT_WITH_MOVEMENT = 14;
   static const int FIRST_LAYOUT_WITH_PITS_AND_SLEEP = 15;
   static const int FIRST_LAYOUT_WITH_ITEMS = 16;
@@ -325,6 +345,7 @@ public:
   static const int FIRST_LAYOUT_WITH_CLIMB_LANDINGS = 30;
   static const int FIRST_LAYOUT_WITH_STAIRS = 31;  // arrivals and stair changes
   static const int FIRST_LAYOUT_WITH_BREWS = 32;   // the event kind of a potion brewed
+  static const int FIRST_LAYOUT_WITH_DEFENCES = 33;  // monster attacks and what the defences took off
   // layout: an older one leaves out what it does not have (the tests write old files with it)
   void Serialize(std::vector<uint8_t> *out, int layout = LAYOUT) const;
   bool Deserialize(const uint8_t *data, size_t size, int layout = LAYOUT);
@@ -378,6 +399,12 @@ private:
   // (champion, level, kind)
   typedef std::tuple<HeroStatsChampion, int, int> EventKey;
   std::map<EventKey, int> m_events;
+  // (champion, level, monster type, outcome)
+  typedef std::tuple<HeroStatsChampion, int, int, int> MonsterAttackKey;
+  std::map<MonsterAttackKey, int> m_monsterAttacks;
+  // (champion, level, source, part): 64ths of a hit point
+  typedef std::tuple<HeroStatsChampion, int, int, int> DefenceKey;
+  std::map<DefenceKey, long long> m_defences;
   std::map<int, HeroStatsMovement> m_movement;
   std::set<std::tuple<int, int, int> > m_tilesWalked;   // (level, x, y)
   std::map<int, int> m_tilesExplored;                   // per level, not stored

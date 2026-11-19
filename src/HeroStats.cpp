@@ -116,6 +116,8 @@ void HeroStats::Forget(void)
   m_deaths.clear();
   m_resurrections.clear();
   m_events.clear();
+  m_monsterAttacks.clear();
+  m_defences.clear();
   m_movement.clear();
   m_tilesWalked.clear();
   m_tilesExplored.clear();
@@ -1022,6 +1024,51 @@ int HeroStats::Events(HeroStatsChampion who, int level, HeroEventKind kind) cons
   return sum;
 }
 
+void HeroStats::CountMonsterAttack(HeroStatsChampion who, int level, int monsterType, HeroAttackOutcome outcome)
+{
+  if (outcome < 0 || outcome >= HERO_ATTACK_OUTCOME_COUNT) return;
+  m_monsterAttacks[MonsterAttackKey(who, level, monsterType, (int)outcome)]++;
+}
+
+int HeroStats::MonsterAttacks(HeroStatsChampion who, int level, int outcome) const
+{
+  int sum = 0;
+  for (std::map<MonsterAttackKey, int>::const_iterator at = m_monsterAttacks.begin(); at != m_monsterAttacks.end(); ++at)
+    if ((outcome == HERO_ATTACK_ANY_OUTCOME || std::get<3>(at->first) == outcome) && Matches(who, std::get<0>(at->first)) &&
+        LevelMatches(level, std::get<1>(at->first)))
+      sum += at->second;
+  return sum;
+}
+
+void HeroStats::CreditDefence(HeroStatsChampion who, int level, HeroHarmSource source, const int parts[HERO_DEFENCE_PART_COUNT])
+{
+  for (int k = 0; k < HERO_DEFENCE_PART_COUNT; k++)
+    if (parts[k] != 0) m_defences[DefenceKey(who, level, (int)source, k)] += parts[k];
+}
+
+long long HeroStats::Defence(HeroStatsChampion who, int level, int part, int source) const
+{
+  long long sum = 0;
+  for (std::map<DefenceKey, long long>::const_iterator at = m_defences.begin(); at != m_defences.end(); ++at)
+    if ((part < 0 || std::get<3>(at->first) == part) && (source < 0 || std::get<2>(at->first) == source) &&
+        Matches(who, std::get<0>(at->first)) && LevelMatches(level, std::get<1>(at->first)))
+      sum += at->second;
+  return sum;
+}
+
+std::vector<HeroStatsDefenceRow> HeroStats::DefenceRows(HeroStatsChampion who, int level) const
+{
+  std::vector<HeroStatsDefenceRow> rows;
+  for (int source = 0; source < HERO_HARM_SOURCE_COUNT; source++)
+  {
+    long long amount = Defence(who, level, -1, source);
+    if (amount > 0) rows.push_back({(HeroHarmSource)source, amount});
+  }
+  std::stable_sort(rows.begin(), rows.end(),
+                   [](const HeroStatsDefenceRow &a, const HeroStatsDefenceRow &b) { return a.amount > b.amount; });
+  return rows;
+}
+
 void HeroStats::CountPartyWipe(void)
 {
   m_partyWipes++;
@@ -1305,6 +1352,26 @@ void HeroStats::Serialize(std::vector<uint8_t> *out, int layout) const
     HeroBytes_PutInt(out, std::get<1>(it->first));
     HeroBytes_PutInt(out, std::get<2>(it->first));
     HeroBytes_PutInt(out, it->second);
+  }
+  if (layout < FIRST_LAYOUT_WITH_DEFENCES) return;
+  HeroBytes_Put(out, (uint32_t)m_monsterAttacks.size(), 4);
+  for (std::map<MonsterAttackKey, int>::const_iterator it = m_monsterAttacks.begin(); it != m_monsterAttacks.end(); ++it)
+  {
+    HeroBytes_Put(out, std::get<0>(it->first), 2);
+    HeroBytes_PutInt(out, std::get<1>(it->first));
+    HeroBytes_PutInt(out, std::get<2>(it->first));
+    HeroBytes_PutInt(out, std::get<3>(it->first));
+    HeroBytes_PutInt(out, it->second);
+  }
+  HeroBytes_Put(out, (uint32_t)m_defences.size(), 4);
+  for (std::map<DefenceKey, long long>::const_iterator it = m_defences.begin(); it != m_defences.end(); ++it)
+  {
+    HeroBytes_Put(out, std::get<0>(it->first), 2);
+    HeroBytes_PutInt(out, std::get<1>(it->first));
+    HeroBytes_PutInt(out, std::get<2>(it->first));
+    HeroBytes_PutInt(out, std::get<3>(it->first));
+    HeroBytes_Put(out, (uint32_t)((unsigned long long)it->second & 0xffffffffu), 4);
+    HeroBytes_Put(out, (uint32_t)((unsigned long long)it->second >> 32), 4);
   }
 }
 
@@ -1635,6 +1702,30 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
     int times = in.GetInt();
     if (kind < 0 || kind >= eventKinds || times < 0) return false;
     read.m_events[EventKey(who, level, kind)] = times;
+  }
+  bool hasDefences = layout >= FIRST_LAYOUT_WITH_DEFENCES;
+  count = hasDefences ? in.GetCount(2 + 4 + 4 + 4 + 4) : 0;
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    HeroStatsChampion who = (HeroStatsChampion)in.Get(2);
+    int level = in.GetInt();
+    int monsterType = in.GetInt();
+    int outcome = in.GetInt();
+    int times = in.GetInt();
+    if (outcome < 0 || outcome >= HERO_ATTACK_OUTCOME_COUNT || times < 0) return false;
+    read.m_monsterAttacks[MonsterAttackKey(who, level, monsterType, outcome)] = times;
+  }
+  count = hasDefences ? in.GetCount(2 + 4 + 4 + 4 + 8) : 0;
+  for (uint32_t i = 0; i < count && in.ok; i++)
+  {
+    HeroStatsChampion who = (HeroStatsChampion)in.Get(2);
+    int level = in.GetInt();
+    int source = in.GetInt();
+    int part = in.GetInt();
+    unsigned long long low = in.Get(4);
+    unsigned long long high = in.Get(4);
+    if (source < 0 || source >= HERO_HARM_SOURCE_COUNT || part < 0 || part >= HERO_DEFENCE_PART_COUNT) return false;
+    read.m_defences[DefenceKey(who, level, source, part)] = (long long)(low | high << 32);
   }
   if (!in.ok || in.left != 0) return false;
   *this = read;

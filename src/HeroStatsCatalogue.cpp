@@ -37,6 +37,25 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Healing given", "HP healed by potions this champion brewed, whoever drank them.", false, false, false, false, false},
     {"Poisoned", "Times poisoned: each new dose of poison counts once, not each tick of it.", false, false, true, false, false},
     {"Wounds", "Parts of the body wounded that were whole before; a part wounded again does not count.", false, false, true, false, false},
+    {"Monster attacks received", "Blows of monsters at this champion, whatever came of them. A theft and a monster's missile or spell are not among them.", false, false, false, false, false},
+    {"Hits taken", "Attacks that did damage.", false, false, true, false, false},
+    {"Dodged", "The champion was quick enough to get out of the way. Never while the party sleeps.", false, false, false, false, false},
+    {"Lucky", "The champion's Luck turned the blow aside. Never while the party sleeps.", false, false, false, false, false},
+    {"Too weak", "The monster's attack was too weak to get past the champion's skill at parrying.", false, false, false, false, false},
+    {"Blocked", "The blow landed, but resistance, shield spells, protection or wisdom left no damage.", false, false, false, false, false},
+    {"Damage reduced", "Damage the defences took off every hit, monster or not, counted from what the champion would have taken with no defence at all: with no protection a hit does about twice its roll. The lines below add up to it, but for rounding.", false, false, false, false, false},
+    {"Resistance", "Anti-fire against fire, anti-magic against magic.", false, false, false, false, false},
+    {"Fire and spell shields", "The party's Fire shield against fire, its Spellshield against magic.", false, false, false, false, false},
+    {"Protection", "Against blows, missiles, fire and walls: the lines below make up the champion's protection on the parts of the body hit, and each gets its share. Protection takes off at most 77% of a hit.", false, false, false, false, false},
+    {"Armour", "Armour worn on the parts of the body hit.", false, false, false, false, false},
+    {"Shields in hand", "", false, false, false, false, false},
+    {"Vitality", "A random share of Vitality, part of every champion's protection: some even without armour.", false, false, false, false, false},
+    {"Shield potion", "The champion's own shield, from a Ya potion.", false, false, false, false, false},
+    {"Party shield", "The party shield spell.", false, false, false, false, false},
+    {"Stance", "The champion's last action: some raise protection for a moment, others lower it (below 0).", false, false, false, false, false},
+    {"Wounds", "A wounded part of the body is less well protected (below 0).", false, false, false, false, false},
+    {"Asleep", "Sleep halves protection (below 0).", false, false, false, false, false},
+    {"Wisdom", "Against psychic attacks.", false, false, false, false, false},
     {"Deaths", "", false, false, true, false, false},
     {"Resurrected", "Times this champion was brought back from the dead.", false, false, false, false, false},
     {"Party wiped out", "", true, true, true, false, false},
@@ -127,6 +146,10 @@ static const char *const KEYS[] = {
     "runes_cleared", "runes_not_cast",
     "casts", "casts_successful", "casts_failed",
     "taken", "healed", "heal_regeneration", "heal_potions", "heal_action", "healing_given", "poisoned", "wounds",
+    "attacks_received", "hits_taken", "dodged", "lucky", "too_weak", "blocked",
+    "damage_reduced", "reduced_resistance", "reduced_shield_spells", "reduced_protection", "reduced_armour",
+    "reduced_hand_shields", "reduced_vitality", "reduced_shield_potion", "reduced_party_shield",
+    "reduced_stance", "reduced_wounds", "reduced_asleep", "reduced_wisdom",
     "deaths", "resurrected", "wipes", "reloads",
     "eaten", "drunk", "potions_drunk", "potions_brewed", "food_gained", "food_wasted", "water_gained", "water_wasted",
     "picked_up", "used_in_walls",
@@ -192,6 +215,14 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
   topics[HeroTopicSurvival] = {"Survival", {}, {HeroNumTaken, HeroNumHealed, HeroNumDeaths, HeroNumResurrected}, {}};
   SetGroups(&topics[HeroTopicSurvival],
             {{"Harm", false, {{HeroNumTaken, 0}, {HeroNumPoisonings, 0}, {HeroNumWounds, 0}}},
+             {"Monster attacks", false,
+              {{HeroNumAttacksReceived, 0}, {HeroNumHitsTaken, 1}, {HeroNumDodged, 1}, {HeroNumLucky, 1}, {HeroNumTooWeak, 1},
+               {HeroNumBlocked, 1}}},
+             {"Damage reduced", false,
+              {{HeroNumReduced, 0}, {HeroNumReducedResistance, 1}, {HeroNumReducedShieldSpells, 1}, {HeroNumReducedProtection, 1},
+               {HeroNumReducedArmour, 2}, {HeroNumReducedHandShields, 2}, {HeroNumReducedVitality, 2},
+               {HeroNumReducedChampionShield, 2}, {HeroNumReducedPartyShield, 2}, {HeroNumReducedStance, 2},
+               {HeroNumReducedWounds, 2}, {HeroNumReducedAsleep, 2}, {HeroNumReducedWisdom, 1}}},
              {"Healing", false,
               {{HeroNumHealed, 0}, {HeroNumHealRegeneration, 1}, {HeroNumHealPotions, 1}, {HeroNumHealAction, 1}, {HeroNumHealingGiven, 0}}},
              {"Deaths", false, {{HeroNumDeaths, 0}, {HeroNumResurrected, 0}, {HeroNumWipes, 0}, {HeroNumReloads, 0}}}});
@@ -583,6 +614,44 @@ static void FillEvents(const HeroStats &stats, HeroStatsChampion who, int level,
   v[HeroNumPotionsBrewed] = stats.Events(who, level, HeroEventBrewed);
 }
 
+static void FillMonsterAttacks(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
+{
+  v[HeroNumAttacksReceived] = stats.MonsterAttacks(who, level);
+  v[HeroNumHitsTaken] = stats.MonsterAttacks(who, level, HeroAttackHit);
+  v[HeroNumDodged] = stats.MonsterAttacks(who, level, HeroAttackDodged);
+  v[HeroNumLucky] = stats.MonsterAttacks(who, level, HeroAttackLucky);
+  v[HeroNumTooWeak] = stats.MonsterAttacks(who, level, HeroAttackTooWeak);
+  v[HeroNumBlocked] = stats.MonsterAttacks(who, level, HeroAttackBlocked);
+}
+
+// 64ths of a hit point, rounded to the nearest whole one (halves away from 0)
+static int WholePoints(long long sixtyFourths)
+{
+  long long whole = (sixtyFourths < 0 ? -sixtyFourths + 32 : sixtyFourths + 32) / 64;
+  return (int)(sixtyFourths < 0 ? -whole : whole);
+}
+
+static void FillDefences(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
+{
+  static const HeroStatsNumber PROTECTION[HERO_DEFENCE_PROTECTION_PARTS] = {
+      HeroNumReducedArmour, HeroNumReducedHandShields, HeroNumReducedVitality, HeroNumReducedChampionShield,
+      HeroNumReducedPartyShield, HeroNumReducedStance, HeroNumReducedWounds, HeroNumReducedAsleep};
+  long long parts[HERO_DEFENCE_PART_COUNT], all = 0, protection = 0;
+  for (int k = 0; k < HERO_DEFENCE_PART_COUNT; k++)
+  {
+    parts[k] = stats.Defence(who, level, k);
+    all += parts[k];
+    if (k >= HERO_DEFENCE_FIRST_PROTECTION) protection += parts[k];
+  }
+  v[HeroNumReduced] = WholePoints(all);
+  v[HeroNumReducedResistance] = WholePoints(parts[HeroDefenceResistance]);
+  v[HeroNumReducedShieldSpells] = WholePoints(parts[HeroDefenceShieldSpell]);
+  v[HeroNumReducedWisdom] = WholePoints(parts[HeroDefenceWisdom]);
+  v[HeroNumReducedProtection] = WholePoints(protection);
+  for (int k = 0; k < HERO_DEFENCE_PROTECTION_PARTS; k++)
+    v[PROTECTION[k]] = WholePoints(parts[HERO_DEFENCE_FIRST_PROTECTION + k]);
+}
+
 static void FillRecords(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
 {
   for (int k = 0; k < HERO_RECORD_COUNT; k++)
@@ -594,7 +663,7 @@ static void FillRecords(const HeroStats &stats, HeroStatsChampion who, int level
 
 static const FillGroup CHAMPION_GROUPS[] = {FillDamage, FillKills, FillAttacks, FillFriendlyFire, FillMana, FillCasts,
                                             FillTaken, FillHealing, FillDeaths, FillFood, FillDoors, FillExperience,
-                                            FillEvents, FillRecords};
+                                            FillEvents, FillMonsterAttacks, FillDefences, FillRecords};
 static const FillGroup PARTY_GROUPS[] = {FillHardship, FillItems, FillMovement, FillDungeon, FillKillCauses};
 
 static FillGroup GroupOf(HeroStatsNumber number)
@@ -615,6 +684,12 @@ static FillGroup GroupOf(HeroStatsNumber number)
   case HeroNumHealingGiven: return FillHealing;
   case HeroNumDeaths: case HeroNumResurrected: return FillDeaths;
   case HeroNumPoisonings: case HeroNumWounds: case HeroNumPotionsBrewed: return FillEvents;
+  case HeroNumAttacksReceived: case HeroNumHitsTaken: case HeroNumDodged: case HeroNumLucky: case HeroNumTooWeak:
+  case HeroNumBlocked: return FillMonsterAttacks;
+  case HeroNumReduced: case HeroNumReducedResistance: case HeroNumReducedShieldSpells: case HeroNumReducedProtection:
+  case HeroNumReducedArmour: case HeroNumReducedHandShields: case HeroNumReducedVitality: case HeroNumReducedChampionShield:
+  case HeroNumReducedPartyShield: case HeroNumReducedStance: case HeroNumReducedWounds: case HeroNumReducedAsleep:
+  case HeroNumReducedWisdom: return FillDefences;
   case HeroNumWipes: case HeroNumReloads: return FillHardship;
   case HeroNumEaten: case HeroNumDrunk: case HeroNumPotionsDrunk: case HeroNumFoodGained: case HeroNumFoodWasted: case HeroNumWaterGained:
   case HeroNumWaterWasted: return FillFood;

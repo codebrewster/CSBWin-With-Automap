@@ -269,9 +269,11 @@ HeroStatsDrawState HeroStatsDraw_InitialState(void)
 }
 
 // The bits csb.cfg's stats_closed keeps: the first eight detail tables, then Numbers (256) and Key
-// numbers (512), then the tables that came later (Skills 1024 ... Records 8192)
+// numbers (512), then the tables that came later (Skills 1024 ... Records 8192), the character
+// sheet's sections (16384 ... 131072) and Damage reduced by source (262144)
 int HeroStatsDraw_SectionBit(int detail)
 {
+  if (detail == HeroDetailReduced) return 1 << 18;
   if (detail == HERO_STATS_ATTRIBUTES_SECTION) return 1 << 14;
   if (detail == HERO_STATS_RANKS_SECTION) return 1 << 15;
   if (detail == HERO_STATS_INVENTORY_SECTION) return 1 << 16;
@@ -2463,6 +2465,10 @@ static void DrawSection(HeroStatsDrawState *state, const HeroStatsTopicPage &pag
   case HeroDetailSpells: DrawSpells(state, page.hero, columns); break;
   case HeroDetailHarm:
     DrawAmounts(state, HeroDetailHarm, "Damage taken by source", "Damage", "All sources", "taken", page.hero.taken, columns);
+    break;
+  case HeroDetailReduced:
+    DrawAmounts(state, HeroDetailReduced, "Damage reduced by source", "Reduced", "All sources", "reduced", page.hero.reduced,
+                columns);
     break;
   case HeroDetailHealing:
     DrawAmounts(state, HeroDetailHealing, "Healing by source", "Healed", "All sources", "healed", page.hero.healing, columns);

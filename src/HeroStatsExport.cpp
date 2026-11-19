@@ -187,6 +187,7 @@ static std::string PageJson(const HeroStatsHeroPage &page)
     out += "]]";
   }
   out += "],\"taken\":" + AmountLinesJson(page.taken, true);
+  out += ",\"reduced\":" + AmountLinesJson(page.reduced, false);
   out += ",\"healing\":" + AmountLinesJson(page.healing, false);
   out += ",\"deaths\":[";
   for (size_t i = 0; i < page.deathLines.size(); i++)
@@ -593,7 +594,7 @@ const D = JSON.parse(document.getElementById('stats').textContent);
 const H = D.heroes, N = H.length, NUM = D.numbers, TOP = D.topics;
 const COLOUR = i => `var(--c${i % 4})`;
 const DETAIL = {WEAPONS: 0, SPELLS: 1, HARM: 2, HEALING: 3, DEATHS: 4, CONSUMED: 5, ITEMS: 6, MONSTERS: 7,
-                SKILLS: 8, XP_SOURCES: 9, RANK_UPS: 10, RECORDS: 11};
+                SKILLS: 8, XP_SOURCES: 9, RANK_UPS: 10, RECORDS: 11, REDUCED: 12};
 const TOPIC_MONSTERS = 6, TOPIC_RECORDS = 8;
 // The tab after the topics: the champions when the page was written
 const CHAMPIONS = TOP.length, LIVE = D.live || {cursor: null, list: false, icons: [], champions: []};
@@ -643,7 +644,7 @@ function shortNum(v) {
 const numCell = (n, v, cls) => cell(v, NUM[n].bad, NUM[n].ratio, v === null ? '' : text(n, v), cls);
 const plain = (v, bad, cls) => cell(v, bad, false, fmt(v), cls);
 function shareBar(values) {
-  const t = sum(values);
+  const t = values.reduce((a, v) => a + Math.max(0, v), 0);  // as the window: parts below 0 get no bar
   return '<div class="share">' + (t ? values.map((v, i) => v > 0 ? `<i style="width:${100 * v / t}%;background:${COLOUR(i)}"></i>` : '').join('') : '') + '</div>';
 }
 const partBar = (part, whole, i) =>
@@ -1060,6 +1061,7 @@ function topicPage() {
     if (d === DETAIL.WEAPONS) html += weapons(p);
     else if (d === DETAIL.SPELLS) html += spells(p);
     else if (d === DETAIL.HARM) html += amounts(DETAIL.HARM, 'Damage taken by source', 'Damage', 'taken', p.taken, true);
+    else if (d === DETAIL.REDUCED) html += amounts(DETAIL.REDUCED, 'Damage reduced by source', 'Reduced', 'reduced', p.reduced, false);
     else if (d === DETAIL.HEALING) html += amounts(DETAIL.HEALING, 'Healing by source', 'Healed', 'healed', p.healing, false);
     else if (d === DETAIL.DEATHS) html += deaths(p);
     else if (d === DETAIL.CONSUMED) html += consumed(p);

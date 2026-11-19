@@ -72,6 +72,7 @@ struct HeroStatsHeroPage
   std::vector<HeroStatsWeaponLine> weapons;   // most damage first, their options too
   std::vector<HeroStatsSpellLine> spells;     // most mana first
   std::vector<HeroStatsAmountLine> taken;     // biggest first
+  std::vector<HeroStatsAmountLine> reduced;   // damage the defences took off, by harm source, biggest first
   int healedTotal;
   std::vector<HeroStatsAmountLine> healing;   // biggest first
   int given, resurrected;
@@ -108,7 +109,7 @@ struct HeroStatsNumbersRow
 struct HeroStatsNumbersGroup { std::string title; bool panel; };
 enum HeroStatsDetail { HeroDetailWeapons, HeroDetailSpells, HeroDetailHarm, HeroDetailHealing, HeroDetailDeaths,
                        HeroDetailConsumed, HeroDetailItems, HeroDetailMonsters, HeroDetailSkills, HeroDetailXpSources,
-                       HeroDetailRankUps, HeroDetailRecords, HERO_DETAIL_COUNT };
+                       HeroDetailRankUps, HeroDetailRecords, HeroDetailReduced, HERO_DETAIL_COUNT };
 
 // Experience by source: a tree written out in drawing order. depth 0: Attacks, Monsters
 // attacking you, Other actions, Spells, Other; under Attacks the weapons and their actions, under

@@ -27,13 +27,16 @@ static const size_t STATS_HEADER_BYTES = 4 + 2 + 4 + 4;
 
 static void AppendNumber(std::string *bytes, uint32_t value, int byteCount);
 
-// What a version 13 to 25 map file ended in: the block length, then the block as the statistics
-// entry holds it after its header
+// What a version 25 map file ended in: the block length, then the block as the statistics entry
+// holds it after its header, in layout 25 (the length of the statistics, they, the origins)
 static std::string StatisticsBlock(const HeroStats &stats, const HeroStatsOrigins &origins)
 {
-  std::ostringstream out;
-  AutoMapStatsFile(SAVE_SIGNATURE).Write(out, stats, origins);
-  std::string block = out.str().substr(STATS_HEADER_BYTES);
+  std::vector<uint8_t> statsBytes, originsBytes;
+  stats.Serialize(&statsBytes, 25);
+  origins.Serialize(&originsBytes);
+  std::string block;
+  AppendNumber(&block, (uint32_t)statsBytes.size(), 4);
+  block += std::string(statsBytes.begin(), statsBytes.end()) + std::string(originsBytes.begin(), originsBytes.end());
   std::string bytes;
   AppendNumber(&bytes, (uint32_t)block.size(), 4);
   return bytes + block;

@@ -262,6 +262,20 @@ static void AddHarm(HeroStatsHeroPage *page, const HeroStats &stats, const std::
   std::stable_sort(page->taken.begin(), page->taken.end(), LineBefore);
 }
 
+// One line per harm source, in whole hit points (the store keeps 64ths)
+static void AddReduced(HeroStatsHeroPage *page, const HeroStats &stats, HeroStatsChampion who, int level)
+{
+  std::vector<HeroStatsDefenceRow> rows = stats.DefenceRows(who, level);
+  for (size_t i = 0; i < rows.size(); i++)
+  {
+    int amount = (int)((rows[i].amount + 32) / 64);
+    if (amount <= 0) continue;
+    HeroStatsHarmRow row = {rows[i].source, HERO_STATS_NOBODY, -1, 0, 0};
+    AddLine(&page->reduced, HeroStatsView_HarmName(row, NULL, ""), amount, false);
+  }
+  std::stable_sort(page->reduced.begin(), page->reduced.end(), LineBefore);
+}
+
 static void AddHealing(HeroStatsHeroPage *page, const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
                        HeroStatsChampion who, int level, bool isParty)
 {
@@ -359,6 +373,7 @@ static HeroStatsHeroPage BuildHero(const HeroStats &stats, const std::vector<Her
   AddAttacks(&page, stats, who, level, names);
   AddSpells(&page, stats, who, level);
   AddHarm(&page, stats, columns, who, level, names, partyNames);
+  AddReduced(&page, stats, who, level);
   AddHealing(&page, stats, columns, who, level, partyNames);
   AddFood(&page, stats, who, level, names);
   AddHardship(&page, stats, columns, who, level, names);
@@ -417,6 +432,7 @@ HeroStatsHeroPage HeroStatsPages_Hero(const HeroStats &stats, const std::vector<
           mine.kills += theirs.kills;
         }
     SplitAmounts(&page.taken, one.taken, c, n);
+    SplitAmounts(&page.reduced, one.reduced, c, n);
     SplitAmounts(&page.healing, one.healing, c, n);
     SplitAmounts(&page.eaten, one.eaten, c, n);
     SplitAmounts(&page.drunk, one.drunk, c, n);
@@ -436,6 +452,7 @@ std::vector<HeroStatsDetail> HeroStatsPages_Details(int topic, HeroStatsChampion
   case HeroTopicMagic: details.push_back(HeroDetailSpells); break;
   case HeroTopicSurvival:
     details.push_back(HeroDetailHarm);
+    details.push_back(HeroDetailReduced);
     details.push_back(HeroDetailHealing);
     details.push_back(HeroDetailDeaths);
     break;
