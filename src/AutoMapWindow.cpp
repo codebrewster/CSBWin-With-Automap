@@ -3759,7 +3759,9 @@ static void MergeTooltipItem(std::vector<AutoMapTooltipSlot> *slots, const AutoM
   if (item.worldPicture == AUTOMAP_NO_PICTURE || count <= 0) return;
   for (size_t i = 0; i < slots->size(); i++)
   {
-    if (!(*slots)[i].isChest && !(*slots)[i].required && (*slots)[i].item == item)
+    // Monsters, missiles and clouds join plain items only, never what a launcher will throw
+    if (!(*slots)[i].isChest && !(*slots)[i].required && !(*slots)[i].launched
+        && (*slots)[i].item == item)
     {
       (*slots)[i].count += count;
       return;

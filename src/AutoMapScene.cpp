@@ -1332,6 +1332,21 @@ static AutoMapItem FloorScrollItem(const AutoMapShownCell &shown, AutoMapRecordI
   return AutoMapItem();
 }
 
+// Launchers on one face draw from one pool: whether an earlier launcher of the cell already
+// listed the pool of launcher l
+static bool LauncherPoolListedBefore(const AutoMapCellRecord &cell, size_t l)
+{
+  for (size_t e = 0; e < l; e++)
+  {
+    if (cell.wallLaunchers[e].side == cell.wallLaunchers[l].side
+        && !cell.wallLaunchers[e].ammunition.empty())
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
 std::string AutoMapScene_TextTag(AutoMapHitKind kind, AutoMapHitKind where, int side)
 {
   if (kind == AutoMapHitWallText)
@@ -1344,6 +1359,8 @@ std::string AutoMapScene_TextTag(AutoMapHitKind kind, AutoMapHitKind where, int 
   case AutoMapHitInChest: return "SCROLL IN CHEST";
   case AutoMapHitAlcove: return "SCROLL ALCOVE";
   case AutoMapHitCarried: return "SCROLL CARRIED";
+  case AutoMapHitLauncher: return "SCROLL LAUNCHER";
+  case AutoMapHitInLauncherChest: return "SCROLL LAUNCHER CHEST";
   default: return "SCROLL";
   }
 }
@@ -1385,6 +1402,20 @@ std::vector<AutoMapCellText> AutoMapScene_CellTexts(const AutoMapDrawList &drawL
       entry.where = AutoMapHitInChest;
       entry.text = chest.pictureTexts[p];
       entry.item = p < chest.pictures.size() ? chest.pictures[p] : AutoMapItem();
+      found.push_back(entry);
+    }
+  }
+  // What object launchers will throw (All only: the filter empties it below), each face's pool once
+  for (size_t l = 0; l < cell.wallLaunchers.size(); l++)
+  {
+    if (LauncherPoolListedBefore(cell, l)) continue;
+    const std::vector<AutoMapAlcoveEntry> &ammunition = cell.wallLaunchers[l].ammunition;
+    for (size_t a = 0; a < ammunition.size(); a++)
+    {
+      if (ammunition[a].text.empty()) continue;
+      entry.where = ammunition[a].inChest == AUTOMAP_NO_RECORD ? AutoMapHitLauncher : AutoMapHitInLauncherChest;
+      entry.text = ammunition[a].text;
+      entry.item = ammunition[a].item;
       found.push_back(entry);
     }
   }
@@ -1990,8 +2021,10 @@ std::vector<AutoMapTipLine> AutoMapScene_RelayLines(const AutoMapDrawList &drawL
     if (!door.empty()) AddRelayGroup(&lines, "DOOR", door);
   }
   // What this stone cell throws when messaged: one group per launcher, headed by the
-  // firing side (launchers answer only messages naming their side). Unknown
-  // ammunition stays silent; once-only launchers vanish from the rebuild spent.
+  // firing side (launchers answer only messages naming their side). A spell or missile
+  // launcher whose value names nothing the game knows gets no line; an object launcher
+  // adds how many of the things in its wall are left. Once-only launchers vanish from the
+  // rebuild spent.
   // Below All the party never learns what a launcher throws, so no line.
   for (size_t l = 0; drawList.spoilers == AutoMapSpoilersAll && l < shown->cell.wallLaunchers.size();
        l++)
@@ -2296,16 +2329,7 @@ std::vector<AutoMapTooltipSlot> AutoMapScene_TooltipSlots(const AutoMapDrawList 
   for (size_t l = 0; l < shown->cell.wallLaunchers.size(); l++)
   {
     const AutoMapLauncher &launcher = shown->cell.wallLaunchers[l];
-    // Launchers on one face draw from one pool: list it once
-    bool listed = false;
-    for (size_t e = 0; e < l; e++)
-    {
-      if (shown->cell.wallLaunchers[e].side == launcher.side && !shown->cell.wallLaunchers[e].ammunition.empty())
-      {
-        listed = true;
-      }
-    }
-    if (listed) continue;
+    if (LauncherPoolListedBefore(shown->cell, l)) continue;
     const std::vector<AutoMapAlcoveEntry> &ammunition = launcher.ammunition;
     for (size_t i = 0; i < ammunition.size(); i++)
     {

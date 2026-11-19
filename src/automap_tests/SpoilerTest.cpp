@@ -2521,7 +2521,6 @@ static void AmmunitionStaysHiddenBelowAllEvenOnceFired(void)
   CHECK(cell != NULL && cell->cell.wallLaunchers.size() == 1);
   if (cell != NULL && cell->cell.wallLaunchers.size() == 1) CHECK(cell->cell.wallLaunchers[0].ammunition.empty());
   CHECK(LaunchedSlots(AutoMapScene_TooltipSlots(learned, 1, 0)) == 0);
-  CHECK(!HasLineStartingWith(Texts(AutoMapScene_RelayLines(learned, 1, 0)), "  LAUNCHES"));
 }
 
 static void LauncherItemsAreFoundAtAllOnly(void)
@@ -2554,6 +2553,52 @@ static void LaunchersOnOneFaceListTheirPoolOnce(void)
   if (slots.size() == 1) CHECK(slots[0].launched && slots[0].count == 1);
   std::vector<AutoMapSearchHit> club = AutoMapScene_SearchItems(all, "club", FakeName, NULL);
   CHECK(club.size() == 1 && club[0].count == 1);
+}
+
+// A scroll the launcher throws, and one in a chest it throws, are found by their words at All only
+static AutoMapLevelSnapshot WithLauncherScrolls(void)
+{
+  AutoMapLevelSnapshot snapshot = Corridor();
+  AutoMapLauncher launcher = ObjectLauncher(14);
+  AutoMapAlcoveEntry loose = Ammo(SCROLL, 3, 51, AUTOMAP_NO_RECORD);
+  loose.text = "THE LOOSE WORDS";
+  loose.scroll = 51;
+  launcher.ammunition.push_back(loose);
+  launcher.ammunition.push_back(Ammo(CHEST, 1, CHEST_RECORD, AUTOMAP_NO_RECORD));
+  AutoMapAlcoveEntry boxed = Ammo(SCROLL, 3, 52, CHEST_RECORD);
+  boxed.text = "THE BOXED WORDS";
+  boxed.scroll = 52;
+  launcher.ammunition.push_back(boxed);
+  At(&snapshot, 1, 0).wallLaunchers.push_back(launcher);
+  return snapshot;
+}
+
+static void LauncherScrollsAreFoundByTheirWordsAtAll(void)
+{
+  AutoMapDrawList all = Build(WithLauncherScrolls(), AutoMapSpoilersAll, NULL);
+  std::vector<AutoMapCellText> texts = AutoMapScene_CellTexts(all, 1, 0);
+  CHECK(texts.size() == 2);
+  if (texts.size() != 2) return;
+  CHECK(texts[0].text == "THE LOOSE WORDS" && texts[0].where == AutoMapHitLauncher);
+  CHECK(texts[1].text == "THE BOXED WORDS" && texts[1].where == AutoMapHitInLauncherChest);
+  CHECK(AutoMapScene_TextTag(texts[0].kind, texts[0].where, texts[0].side) == "SCROLL LAUNCHER");
+  CHECK(AutoMapScene_TextTag(texts[1].kind, texts[1].where, texts[1].side) == "SCROLL LAUNCHER CHEST");
+  AutoMapKnowledge knowledge;
+  knowledge.Learn(AutoMapFact_OfRecord(AutoMapFactActuator, LAUNCHER_RECORD));
+  CHECK(AutoMapScene_CellTexts(Build(WithLauncherScrolls(), AutoMapSpoilersLearned, &knowledge), 1, 0).empty());
+}
+
+// Something the launcher throws that the map has no picture for still counts in N LEFT
+static void PicturelessAmmunitionCountsButDrawsNoIcon(void)
+{
+  AutoMapLevelSnapshot snapshot = Corridor();
+  AutoMapLauncher launcher = ObjectLauncher(14);
+  launcher.ammunition.push_back(Ammo(AUTOMAP_NO_PICTURE, -1, 61, AUTOMAP_NO_RECORD));
+  launcher.ammunition.push_back(Ammo(CLUB, 4, 62, AUTOMAP_NO_RECORD));
+  At(&snapshot, 1, 0).wallLaunchers.push_back(launcher);
+  AutoMapDrawList all = Build(snapshot, AutoMapSpoilersAll, NULL);
+  CHECK(HasLine(Texts(AutoMapScene_RelayLines(all, 1, 0)), "  LAUNCHES OBJECT, 2 LEFT"));
+  CHECK(LaunchedSlots(AutoMapScene_TooltipSlots(all, 1, 0)) == 1);
 }
 
 // The words before a tooltip stack's name: what the window and the export print
@@ -2672,4 +2717,6 @@ void TestAutoMapSpoilers(void)
   LauncherItemsAreFoundAtAllOnly();
   StackPrefixNamesNeedsAndLaunches();
   LaunchersOnOneFaceListTheirPoolOnce();
+  LauncherScrollsAreFoundByTheirWordsAtAll();
+  PicturelessAmmunitionCountsButDrawsNoIcon();
 }

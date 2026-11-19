@@ -430,7 +430,8 @@ The results are grouped under a heading per level, the shown level first; a clic
 folds it away. Each hit shows its icon, the cell as the rulers number it, its name and a tag: `X3`,
 `ALCOVE`, `IN CHEST`, `CARRIED BY …`, `LAUNCHER`, `LAUNCHER CHEST`, `NEEDS`, `PAD NEEDS`, `GENERATOR`, or for stairs the level
 they lead to (`TO L4`). A text hit shows the words around the match, the match in gold, and is
-tagged `SCROLL`, `SCROLL ALCOVE`, `SCROLL IN CHEST`, `SCROLL CARRIED` or `WALL (N)` with the face it
+tagged `SCROLL`, `SCROLL ALCOVE`, `SCROLL IN CHEST`, `SCROLL CARRIED`, `SCROLL LAUNCHER`,
+`SCROLL LAUNCHER CHEST` or `WALL (N)` with the face it
 is written on; text hits come after the names. A stack of more than one says how many in front of where it lies: `X2 ALCOVE`,
 `X3 IN CHEST`; hits of one cell that read the same are one row, so two chests there, opened or not,
 are `CHEST X2`. **Up** and **Down** step

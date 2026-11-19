@@ -200,7 +200,8 @@ struct AutoMapAlcoveEntry
   // The chest record when the item lies in a chest in the alcove (the reader flattens the
   // chest's contents next to it), AUTOMAP_NO_RECORD otherwise.
   AutoMapRecordId inChest;
-  // The item is a chest, empty or not (launcher ammunition: a chest never groups)
+  // The item is a chest, empty or not (an empty one has no contents to tell it by): a launched
+  // chest never groups
   bool isChest;
 };
 

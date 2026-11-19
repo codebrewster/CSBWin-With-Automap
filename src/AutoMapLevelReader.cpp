@@ -1261,8 +1261,6 @@ static void FindSleepingGenerators(AutoMapLevelSnapshot *snapshot)
   }
 }
 
-// One walk over the objects of a cell feeds items, monsters, missiles, clouds, pads and
-// the link set. A rebuild scans every cell on every tick, so each extra walk costs.
 // What a chest holds, one level deep, each entry tagged with the chest and the side it lies on
 static void AppendChestContents(RN object, int side, std::vector<AutoMapAlcoveEntry> *entries)
 {
@@ -1289,9 +1287,11 @@ static void AppendChestContents(RN object, int side, std::vector<AutoMapAlcoveEn
   }
 }
 
-// What an object launcher (types 14/15) still holds: the items of its stone cell lying on the
+// What an object launcher (types 14/15) still holds: the records of its stone cell lying on the
 // side it fires to or the side after it, in chain order, the order Timer.cpp
-// TriggerMissileLauncher takes them in (each shot the first that matches)
+// TriggerMissileLauncher takes them in (each shot the first record past the actuators that
+// matches). A record the map has no picture for (a monster, a missile, a cloud, an item of an
+// unknown kind) keeps its place without one: it is no icon, but it is a shot and counts.
 static void ReadLauncherAmmunition(int x, int y, AutoMapLauncher *launcher)
 {
   if (launcher->actuatorType != 14 && launcher->actuatorType != 15) return;
@@ -1301,13 +1301,12 @@ static void ReadLauncherAmmunition(int x, int y, AutoMapLauncher *launcher)
   for (RN object = FindFirstObject(x, y); object != RNeof; object = GetDBRecordLink(object))
   {
     DBTYPE type = object.dbType();
-    if (type < dbWEAPON || type > dbMISC) continue;
+    if (type <= dbACTUATOR) continue;
     int position = object.pos();
     if (position != side && position != next) continue;
-    AutoMapItem item = ItemForRN(object);
-    if (item.worldPicture == AUTOMAP_NO_PICTURE) continue;
+    bool isItem = type >= dbWEAPON && type <= dbMISC;
     AutoMapAlcoveEntry entry;
-    entry.item = item;
+    if (isItem) entry.item = ItemForRN(object);
     entry.side = position;
     entry.record = RecordIdOf(object);
     entry.isChest = type == dbCHEST;
@@ -1321,6 +1320,9 @@ static void ReadLauncherAmmunition(int x, int y, AutoMapLauncher *launcher)
   }
 }
 
+// One walk over the objects of a cell feeds items, monsters, missiles, clouds, pads and
+// the link set. A rebuild scans every cell on every tick, so each extra walk costs: only a
+// cell with an object launcher walks once more, for what the launcher holds.
 static void ReadObjectsAt(int x, int y, AutoMapCellRecord *record, AutoMapLevelSnapshot *snapshot)
 {
   // Walls hold alcove goods instead of floor goods; doors hold no pads. Missiles,
@@ -1363,6 +1365,7 @@ static void ReadObjectsAt(int x, int y, AutoMapCellRecord *record, AutoMapLevelS
         entry.item = item;
         entry.side = side;
         entry.record = RecordIdOf(object);
+        entry.isChest = type == dbCHEST;
         if (type == dbSCROLL)
         {
           entry.text = ScrollTextExcerpt(object);
