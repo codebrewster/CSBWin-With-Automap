@@ -43,7 +43,7 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Reloads", "", true, true, false, false, false},
     {"Eaten", "Items eaten.", false, false, false, false, false},
     {"Drunk", "Drinks, the fountain included.", false, false, false, false, false},
-    {"Potions drunk", "Potions drunk: the potions are part of Drunk. A Water Flask counts as a potion; a waterskin is water and no potion.", false, false, false, false, false},
+    {"Potions drunk", "Potions drunk: the potions are part of Drunk. A Water Flask or a waterskin is water and no potion.", false, false, false, false, false},
     {"Potions brewed", "Potions this champion made: each spell that filled an empty flask, counted on the level of the cast.", false, false, false, false, false},
     {"Food gained", "", false, false, false, false, false},
     {"Food wasted (over full)", "Food that did not fit because the champion was full. Not part of Food gained.", false, false, true, false, false},

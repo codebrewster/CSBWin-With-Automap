@@ -571,7 +571,9 @@ void HeroStats_OnItemConsumed(int slot, int item, bool eaten)
   RN rn;
   if (!IsHero(slot) || !IsItem(item, &rn)) return;
   MeetHero(slot);
-  HeroConsumeKind kind = eaten ? HeroConsumeEaten : rn.dbType() == dbPOTION ? HeroConsumePotion : HeroConsumeDrunk;
+  // A Water Flask is water, like a waterskin: a drink but no potion
+  bool potion = rn.dbType() == dbPOTION && GetRecordAddressDB8(rn)->potionType() != potion_WaterFlask;
+  HeroConsumeKind kind = eaten ? HeroConsumeEaten : potion ? HeroConsumePotion : HeroConsumeDrunk;
   store.CountConsumed(d.hero[slot].fingerPrint, PartyLevel(), HeroStats_WeaponOf(rn), kind);
 }
 
@@ -922,6 +924,7 @@ int HeroStats_WeaponOf(RN item)
 
 static_assert(HERO_STATS_FIRESTAFF == objNI_TheFirestaff_a && HERO_STATS_FIRESTAFF_WITH_GEM == objNI_TheFirestaff_b,
               "the Firestaffs as HeroStats.h knows them");
+static_assert(HERO_STATS_WATER_FLASK == objNI_WaterFlask, "the Water Flask as HeroStats.h knows it");
 
 std::string HeroStats_WeaponNameOf(int weapon)
 {

@@ -494,6 +494,17 @@ static void EatingDoorsAndChestsAreCounted(void)
   stats.CountConsumed(9, 2, 31, HeroConsumeDrunk);
   CHECK(stats.Potions(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN) == 1 && stats.Potions(9, 2) == 1);
   CHECK(stats.Drunk(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN) == 3 && stats.Potions(9, 1) == 0);
+  {
+    // A save that counted a Water Flask as a potion: on loading it is a drink of water
+    HeroStats flask;
+    flask.CountConsumed(9, 2, HERO_STATS_WATER_FLASK, HeroConsumePotion);
+    flask.CountConsumed(9, 2, HERO_STATS_WATER_FLASK, HeroConsumeDrunk);
+    std::vector<uint8_t> bytes;
+    flask.Serialize(&bytes);
+    HeroStats read;
+    CHECK(read.Deserialize(bytes.data(), bytes.size()));
+    CHECK(read.Potions(9, 2) == 0 && read.Drunk(9, 2) == 2);
+  }
   std::vector<HeroStatsConsumedRow> rows = stats.Consumed(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN);
   CHECK(rows.size() == 3);
   if (rows.size() == 3)

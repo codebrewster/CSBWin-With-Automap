@@ -1516,7 +1516,9 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
     int kind = in.GetInt();
     int number = in.GetInt();
     if (kind < 0 || kind >= HERO_CONSUME_KIND_COUNT) return false;
-    read.m_consumed[ConsumeKey(who, level, item, kind)] = number;
+    // Saved while a Water Flask counted as a potion: it is a drink of water
+    if (kind == HeroConsumePotion && item == HERO_STATS_WATER_FLASK) kind = HeroConsumeDrunk;
+    read.m_consumed[ConsumeKey(who, level, item, kind)] += number;
   }
   bool hasNourishment = layout >= FIRST_LAYOUT_WITH_NOURISHMENT;
   count = hasConsumption ? in.GetCount(2 + 4 + 4 + (hasNourishment ? 4 : 0)) : 0;

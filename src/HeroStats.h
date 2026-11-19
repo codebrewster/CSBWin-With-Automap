@@ -27,6 +27,7 @@ const uint32_t HERO_STATS_NO_SPELL = 0;
 // The game's two Firestaffs (objNI_TheFirestaff_a and _b): one name, two items
 const int HERO_STATS_FIRESTAFF = 27;
 const int HERO_STATS_FIRESTAFF_WITH_GEM = 28;
+const int HERO_STATS_WATER_FLASK = 0xa3;  // drunk, it is water and no potion
 
 enum HeroDamageKind { HeroDamageMelee, HeroDamageRanged, HeroDamageMagic, HERO_DAMAGE_KIND_COUNT };
 // Telefrag, Landing: the party was teleported, or fell down a pit, onto a group of monsters,
@@ -122,7 +123,7 @@ struct HeroStatsMovement
 enum HeroItemEvent { HeroItemPickedUp, HeroItemUsedInWall, HeroItemTakenFromChest, HERO_ITEM_EVENT_COUNT };
 struct HeroStatsItemRow { int item; int pickedUp, fromChest, usedInWall; };
 // What a champion ate or drank (potions, water, food), by item. A potion is drunk too: its own kind
-// counts it as a potion as well as among the drinks (a waterskin is water, not a potion).
+// counts it as a potion as well as among the drinks (a waterskin or a Water Flask is water, not a potion).
 enum HeroConsumeKind { HeroConsumeDrunk, HeroConsumeEaten, HeroConsumePotion, HERO_CONSUME_KIND_COUNT };
 struct HeroStatsConsumedRow { int item; int drunk, eaten; };
 // Food and water a champion took in: what the item or fountain added, and what was lost over the
