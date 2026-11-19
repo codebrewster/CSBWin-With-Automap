@@ -49,7 +49,7 @@ void HeroDefence_Split(const HeroDamageSteps &steps, int out[HERO_DEFENCE_PART_C
   long long scale = steps.scale;
   long long afterShield = steps.afterShield > 0 ? steps.afterShield : 0;
   long long final = steps.final > 0 ? steps.final : 0;
-  out[HeroDefenceResistance] = (int)((steps.raw - (long long)steps.afterResistance) * scale);
+  out[HeroDefenceResistance] = (int)((steps.noResistance - (long long)steps.afterResistance) * scale);
   out[HeroDefenceShieldSpell] = (int)((steps.afterResistance - afterShield) * scale);
   long long last = afterShield * scale - final * 64;
   if (steps.scale == HeroScaleWisdom) out[HeroDefenceWisdom] = (int)last;

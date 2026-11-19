@@ -218,7 +218,9 @@ missiles, Traps, Walls ...).
 ### Damage reduced
 
 The game lowers a hit in steps that depend on the kind of attack. **Resistance** (Anti-fire against
-fire, Anti-magic against magic) and the party's **Fire and spell shields** take points off. Then,
+fire, Anti-magic against magic) multiplies it by (170 − resistance) ÷ 128, and the party's **Fire
+and spell shields** take points off. Below 42 resistance makes a hit bigger than the roll: with none
+the hit is a third bigger. Then,
 against blows, missiles, fire and walls, **Protection** multiplies what is left by
 (130 − protection) ÷ 64; against a psychic attack **Wisdom** does the same with
 (115 − wisdom) ÷ 64. Protection is at most 100, so it takes off at most 77% of a hit. Below 66
@@ -226,8 +228,11 @@ it makes a hit *bigger* than the monster's roll: a champion with no protection a
 twice the roll.
 
 So Damage reduced is counted from the damage the champion would have taken with no defence at
-all (twice the roll, and so on), and is never below 0. Resistance and the shields count in the same
-measure, so a point they take off is worth as much as a point of protection.
+all (twice the roll, a third more again with no resistance against fire, and so on), and is never
+below 0. **Resistance** is counted from a champion with none: each point takes 1/128 of the roll
+off, so 30 Anti-Fire shows what it saved compared with 0 Anti-Fire, even though the hit was still
+bigger than the roll. Resistance and the shields count in the same measure, so a point they take
+off is worth as much as a point of protection.
 
 Protection is a sum, worked out for each part of the body the blow is aimed at and averaged.
 Each part of the sum gets its share of what protection took off:

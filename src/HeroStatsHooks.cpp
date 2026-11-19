@@ -1239,9 +1239,9 @@ void HeroStats_OnProtectionPart(const int points[HERO_DEFENCE_PROTECTION_PARTS],
   protectionParts.push_back(part);
 }
 
-void HeroStats_OnDefences(int slot, int raw, int afterResistance, int afterShield, int final, HeroDefenceScale scale)
+void HeroStats_OnDefences(int slot, int raw, int noResistance, int afterResistance, int afterShield, int final, HeroDefenceScale scale)
 {
-  HeroDamageSteps steps = {raw, afterResistance, afterShield, final, scale, protectionParts};
+  HeroDamageSteps steps = {raw, noResistance, afterResistance, afterShield, final, scale, protectionParts};
   protectionOpen = false;
   protectionParts.clear();
   if (!IsHero(slot)) return;

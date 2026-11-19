@@ -18,9 +18,17 @@ static HeroProtectionPart Part(int armour, int vitality, int stance, int wound, 
   return part;
 }
 
+// An attack with no resistance step: resistance 0 leaves the raw damage
 static HeroDamageSteps Steps(int raw, int afterResistance, int afterShield, int final, HeroDefenceScale scale)
 {
-  HeroDamageSteps steps = {raw, afterResistance, afterShield, final, scale, {}};
+  HeroDamageSteps steps = {raw, raw, afterResistance, afterShield, final, scale, {}};
+  return steps;
+}
+
+// Fire or magic: resistance 0 would leave raw * 170 / 128, rounded down as the engine does
+static HeroDamageSteps Resisted(int raw, int afterResistance, int afterShield, int final, HeroDefenceScale scale)
+{
+  HeroDamageSteps steps = {raw, raw * 170 >> 7, afterResistance, afterShield, final, scale, {}};
   return steps;
 }
 
@@ -46,26 +54,44 @@ static void ProtectionIsMeasuredFromNoDefence(void)
 
 static void ResistanceAndShieldsCountInTheSameMeasure(void)
 {
-  // Fire: anti-fire takes 30 to 20, the fire shield 20 to 15, no protection: 15 * 130 / 64 = 30.
-  // Resistance and shield count times 130 / 64 like protection; the engine's rounding (30 64ths)
-  // belongs to nobody.
-  HeroDamageSteps steps = Steps(30, 20, 15, 30, HeroScaleProtection);
+  // Fire: a roll of 30 would be 30 * 170 / 128 = 39 with no anti-fire; anti-fire 82 makes it
+  // 30 * 88 / 128 = 20, the fire shield 20 to 15, no protection: 15 * 130 / 64 = 30. Resistance
+  // and shield count times 130 / 64 like protection; the engine's rounding (30 64ths) belongs to
+  // nobody.
+  HeroDamageSteps steps = Resisted(30, 20, 15, 30, HeroScaleProtection);
   steps.parts.push_back(Part(0, 0, 0, 0, 0, 0));
   int out[HERO_DEFENCE_PART_COUNT];
   HeroDefence_Split(steps, out);
-  CHECK(out[HeroDefenceResistance] == 1300 && out[HeroDefenceShieldSpell] == 650);
-  CHECK(Sum(out) == 1950);
-  // The shield takes all that is left: the engine stops there, before protection
-  HeroDefence_Split(Steps(10, 8, -2, 0, HeroScaleProtection), out);
-  CHECK(out[HeroDefenceResistance] == 260 && out[HeroDefenceShieldSpell] == 1040 && Sum(out) == 1300);
+  CHECK(out[HeroDefenceResistance] == 19 * 130 && out[HeroDefenceShieldSpell] == 650);
+  CHECK(Sum(out) == 19 * 130 + 650);
+  // The shield takes all that is left: the engine stops there, before protection. A roll of 10:
+  // 13 with no anti-fire, 8 with it
+  HeroDefence_Split(Resisted(10, 8, -2, 0, HeroScaleProtection), out);
+  CHECK(out[HeroDefenceResistance] == 650 && out[HeroDefenceShieldSpell] == 1040 && Sum(out) == 1690);
+}
+
+static void LowResistanceStillTakesDamageOff(void)
+{
+  // A roll of 64 against fire. Anti-fire 0: 64 * 170 / 128 = 85, more than the roll, but it is the
+  // measure, so resistance took off nothing
+  int out[HERO_DEFENCE_PART_COUNT];
+  HeroDefence_Split(Resisted(64, 85, 85, 0, HeroScaleProtection), out);
+  CHECK(out[HeroDefenceResistance] == 0);
+  // Anti-fire 30: 64 * 140 / 128 = 70, still above the roll, yet 15 points less than with none
+  HeroDefence_Split(Resisted(64, 70, 70, 0, HeroScaleProtection), out);
+  CHECK(out[HeroDefenceResistance] == 15 * 130);
+  // Magic, anti-magic 30, measured in the roll itself
+  HeroDefence_Split(Resisted(64, 70, 70, 70, HeroScaleNone), out);
+  CHECK(out[HeroDefenceResistance] == 15 * 64 && Sum(out) == 15 * 64);
 }
 
 static void MagicAndPsychicAttacks(void)
 {
   int out[HERO_DEFENCE_PART_COUNT];
-  // Magic: anti-magic and the spellshield, no protection, measured from the roll itself
-  HeroDefence_Split(Steps(20, 15, 5, 5, HeroScaleNone), out);
-  CHECK(out[HeroDefenceResistance] == 320 && out[HeroDefenceShieldSpell] == 640 && Sum(out) == 960);
+  // Magic: anti-magic (26 with none, 15 with it) and the spellshield, no protection, measured in
+  // the roll itself
+  HeroDefence_Split(Resisted(20, 15, 5, 5, HeroScaleNone), out);
+  CHECK(out[HeroDefenceResistance] == 11 * 64 && out[HeroDefenceShieldSpell] == 640 && Sum(out) == 21 * 64);
   // Psychic: wisdom 50 makes 20 into 20 * 65 / 64 = 20; with no wisdom it would be 20 * 115 / 64
   HeroDefence_Split(Steps(20, 20, 20, 20, HeroScaleWisdom), out);
   CHECK(out[HeroDefenceWisdom] == 20 * 115 - 20 * 64 && Sum(out) == 1020);
@@ -166,6 +192,7 @@ void TestHeroStatsDefence(void)
 {
   ProtectionIsMeasuredFromNoDefence();
   ResistanceAndShieldsCountInTheSameMeasure();
+  LowResistanceStillTakesDamageOff();
   MagicAndPsychicAttacks();
   DrawbacksComeOutBelowZero();
   TheCapAndSeveralParts();

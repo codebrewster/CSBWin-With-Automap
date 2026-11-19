@@ -224,7 +224,7 @@ void HeroStats_OnMonsterAttack(int slot, int monsterType, HeroAttackOutcome outc
 // the damage steps, splits and counts by the harm source the Begin/EndHarm pair names.
 void HeroStats_BeginProtection(void);
 void HeroStats_OnProtectionPart(const int points[HERO_DEFENCE_PROTECTION_PARTS], int value);
-void HeroStats_OnDefences(int slot, int raw, int afterResistance, int afterShield, int final, HeroDefenceScale scale);
+void HeroStats_OnDefences(int slot, int raw, int noResistance, int afterResistance, int afterShield, int final, HeroDefenceScale scale);
 // End of DamageCharacter: the final damage, credited to the source and kept as pending damage
 // until DisplayCharacterDamage applies it. Without a Begin the source is HeroHarmOther.
 void HeroStats_OnHeroHarmed(int slot, int finalDamage);

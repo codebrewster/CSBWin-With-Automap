@@ -10,12 +10,13 @@
 // hand in the steps, this splits what they took off.
 //
 // DamageCharacter lowers the damage in steps that depend on the attack type: resistance
-// (anti-fire, anti-magic) and the party's fire or spell shield take points off the damage; then
-// for most types protection multiplies it by (130 - protection) / 64, and for a psychic attack
-// wisdom multiplies it by (115 - wisdom) / 64. Protection under 66 makes a hit bigger than its
-// roll, so the measure is the damage the champion would take with no defence at all: the roll
-// times 130 / 64 (115 / 64 for a psychic attack, the roll itself for a magic one). Everything is
-// in 64ths of a hit point, where all of these are whole numbers.
+// (anti-fire, anti-magic) multiplies the damage by (170 - resistance) / 128 and the party's fire
+// or spell shield takes points off it; then for most types protection multiplies it by
+// (130 - protection) / 64, and for a psychic attack wisdom multiplies it by (115 - wisdom) / 64.
+// Resistance under 42 and protection under 66 make a hit bigger than its roll, so the measure is
+// the damage the champion would take with no defence at all: what resistance 0 leaves of the roll
+// (170 / 128 of it, for fire and magic) times 130 / 64 (115 / 64 for a psychic attack, 1 for a
+// magic one). Everything is in 64ths of a hit point, where all of these are whole numbers.
 //
 // Protection is a sum for each part of the body the attack aims at (TAG01680a): the armour worn
 // there, shields in the hands, a random share of Vitality, the champion's shield (a Ya potion),
@@ -41,12 +42,13 @@ struct HeroProtectionPart { int points[HERO_DEFENCE_PROTECTION_PARTS]; int value
 // no defence
 enum HeroDefenceScale { HeroScaleNone = 64, HeroScaleProtection = 130, HeroScaleWisdom = 115 };
 
-// raw: the damage DamageCharacter was given; afterResistance, afterShield: after those steps (the
-// raw damage when the attack type has none); final: what was left before the dungeon's damage
+// raw: the damage DamageCharacter was given; noResistance: what the resistance step leaves with
+// resistance 0; afterResistance, afterShield: after those steps (all three the raw damage when the
+// attack type has none); final: what was left before the dungeon's damage
 // filter. parts: the parts of the body protection was worked out for (HeroScaleProtection only).
 struct HeroDamageSteps
 {
-  int raw, afterResistance, afterShield, final;
+  int raw, noResistance, afterResistance, afterShield, final;
   HeroDefenceScale scale;
   std::vector<HeroProtectionPart> parts;
 };

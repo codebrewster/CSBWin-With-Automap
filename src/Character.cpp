@@ -2751,7 +2751,9 @@ i32 DamageCharacter(i32 chIdx,i32 damage,i16 mask,i16 P4)
   if (P4 != 0)
   {
     // The damage after each step, for the statistics (HeroStats_OnDefences)
-    i32 statsRaw = D7W, statsAfterResistance = D7W, statsAfterShield = D7W;
+    // statsNoResistance: what the resistance step would leave with resistance 0 (TAG016426 with
+    // 170 - 0), the measure resistance is counted from
+    i32 statsRaw = D7W, statsNoResistance = D7W, statsAfterResistance = D7W, statsAfterShield = D7W;
     HeroDefenceScale statsScale = HeroScaleProtection;
     HeroStats_BeginProtection();
     for (D4W=D5W=D6W=0; D6W<=5; D6W++)
@@ -2795,6 +2797,7 @@ i32 DamageCharacter(i32 chIdx,i32 damage,i16 mask,i16 P4)
       if (P4 == 5)
       {
         statsScale = HeroScaleNone;
+        statsNoResistance = ScaledMultiply(D7W, 7, 170);
         D7W = TAG016426(pcA3, AntiMagic, D7W);
         statsAfterResistance = D7W;
         D7W = sw(D7W - d.SpellShield);
@@ -2804,6 +2807,7 @@ i32 DamageCharacter(i32 chIdx,i32 damage,i16 mask,i16 P4)
       {
         if (P4 == 1)
         {
+          statsNoResistance = ScaledMultiply(D7W, 7, 170);
           D7W = TAG016426(pcA3, AntiFire, D7W);
           statsAfterResistance = D7W;
           D7W = sw(D7W - d.FireShield);
@@ -2818,7 +2822,7 @@ i32 DamageCharacter(i32 chIdx,i32 damage,i16 mask,i16 P4)
         }
         if (D7W <= 0)
         {
-          HeroStats_OnDefences(chIdx, statsRaw, statsAfterResistance, statsAfterShield, 0, statsScale);
+          HeroStats_OnDefences(chIdx, statsRaw, statsNoResistance, statsAfterResistance, statsAfterShield, 0, statsScale);
           return 0;
         };
 
@@ -2826,7 +2830,7 @@ i32 DamageCharacter(i32 chIdx,i32 damage,i16 mask,i16 P4)
         D7W = ScaledMultiply(D7W, 6,D0W); //D6*D7/64
       };
     };
-    HeroStats_OnDefences(chIdx, statsRaw, statsAfterResistance, statsAfterShield, D7W, statsScale);
+    HeroStats_OnDefences(chIdx, statsRaw, statsNoResistance, statsAfterResistance, statsAfterShield, D7W, statsScale);
     if (D7W <= 0) return 0;
     // Below : chance of wound
     D0W = sw(STRandom(128) + 10);
