@@ -93,7 +93,7 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Stair changes", "Each time the party went up or down stairs, by a step or a turn on the stairs. Counted on the level it left.", true, false, false, false, false},
     {"Stair dances", "Two stair changes or more one after the other, with no step away from the stairs between them; fights and spells in between are part of the dance. A step to a square next to the stairs and back keeps it going. Counted on the level it began on.", true, false, false, false, false},
     {"Dance moves", "The stair changes in the stair dances after the first, which only brought the party onto the stairs.", true, false, false, false, false},
-    {"Strict stair dances", "Stair dances that never left the stairs: any step off them ends one.", true, false, false, false, false},
+    {"Strict stair dances", "Runs of stair changes that never left the stairs: any step off them ends one, and the next stair change begins a new one. So one stair dance can hold several of these, or none.", true, false, false, false, false},
     {"Strict dance moves", "The turns on the stairs in the strict stair dances, after the stair change that brought the party onto them.", true, false, false, false, false},
     {"Time (ticks)", "", true, false, false, false, true},
     {"Asleep (ticks)", "", true, false, false, false, true},
