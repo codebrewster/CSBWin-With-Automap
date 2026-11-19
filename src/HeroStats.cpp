@@ -1624,13 +1624,14 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
       (!read.m_experience.Deserialize(in) || !read.m_records.Deserialize(in, layout >= FIRST_LAYOUT_WITH_POISON)))
     return false;
   count = layout >= FIRST_LAYOUT_WITH_POISON ? in.GetCount(2 + 4 + 4 + 4) : 0;
+  int eventKinds = layout >= FIRST_LAYOUT_WITH_BREWS ? HERO_EVENT_KIND_COUNT : (int)HeroEventBrewed;
   for (uint32_t i = 0; i < count && in.ok; i++)
   {
     HeroStatsChampion who = (HeroStatsChampion)in.Get(2);
     int level = in.GetInt();
     int kind = in.GetInt();
     int times = in.GetInt();
-    if (kind < 0 || kind >= HERO_EVENT_KIND_COUNT || times < 0) return false;
+    if (kind < 0 || kind >= eventKinds || times < 0) return false;
     read.m_events[EventKey(who, level, kind)] = times;
   }
   if (!in.ok || in.left != 0) return false;

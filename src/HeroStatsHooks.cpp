@@ -1436,7 +1436,9 @@ void HeroStats_OnSpellNeedsFlask(int slot, uint32_t spell)
 void HeroStats_OnPotionBrewed(int slot, int potionIndex)
 {
   if (!IsHero(slot) || potionIndex < 0) return;
-  origins.SetBrewer(potionIndex, MetChampion(slot));
+  HeroStatsChampion who = MetChampion(slot);
+  origins.SetBrewer(potionIndex, who);
+  store.CountEvent(who, PartyLevel(), HeroEventBrewed);
 }
 
 void HeroStats_OnPotionFreed(int potionIndex)

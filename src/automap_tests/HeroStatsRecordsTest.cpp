@@ -1,6 +1,7 @@
 #include "TestSupport.h"
 #include "../HeroStats.h"
 #include "../HeroStatsRecords.h"
+#include "../HeroStatsCatalogue.h"
 
 static HeroRecordEntry Entry(HeroStatsChampion who, int level, uint32_t time, int value)
 {
@@ -195,9 +196,28 @@ static void WoundRecordsAndCounts(void)
   CHECK(read.Events(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroEventPoisoned) == 2 && read.Events(9, 2, HeroEventPoisoned) == 1);
 }
 
+static void PotionsBrewedCounts(void)
+{
+  HeroStats stats;
+  stats.CountEvent(7, 1, HeroEventBrewed);
+  stats.CountEvent(7, 1, HeroEventBrewed);
+  stats.CountEvent(9, 3, HeroEventBrewed);
+  std::vector<uint8_t> bytes;
+  stats.Serialize(&bytes);
+  HeroStats read;
+  CHECK(read.Deserialize(bytes.data(), bytes.size()));
+  CHECK(read.Events(7, 1, HeroEventBrewed) == 2 && read.Events(7, 3, HeroEventBrewed) == 0);
+  CHECK(read.Events(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroEventBrewed) == 3);
+  CHECK(HeroStatsCatalogue_Value(read, 7, 1, HeroNumPotionsBrewed) == 2);
+  // A layout before brews knows no such event kind
+  HeroStats older;
+  CHECK(!older.Deserialize(bytes.data(), bytes.size(), HeroStats::FIRST_LAYOUT_WITH_BREWS - 1));
+}
+
 void TestHeroStatsRecords(void)
 {
   BiggerReplaces();
+  PotionsBrewedCounts();
   TieKeepsTheFirst();
   PartyIsTheBestChampion();
   ClosestCallNeedsSurvival();

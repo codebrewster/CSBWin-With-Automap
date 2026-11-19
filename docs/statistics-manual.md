@@ -221,6 +221,7 @@ dungeon).
 |---|---|
 | **Food gained**, **Water gained** | how much the champion's food and water actually rose, in the game's own units (a champion is full at 2048; an apple gives 500, a water flask 1600, a gulp from a waterskin 800, a fountain 1600) |
 | **Potions drunk** | the potions drunk, a part of **Drunk** below it. A Water Flask counts as a potion; a waterskin is water, not a potion |
+| **Potions brewed** | the potions the champion made: each spell that filled an empty flask, on the level of the cast. Counted from this version on; older saves show 0 |
 | **Eaten**, **Drunk** | everything eaten and drunk; drinks straight from a fountain count as drunk (there are none in Nostalgia Mode, where a click on a fountain touches the wall, as in CSBwin) |
 | **Food wasted (over full)**, **Water wasted (over full)** | the part that went over full and was lost. An apple worth 500 eaten by a champion 200 short of full gains 200 and wastes 300. |
 | **Items picked up** | items the party took from the dungeon into the hand, the first time only (Party) |
@@ -657,7 +658,7 @@ closed: the game writes `csb.cfg` again when you leave it.
 | Combat | `damage`, `melee`, `ranged`, `magic`, `kills`, `attacks`, `hits`, `hit_rate`, `damage_per_hit`, `other_actions`, `friendly_fire` |
 | Magic | `mana_generated`, `mana_regeneration`, `mana_potions`, `mana_spent`, `mana_on_spells`, `mana_successful`, `mana_wasted`, `runes_cleared`, `runes_not_cast`, `casts`, `casts_successful`, `casts_failed` |
 | Survival | `taken`, `healed`, `heal_regeneration`, `heal_potions`, `heal_action`, `healing_given`, `deaths`, `resurrected`, `wipes`, `reloads` |
-| Food & items | `eaten`, `drunk`, `potions_drunk`, `food_gained`, `food_wasted`, `water_gained`, `water_wasted`, `picked_up`, `used_in_walls` |
+| Food & items | `eaten`, `drunk`, `potions_drunk`, `potions_brewed`, `food_gained`, `food_wasted`, `water_gained`, `water_wasted`, `picked_up`, `used_in_walls` |
 | Exploration | `steps`, `tiles_walked`, `tiles_explored`, `turns`, `wall_bumps`, `monster_bumps`, `teleports`, `telefrags`, `pit_falls`, `landings`, `pit_climbs`, `climb_landings`, `ticks`, `sleep_ticks`, `doors_bashed`, `doors_smashed`, `doors_shot`, `doors_by_spell`, `doors_by_zo`, `doors_button_opened`, `doors_button_closed`, `chests`, `scrolls`, `wall_texts`, `champions_seen`, `champions_viewed` |
 | Monsters | `monsters_killed`, `kills`, `door_kills`, `pit_kills`, `telefragged` (also read as `telefrag_kills`), `landed_on`, `other_kills` |
 | Experience | `experience`, `fighter`, `ninja`, `priest`, `wizard`, `ranks_gained` |

@@ -8,6 +8,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 ## Unreleased
 
 **Statistics**
+- Food & items counts Potions brewed: each potion a champion made, per level, in the table under Potions drunk.
 - Exploration's Turns explains that a turn on stairs is a Step and takes the stairs.
 - Exploration counts Arrivals (each time the party came onto a level, by any way) and Stair changes (each time it went up or down stairs, a turn on the stairs included), under Travel.
 - Telefrags and landings: a teleport that ends on a square with monsters, or a fall down a pit onto them, kills the whole group at once. Exploration counts them under Teleports and Pit falls ("onto monsters").

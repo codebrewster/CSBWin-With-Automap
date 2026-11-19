@@ -136,8 +136,9 @@ enum HeroDoorMethod { HeroDoorSmashed, HeroDoorShot, HeroDoorBySpell, HeroDoorUn
 const int HERO_DOOR_ANY_METHOD = -1;
 
 // Things that happen to a champion and are only counted: poisonings (a new dose of poison, not
-// each tick of it) and wounds (a part of the body wounded that was whole before)
-enum HeroEventKind { HeroEventPoisoned, HeroEventWounded, HERO_EVENT_KIND_COUNT };
+// each tick of it), wounds (a part of the body wounded that was whole before) and potions brewed
+// (each spell that filled an empty flask, on the level of the cast)
+enum HeroEventKind { HeroEventPoisoned, HeroEventWounded, HeroEventBrewed, HERO_EVENT_KIND_COUNT };
 
 // A champion's death: where, from what, and the blow that did it (monster type, causing champion)
 struct HeroStatsDeath { HeroStatsChampion who; int level; HeroHarmSource cause; HeroStatsBlow by; };
@@ -303,7 +304,7 @@ public:
   // rune mana per level, which is skipped), 22 no experience and no records, 23 no items taken
   // from chests (none counted), 24 no poisonings, wounds or stretches of poison, 29 no climbs onto monsters,
   // 30 no arrivals or stair changes.
-  static const int LAYOUT = 31;
+  static const int LAYOUT = 32;
   static const int FIRST_LAYOUT_WITH_MOVEMENT = 14;
   static const int FIRST_LAYOUT_WITH_PITS_AND_SLEEP = 15;
   static const int FIRST_LAYOUT_WITH_ITEMS = 16;
@@ -322,6 +323,7 @@ public:
   static const int FIRST_LAYOUT_WITH_LANDINGS = 29;  // and telefrags and landings as causes of a kill
   static const int FIRST_LAYOUT_WITH_CLIMB_LANDINGS = 30;
   static const int FIRST_LAYOUT_WITH_STAIRS = 31;  // arrivals and stair changes
+  static const int FIRST_LAYOUT_WITH_BREWS = 32;   // the event kind of a potion brewed
   // layout: an older one leaves out what it does not have (the tests write old files with it)
   void Serialize(std::vector<uint8_t> *out, int layout = LAYOUT) const;
   bool Deserialize(const uint8_t *data, size_t size, int layout = LAYOUT);
