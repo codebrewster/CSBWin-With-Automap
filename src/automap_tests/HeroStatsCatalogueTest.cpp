@@ -445,6 +445,10 @@ static void HovertextsSayWhatLabelsDoNot(void)
         "tiles_explored, steps, ticks, teleports");
   CHECK(HeroStatsCatalogue_CurrentSetting(HeroSettingExplorationTiles, "steps, doors_bashed") == "steps, doors_bashed");
   CHECK(HeroStatsCatalogue_SettingDefault(HeroSettingExplorationTiles) == "tiles_explored, steps, ticks, teleports");
+  // The Food & items tiles the game once wrote as defaults get the new headlines; a chosen list stays
+  CHECK(HeroStatsCatalogue_CurrentSetting(HeroSettingSuppliesTiles, "eaten, drunk, food_wasted, picked_up") ==
+        "food_gained, water_gained, potions_drunk, picked_up");
+  CHECK(HeroStatsCatalogue_CurrentSetting(HeroSettingSuppliesTiles, "eaten, food_wasted") == "eaten, food_wasted");
 }
 
 void TestHeroStatsCatalogue(void)

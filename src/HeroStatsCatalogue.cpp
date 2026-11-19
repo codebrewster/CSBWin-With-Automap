@@ -342,9 +342,13 @@ std::string HeroStatsCatalogue_CurrentSetting(HeroStatsSetting setting, const st
 {
   static const std::vector<HeroStatsNumber> monstersBefore = {HeroNumKills, HeroNumDoorKills, HeroNumPitKills, HeroNumOtherKills};
   static const std::vector<HeroStatsNumber> explorationBefore = {HeroNumTilesExplored, HeroNumSteps, HeroNumTicks, HeroNumDoorsBashed};
-  if (setting != HeroSettingMonstersTiles && setting != HeroSettingExplorationTiles) return text;
-  const std::vector<HeroStatsNumber> &before = setting == HeroSettingMonstersTiles ? monstersBefore : explorationBefore;
-  if (HeroStatsCatalogue_ParseNumbers(text, MOST_TILES + 1) != before) return text;
+  static const std::vector<HeroStatsNumber> suppliesBefore = {HeroNumEaten, HeroNumDrunk, HeroNumFoodWasted, HeroNumPickedUp};
+  const std::vector<HeroStatsNumber> *before = setting == HeroSettingMonstersTiles      ? &monstersBefore
+                                               : setting == HeroSettingExplorationTiles ? &explorationBefore
+                                               : setting == HeroSettingSuppliesTiles    ? &suppliesBefore
+                                                                                        : NULL;
+  if (before == NULL) return text;
+  if (HeroStatsCatalogue_ParseNumbers(text, MOST_TILES + 1) != *before) return text;
   return HeroStatsCatalogue_SettingDefault(setting);
 }
 

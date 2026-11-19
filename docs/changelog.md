@@ -8,6 +8,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 ## Unreleased
 
 **Statistics**
+- Food & items shows its new headline numbers in games that had run before: a csb.cfg that still held the old default tiles (Eaten, Drunk, Food wasted, Items picked up) gets the new ones; a list you chose stays.
 - Food & items counts Potions brewed: each potion a champion made, per level, in the table under Potions drunk.
 - Exploration's Turns explains that a turn on stairs is a Step and takes the stairs.
 - Exploration counts Arrivals (each time the party came onto a level, by any way) and Stair changes (each time it went up or down stairs, a turn on the stairs included), under Travel.
