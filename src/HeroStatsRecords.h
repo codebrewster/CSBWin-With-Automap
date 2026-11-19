@@ -53,6 +53,9 @@ struct HeroRecordEntry
   int kinds[2][2];
 };
 HeroRecordEntry HeroRecordEntry_Empty(void);
+// The level a record belongs to: where it happened, or for a streak or chain that ran over
+// several levels, where it began. A level's page shows it there, and so does the Lv column.
+int HeroRecord_Level(HeroRecordKind kind, const HeroRecordEntry &entry);
 
 class HeroStatsRecords
 {

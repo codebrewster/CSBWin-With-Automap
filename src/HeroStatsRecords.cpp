@@ -20,6 +20,17 @@ bool HeroRecord_PartyHasItsOwn(HeroRecordKind kind)
   return HeroRecord_PartyOnly(kind) || kind == HeroRecKillStreak;
 }
 
+int HeroRecord_Level(HeroRecordKind kind, const HeroRecordEntry &entry)
+{
+  switch (kind)
+  {
+  case HeroRecKillStreak: case HeroRecLongestFall: case HeroRecLongestTeleportChain: case HeroRecLongestSleep:
+  case HeroRecLongestPoisoned: case HeroRecMostPoisonings: case HeroRecLongestStairDance: case HeroRecLongestStrictStairDance:
+    return entry.firstLevel;
+  default: return entry.level;
+  }
+}
+
 bool HeroRecord_IsTotal(HeroRecordKind kind)
 {
   return kind == HeroRecTotalPoisonings || kind == HeroRecTotalWounds;
@@ -63,7 +74,7 @@ void HeroStatsRecords::Offer(HeroRecordKind kind, const HeroRecordEntry &entry)
 {
   if (kind < 0 || kind >= HERO_RECORD_COUNT) return;
   if (kind == HeroRecClosestCall ? entry.value < 1 : entry.value <= 0) return;
-  Key key((int)kind, entry.who, entry.level);
+  Key key((int)kind, entry.who, HeroRecord_Level(kind, entry));
   std::map<Key, HeroRecordEntry>::iterator kept = m_best.find(key);
   if (kept == m_best.end()) m_best[key] = entry;
   else if (entry.value != kept->second.value && Beats(kind, entry, kept->second)) kept->second = entry;
@@ -107,7 +118,7 @@ bool HeroStatsRecords::Best(HeroRecordKind kind, HeroStatsChampion who, int leve
   auto consider = [&](const HeroRecordEntry &entry) {
     bool whoMatches = who == HERO_STATS_PARTY ? (partyOwn ? entry.who == HERO_STATS_PARTY : entry.who != HERO_STATS_PARTY)
                                               : entry.who == who;
-    if (!whoMatches || !HeroStats::LevelMatches(level, entry.level)) return;
+    if (!whoMatches || !HeroStats::LevelMatches(level, HeroRecord_Level(kind, entry))) return;
     if (kind == HeroRecClosestCall ? entry.value < 1 : entry.value <= 0) return;
     if (!found || Beats(kind, entry, best)) best = entry;
     found = true;
@@ -449,7 +460,11 @@ bool HeroStatsRecords::Deserialize(HeroBytesReader &in, bool withPoison)
     uint32_t kind = in.Get(1);
     HeroRecordEntry entry;
     if (!GetEntry(in, &entry) || kind >= (uint32_t)HERO_RECORD_COUNT) return false;
-    read.m_best[Key((int)kind, entry.who, entry.level)] = entry;
+    // Filed by HeroRecord_Level, as Offer files them: a file from before kept a streak under the
+    // level it ended on, so two may now meet under one key, and the better one stays
+    Key key((int)kind, entry.who, HeroRecord_Level((HeroRecordKind)kind, entry));
+    std::map<Key, HeroRecordEntry>::iterator kept = read.m_best.find(key);
+    if (kept == read.m_best.end() || Beats((HeroRecordKind)kind, entry, kept->second)) read.m_best[key] = entry;
   }
   count = in.GetCount(2 + RUNNING_BYTES);
   for (uint32_t i = 0; i < count && in.ok; i++)

@@ -236,7 +236,8 @@ static void AddSpells(HeroStatsHeroPage *page, const HeroStats &stats, HeroStats
 }
 
 // One line per source; monster attacks in one line, a monster's missiles by kind and caster;
-// friendly fire and clouds by causer
+// friendly fire and clouds by causer. Only what a champion caused is bad news: a cloud nobody is
+// known to have made is harm like a trap's.
 static void AddHarm(HeroStatsHeroPage *page, const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
                     HeroStatsChampion who, int level, const HeroStatsNames &names, bool isParty)
 {
@@ -245,17 +246,19 @@ static void AddHarm(HeroStatsHeroPage *page, const HeroStats &stats, const std::
   {
     const HeroStatsHarmRow &row = harm[i];
     if (row.amount <= 0) continue;
-    bool byChampion = row.source == HeroHarmFriendlyFire || row.source == HeroHarmPoisonCloud;
+    bool byChampion = (row.source == HeroHarmFriendlyFire || row.source == HeroHarmPoisonCloud) && row.causer != HERO_STATS_NOBODY;
     std::string text;
     if (byChampion && !isParty && row.causer == who)
       text = row.source == HeroHarmFriendlyFire ? "Friendly fire (own)" : "Poison clouds (own)";
     else
     {
-      const HeroStatsColumn *causer = isParty ? NULL : ColumnOf(columns, row.causer);
+      const HeroStatsColumn *causer = byChampion ? ColumnOf(columns, row.causer) : NULL;
       // The store keeps no variant of the caster: the first name of its type
       std::string caster;
       if (row.source == HeroHarmMonsterMissile && row.monsterType >= 0) caster = names.monster(row.monsterType, 0);
       text = HeroStatsView_HarmName(row, causer, caster);
+      // A champion no longer in the party: still apart from the clouds nobody made
+      if (byChampion && causer == NULL) text += " (from a former champion)";
     }
     AddLine(&page->taken, text, row.amount, byChampion);
   }
@@ -804,8 +807,8 @@ static std::vector<HeroStatsRecordLine> RecordLines(const HeroStats &stats, cons
     if (line.has)
     {
       line.who = ChampionName(columns, entry.who);
-      // A fall is a record of the level it began on; its landing is in the text
-      line.level = kind == HeroRecLongestFall ? entry.firstLevel : entry.level;
+      // A streak or chain is a record of the level it began on; where it ended is in the text
+      line.level = HeroRecord_Level(kind, entry);
       line.tick = (int)entry.time;
       line.when = "tick " + HeroStatsView_Number((int)entry.time);
       // A streak or chain: where and when it began and ended

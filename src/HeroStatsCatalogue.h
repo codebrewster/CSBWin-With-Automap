@@ -21,7 +21,7 @@ enum HeroStatsNumber {
   HeroNumManaGenerated, HeroNumManaRegeneration, HeroNumManaPotions, HeroNumManaRegenLost, HeroNumManaSpent, HeroNumManaOnSpells,
   HeroNumManaSuccessful, HeroNumManaWasted, HeroNumManaFailed, HeroNumManaMeaningless,
   HeroNumRunesCleared, HeroNumRunesNotCast,
-  HeroNumCasts, HeroNumCastsSuccessful, HeroNumCastsFailed,
+  HeroNumCasts, HeroNumCastsSuccessful, HeroNumCastsFailed, HeroNumCastsMeaningless,
   HeroNumTaken, HeroNumHealed, HeroNumHealRegeneration, HeroNumHealPotions, HeroNumHealPotionsOwn,
   HeroNumHealPotionsOthers, HeroNumHealPotionsFound, HeroNumHealAction, HeroNumHealingGiven, HeroNumPoisonings, HeroNumWounds,
   HeroNumAttacksReceived, HeroNumHitsTaken, HeroNumDodged, HeroNumLucky, HeroNumTooWeak, HeroNumBlocked,
@@ -53,7 +53,11 @@ enum HeroStatsNumber {
 const HeroStatsNumber HeroNumRecFirst = HeroNumRecBiggestHit;
 
 // partyOnly: kept for the party, not per champion (steps, chests ...). wholeRunOnly: not kept per
-// level (wipes, reloads). isBad: more is bad news. isRatio: a percentage or an average, which
+// level (wipes, reloads). isBad: more is bad news, drawn on a red pill: waste and mistakes the
+// player could have avoided and that bought nothing (mana, food or water wasted, failed and
+// meaningless casts, runes cleared, friendly fire, deaths, wipes, reloads). Harm itself is no
+// bad news: damage taken, poisonings, wounds and hits taken are the cost of fighting, and so
+// are the poison and wound records. isRatio: a percentage or an average, which
 // cannot be added up or shared out. isTicks: game ticks. help: a sentence for the tooltip, or "".
 // isRecord: a record (HeroStatsRecords): the best, not a sum; -1 when there is none.
 struct HeroStatsNumberInfo { const char *label; const char *help; bool partyOnly, wholeRunOnly, isBad, isRatio, isTicks, isRecord; };
@@ -129,6 +133,9 @@ int HeroStatsCatalogue_TopicOfOldPage(int oldPage);
 // "4,412 damage dealt · 31 kills · 63% hit rate": the topic's first three tiles that apply and
 // are defined
 std::string HeroStatsCatalogue_Summary(int topic, const HeroStatsRecord &record, HeroStatsChampion who, int level);
+// A label for one of the thing it counts: its first plural word made singular ("doors bashed open"
+// -> "door bashed open"); words in brackets and labels with no plural are kept
+std::string HeroStatsCatalogue_Singular(const std::string &label);
 
 #pragma pack(pop)
 

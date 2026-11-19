@@ -335,6 +335,15 @@ static void PillBehind(ImDrawList *drawList, ImVec2 at, ImVec2 size)
   drawList->AddRectFilled(ImVec2(at.x - 4, at.y - 1), ImVec2(at.x + size.x + 4, at.y + size.y + 1), Packed(BAD_RGB, 0.16f), 3.0f);
 }
 
+// Bad news as text where the cursor is: always on its pill, never red alone. wrapWidth as
+// CalcTextSize takes it, for text under PushTextWrapPos.
+static void PillText(const std::string &text, float wrapWidth = -1.0f)
+{
+  ImVec2 at = ImGui::GetCursorScreenPos();
+  PillBehind(ImGui::GetWindowDrawList(), at, ImGui::CalcTextSize(text.c_str(), NULL, false, wrapWidth));
+  ImGui::TextColored(Colour(BAD_RGB), "%s", text.c_str());
+}
+
 // ---------------------------------------------------------------------------------------------
 // Who, the level picker, the export button and the topic tabs
 
@@ -1241,8 +1250,9 @@ static void DrawTiles(const HeroStatsTopicPage &page, const HeroStatsDrawState &
     // No box: a strip of numbers, each behind a thin line
     drawList->AddLine(ImVec2(min.x, min.y + 4), ImVec2(min.x, min.y + height - 4), Packed(LINE_RGB));
     drawList->PushClipRect(min, ImVec2(min.x + tileWidth - 6, min.y + height), true);
-    // The big number in red alone, as in the export: a pill behind it looks heavy
+    // Bad news on its pill, as everywhere else: red alone reads as the red champion's colour
     ImU32 bigRgb = tile.bad ? BAD_RGB : tile.gold ? GOLD_RGB : WHITE_RGB;
+    if (tile.bad) PillBehind(drawList, ImVec2(min.x + 14, min.y + 7), ImVec2(TextWidthWithSymbols(bigSize, tile.big), bigSize));
     TextWithSymbols(drawList, bigSize, ImVec2(min.x + 14, min.y + 7), Packed(bigRgb), tile.big);
     drawList->AddText(ImVec2(min.x + 14, min.y + 9 + bigSize), Packed(DIM_RGB), tile.label.c_str());
     if (HeroStatsCatalogue_Info(page.tiles[i]).help[0] != 0)
@@ -1669,7 +1679,8 @@ static void DrawSpells(HeroStatsDrawState *state, const HeroStatsHeroPage &page,
     static const char *const LABELS[8] = {"Spell", "Casts", "Successful", "Failed", "Mana", "Wasted", "Damage", "Kills"};
     int measure = WhoMeasure(sort, {1, 2, 3, 4, 5, 6, 7}, 4);
     static const HeaderHelps HELPS = {
-        "", "Casts of the spell, the failed ones included.", "The casts that worked.", "",
+        "", "Casts of the spell, the failed ones included.", "The casts that worked.",
+        "Casts that failed. On a (no spell) line, the runes formed no spell: the Meaningless casts of Numbers.",
         "The mana of the runes, the mana wasted on failed casts included."};
     HeaderRow(std::vector<int>(), columns, isParty ? MeasureLabel(LABELS, measure) : "", HELPS);
     std::vector<HeroStatsSpellLine> spells = page.spells;
@@ -2170,9 +2181,9 @@ static void DrawRankUps(HeroStatsDrawState *state, std::vector<HeroStatsRankUpLi
     TextColumn("With", true);
     NumberColumn("Lv");
     NumberColumn("Tick", true);
-    static const HeaderHelps PARTY_HELPS = {"", "", "Sorts by the rank reached.", "What gave the experience that made the rank: an action, a spell or a kill.",
+    static const HeaderHelps PARTY_HELPS = {"", "", "Sorts by the rank reached.", "What gave the experience that made the rank: an action, a spell, or a monster attacking the champion (Parry).",
                                             "", "When the rank came: newest first."};
-    static const HeaderHelps CHAMPION_HELPS = {"", "Sorts by the rank reached.", "What gave the experience that made the rank: an action, a spell or a kill.",
+    static const HeaderHelps CHAMPION_HELPS = {"", "Sorts by the rank reached.", "What gave the experience that made the rank: an action, a spell, or a monster attacking the champion (Parry).",
                                                "", "When the rank came: newest first."};
     HeaderRow(std::vector<int>(), columns, "", isParty ? PARTY_HELPS : CHAMPION_HELPS);
     // The rows come newest first; a column of the champion's page is one to the left of the party's
@@ -2386,7 +2397,7 @@ static bool DrawCards(const std::vector<HeroStatsCard> &cards, HeroStatsChampion
         if (largest[r] > 0 && value > 0)
           drawList->AddRectFilled(ImVec2(barLeft, mid - 3),
                                   ImVec2(barLeft + (barRight - barLeft) * value / largest[r], mid + 3),
-                                  Packed(bad ? BAD_RGB : ChampionRgb(c)), 2.0f);
+                                  Packed(ChampionRgb(c)), 2.0f);
       }
     }
   }
@@ -2829,7 +2840,9 @@ static void SlotTooltip(const std::vector<HeroStatsLiveItem> &items, int index, 
     if (wounded)
     {
       ImGui::SameLine(0, 0);
-      ImGui::TextColored(Colour(BAD_RGB), " %s wounded", MIDDLE_DOT);
+      ImGui::TextColored(Colour(DIM_RGB), " %s", MIDDLE_DOT);
+      ImGui::SameLine(0, 8);
+      PillText("wounded");
     }
     ImGui::EndTooltip();
     return;
@@ -2846,7 +2859,9 @@ static void SlotTooltip(const std::vector<HeroStatsLiveItem> &items, int index, 
   if (wounded)
   {
     ImGui::SameLine(0, 0);
-    ImGui::TextColored(Colour(BAD_RGB), " %s wounded", MIDDLE_DOT);
+    ImGui::TextColored(Colour(DIM_RGB), " %s", MIDDLE_DOT);
+    ImGui::SameLine(0, 8);
+    PillText("wounded");
   }
   ImGui::TextColored(Colour(PART_RGB), "%s", WeightAndCharges(item, held).c_str());
   // What the item's kind is worth as a weapon or as armor
@@ -3000,14 +3015,16 @@ static void LiveVitals(const HeroStatsLiveChampion &live, ImU32 rgb, float width
     ImGui::Dummy(ImVec2(barWidth, lineHeight));
     float textWidth = ImGui::CalcTextSize(line.text.c_str()).x;
     ImGui::SameLine(left + LIVE_LABEL_WIDTH + barWidth + 10 + numbers - textWidth);
-    ImGui::TextColored(Colour(line.textRgb), "%s", line.text.c_str());
+    if (line.textRgb == BAD_RGB) PillText(line.text);
+    else ImGui::TextColored(Colour(line.textRgb), "%s", line.text.c_str());
   }
   float wrapAt = left + width;
   std::string wounds = HeroStatsLive_Wounds(live.wounds);
   ImGui::TextColored(Colour(DIM_RGB), "Wounds");
   ImGui::SameLine(left + LIVE_LABEL_WIDTH);
   ImGui::PushTextWrapPos(wrapAt);
-  ImGui::TextColored(Colour(wounds.empty() ? DIM_RGB : BAD_RGB), "%s", wounds.empty() ? "none" : wounds.c_str());
+  if (wounds.empty()) ImGui::TextColored(Colour(DIM_RGB), "none");
+  else PillText(wounds, wrapAt - ImGui::GetCursorPosX());
   ImGui::PopTextWrapPos();
   ImGui::TextColored(Colour(DIM_RGB), "Poison");
   ImGui::SameLine(left + LIVE_LABEL_WIDTH);
@@ -3017,8 +3034,8 @@ static void LiveVitals(const HeroStatsLiveChampion &live, ImU32 rgb, float width
     int perTick = 0;
     for (size_t i = 0; i < live.poisonDoses.size(); i++) perTick += std::max(1, live.poisonDoses[i] / 64);
     ImGui::PushTextWrapPos(wrapAt);
-    ImGui::TextColored(Colour(BAD_RGB), "%d (%d %s, %d HP per 36 ticks)", live.poison, live.poisonCount,
-                       live.poisonCount == 1 ? "dose" : "doses", perTick);
+    PillText(std::to_string(live.poison) + " (" + std::to_string(live.poisonCount) + (live.poisonCount == 1 ? " dose, " : " doses, ") +
+                 std::to_string(perTick) + " HP per 36 ticks)", wrapAt - ImGui::GetCursorPosX());
     ImGui::PopTextWrapPos();
     if (ImGui::IsItemHovered())
       WrappedTooltip("The poison still to tick, all doses added up. A dose of strength v hurts max(1, v / 64) HP "
@@ -3137,7 +3154,15 @@ static void LiveAttributes(const HeroStatsLiveParty &party, const HeroStatsLiveC
     LabelCell(HeroStatsLive_AttributeName(a), 0, TEXT_RGB);
     int now = live.attributeNow[a], most = live.attributeMax[a];
     ImGui::TableSetColumnIndex(1);
-    RightText(std::to_string(now), now < most ? BAD_RGB : (now > most ? GOLD_RGB : TEXT_RGB));
+    if (now < most)
+    {
+      std::string nowText = std::to_string(now);
+      float room = ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(nowText.c_str()).x;
+      NoteWidth(ImGui::CalcTextSize(nowText.c_str()).x + 8);
+      if (room > 4) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + room - 4);
+      PillText(nowText);
+    }
+    else RightText(std::to_string(now), now > most ? GOLD_RGB : TEXT_RGB);
     ImGui::TableSetColumnIndex(2);
     RightText(std::to_string(most), TEXT_RGB);
     if (ImGui::TableSetColumnIndex(3)) AttributeBar(party, live, a, rgb, ImGui::GetContentRegionAvail().x);
@@ -3176,7 +3201,8 @@ static void CardAttributes(const HeroStatsLiveParty &party, const HeroStatsLiveC
     std::string nowText = std::to_string(now), rest = " / " + std::to_string(most);
     float textWidth = ImGui::CalcTextSize((nowText + rest).c_str()).x;
     ImGui::SameLine(left + labels + barWidth + 10 + numbers - textWidth);
-    ImGui::TextColored(Colour(now < most ? BAD_RGB : now > most ? GOLD_RGB : TEXT_RGB), "%s", nowText.c_str());
+    if (now < most) PillText(nowText);
+    else ImGui::TextColored(Colour(now > most ? GOLD_RGB : TEXT_RGB), "%s", nowText.c_str());
     ImGui::SameLine(0, 0);
     ImGui::TextColored(Colour(TEXT_RGB), "%s", rest.c_str());
   }

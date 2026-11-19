@@ -22,16 +22,17 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Mana potions", "", false, false, false, false, false},
     {"Regeneration lost (mana full)", "Mana regeneration would have given had the champion's mana not been full: all of it at or above the maximum, the part over the maximum when nearly full. Spend mana before it fills up to use it. Full mana also spends no stamina on regenerating. Not part of Mana generated.", false, false, true, false, false},
     {"Mana spent", "Spent as each rune is entered, on the level it is entered on, whatever becomes of the spell; staffs, wands and the shield and heal actions as they are used. The lines below add up to it.", false, false, false, false, false},
-    {"Spells", "Runes of the spells cast, successful, failed or meaningless, staffs, wands and the shield and heal actions: the Mana of All spells in the Spells table. On one level the two can differ: here runes count where they were entered, the table counts a spell where it was cast.", false, false, false, false, false},
-    {"Successful casts", "Runes of spells that worked, staffs and wands, the shield and heal actions.", false, false, false, false, false},
+    {"Mana on spells", "Runes of the spells cast, successful, failed or meaningless, staffs, wands and the shield and heal actions: the Mana of All spells in the Spells table. On one level the two can differ: here runes count where they were entered, the table counts a spell where it was cast.", false, false, false, false, false},
+    {"Mana on successful casts", "Runes of spells that worked, staffs and wands, the shield and heal actions.", false, false, false, false, false},
     {"Mana wasted", "Runes of spells that failed or formed no spell: the Wasted of All spells in the Spells table. On one level the two can differ: here runes count where they were entered, the table counts a spell where it was cast.", false, false, true, false, false},
-    {"Wasted on failed casts", "Runes of spells the champion needed more practice for.", false, false, true, false, false},
-    {"Wasted on meaningless spells", "Runes that form no spell: the champion mumbles a meaningless spell.", false, false, true, false, false},
+    {"Mana on failed casts", "Runes of spells the champion needed more practice for.", false, false, true, false, false},
+    {"Mana on meaningless spells", "Runes that form no spell: the champion mumbles a meaningless spell.", false, false, true, false, false},
     {"Runes cleared", "Runes entered and never cast: cleared, replaced by a new incantation, or lost when the caster died.", false, false, true, false, false},
     {"Not cast yet", "Runes entered and waiting in an incantation, on the level they were entered on.", false, false, false, false, false},
-    {"Spells cast", "", false, false, false, false, false},
-    {"Successful", "", false, false, false, false, false},
-    {"Failed", "", false, false, true, false, false},
+    {"Spells cast", "Every cast: successful, failed and meaningless. Spells from staffs and wands are not among them.", false, false, false, false, false},
+    {"Successful", "Casts that worked.", false, false, false, false, false},
+    {"Failed", "Casts of a real spell that failed: the champion needed more practice.", false, false, true, false, false},
+    {"Meaningless", "Casts whose runes form no spell: the champion mumbles a meaningless spell.", false, false, true, false, false},
     {"Damage taken", "All hit points lost, whatever took them: monster attacks, their missiles and spells, friendly fire, poison and poison clouds, traps, pits, walls run into, closing doors, starvation, exhaustion and harmful potions. Survival lists each cause.", false, false, false, false, false},
     {"Healed", "", false, false, false, false, false},
     {"Regeneration", "", false, false, false, false, false},
@@ -41,10 +42,10 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Found", "Potions no champion brewed: found in the dungeon, or brewed before the statistics began.", false, false, false, false, false},
     {"Heal action", "", false, false, false, false, false},
     {"Healing given", "HP healed by potions this champion brewed, whoever drank them.", false, false, false, false, false},
-    {"Poisoned", "Times poisoned: each new dose of poison counts once, not each tick of it.", false, false, true, false, false},
-    {"Wounds", "Parts of the body wounded that were whole before; a part wounded again does not count.", false, false, true, false, false},
+    {"Poisoned", "Times poisoned: each new dose of poison counts once, not each tick of it.", false, false, false, false, false},
+    {"Wounds", "Parts of the body wounded that were whole before; a part wounded again does not count.", false, false, false, false, false},
     {"Monster attacks received", "Blows of monsters at this champion, whatever came of them. A theft and a monster's missile or spell are not among them.", false, false, false, false, false},
-    {"Hits taken", "Attacks that did damage.", false, false, true, false, false},
+    {"Hits taken", "Attacks that did damage.", false, false, false, false, false},
     {"Dodged", "The champion was quick enough to get out of the way. Never while the party sleeps.", false, false, false, false, false},
     {"Lucky", "The champion's Luck turned the blow aside. Never while the party sleeps.", false, false, false, false, false},
     {"Too weak", "The monster's attack was too weak to get past the champion's skill at parrying.", false, false, false, false, false},
@@ -65,7 +66,7 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Deaths", "", false, false, true, false, false},
     {"Resurrected", "Times this champion was brought back from the dead.", false, false, false, false, false},
     {"Party wiped out", "", true, true, true, false, false},
-    {"Reloads", "", true, true, false, false, false},
+    {"Reloads", "", true, true, true, false, false},
     {"Eaten", "Items eaten.", false, false, false, false, false},
     {"Drunk", "Drinks, the fountain included.", false, false, false, false, false},
     {"Potions drunk", "Potions drunk: the potions are part of Drunk. A Water Flask or a waterskin is water and no potion.", false, false, false, false, false},
@@ -135,15 +136,15 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Longest fall", "Pits fallen through one after the other.", true, false, false, false, false, true},
     {"Longest teleport chain", "", true, false, false, false, false, true},
     {"Longest sleep", "", true, false, false, false, true, true},
-    {"Most poison at once", "The most poison working on a champion at one time, all doses added up; it is the number of poison ticks still to come.", false, false, true, false, false, true},
-    {"Longest poisoned", "Ticks of the longest time a champion stayed poisoned without a break, with the poison damage taken in it. Death or a cure ends it.", false, false, true, false, true, true},
-    {"Most poisonings in a row", "The most new doses of poison taken within one stretch of being poisoned.", false, false, true, false, false, true},
-    {"Most wounds at once", "The most wounded parts of the body of one champion at the same time.", false, false, true, false, false, true},
-    {"Most wounds from one blow", "The most parts of the body one blow, missile or explosion newly wounded.", false, false, true, false, false, true},
-    {"Poison doses suffered", "All the doses of poison a champion took in the run (or on the level): each new dose counts once.", false, false, true, false, false, true},
-    {"Wounds suffered", "All the parts of the body wounded that were whole before, added up over the run (or the level).", false, false, true, false, false, true},
-    {"Most poison doses at once", "The most doses of poison working on a champion at the same time.", false, false, true, false, false, true},
-    {"Most poison per 36 ticks", "The most HP a champion's poison could take at one poison tick (every 36 ticks), all doses added up.", false, false, true, false, false, true},
+    {"Most poison at once", "The most poison working on a champion at one time, all doses added up; it is the number of poison ticks still to come.", false, false, false, false, false, true},
+    {"Longest poisoned", "Ticks of the longest time a champion stayed poisoned without a break, with the poison damage taken in it. Death or a cure ends it.", false, false, false, false, true, true},
+    {"Most poisonings in a row", "The most new doses of poison taken within one stretch of being poisoned.", false, false, false, false, false, true},
+    {"Most wounds at once", "The most wounded parts of the body of one champion at the same time.", false, false, false, false, false, true},
+    {"Most wounds from one blow", "The most parts of the body one blow, missile or explosion newly wounded.", false, false, false, false, false, true},
+    {"Poison doses suffered", "All the doses of poison a champion took in the run (or on the level): each new dose counts once.", false, false, false, false, false, true},
+    {"Wounds suffered", "All the parts of the body wounded that were whole before, added up over the run (or the level).", false, false, false, false, false, true},
+    {"Most poison doses at once", "The most doses of poison working on a champion at the same time.", false, false, false, false, false, true},
+    {"Most poison per 36 ticks", "The most HP a champion's poison could take at one poison tick (every 36 ticks), all doses added up.", false, false, false, false, false, true},
     {"Biggest melee hit", "The most damage a blow at close range, with a weapon or an empty hand, did to one monster.", false, false, false, false, false, true},
     {"Biggest ranged hit", "The most damage a thrown item or a shot did to one monster.", false, false, false, false, false, true},
     {"Longest stair dance", "The most dance moves in one stair dance; a step to a square next to the stairs and back keeps it going.", true, false, false, false, false, true},
@@ -157,7 +158,7 @@ static const char *const KEYS[] = {
     "mana_generated", "mana_regeneration", "mana_potions", "mana_regen_lost", "mana_spent", "mana_on_spells", "mana_successful",
     "mana_wasted", "mana_failed", "mana_meaningless",
     "runes_cleared", "runes_not_cast",
-    "casts", "casts_successful", "casts_failed",
+    "casts", "casts_successful", "casts_failed", "casts_meaningless",
     "taken", "healed", "heal_regeneration", "heal_potions", "heal_potions_own",
     "heal_potions_others", "heal_potions_found", "heal_action", "healing_given", "poisoned", "wounds",
     "attacks_received", "hits_taken", "dodged", "lucky", "too_weak", "blocked",
@@ -225,10 +226,11 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
             {{"Mana in", false,
               {{HeroNumManaGenerated, 0}, {HeroNumManaRegeneration, 1}, {HeroNumManaPotions, 1}, {HeroNumManaRegenLost, 0}}},
              {"Mana out", false,
-              {{HeroNumManaSpent, 0}, {HeroNumManaOnSpells, 1}, {HeroNumManaSuccessful, 2}, {HeroNumManaWasted, 2, "Wasted"},
-               {HeroNumManaFailed, 3, "Failed casts"}, {HeroNumManaMeaningless, 3, "Meaningless spells"},
-               {HeroNumRunesCleared, 1}, {HeroNumRunesNotCast, 1}}},
-             {"Casts", false, {{HeroNumCasts, 0}, {HeroNumCastsSuccessful, 1}, {HeroNumCastsFailed, 1}}}});
+              {{HeroNumManaSpent, 0}, {HeroNumManaOnSpells, 1, "On spells"}, {HeroNumManaSuccessful, 2, "On successful casts"},
+               {HeroNumManaWasted, 2, "Wasted"}, {HeroNumManaFailed, 3, "On failed casts"},
+               {HeroNumManaMeaningless, 3, "On meaningless spells"}, {HeroNumRunesCleared, 1}, {HeroNumRunesNotCast, 1}}},
+             {"Casts", false,
+              {{HeroNumCasts, 0}, {HeroNumCastsSuccessful, 1}, {HeroNumCastsFailed, 1}, {HeroNumCastsMeaningless, 1}}}});
   topics[HeroTopicSurvival] = {"Survival", {}, {HeroNumTaken, HeroNumHealed, HeroNumDeaths, HeroNumResurrected}, {}};
   SetGroups(&topics[HeroTopicSurvival],
             {{"Harm", false, {{HeroNumTaken, 0}, {HeroNumPoisonings, 0}, {HeroNumWounds, 0}}},
@@ -492,13 +494,14 @@ static void FillMana(const HeroStats &stats, HeroStatsChampion who, int level, i
 
 static void FillCasts(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
 {
-  v[HeroNumCasts] = v[HeroNumCastsSuccessful] = v[HeroNumCastsFailed] = 0;
+  v[HeroNumCasts] = v[HeroNumCastsSuccessful] = v[HeroNumCastsFailed] = v[HeroNumCastsMeaningless] = 0;
   std::vector<HeroStatsSpellRow> spells = stats.Spells(who, level);
   for (size_t i = 0; i < spells.size(); i++)
   {
     v[HeroNumCasts] += spells[i].casts + spells[i].failed;
     v[HeroNumCastsSuccessful] += spells[i].casts;
-    v[HeroNumCastsFailed] += spells[i].failed;
+    // Runes that form no spell fail as a meaningless spell, apart from the real spells that failed
+    v[(spells[i].spell & HERO_SPELL_NO_SUCH_SPELL) != 0 ? HeroNumCastsMeaningless : HeroNumCastsFailed] += spells[i].failed;
   }
 }
 
@@ -714,7 +717,7 @@ static FillGroup GroupOf(HeroStatsNumber number)
   case HeroNumManaFailed: case HeroNumRunesCleared: case HeroNumManaSuccessful: case HeroNumRunesNotCast:
   case HeroNumManaOnSpells: case HeroNumManaRegenLost: case HeroNumManaMeaningless: case HeroNumManaWasted:
     return FillMana;
-  case HeroNumCasts: case HeroNumCastsSuccessful: case HeroNumCastsFailed: return FillCasts;
+  case HeroNumCasts: case HeroNumCastsSuccessful: case HeroNumCastsFailed: case HeroNumCastsMeaningless: return FillCasts;
   case HeroNumTaken: return FillTaken;
   case HeroNumHealed: case HeroNumHealRegeneration: case HeroNumHealPotions: case HeroNumHealAction:
   case HeroNumHealPotionsOwn: case HeroNumHealPotionsOthers: case HeroNumHealPotionsFound:
@@ -836,17 +839,36 @@ std::vector<HeroStatsNumber> HeroStatsCatalogue_TilesFor(const std::vector<HeroS
   return shown;
 }
 
+std::string HeroStatsCatalogue_Singular(const std::string &label)
+{
+  size_t end = label.find(" (");
+  if (end == std::string::npos) end = label.size();
+  size_t start = 0;
+  while (start < end)
+  {
+    size_t stop = label.find(' ', start);
+    if (stop == std::string::npos || stop > end) stop = end;
+    // A plural ends in a single s: not "meaningless", not a word of two letters
+    if (stop - start > 2 && label[stop - 1] == 's' && label[stop - 2] != 's') return label.substr(0, stop - 1) + label.substr(stop);
+    start = stop + 1;
+  }
+  return label;
+}
+
+// Every tile the page shows, as a line of text: "4,412 damage dealt · 1 kill · 63% hit rate"
 std::string HeroStatsCatalogue_Summary(int topic, const HeroStatsRecord &record, HeroStatsChampion who, int level)
 {
   std::string summary;
   int shown = 0;
   std::vector<HeroStatsNumber> tiles = HeroStatsCatalogue_TilesFor(HeroStatsCatalogue_Topic(topic).tiles, topic, who, level);
-  for (size_t i = 0; i < tiles.size() && shown < 3; i++)
+  for (size_t i = 0; i < tiles.size() && shown < MOST_TILES; i++)
   {
     HeroStatsNumber number = tiles[i];
-    if ((NUMBERS[number].isRatio || NUMBERS[number].isRecord) && record.value[number] < 0) continue;  // "- hit rate" says nothing
-    std::string label = NUMBERS[number].label;
+    const HeroStatsNumberInfo &info = NUMBERS[number];
+    if ((info.isRatio || info.isRecord) && record.value[number] < 0) continue;  // "- hit rate" says nothing
+    std::string label = info.label;
     label[0] = (char)tolower((unsigned char)label[0]);
+    if (record.value[number] == 1 && !info.isRatio && !info.isRecord && !info.isTicks) label = HeroStatsCatalogue_Singular(label);
     if (shown > 0) summary += " \xc2\xb7 ";
     summary += HeroStatsCatalogue_Format(number, record.value[number]) + " " + label;
     shown++;

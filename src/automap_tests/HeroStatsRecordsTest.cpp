@@ -72,6 +72,10 @@ static void StreakEndsWithHarm(void)
   CHECK(records.Best(HeroRecKillStreak, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, &party));
   CHECK(party.who == HERO_STATS_PARTY && party.value == 3 && party.level == 4 && party.firstLevel == 3 && party.firstTime == 100);
   CHECK(party.kinds[0][0] == 10 && party.kinds[0][1] == 2 && party.kinds[1][0] == 11 && party.kinds[1][1] == 1);
+  // A streak over two levels is a record of the level it began on, as a fall is
+  CHECK(HeroRecord_Level(HeroRecKillStreak, party) == 3);
+  CHECK(Value(records, HeroRecKillStreak, HERO_STATS_PARTY, 3) == 3);
+  CHECK(Value(records, HeroRecKillStreak, HERO_STATS_PARTY, 4) == -1);
   // 7 was not hurt: their own two kills go on, and 9's one is over
   CHECK(Value(records, HeroRecKillStreak, 7, HERO_STATS_WHOLE_RUN) == 2);
   CHECK(Value(records, HeroRecKillStreak, 9, HERO_STATS_WHOLE_RUN) == 1);

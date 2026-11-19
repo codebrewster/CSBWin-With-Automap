@@ -48,6 +48,33 @@ static HeroStats TwoChampions(void)
   return stats;
 }
 
+// Red is for waste and mistakes, not for harm (HeroStatsNumberInfo.isBad)
+static void BadNewsIsWasteAndMistakes(void)
+{
+  const HeroStatsNumber bad[] = {HeroNumManaWasted, HeroNumManaFailed, HeroNumManaMeaningless, HeroNumRunesCleared,
+                                 HeroNumManaRegenLost, HeroNumCastsFailed, HeroNumFoodWasted, HeroNumWaterWasted,
+                                 HeroNumFriendlyFire, HeroNumDeaths, HeroNumWipes, HeroNumReloads};
+  for (size_t i = 0; i < sizeof bad / sizeof bad[0]; i++) CHECK(HeroStatsCatalogue_Info(bad[i]).isBad);
+  const HeroStatsNumber harm[] = {HeroNumTaken, HeroNumPoisonings, HeroNumWounds, HeroNumHitsTaken, HeroNumAttacksReceived,
+                                  HeroNumRecBiggestHitTaken, HeroNumRecClosestCall};
+  for (size_t i = 0; i < sizeof harm / sizeof harm[0]; i++) CHECK(!HeroStatsCatalogue_Info(harm[i]).isBad);
+  for (int n = HeroNumRecFirst; n < HERO_NUMBER_COUNT; n++) CHECK(!HeroStatsCatalogue_Info((HeroStatsNumber)n).isBad);
+}
+
+// A cast whose runes form no spell is Meaningless, not Failed, in the casts as in the mana
+static void MeaninglessCastsAreNotFailed(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(9, "SYRA");
+  stats.CountCast(9, 2, 0x0405, 10);
+  stats.CountFailedCast(9, 2, 0x0405, 4);
+  stats.CountFailedCast(9, 2, 0x0607 | HERO_SPELL_NO_SUCH_SPELL, 5);
+  HeroStatsRecord syra = HeroStatsCatalogue_Record(stats, 9, HERO_STATS_WHOLE_RUN);
+  CHECK(syra.value[HeroNumCasts] == 3);
+  CHECK(syra.value[HeroNumCastsSuccessful] == 1 && syra.value[HeroNumCastsFailed] == 1 && syra.value[HeroNumCastsMeaningless] == 1);
+  CHECK(HeroStatsCatalogue_Info(HeroNumCastsMeaningless).isBad);
+}
+
 static void EveryNumberHasOneTopic(void)
 {
   int seen[HERO_NUMBER_COUNT] = {0};
@@ -183,18 +210,33 @@ static void OldPagesMapToTopics(void)
   CHECK(HeroStatsCatalogue_TopicOfOldPage(9) == HeroTopicOverview);
 }
 
-static void SummaryIsTheFirstThreeTiles(void)
+static void SummaryIsEveryTile(void)
 {
   HeroStatsRecord record = {};
   record.value[HeroNumDamage] = 4412;
   record.value[HeroNumKills] = 31;
   record.value[HeroNumHitRate] = 63;
   CHECK(HeroStatsCatalogue_Summary(HeroTopicCombat, record, 7, HERO_STATS_WHOLE_RUN) ==
-        "4,412 damage dealt \xc2\xb7 31 kills \xc2\xb7 63% hit rate");
-  // An undefined ratio is left out: the next tile takes its place
+        "4,412 damage dealt \xc2\xb7 31 kills \xc2\xb7 63% hit rate \xc2\xb7 0 friendly fire caused");
+  // An undefined ratio is left out
   record.value[HeroNumHitRate] = -1;
   CHECK(HeroStatsCatalogue_Summary(HeroTopicCombat, record, 7, HERO_STATS_WHOLE_RUN) ==
         "4,412 damage dealt \xc2\xb7 31 kills \xc2\xb7 0 friendly fire caused");
+  // One of a counted thing is singular; a record or a ratio keeps its label
+  record.value[HeroNumKills] = 1;
+  CHECK(HeroStatsCatalogue_Summary(HeroTopicCombat, record, 7, HERO_STATS_WHOLE_RUN).find(" 1 kill \xc2\xb7") != std::string::npos);
+  record.value[HeroNumTaken] = 1;
+  record.value[HeroNumDeaths] = 1;
+  CHECK(HeroStatsCatalogue_Summary(HeroTopicSurvival, record, 7, HERO_STATS_WHOLE_RUN).find("1 death \xc2\xb7") != std::string::npos);
+  // Experience names all four classes, the wizard too
+  record.value[HeroNumXpWizard] = 68358;
+  CHECK(HeroStatsCatalogue_Summary(HeroTopicExperience, record, 7, HERO_STATS_WHOLE_RUN).find("68,358 wizard") != std::string::npos);
+  CHECK(HeroStatsCatalogue_Singular("doors bashed open") == "door bashed open");
+  CHECK(HeroStatsCatalogue_Singular("strict stair dances") == "strict stair dance");
+  CHECK(HeroStatsCatalogue_Singular("mana on failed casts") == "mana on failed cast");
+  CHECK(HeroStatsCatalogue_Singular("asleep (ticks)") == "asleep (ticks)");
+  CHECK(HeroStatsCatalogue_Singular("meaningless") == "meaningless");
+  CHECK(HeroStatsCatalogue_Singular("damage dealt") == "damage dealt");
   // When no tile applies (Exploration's are the party's numbers), a champion gets the topic's own top rows
   record.value[HeroNumDoorsBashed] = 2;
   CHECK(HeroStatsCatalogue_Summary(HeroTopicExploration, record, 7, HERO_STATS_WHOLE_RUN).find("2 doors bashed open") == 0);
@@ -379,7 +421,7 @@ static void TopicsHaveGroups(void)
   {
     CHECK(out[1].number == HeroNumManaOnSpells && out[1].depth == 1);
     CHECK(out[3].number == HeroNumManaWasted && out[3].depth == 2 && std::string(HeroStatsCatalogue_RowLabel(out[3])) == "Wasted");
-    CHECK(out[4].number == HeroNumManaFailed && out[4].depth == 3 && std::string(HeroStatsCatalogue_RowLabel(out[4])) == "Failed casts");
+    CHECK(out[4].number == HeroNumManaFailed && out[4].depth == 3 && std::string(HeroStatsCatalogue_RowLabel(out[4])) == "On failed casts");
     CHECK(out[5].number == HeroNumManaMeaningless && out[5].depth == 3);
     CHECK(out[6].number == HeroNumRunesCleared && out[6].depth == 1);
   }
@@ -507,12 +549,14 @@ void TestHeroStatsCatalogue(void)
   TilesAndKeyNumbersFollowTheSettings();
   ValueMatchesTheRecord();
   EveryNumberHasOneTopic();
+  BadNewsIsWasteAndMistakes();
+  MeaninglessCastsAreNotFailed();
   PartySumsItsChampions();
   RecordMatchesTheStore();
   RatiosAreUndefinedWithoutAttacks();
   PartyOnlyNumbersSkipChampions();
   GridOffersChampionNumbersOnly();
   OldPagesMapToTopics();
-  SummaryIsTheFirstThreeTiles();
+  SummaryIsEveryTile();
   TimeIsAShareOfTheRun();
 }

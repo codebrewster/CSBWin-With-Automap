@@ -157,8 +157,8 @@ static void WastedManaMatchesTheSpellsTable(void)
   CHECK(sum != NULL && failed != NULL && meaningless != NULL);
   if (sum == NULL || failed == NULL || meaningless == NULL) return;
   CHECK(sum->party == wasted && sum->depth == 2 && sum->label == "Wasted");
-  CHECK(failed->party == 7 && failed->depth == 3 && failed->label == "Failed casts");
-  CHECK(meaningless->party == 4 && meaningless->depth == 3 && meaningless->label == "Meaningless spells");
+  CHECK(failed->party == 7 && failed->depth == 3 && failed->label == "On failed casts");
+  CHECK(meaningless->party == 4 && meaningless->depth == 3 && meaningless->label == "On meaningless spells");
 }
 
 static void PartySpellsAreSplitByChampion(void)
@@ -511,6 +511,35 @@ static void PartyWeaponsAreSplitByChampion(void)
   HeroStatsTopicPage halk = HeroStatsPages_Topic(stats, Columns(stats), 7, HERO_STATS_WHOLE_RUN, HeroTopicCombat, NAMES);
   CHECK(halk.hero.weapons.size() == 1 && halk.hero.weapons[0].byColumn.empty());
   CHECK(halk.details == std::vector<HeroStatsDetail>({HeroDetailWeapons}));
+}
+
+// A cloud nobody is known to have made is harm like any other, not friendly fire: only a
+// champion's cloud is bad news, and the party's page keeps the two apart
+static void OnlyAChampionsCloudIsFriendlyFire(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  stats.MeetChampion(9, "SYRA");
+  stats.CreditHarm(7, 1, HeroHarmPoisonCloud, HeroStatsBlow_Nobody(HeroBlowByCloud), 20);
+  HeroStatsBlow cloud = KindBlow(9, HERO_STATS_NO_WEAPON, HeroDamageMagic);
+  stats.CreditHarm(7, 1, HeroHarmPoisonCloud, cloud, 5);
+  stats.CreditHarm(9, 1, HeroHarmPoisonCloud, cloud, 2);
+  HeroStatsTopicPage party = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN,
+                                                  HeroTopicSurvival, NAMES);
+  CHECK(party.hero.taken.size() == 2);
+  if (party.hero.taken.size() == 2)
+  {
+    CHECK(party.hero.taken[0].text == "Poison clouds" && party.hero.taken[0].amount == 20 && !party.hero.taken[0].isBad);
+    CHECK(party.hero.taken[1].text == "Poison clouds (from SYRA)" && party.hero.taken[1].amount == 7 && party.hero.taken[1].isBad);
+    CHECK(party.hero.taken[1].byColumn == std::vector<int>({5, 2}));
+  }
+  HeroStatsTopicPage halk = HeroStatsPages_Topic(stats, Columns(stats), 7, HERO_STATS_WHOLE_RUN, HeroTopicSurvival, NAMES);
+  CHECK(halk.hero.taken.size() == 2);
+  if (halk.hero.taken.size() == 2)
+  {
+    CHECK(halk.hero.taken[0].text == "Poison clouds" && !halk.hero.taken[0].isBad);
+    CHECK(halk.hero.taken[1].text == "Poison clouds (from SYRA)" && halk.hero.taken[1].isBad);
+  }
 }
 
 static void ChampionPageDropsPartyOnlyRows(void)
@@ -903,6 +932,8 @@ static void SourcesAndStreaksSayMore(void)
     if (records.records[i].kind == HeroRecKillStreak) streak = &records.records[i];
   CHECK(streak != NULL && streak->when.find("Lv 2") != std::string::npos && streak->when.find("100") != std::string::npos);
   CHECK(streak != NULL && streak->when.find("Lv 4") != std::string::npos && streak->when.find("300") != std::string::npos);
+  // Lv is where it began, as for every record that runs over levels
+  CHECK(streak != NULL && streak->level == 2);
 }
 
 static void RecordsPerLevelHaveNoShare(void)
@@ -1110,6 +1141,7 @@ void TestHeroStatsPages(void)
   TimeShowsItsShareOfTheRun();
   NoTicksNoShare();
   PartyWeaponsAreSplitByChampion();
+  OnlyAChampionsCloudIsFriendlyFire();
   ChampionPageDropsPartyOnlyRows();
   LeftChampionStillCounts();
   NoChampionsYet();

@@ -462,7 +462,7 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   /* The headline numbers: a strip, each behind a thin line, no boxes */
   .tiles { display:grid; grid-template-columns:repeat(4,1fr); gap:14px 0; margin:4px 0 16px }
   .tile { border-left:1px solid var(--line); padding:0 14px; min-width:0 }
-  .tile .v { font-size:22px; line-height:1.2; color:#fff; white-space:nowrap } .tile.bad .v { color:var(--bad) } .tile .l { color:var(--dim) }
+  .tile .v { font-size:22px; line-height:1.2; color:#fff; white-space:nowrap } .tile .l { color:var(--dim) }
   .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:12px }
   .card { background:var(--panel); border-radius:6px; padding:8px 12px 10px; border-top:2px solid; cursor:pointer; display:grid; gap:3px }
   .card:hover { background:var(--hover) } .card .nm { color:#fff; display:flex; justify-content:space-between } .card .nm span { color:var(--dim) }
@@ -537,8 +537,9 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   #view { container-type:inline-size }
   .vit { display:grid; grid-template-columns:max-content minmax(40px,1fr) max-content; gap:4px 10px; align-items:center }
   .vit .fold { color:var(--dim); cursor:pointer; user-select:none } .vit .fold:hover { color:#fff }
-  .vit .l, .lranks .l { color:var(--dim) } .vit .v { text-align:right; white-space:nowrap } .vit .w { grid-column:2 / 4 }
-  .bad { color:var(--bad) } .none { color:var(--dim) } .raised { color:#e0b54a }
+  .vit .l, .lranks .l { color:var(--dim) } .vit .v { text-align:right; white-space:nowrap } .vit .w { grid-column:2 / 4 } .vit .w.bad { justify-self:start; white-space:normal }
+  /* Bad news is always on its pill, never red alone: red is also a champion's colour */
+  .bad { color:var(--bad); background:rgba(229,115,95,.16); border-radius:3px; padding:0 4px } .none { color:var(--dim) } .raised { color:#e0b54a }
   .vbar { height:9px; background:var(--track); border-radius:2px; overflow:hidden } .vbar i { display:block; height:100% }
   .lranks { display:grid; grid-template-columns:max-content max-content minmax(30px,1fr); gap:3px 10px; align-items:center }
   .chead { display:flex; gap:10px; align-items:center; min-width:0 }
@@ -580,7 +581,7 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   #tip { position:fixed; z-index:20; pointer-events:none; background:var(--panel); border:1px solid #4a4e5a; border-radius:4px; padding:8px 10px;
     font:12.5px/1.45 "DejaVu Sans Mono","Bitstream Vera Sans Mono",Menlo,Consolas,monospace; color:var(--text); max-width:320px; box-shadow:0 6px 18px rgba(0,0,0,.5) }
   #tip .h { display:flex; gap:10px; align-items:center } #tip .h img { width:48px; height:48px; image-rendering:pixelated; flex:none }
-  #tip .n { color:#fff } #tip .s { color:var(--dim) } #tip .x { color:var(--part) } #tip .bad { color:var(--bad) } #tip .dmg { color:#e39a7c } #tip .arm { color:#a9b8cf } #tip .food { color:#c99a6c } #tip .water { color:#4a8fe0 }
+  #tip .n { color:#fff } #tip .s { color:var(--dim) } #tip .x { color:var(--part) } #tip .dmg { color:#e39a7c } #tip .arm { color:#a9b8cf } #tip .food { color:#c99a6c } #tip .water { color:#4a8fe0 }
   #tip .in { border-top:1px solid var(--line); margin-top:8px; padding-top:7px; display:grid; grid-template-columns:1fr 1fr; gap:4px 14px }
   #tip .in div { display:flex; gap:6px; align-items:center; white-space:nowrap } #tip .in img { width:16px; height:16px; image-rendering:pixelated }
   #tip .in .cap { grid-column:1 / -1; color:var(--dim); font-size:inherit; text-transform:none; letter-spacing:0 }
@@ -735,7 +736,7 @@ function tiles(numbers, rows) {
   if (!shown.length && numbers.length && rows) shown = rows.filter(([n, d]) => d === 0 && applies(n, st.who, st.level)).map(row => row[0]);
   shown = shown.slice(0, 4);
   return '<div class="tiles">' + shown.map(n => {
-    let v = text(n, r[n]), l = esc(NUM[n].label), sub = '', cls = NUM[n].bad && r[n] > 0 ? ' bad' : '';
+    let v = text(n, r[n]), l = esc(NUM[n].label), sub = '', cls = NUM[n].bad && r[n] > 0 ? ' badv' : '';
     // Beside Monsters killed, the champions' kills are a part of it
     if (st.topic === TOPIC_MONSTERS && isParty() && NUM[n].label === 'Kills') l = 'By champions';
     const k = n - D.xpFirst, line = k >= 0 && k < 4 ? p.xp.classes[k] : null;
@@ -763,7 +764,7 @@ function tiles(numbers, rows) {
       else if (record[11]) sub = `<div class="sub f">party: ${esc(record[11])} ${record[12] >= 0 ? esc(whoName(record[12])) : ''}</div>`;
     }
     const tipText = NUM[n].help;
-    return `<div class="tile${cls}"><div class="v${cls.includes('goldv') ? ' gold' : ''}">${v}</div><div class="l">${tipText ? `<span class="tip"${tipOf(esc(tipText))}>${l}</span>` : l}</div>${sub}</div>`;
+    return `<div class="tile${cls}"><div class="v${cls.includes('goldv') ? ' gold' : ''}">${cls.includes(' badv') ? `<span class="pill">${v}</span>` : v}</div><div class="l">${tipText ? `<span class="tip"${tipOf(esc(tipText))}>${l}</span>` : l}</div>${sub}</div>`;
   }).join('') + '</div>';
 }
 
@@ -863,7 +864,7 @@ function spells(p) {
   for (const s of p.spells) for (let k = 0; k < 7; k++) all[k] += s[k + 1];
   const summary = p.spells.length ? `${fmt(all[0])} casts · ${fmt(all[3])} mana` : 'none';
   if (!p.spells.length) return section(DETAIL.SPELLS, 'Spells', summary, '<div class="note">No spells cast.</div>');
-  const spellHelp = {Casts: 'Casts of the spell, the failed ones included.', Successful: 'The casts that worked.', Mana: 'The mana of the runes, the mana wasted on failed casts included.'};
+  const spellHelp = {Casts: 'Casts of the spell, the failed ones included.', Successful: 'The casts that worked.', Failed: 'Casts that failed. On a (no spell) line, the runes formed no spell: the Meaningless casts of Numbers.', Mana: 'The mana of the runes, the mana wasted on failed casts included.'};
   const cols = ['Casts', 'Successful', 'Failed', 'Mana', 'Wasted', 'Damage', 'Kills'].map(l => numCol(l, spellHelp[l]));
   cols.unshift(nameCol('Spell'));
   if (isParty()) cols.push(whoColumn([1, 2, 3, 4, 5, 6, 7], 4));
@@ -956,7 +957,7 @@ function cards() {
       `<div class="nm">${esc(h.name)}<span>${party ? Math.round(100 * r[ids[0][0]] / party) : 0}% of damage</span></div>` +
       ids.map(([n, l], k) => {
         const v = r[n], bad = NUM[n].bad && v > 0;
-        return `<div class="cr"><span class="l">${l}</span><div class="mini"><i style="width:${100 * v / largest[k]}%;background:${bad ? 'var(--bad)' : COLOUR(i)}"></i></div>` +
+        return `<div class="cr"><span class="l">${l}</span><div class="mini"><i style="width:${100 * v / largest[k]}%;background:${COLOUR(i)}"></i></div>` +
           `<span class="n${v === 0 ? ' z' : ''}">${v === 0 ? '·' : bad ? `<span class="pill">${fmt(v)}</span>` : fmt(v)}</span></div>`;
       }).join('') + '</div>';
   }).join('') + '</div>';
@@ -1012,7 +1013,7 @@ function rankUps(p) {
   const ups = p.xp.rankups, n = ups.length;
   if (!n) return section(DETAIL.RANK_UPS, 'Ranks gained', 'none yet', '<div class="note">No new rank yet.</div>');
   const cols = (isParty() ? [nameCol('Who')] : []).concat([nameCol('Class'), nameCol('Rank', 'Sorts by the rank reached.'),
-    nameCol('With', 'What gave the experience that made the rank: an action, a spell or a kill.'), numCol('Lv'), numCol('Tick', 'When the rank came: newest first.')]);
+    nameCol('With', 'What gave the experience that made the rank: an action, a spell, or a monster attacking the champion (Parry).'), numCol('Lv'), numCol('Tick', 'When the rank came: newest first.')]);
   const rows = ups.map((u, i) => ({cells: (isParty() ? [td(whoName(u[0]), `<td>${u[0] < N ? dotOf(u[0]) + ' ' : ''}${esc(whoName(u[0]))}</td>`)] : [])
     .concat([nameTd(u[1]), td(u[5], `<td>${esc(u[2])}</td>`), td(u[3], `<td class="nt">${esc(u[3])}</td>`), td(u[4], `<td>${u[4]}</td>`),
              td(u[6], `<td class="nt">${fmt(u[6])}</td>`)])}));
@@ -1121,10 +1122,10 @@ function vitalBar(label, now, most, colour, txt) {
   return `<span class="l">${label}</span><div class="vbar"><i style="width:${w}%;background:${colour}"></i></div><span class="v">${txt}</span>`;
 }
 function nourished(label, v, colour, empty) {
-  const low = -1024, full = 2048, tone = v < -512 ? 'var(--bad)' : v < 0 ? '#e8d44a' : 'var(--text)';
+  const low = -1024, full = 2048, tone = v < 0 && v >= -512 ? '#e8d44a' : 'var(--text)';
   const w = Math.max(0, Math.min(100, (v - low) * 100 / (full - low)));
   return `<span class="l">${label}</span><div class="vbar"><i style="width:${w}%;background:${colour}"></i></div>` +
-    `<span class="v" style="color:${tone}">${v}${v < 0 ? ` (${empty})` : ''}</span>`;
+    `<span class="v" style="color:${tone}">${v < -512 ? '<span class="bad">' : ''}${v}${v < 0 ? ` (${empty})` : ''}${v < -512 ? '</span>' : ''}</span>`;
 }
 const tenths = t => (t < 0 ? '-' : '') + Math.floor(Math.abs(t) / 10) + '.' + (Math.abs(t) % 10);
 // The Champions tab: a card per champion for the Party; for one champion the inventory laid out
@@ -1153,7 +1154,7 @@ const worth = it => (weaponText(it) ? `<div class="dmg">${weaponText(it)}</div>`
 let TIPS = [];
 function tipOf(html) { TIPS.push(html); return ` data-tip="${TIPS.length - 1}"`; }
 function slotTip(items, i, slot, wounded) {
-  const hurt = wounded ? ' <span class="bad">· wounded</span>' : '';
+  const hurt = wounded ? ' · <span class="bad">wounded</span>' : '';
   if (i < 0) return `<div class="s">${slotName(slot)} · empty${hurt}</div>`;
   const it = items[i], held = heldIn(items, i), charges = chargesOf(it);
   let html = `<div class="h">${iconOf(it)}<div><div class="n">${esc(it[1])}</div><div class="s">${slotName(slot)}${hurt}</div>` +
@@ -1263,7 +1264,7 @@ function livePicture(c) {
 function liveChampion(c) {
   const colour = c.hero >= 0 ? COLOUR(c.hero) : 'var(--text)';
   const attrs = '<div class="wide"><table><tr><th>Attribute</th><th>Current</th><th>Max</th><th class="c-bar l">Against the best</th></tr>' + c.attrs.map((a, i) =>
-    `<tr><td>${esc(a[0])}</td><td class="${a[1] < a[2] ? 'bad' : a[1] > a[2] ? 'raised' : ''}">${a[1]}</td><td>${a[2]}</td><td class="c-bar">${attributeBar(c, i, colour)}</td></tr>`).join('') + '</table></div>';
+    `<tr><td>${esc(a[0])}</td><td${a[1] > a[2] ? ' class="raised"' : ''}>${a[1] < a[2] ? `<span class="bad">${a[1]}</span>` : a[1]}</td><td>${a[2]}</td><td class="c-bar">${attributeBar(c, i, colour)}</td></tr>`).join('') + '</table></div>';
   const count = c.items.length;
   const choice = `<span class="seg" onclick="event.stopPropagation()"><button class="ch${st.list ? '' : ' on'}" onclick="set({list:false})">Picture</button>` +
     `<button class="ch${st.list ? ' on' : ''}" onclick="set({list:true})">List</button></span>`;
