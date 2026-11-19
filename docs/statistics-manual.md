@@ -160,7 +160,7 @@ hit), Damage, Kills.
   are left out of a weapon's hit rate, so a War Cry does not lower your punches' rate. Their
   Tries are in the table's Tries, so All weapons' Tries is Attacks and Other actions together.
 - Throwing an item is listed under the item itself: **THROW** when you chose the THROW action of
-  the weapon hand, **Throw (by hand)** when you threw it from the mouse pointer. A shot belongs to
+  the weapon hand, **THROW BY HAND** when you threw it from the mouse pointer. A shot belongs to
   the bow, crossbow or sling, not to the arrow.
 - Only attacks aimed at a monster count as tries; swinging at an empty square does not.
 - Spells entered as runes are no attacks: they are under [Magic](#magic).

@@ -184,6 +184,9 @@ static const char *const KEYS[] = {
     "biggest_melee_hit", "biggest_ranged_hit", "longest_stair_dance", "longest_strict_stair_dance"};
 static_assert(sizeof KEYS / sizeof KEYS[0] == HERO_NUMBER_COUNT, "a name for every number");
 
+const char *const HERO_STATS_BY_CHAMPIONS_HELP =
+    "The part of Monsters killed that the champions killed. The rest were crushed by doors, fell into pits, were telefragged, landed on or died some other way.";
+
 const HeroStatsNumberInfo &HeroStatsCatalogue_Info(HeroStatsNumber number)
 {
   return NUMBERS[number];
@@ -791,12 +794,27 @@ HeroRecordKind HeroStatsCatalogue_RecordOf(HeroStatsNumber number)
   return (HeroRecordKind)(number - HeroNumRecFirst);
 }
 
+const char *HeroStatsCatalogue_Unit(HeroStatsNumber number, bool plural)
+{
+  // What a record counts, where its number alone does not say
+  switch (number)
+  {
+  case HeroNumRecLongestFall: return plural ? "levels" : "level";
+  case HeroNumRecLongestTeleportChain: return plural ? "teleporters" : "teleporter";
+  case HeroNumRecLongestSleep: case HeroNumRecLongestPoisoned: return plural ? "ticks" : "tick";
+  case HeroNumRecLongestStairDance: case HeroNumRecLongestStrictStairDance: return plural ? "moves" : "move";
+  default: return "";
+  }
+}
+
 std::string HeroStatsCatalogue_Format(HeroStatsNumber number, int value)
 {
   if ((NUMBERS[number].isRatio || NUMBERS[number].isRecord) && value < 0) return "-";
   if (number == HeroNumRecHeaviestLoad) return HeroStatsView_Number(value / 10) + "." + std::to_string(value % 10) + " kg";
   if (number == HeroNumRecClosestCall) return HeroStatsView_Number(value) + " HP left";
   if (number == HeroNumHitRate) return std::to_string(value) + "%";
+  const char *unit = HeroStatsCatalogue_Unit(number, value != 1);
+  if (unit[0] != 0) return HeroStatsView_Number(value) + " " + unit;
   return HeroStatsView_Number(value);
 }
 

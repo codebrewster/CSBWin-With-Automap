@@ -377,6 +377,12 @@ static void RecordValuesAreTheBest(void)
   CHECK(HeroStatsCatalogue_Format(HeroNumRecMostKillsAtOnce, -1) == "-");
   CHECK(HeroStatsCatalogue_Format(HeroNumRecHeaviestLoad, 384) == "38.4 kg");
   CHECK(HeroStatsCatalogue_Format(HeroNumRecClosestCall, 2) == "2 HP left");
+  // Records whose number alone does not say what it counts
+  CHECK(HeroStatsCatalogue_Format(HeroNumRecLongestSleep, 747) == "747 ticks");
+  CHECK(HeroStatsCatalogue_Format(HeroNumRecLongestFall, 1) == "1 level");
+  CHECK(HeroStatsCatalogue_Format(HeroNumRecLongestTeleportChain, 28) == "28 teleporters");
+  CHECK(HeroStatsCatalogue_Format(HeroNumRecLongestStairDance, 13) == "13 moves");
+  CHECK(HeroStatsCatalogue_Format(HeroNumRecMostKillsAtOnce, 4) == "4");
   CHECK(HeroStatsCatalogue_Value(stats, 9, HERO_STATS_WHOLE_RUN, HeroNumRecClosestCall) == 2);
   stats.Experience().Credit(7, 1, 4, HeroXpSource_Other(), 30);
   stats.Experience().Credit(9, 1, 17, HeroXpSource_Other(), 12);

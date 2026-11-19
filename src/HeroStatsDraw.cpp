@@ -1156,6 +1156,7 @@ struct TileText
   bool bad, gold, hasBar;
   int percent;
   size_t dotColumn;  // the champion's column for the dot before sub, columns.size(): none
+  std::string help;  // the tooltip, empty for none
 };
 
 static TileText TileTextOf(const HeroStatsTopicPage &page, HeroStatsNumber number, bool isParty,
@@ -1163,7 +1164,7 @@ static TileText TileTextOf(const HeroStatsTopicPage &page, HeroStatsNumber numbe
 {
   int value = page.record.value[number];
   const HeroStatsNumberInfo &info = HeroStatsCatalogue_Info(number);
-  TileText tile = {HeroStatsCatalogue_Format(number, value), info.label, "", info.isBad && value > 0, false, false, 0, columns.size()};
+  TileText tile = {HeroStatsCatalogue_Format(number, value), info.label, "", info.isBad && value > 0, false, false, 0, columns.size(), info.help};
   int cls = number - HeroNumXpFighter;
   if (cls >= 0 && cls < HERO_XP_CLASS_COUNT && cls < (int)page.classes.size())
   {
@@ -1231,7 +1232,11 @@ static void DrawTiles(const HeroStatsTopicPage &page, const HeroStatsDrawState &
   {
     tiles.push_back(TileTextOf(page, page.tiles[i], isParty, columns));
     // Beside Monsters killed, the champions' kills are a part of it
-    if (state.topic == HeroTopicMonsters && isParty && page.tiles[i] == HeroNumKills) tiles.back().label = "By champions";
+    if (state.topic == HeroTopicMonsters && isParty && page.tiles[i] == HeroNumKills)
+    {
+      tiles.back().label = "By champions";
+      tiles.back().help = HERO_STATS_BY_CHAMPIONS_HELP;
+    }
     anySub = anySub || !tiles.back().sub.empty() || tiles.back().hasBar;
   }
   float gap = 8;
@@ -1255,7 +1260,7 @@ static void DrawTiles(const HeroStatsTopicPage &page, const HeroStatsDrawState &
     if (tile.bad) PillBehind(drawList, ImVec2(min.x + 14, min.y + 7), ImVec2(TextWidthWithSymbols(bigSize, tile.big), bigSize));
     TextWithSymbols(drawList, bigSize, ImVec2(min.x + 14, min.y + 7), Packed(bigRgb), tile.big);
     drawList->AddText(ImVec2(min.x + 14, min.y + 9 + bigSize), Packed(DIM_RGB), tile.label.c_str());
-    if (HeroStatsCatalogue_Info(page.tiles[i]).help[0] != 0)
+    if (!tile.help.empty())
       DottedUnderline(min.x + 14, min.x + 14 + ImGui::CalcTextSize(tile.label.c_str()).x, min.y + 9 + bigSize + lineHeight);
     float y = min.y + 13 + bigSize + lineHeight;
     if (tile.hasBar)
@@ -1278,10 +1283,9 @@ static void DrawTiles(const HeroStatsTopicPage &page, const HeroStatsDrawState &
     }
     drawList->PopClipRect();
     // What the number counts, and what it does or does not contain
-    const char *help = HeroStatsCatalogue_Info(page.tiles[i]).help;
-    if (help[0] != 0 && ImGui::IsWindowHovered() &&
+    if (!tile.help.empty() && ImGui::IsWindowHovered() &&
         ImGui::IsMouseHoveringRect(min, ImVec2(min.x + tileWidth, min.y + height)))
-      WrappedTooltip(help);
+      WrappedTooltip(tile.help.c_str());
   }
   int rows = (count + perRow - 1) / perRow;
   ImGui::Dummy(ImVec2(width, rows * (height + gap) - gap + 4));
@@ -1406,7 +1410,15 @@ static void DrawNumbers(const HeroStatsTopicPage &page, const HeroStatsDrawState
   NumberColumn("Total");
   BarColumn(isParty ? "Share" : "Share of party");
   HeaderHelps helps(headerColumns.size(), "");
-  helps.push_back("All the champions together; for a record, the best of them.");
+  // Only a table that holds a record says what Total means for one
+  bool holdsRecord = false;
+  for (size_t r = 0; r < page.numbers.size(); r++)
+  {
+    const HeroStatsNumbersRow &row = page.numbers[r];
+    bool panel = row.group >= 0 && row.group < (int)page.groups.size() && page.groups[row.group].panel;
+    if (!panel && HeroStatsCatalogue_IsRecord(row.number)) holdsRecord = true;
+  }
+  helps.push_back(holdsRecord ? "All the champions together; for a record, the best of them." : "All the champions together.");
   HeaderRow(headerColumns, columns, "", helps);
   // The groups have a small heading each, unless there is only the one (the section is named after it)
   bool headings = TableGroupCount(page) > 1;

@@ -64,6 +64,10 @@ struct HeroStatsNumberInfo { const char *label; const char *help; bool partyOnly
 bool HeroStatsCatalogue_IsRecord(HeroStatsNumber number);
 HeroRecordKind HeroStatsCatalogue_RecordOf(HeroStatsNumber number);  // for a record
 const HeroStatsNumberInfo &HeroStatsCatalogue_Info(HeroStatsNumber number);
+// The help of Kills beside Monsters killed, where its tile is called By champions
+extern const char *const HERO_STATS_BY_CHAMPIONS_HELP;
+// The unit a record's value is written with ("ticks", "levels"), "" for none
+const char *HeroStatsCatalogue_Unit(HeroStatsNumber number, bool plural);
 
 // depth 1: a part of the row above, 2: a part of that, 3: a part of that. label: what the row is called in this
 // place ("onto monsters" under Teleports), or NULL for the number's own label.

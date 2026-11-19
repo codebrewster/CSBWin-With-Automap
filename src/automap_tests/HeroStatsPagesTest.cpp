@@ -845,6 +845,11 @@ static void RankOfAGoneChampionIsTheLastKnown(void)
   CHECK(page.rankUps.size() == 1 && page.rankUps[0].className == "Wizard");
   CHECK(page.rankUps.size() == 1 && page.rankUps[0].rank == "Apprentice \xe2\x86\x92 Journeyman");
   CHECK(page.rankUps.size() == 1 && page.rankUps[0].with.find("Fireball") != std::string::npos);
+  // The first rank has an arrow too, from no rank
+  HeroRankUp first = {9, 1, 0, 2, 90, XpSource(HeroXpSpell, HERO_STATS_NO_WEAPON, HERO_STATS_NO_OPTION, FUL_IR, -1)};
+  stats.Experience().CountRankUp(first);
+  page = XpPage(stats, 9, NoRankNow);
+  CHECK(page.rankUps.size() == 2 && page.rankUps[0].rank == "\xe2\x80\x94 \xe2\x86\x92 Neophyte");
   // No name function at all: the same
   page = XpPage(stats, 9, NULL);
   CHECK(page.classes.size() == 4 && page.classes[3].rankNow == 5);
@@ -882,7 +887,7 @@ static void RecordLinesShowTheirBlow(void)
   }
   CHECK(spell != NULL && spell->whom == "4 \xc3\x97 Screamer" && spell->who == "SYRA" && spell->value == "840");
   CHECK(spell != NULL && spell->group == "Dealt" && spell->how.find("Fireball") != std::string::npos);
-  CHECK(fall != NULL && fall->who == "party" && fall->value == "1" && fall->group == "Carrying & moving");
+  CHECK(fall != NULL && fall->who == "party" && fall->value == "1 level" && fall->group == "Carrying & moving");
   HeroStatsTopicPage syra = HeroStatsPages_Topic(stats, Columns(stats), 9, HERO_STATS_WHOLE_RUN, HeroTopicRecords, NAMES);
   bool hasFall = false;
   const HeroStatsRecordLine *hit = NULL, *own = NULL;
@@ -936,6 +941,27 @@ static void SourcesAndStreaksSayMore(void)
   CHECK(streak != NULL && streak->level == 2);
 }
 
+// A streak names its two most killed kinds and says how many kills it leaves out
+static void StreakCountsTheKindsItLeavesOut(void)
+{
+  HeroStats stats = ExperiencedParty();
+  for (int i = 0; i < 6; i++) stats.Records().CountKill(7, 2, 100 + i, 6);
+  for (int i = 0; i < 3; i++) stats.Records().CountKill(7, 2, 200 + i, 25);
+  stats.Records().CountKill(7, 2, 300, 9);
+  HeroStatsTopicPage records = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroTopicRecords, NAMES);
+  const HeroStatsRecordLine *streak = NULL;
+  for (size_t i = 0; i < records.records.size(); i++)
+    if (records.records[i].kind == HeroRecKillStreak) streak = &records.records[i];
+  CHECK(streak != NULL && streak->value == "10");
+  CHECK(streak != NULL && streak->whom == "6 Screamer, 3 Lord Order, +1 other");
+  for (int i = 0; i < 2; i++) stats.Records().CountKill(7, 2, 400 + i, 11);
+  records = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroTopicRecords, NAMES);
+  streak = NULL;
+  for (size_t i = 0; i < records.records.size(); i++)
+    if (records.records[i].kind == HeroRecKillStreak) streak = &records.records[i];
+  CHECK(streak != NULL && streak->whom == "6 Screamer, 3 Lord Order, +3 others");
+}
+
 static void RecordsPerLevelHaveNoShare(void)
 {
   HeroStats stats = ExperiencedParty();
@@ -957,6 +983,8 @@ static void ExportHasExperienceAndRecords(void)
   CHECK(json.find("\"SWORD\"") != std::string::npos);
   CHECK(json.find("\"records\":[[" + std::to_string((int)HeroRecBiggestMeleeHit) + ",\"Dealt\",\"Biggest melee hit\",\"120\"") != std::string::npos);
   CHECK(json.find("\"xpFirst\":") != std::string::npos && json.find("\"recFirst\":") != std::string::npos);
+  // By champions on the Monsters tab says what it is a part of, not where the other kills are
+  CHECK(json.find("\"byChampionsHelp\":\"The part of Monsters killed") != std::string::npos);
   std::string html = HeroStatsExport_Html(stats, Columns(stats), NAMES, info);
   CHECK(html.find("function records(") != std::string::npos && html.find("function xpSources(") != std::string::npos);
 }
@@ -1133,6 +1161,7 @@ void TestHeroStatsPages(void)
   MeleeAndRangedHitsReplaceTheBiggestHit();
   RecordsPerLevelHaveNoShare();
   SourcesAndStreaksSayMore();
+  StreakCountsTheKindsItLeavesOut();
   PerLevelEndsWithTheWholeRun();
   ManyLevelsAllListed();
   ChampionTotalsSkipPartyNumbers();

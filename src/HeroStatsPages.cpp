@@ -175,7 +175,7 @@ static bool OptionBefore(const HeroStatsOptionLine &a, const HeroStatsOptionLine
 static void AddAttacks(HeroStatsHeroPage *page, const HeroStats &stats, HeroStatsChampion who, int level,
                        const HeroStatsNames &names)
 {
-  // Grouped by weapon; throwing it is one of its options (THROW, Throw (by hand)). Rune spells are
+  // Grouped by weapon; throwing it is one of its options (THROW, THROW BY HAND). Rune spells are
   // in Spells.
   std::vector<HeroStatsAttackRow> attacks = stats.Attacks(who, level);
   std::map<int, size_t> weaponAt;
@@ -458,7 +458,7 @@ static std::string SkillNote(int skill)
 
 static std::string OptionName(const HeroStatsNames &names, int option)
 {
-  std::string name = option == HERO_STATS_THROW_OPTION ? "Throw (by hand)" : names.option(option);
+  std::string name = option == HERO_STATS_THROW_OPTION ? "THROW BY HAND" : names.option(option);
   return name.empty() ? "#" + std::to_string(option) : name;
 }
 
@@ -663,7 +663,7 @@ static std::vector<HeroStatsRankUpLine> XpRankUps(const HeroStats &stats, HeroSt
   {
     if (!HeroStats::LevelMatches(level, ups[i].level)) continue;
     std::string before = HeroXp_RankName(ups[i].rank - 1);
-    std::string rank = before.empty() ? HeroXp_RankName(ups[i].rank) : before + " \xe2\x86\x92 " + HeroXp_RankName(ups[i].rank);
+    std::string rank = (before.empty() ? std::string("\xe2\x80\x94") : before) + " \xe2\x86\x92 " + HeroXp_RankName(ups[i].rank);
     HeroStatsRankUpLine line = {ups[i].who, HeroXp_ClassName(ups[i].cls), rank, SourceText(ups[i].source, names), ups[i].level,
                                 ups[i].rank, (int)ups[i].time};
     lines.push_back(line);
@@ -717,9 +717,16 @@ static void DescribeRecord(HeroRecordKind kind, const HeroRecordEntry &entry, co
     break;
   case HeroRecKillStreak:
   {
+    int named = 0;
     for (int i = 0; i < 2; i++)
       if (entry.kinds[i][0] >= 0)
+      {
         line->whom += (i > 0 ? ", " : "") + std::to_string(entry.kinds[i][1]) + " " + names.monster(entry.kinds[i][0], 0);
+        named += entry.kinds[i][1];
+      }
+    // Only the two most killed kinds are kept; say how many kills of other kinds the list leaves out
+    int others = entry.value - named;
+    if (named > 0 && others > 0) line->whom += ", +" + std::to_string(others) + (others == 1 ? " other" : " others");
     if (entry.firstLevel != entry.level) line->how = "Lv " + std::to_string(entry.firstLevel) + " \xe2\x86\x92 " + std::to_string(entry.level);
     break;
   }

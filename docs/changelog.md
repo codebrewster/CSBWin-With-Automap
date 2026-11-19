@@ -14,6 +14,10 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 - A champion's Overview sums up every tile of a topic (Experience names the wizard too), and one of something is singular: "1 death".
 - Records: a streak or chain that ran over two levels (kills without a scratch, teleport chains, sleep, poisonings) belongs to the level it began on, like a fall; the Lv column and the levels' pages show it there.
 - Ranks gained explains that a monster name under With is a monster attacking the champion (Parry), not a kill.
+- Kills without a scratch says how many kills its two monster names leave out: "6 Mummy, 3 Trolin, +1 other".
+- Records say what they count: "747 ticks" (longest sleep, longest poisoned), "1 level" (longest fall), "28 teleporters", "13 moves" (stair dances).
+- Ranks gained shows the first rank with an arrow like the others ("— → Neophyte"), and a throw from the mouse pointer is called THROW BY HAND, in capitals like the other actions.
+- The By champions tile on the Monsters tab says what it is a part of instead of pointing to the tab it is on, and a table's Total header mentions records only where the table holds one.
 - Magic splits the mana of spells that went wrong: Wasted under On spells, with On failed casts (needs more practice) and On meaningless spells (runes that form no spell) below it. Wasted is the Wasted of All spells in the Spells table, and the Magic tile shows it. Older saves keep the meaningless spells among the failed casts. In csb.cfg `mana_wasted` is all of it; `mana_failed` is the failed casts alone.
 - Magic counts Regeneration lost (mana full): the mana regeneration would have given while a champion's mana was full, or the part a nearly full champion could not take. Spend mana before it fills up and it is not lost.
 - Survival splits Potions under Healed by who brewed them: Own brews, Brewed by others and Found. The Healing by source table, which showed the same numbers again, is gone.

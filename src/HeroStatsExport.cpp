@@ -386,7 +386,9 @@ std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroS
            ",\"help\":" + HeroStatsExport_JsonString(number.help) + ",\"party\":" + Bool(number.partyOnly) +
            ",\"run\":" + Bool(number.wholeRunOnly) + ",\"bad\":" + Bool(number.isBad) + ",\"ratio\":" +
            Bool(number.isRatio) + ",\"pct\":" + Bool(n == HeroNumHitRate) + ",\"ticks\":" + Bool(number.isTicks) +
-           ",\"rec\":" + Bool(number.isRecord) + "}";
+           ",\"rec\":" + Bool(number.isRecord) +
+           ",\"unit\":[" + HeroStatsExport_JsonString(HeroStatsCatalogue_Unit((HeroStatsNumber)n, false)) + "," +
+           HeroStatsExport_JsonString(HeroStatsCatalogue_Unit((HeroStatsNumber)n, true)) + "]}";
   }
   out += "],\"topics\":[";
   for (int t = 0; t < HERO_TOPIC_COUNT; t++)
@@ -416,6 +418,7 @@ std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroS
   std::vector<int> heroTiles(HeroStatsCatalogue_ChampionTiles().begin(), HeroStatsCatalogue_ChampionTiles().end());
   out += "],\"heroTiles\":" + Ints(heroTiles);
   out += ",\"xpFirst\":" + Number(HeroNumXpFighter) + ",\"recFirst\":" + Number(HeroNumRecFirst) + ",\"time\":" + Number(HeroNumTicks);
+  out += ",\"byChampionsHelp\":" + HeroStatsExport_JsonString(HERO_STATS_BY_CHAMPIONS_HELP);
   out += ",\"views\":{\"-1\":" + ViewJson(stats, columns, names, HERO_STATS_WHOLE_RUN);
   for (size_t i = 0; i < levels.size(); i++)
     out += ",\"" + Number(levels[i]) + "\":" + ViewJson(stats, columns, names, levels[i]);
@@ -612,7 +615,8 @@ const rec = (i, l) => view(l).records[i];
 const page = () => view(st.level).pages[st.who];
 const applies = (n, i, l) => !(NUM[n].party && i < N) && !(NUM[n].run && l !== -1);
 const text = (n, v) => (NUM[n].ratio || NUM[n].rec) && v < 0 ? '-' : NUM[n].pct ? v + '%' :
-  n === D.recFirst + 11 ? fmt(Math.floor(v / 10)) + '.' + (v % 10) + ' kg' : n === D.recFirst + 7 ? fmt(v) + ' HP left' : fmt(v);
+  n === D.recFirst + 11 ? fmt(Math.floor(v / 10)) + '.' + (v % 10) + ' kg' : n === D.recFirst + 7 ? fmt(v) + ' HP left' :
+  NUM[n].unit[0] ? fmt(v) + ' ' + NUM[n].unit[v === 1 ? 0 : 1] : fmt(v);
 // A level's time as a share of the whole run's, as HeroStatsCatalogue_RunShare: ' (12%)', ' (<1%)';
 // '' for any other number, the whole run, no time on the level or a run with no ticks
 function runShare(n, l, v) {
@@ -738,7 +742,8 @@ function tiles(numbers, rows) {
   return '<div class="tiles">' + shown.map(n => {
     let v = text(n, r[n]), l = esc(NUM[n].label), sub = '', cls = NUM[n].bad && r[n] > 0 ? ' badv' : '';
     // Beside Monsters killed, the champions' kills are a part of it
-    if (st.topic === TOPIC_MONSTERS && isParty() && NUM[n].label === 'Kills') l = 'By champions';
+    let tipText = NUM[n].help;
+    if (st.topic === TOPIC_MONSTERS && isParty() && NUM[n].label === 'Kills') { l = 'By champions'; tipText = D.byChampionsHelp; }
     const k = n - D.xpFirst, line = k >= 0 && k < 4 ? p.xp.classes[k] : null;
     if (line) {
       // [name, rank now, at the start, % to next, next rank, experience, ranks gained, best hero, ...]
@@ -763,12 +768,12 @@ function tiles(numbers, rows) {
       else if (record[10]) { v += ' &#9733;'; cls += ' goldv'; }
       else if (record[11]) sub = `<div class="sub f">party: ${esc(record[11])} ${record[12] >= 0 ? esc(whoName(record[12])) : ''}</div>`;
     }
-    const tipText = NUM[n].help;
     return `<div class="tile${cls}"><div class="v${cls.includes('goldv') ? ' gold' : ''}">${cls.includes(' badv') ? `<span class="pill">${v}</span>` : v}</div><div class="l">${tipText ? `<span class="tip"${tipOf(esc(tipText))}>${l}</span>` : l}</div>${sub}</div>`;
   }).join('') + '</div>';
 }
 
-const PARTY_HELP = 'All the champions together; for a record, the best of them.';
+// Only a table that holds a record says what Total means for one
+const PARTY_HELP = 'All the champions together.', PARTY_REC_HELP = 'All the champions together; for a record, the best of them.';
 // The topic's groups with the rows that apply to who and the level: [{title, panel, rows: [{n, depth, label}]}].
 // A part whose sum does not apply stands on its own under the number's own name (HeroStatsPages_Topic).
 function groupsOf(t) {
@@ -793,9 +798,10 @@ const labelOf = row => {
 function numbersTable(t) {
   const party = rec(N, st.level), one = !isParty();
   const groups = groupsOf(t).filter(g => !g.panel);
+  const totalHelp = groups.some(g => g.rows.some(r => NUM[r.n].rec)) ? PARTY_REC_HELP : PARTY_HELP;
   let head = '<tr><th></th>';
-  if (one) head += `<th class="${H[st.who].left ? 'left' : ''}" data-name="${esc(H[st.who].name)}">${heroHead(st.who)}</th><th${tipOf(PARTY_HELP)}>Total</th><th>Share of party</th>`;
-  else head += H.map((h, i) => `<th class="${h.left ? 'left' : ''}" data-name="${esc(h.name)}">${heroHead(i)}</th>`).join('') + `<th${tipOf(PARTY_HELP)}>Total</th><th>Share</th>`;
+  if (one) head += `<th class="${H[st.who].left ? 'left' : ''}" data-name="${esc(H[st.who].name)}">${heroHead(st.who)}</th><th${tipOf(totalHelp)}>Total</th><th>Share of party</th>`;
+  else head += H.map((h, i) => `<th class="${h.left ? 'left' : ''}" data-name="${esc(h.name)}">${heroHead(i)}</th>`).join('') + `<th${tipOf(totalHelp)}>Total</th><th>Share</th>`;
   const columns = (one ? 1 : N) + 3;
   let body = '';
   for (const g of groups) {
