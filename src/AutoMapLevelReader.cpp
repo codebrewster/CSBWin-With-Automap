@@ -1263,6 +1263,64 @@ static void FindSleepingGenerators(AutoMapLevelSnapshot *snapshot)
 
 // One walk over the objects of a cell feeds items, monsters, missiles, clouds, pads and
 // the link set. A rebuild scans every cell on every tick, so each extra walk costs.
+// What a chest holds, one level deep, each entry tagged with the chest and the side it lies on
+static void AppendChestContents(RN object, int side, std::vector<AutoMapAlcoveEntry> *entries)
+{
+  DB9 *chest = GetRecordAddressDB9(object);
+  int guard = 0;
+  for (RN held = chest->contents(); held != RNeof && guard < 32;
+       held = GetDBRecordLink(held), guard++)
+  {
+    DBTYPE heldType = held.dbType();
+    if (heldType < dbWEAPON || heldType > dbMISC) continue;
+    AutoMapItem heldItem = ItemForRN(held);
+    if (heldItem.worldPicture == AUTOMAP_NO_PICTURE) continue;
+    AutoMapAlcoveEntry heldEntry;
+    heldEntry.item = heldItem;
+    heldEntry.side = side;
+    heldEntry.record = RecordIdOf(held);
+    heldEntry.inChest = RecordIdOf(object);
+    if (heldType == dbSCROLL)
+    {
+      heldEntry.text = ScrollTextExcerpt(held);
+      heldEntry.scroll = RecordIdOf(held);
+    }
+    entries->push_back(heldEntry);
+  }
+}
+
+// What an object launcher (types 14/15) still holds: the items of its stone cell lying on the
+// side it fires to or the side after it, in chain order, the order Timer.cpp
+// TriggerMissileLauncher takes them in (each shot the first that matches)
+static void ReadLauncherAmmunition(int x, int y, AutoMapLauncher *launcher)
+{
+  if (launcher->actuatorType != 14 && launcher->actuatorType != 15) return;
+  if (launcher->side < 0) return;
+  int side = launcher->side;
+  int next = (side + 1) & 3;
+  for (RN object = FindFirstObject(x, y); object != RNeof; object = GetDBRecordLink(object))
+  {
+    DBTYPE type = object.dbType();
+    if (type < dbWEAPON || type > dbMISC) continue;
+    int position = object.pos();
+    if (position != side && position != next) continue;
+    AutoMapItem item = ItemForRN(object);
+    if (item.worldPicture == AUTOMAP_NO_PICTURE) continue;
+    AutoMapAlcoveEntry entry;
+    entry.item = item;
+    entry.side = position;
+    entry.record = RecordIdOf(object);
+    entry.isChest = type == dbCHEST;
+    if (type == dbSCROLL)
+    {
+      entry.text = ScrollTextExcerpt(object);
+      entry.scroll = RecordIdOf(object);
+    }
+    launcher->ammunition.push_back(entry);
+    if (type == dbCHEST) AppendChestContents(object, position, &launcher->ammunition);
+  }
+}
+
 static void ReadObjectsAt(int x, int y, AutoMapCellRecord *record, AutoMapLevelSnapshot *snapshot)
 {
   // Walls hold alcove goods instead of floor goods; doors hold no pads. Missiles,
@@ -1311,30 +1369,7 @@ static void ReadObjectsAt(int x, int y, AutoMapCellRecord *record, AutoMapLevelS
           entry.scroll = RecordIdOf(object);
         }
         record->alcoveContents.push_back(entry);
-        if (type == dbCHEST)
-        {
-          DB9 *chest = GetRecordAddressDB9(object);
-          int guard = 0;
-          for (RN held = chest->contents(); held != RNeof && guard < 32;
-               held = GetDBRecordLink(held), guard++)
-          {
-            DBTYPE heldType = held.dbType();
-            if (heldType < dbWEAPON || heldType > dbMISC) continue;
-            AutoMapItem heldItem = ItemForRN(held);
-            if (heldItem.worldPicture == AUTOMAP_NO_PICTURE) continue;
-            AutoMapAlcoveEntry heldEntry;
-            heldEntry.item = heldItem;
-            heldEntry.side = side;
-            heldEntry.record = RecordIdOf(held);
-            heldEntry.inChest = RecordIdOf(object);
-            if (heldType == dbSCROLL)
-            {
-              heldEntry.text = ScrollTextExcerpt(held);
-              heldEntry.scroll = RecordIdOf(held);
-            }
-            record->alcoveContents.push_back(heldEntry);
-          }
-        }
+        if (type == dbCHEST) AppendChestContents(object, side, &record->alcoveContents);
         continue;
       }
       AutoMapItem item = ItemForRN(object);
@@ -1516,6 +1551,11 @@ static void ReadObjectsAt(int x, int y, AutoMapCellRecord *record, AutoMapLevelS
       ResolveGeneratedMonster(actuator, &pad, snapshot->level);
       snapshot->actuators.push_back(pad);
     }
+  }
+  // After the walk: the items a launcher throws may come before it in the chain
+  for (size_t i = 0; i < record->wallLaunchers.size(); i++)
+  {
+    ReadLauncherAmmunition(x, y, &record->wallLaunchers[i]);
   }
 }
 
