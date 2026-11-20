@@ -16,6 +16,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 - Every topic has the same layout. The table is always called Numbers, with its group headings shown even when there is only one. The numbers only the party has stand in The party panels on every topic: Wipes and reloads on Survival, Items on Food & items, Door buttons on Exploration. Only the causes under Monsters killed stay in the table, as parts of a sum the champions share in.
 - Side by side, the sections keep their order: the first ones fill the left column and the rest the right, so the order no longer depends on the numbers.
 - A zero is a dim dot on the headline tiles too, as in the tables.
+- The Resistance hovertext says it is always 0 in games recorded with CSBwin 9.8 to 12.5 or before 9.6, which ignored resistance.
 - Deaths is a table: Who, Killed by, Lv and Tick, newest first and sortable; in a replay a click on the tick goes there. A death's tick is kept from this version on (save layout 36); older games show "-".
 - Ranks gained and Records align text the same way (left), and what brought a rank or a record (With, How, On / from) is a lighter grey than a zero or a hint, so it no longer looks disabled; the Tick is plain. The skill notes in Experience by source are no longer faint either.
 - Eaten and drunk's Who bar splits a drink by who drank it while the table is sorted by Eaten, instead of staying empty.

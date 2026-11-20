@@ -51,7 +51,7 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Too weak", "The monster's attack was too weak to get past the champion's skill at parrying.", false, false, false, false, false},
     {"Blocked", "The blow landed, but resistance, shield spells, protection or wisdom left no damage.", false, false, false, false, false},
     {"Damage reduced", "Damage the defences took off every hit, monster or not, counted from what the champion would have taken with no defence at all: with no protection a hit does about twice its roll, and with no resistance a fire or magic hit a third more. The lines below add up to it, but for rounding.", false, false, false, false, false},
-    {"Resistance", "Anti-fire against fire, anti-magic against magic, counted from a champion with none: each point takes 1/128 of the roll off, even while a low resistance still leaves more than the roll.", false, false, false, false, false},
+    {"Resistance", "Anti-fire against fire, anti-magic against magic, counted from a champion with none: each point takes 1/128 of the roll off, even while a low resistance still leaves more than the roll. Always 0 in games recorded with CSBwin 9.8 to 12.5 or before 9.6: they ignored resistance, as on the Atari.", false, false, false, false, false},
     {"Fire and spell shields", "The party's Fire shield against fire, its Spellshield against magic.", false, false, false, false, false},
     {"Protection", "Against blows, missiles, fire and walls: the lines below make up the champion's protection on the parts of the body hit, and each gets its share. Protection takes off at most 77% of a hit.", false, false, false, false, false},
     {"Armour", "Armour worn on the parts of the body hit.", false, false, false, false, false},
