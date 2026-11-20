@@ -460,7 +460,9 @@ window.addEventListener('keydown', e => {
   if (levelOpen) { if (e.key >= '0' && e.key <= '9') { typed = (typed + e.key).slice(-2); const l = Math.min(DATA.index.levels.length - 1, +typed); levelScroll = Math.max(0, Math.min(DATA.index.levels.length - ROWS_SHOWN, l - 4)); levelHover = l; } else if (e.key === 'Enter' && typed) pickLevel(Math.min(DATA.index.levels.length - 1, +typed)); else if (e.key === 'Escape') { levelOpen = false; typed = ''; } else if (e.key === 'Backspace') { e.preventDefault(); typed = typed.slice(0, -1); } draw(); return; }
   if (e.key === 'Escape') { if (linkMode) linkMode = null; else if (menu) menu = null; else if (searchOpen) closeSearch(); else closePanels(); draw(); return; }
   if (e.key === 'PageDown' || e.key === 'PageUp') { e.preventDefault(); stepLevel(e.key === 'PageDown' ? 1 : -1); draw(); return; }
-  if (!searchOpen) { if (e.key === '/' || (e.ctrlKey && e.key === 'f')) { e.preventDefault(); openSearch(); draw(); } return; }
+  // Ctrl+F is the page's search, open or not: never the browser's find
+  if (e.ctrlKey && (e.key === 'f' || e.key === 'F')) { e.preventDefault(); if (!searchOpen) { openSearch(); draw(); } return; }
+  if (!searchOpen) { if (e.key === '/') { e.preventDefault(); openSearch(); draw(); } return; }
   if (e.key === 'ArrowDown') { e.preventDefault(); step(1); } else if (e.key === 'ArrowUp') { e.preventDefault(); step(-1); } else if (e.key === 'Enter') goTo(sSel);
   else if (e.key === 'Backspace') { e.preventDefault(); query = query.slice(0, -1); rebuild(false); } else if (e.key.length === 1 && !e.ctrlKey) { e.preventDefault(); query += e.key.toUpperCase(); rebuild(false); }
   draw();
