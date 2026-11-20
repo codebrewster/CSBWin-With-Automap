@@ -229,6 +229,9 @@ static const int DIGIT_SCALE = 2;
 // the drag started and the view stops following the party until a middle-click recentres it.
 // Fractions keep re-pans continuous and zooming centred on the same spot.
 static bool viewFollowsParty = true;
+// The black space beside the level the view showed last (AutoMapScene_BlackSpace): a drag keeps
+// to it, so dragging never adds black space; a zoom sets -1 for its own placement
+static AutoMapViewRequest shownBlackSpace;
 // Following asked for while another level is on screen: the view keeps still until a draw list
 // with the party arrives, or the old level would be centred for a few frames (a ghost image)
 static bool followWhenPartyShown = false;
@@ -1165,6 +1168,9 @@ static void ZoomTowardsPointer(int notches)
   float pointX = (float)(pointerPixelX - before.originX) / before.cellSize;
   float pointY = (float)(pointerPixelY - before.originY) / before.cellSize;
   zoomPlacesFreely = true;
+  // The zoom places the level where the pointer keeps its cell, even with more black space
+  shownBlackSpace.blackLeft = shownBlackSpace.blackRight = -1;
+  shownBlackSpace.blackTop = shownBlackSpace.blackBottom = -1;
   viewCenterX = AutoMapScene_CentreKeepingPointStill(viewCenterX, pointX, before.cellSize,
                                                      after.cellSize);
   viewCenterY = AutoMapScene_CentreKeepingPointStill(viewCenterY, pointY, before.cellSize,
@@ -3172,9 +3178,6 @@ static void DrawMonsters(const AutoMapView &view, const AutoMapDrawList &drawLis
   for (size_t i = 0; i < fromNorthToSouth.size(); i++) DrawFacingMarks(view, fromNorthToSouth[i]);
 }
 
-// The black space beside the level the view showed last (AutoMapScene_BlackSpace): a free
-// placement after a zoom keeps to it, so it only ever shrinks
-static AutoMapViewRequest shownBlackSpace;
 
 static AutoMapViewRequest RequestOfShownLevel(void)
 {

@@ -1659,8 +1659,8 @@ struct AutoMapViewRequest
   // level fits is centred and a larger level never leaves black space at an edge.
   bool placeFreely;
   // With placeFreely: the black space the view showed last, in pixels, at each edge
-  // (AutoMapScene_BlackSpace). A zoom or a drag may only shrink it; where a zoom out needs more,
-  // the extra is shared by both ends.
+  // (AutoMapScene_BlackSpace). A drag may only shrink it; -1 after a zoom, which may leave up to
+  // half the window black so the cell under the pointer stays.
   int blackLeft;
   int blackRight;
   int blackTop;

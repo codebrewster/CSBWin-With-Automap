@@ -2844,6 +2844,15 @@ static int RoundToPixels(float position)
   return (int)floor(position + 0.5f);
 }
 
+// The black space a zoomed level may leave at either end of an axis. A zoom towards the pointer
+// keeps the cell under it where it is, up to half of the window; a drag never adds to what the
+// view showed (ViewAxis::blackBefore, blackAfter).
+static int AllowedMargin(int windowPixels, int levelPixels)
+{
+  if (levelPixels <= windowPixels) return windowPixels - levelPixels / 2;
+  return windowPixels / 2;
+}
+
 static int OriginAlong(const ViewAxis &axis, int cellSize)
 {
   int levelPixels = axis.levelCells * cellSize;
@@ -2851,11 +2860,13 @@ static int OriginAlong(const ViewAxis &axis, int cellSize)
   int originCentred = axis.windowPixels / 2 - RoundToPixels(center);
   if (axis.placeFreely)
   {
-    // After a zoom towards the pointer the level goes where the pointer keeps its cell, but the
-    // black space beside it never grows: each end keeps at most what it showed. A zoom in
-    // pushes the edges out and shrinks it by itself; a drag cannot pull the level off an edge.
-    // A zoom out that needs more black space than there was shares the extra between the ends.
-    int before = std::max(0, axis.blackBefore), after = std::max(0, axis.blackAfter);
+    // After a zoom towards the pointer a black margin may remain, so the cell under the pointer
+    // stays; it shrinks as the zoom pushes the level's edges out. A drag keeps each end to the
+    // black space it showed (negative: no limit, right after a zoom), so it cannot pull the
+    // level away from an edge; where the window grew, the extra is shared by both ends.
+    int margin = AllowedMargin(axis.windowPixels, levelPixels);
+    int before = axis.blackBefore < 0 ? margin : std::min(margin, axis.blackBefore);
+    int after = axis.blackAfter < 0 ? margin : std::min(margin, axis.blackAfter);
     int more = axis.windowPixels - levelPixels - before - after;
     if (more > 0)
     {

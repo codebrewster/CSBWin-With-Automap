@@ -997,9 +997,10 @@ static void ZoomFromTheWholeLevelKeepsThePointerCell(void)
   CHECK(after.originY + 20 * after.cellSize > 0 && after.originY < 800);
 }
 
-// The black space beside a freely placed level only shrinks: a drag past the edge stops at the
-// black space there was, and a zoom out that needs more shares the extra between the ends
-static void BlackSpaceBesideTheLevelOnlyShrinks(void)
+// A drag never adds black space beside a freely placed level: it stops at the black space there
+// was. A zoom may add some, up to half the window; where the level is smaller than the window,
+// the extra is shared between the ends.
+static void DraggingAddsNoBlackSpace(void)
 {
   AutoMapViewRequest request = RequestFor(640, 400);
   request.zoomSteps = 3;
@@ -1019,6 +1020,11 @@ static void BlackSpaceBesideTheLevelOnlyShrinks(void)
   request.blackTop = 30;
   view = AutoMapScene_PlaceLevel(request);
   CHECK(view.originY == 30);
+  // Right after a zoom (-1) the level may go up to half the window off the edge, so the cell
+  // under the pointer stays
+  request.blackLeft = request.blackTop = -1;
+  view = AutoMapScene_PlaceLevel(request);
+  CHECK(view.originX == 320 && view.originY == 200);
   // Zoomed out to where the level is shorter than the window: the extra is shared
   AutoMapViewRequest out = RequestFor(640, 500);
   out.placeFreely = true;
@@ -7241,7 +7247,7 @@ void TestAutoMapScene(void)
   FarCentresStopAtTheEdgesOfTheLevel();
   ZoomKeepsTheSameSpotCentred();
   ZoomKeepsThePointUnderThePointerStill();
-  BlackSpaceBesideTheLevelOnlyShrinks();
+  DraggingAddsNoBlackSpace();
   OnlyTheFittingZoomShowsTheWholeLevel();
   LabelStepKeepsNumbersApart();
   VisibleRangeCoversTheCellsTouchingTheMap();
