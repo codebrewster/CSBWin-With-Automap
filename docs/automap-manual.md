@@ -541,7 +541,8 @@ The dialog asks for:
 Inside the page the reader switches vision and spoilers like on the bar, up to what the dialog
 allowed; the buttons beyond it are greyed out. Nothing beyond that is in the file, so a map
 exported at **SEEN** gives away no secrets, even to someone who reads the file itself. The page
-starts on the level, vision and spoilers the map window shows.
+starts with the vision and spoilers the map window shows, on the party's level, following the
+party; when the party's level was left out, on the level the map window shows.
 
 **EXPORT** writes the page and shows each level as it goes; the game waits meanwhile.
 **STOP** or **Escape** ends it without a file. A file that is there already is replaced only after a
