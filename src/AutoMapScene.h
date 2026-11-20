@@ -1565,12 +1565,12 @@ enum AutoMapGoalVerbs
   AutoMapVerbsSignal
 };
 
-// What acts on (x, y), for a cell that is a source as well (a pad on a pit): one line per
+// What acts on (x, y), a door, pit, teleporter, generator ... or a pad on one: one line per
 // signal (AutoMapTipFeeder) in the verbs of its kind, OPENED BY / CLOSED BY / TOGGLED BY /
 // HELD BY, WOKEN BY / STOPPED BY / ..., or one TRIGGERED BY or FIRED BY for every signal.
 // The sources of one kind are named once: TOGGLED BY: PADS L4 (21, 8), (20, 9). Unindented;
 // the caller puts the lines under the header of the part they act on. Empty below All, for
-// a cell nothing leaves, for a relay cell (its FED BY says it) and for a cell nothing reaches.
+// a relay cell (its FED BY says it) and for a cell nothing reaches.
 std::vector<AutoMapTipLine> AutoMapScene_ActedOnBy(const AutoMapDrawList &drawList, int x, int y,
                                                    AutoMapGoalVerbs verbs);
 

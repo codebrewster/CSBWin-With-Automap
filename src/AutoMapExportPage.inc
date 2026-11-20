@@ -622,7 +622,7 @@ function actedOnBy(h, head) {
 }
 function insertActedOnBy(lines, h) {
   // Data exported after the game learnt these lines (style 9) has them already
-  if (spoil !== 0 || !h || h.relay || !(h.to && h.to.length) || !(h.from && h.from.length) || lines.some(l => l.s === 9)) return;
+  if (spoil !== 0 || !h || h.relay || !(h.to && h.to.length) || lines.some(l => l.s === 9)) return;
   let at = lines.findIndex(l => l.s === 1 && TARGET_HEAD.test(l.t)); if (at < 0) return;
   const head = lines[at].t; at++; while (at < lines.length && lines[at].s !== 1 && /^ /.test(lines[at].t)) at++;
   lines.splice(at, 0, ...actedOnBy(h, head).map(t => ({ t, s: 9 })));

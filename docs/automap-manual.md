@@ -332,8 +332,8 @@ cells only. The tooltip then has two parts:
   `BLOCKED: COUNTER AT 0`. A goal that comes late says so at the end:
   `DOOR L11 (49, 25) OPENS ON THIS PRESS, AFTER 6 TICKS`.
 
-Each kind of goal has its own verbs, and the cell that is acted on uses the same ones under its
-header: a door, pit or false wall `OPENS` and `CLOSES` (`OPENED BY`, `CLOSED BY`); a teleporter or
+Each kind of goal has its own verbs, and hovering the goal names every switch, pad and relay
+that acts on it with the same ones, under its header: a door, pit or false wall `OPENS` and `CLOSES` (`OPENED BY`, `CLOSED BY`); a teleporter or
 spinner `WAKES` and `STOPS` (`WOKEN BY`, `STOPPED BY`), so a `DORMANT TELEPORTER` is one that waits
 to be woken; a generator `TRIGGERS` and a launcher `FIRES` on every signal, set or clear
 (`TRIGGERED BY`, `FIRED BY`). Any of them can be `TOGGLED BY` or `HELD BY` a source as well.

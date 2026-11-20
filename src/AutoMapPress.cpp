@@ -2247,7 +2247,6 @@ std::vector<AutoMapTipLine> AutoMapScene_ActedOnBy(const AutoMapDrawList &drawLi
 {
   std::vector<AutoMapTipLine> lines;
   if (drawList.spoilers != AutoMapSpoilersAll) return lines;
-  if (AutoMapScene_LinksFrom(drawList, x, y).empty()) return lines;
   if (!AutoMapScene_RelayBlock(drawList, x, y, false).empty()) return lines;
   std::vector<AutoMapLink> incoming = AutoMapScene_LinksTo(drawList, x, y);
   static const char *const WORDS[][4] = {

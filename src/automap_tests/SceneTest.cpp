@@ -5760,7 +5760,7 @@ static void ActedOnByTakesTheVerbsOfTheKind(void)
 }
 
 // A pad on a pit that other pads and a lever act on: under PIT, one blue line per verb, the
-// sources of a kind named once. Not below All, not for a cell that only receives.
+// sources of a kind named once, as on the door the pad opens. Not below All.
 static void PadOnPitNamesWhatActsOnIt(void)
 {
   AutoMapLevelSnapshot snapshot = PadRoom(6);
@@ -5788,9 +5788,9 @@ static void PadOnPitNamesWhatActsOnIt(void)
                               "PAD\n") != std::string::npos);
   const AutoMapTipLine *by = TipLineAt(lines, "  TOGGLED BY: PADS L0 (2, 1), (3, 1)");
   CHECK(by != NULL && by->style == AutoMapTipFeeder);
-  // The door only receives: its lines from the pad say enough
-  CHECK(JoinedTip(AutoMapTooltip_Machinery(drawList, 5, 1, false, TestItemName)).find(" BY: ")
-        == std::string::npos);
+  // A cell that only receives names its sources too: the door the pad opens
+  std::string door = JoinedTip(AutoMapTooltip_Machinery(drawList, 5, 1, false, TestItemName));
+  CHECK(door.find("DOOR\n  CLOSED\n  OPENED BY: PAD L0 (1, 1)") != std::string::npos);
   drawList.spoilers = AutoMapSpoilersLearned;
   CHECK(JoinedTip(AutoMapTooltip_Machinery(drawList, 1, 1, false, TestItemName)).find(" BY: ")
         == std::string::npos);
