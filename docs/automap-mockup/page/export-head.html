@@ -11,13 +11,16 @@
   .bar{display:flex;flex-wrap:wrap;gap:14px;padding:8px 16px;align-items:center;border-bottom:1px solid var(--line)}
   #wrap{margin:10px 16px}
   canvas{display:block;image-rendering:pixelated;background:#0c0b09}
+  #c{touch-action:none}
   #c{cursor:grab} #c.drag{cursor:grabbing}
   #status{color:var(--muted);font-size:12px}
+  /* A phone has no mouse and no room: the mouse help goes, the map gets the screen */
+  @media (max-width:700px){.help{display:none} #wrap{margin:8px 16px} header{padding:8px 16px}}
 </style></head><body>
 <header>
   <h2>@TITLE@</h2>
-  <p class="sub">@SUBTITLE@<br>
-  <b>Mouse:</b> left-drag pans, the wheel zooms, middle-click centres on the party, Shift shows the whole press chain at spoilers ALL, Shift+wheel scrolls a long tooltip, Ctrl+wheel sizes it, the side buttons or Page Up/Down change level. <b>Keys:</b> / or Ctrl+F searches, Escape closes. Right-click a cell for your own marks; they are not kept when the page is closed.</p>
+  <p class="sub">@SUBTITLE@<span class="help"><br>
+  <b>Mouse:</b> left-drag pans, the wheel zooms, middle-click centres on the party, Shift shows the whole press chain at spoilers ALL, Shift+wheel scrolls a long tooltip, Ctrl+wheel sizes it, the side buttons or Page Up/Down change level. <b>Keys:</b> / or Ctrl+F searches, Escape closes. Right-click a cell for your own marks; they are not kept when the page is closed.</span></p>
 </header>
 <div class="bar"><span id="status">loading…</span></div>
 <div id="wrap"><canvas id="tb"></canvas><canvas id="c"></canvas></div>

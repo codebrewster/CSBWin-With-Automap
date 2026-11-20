@@ -14,13 +14,16 @@ static const char *const EXPORT_PAGE_HEAD = R"CSBPAGE(<!doctype html>
   .bar{display:flex;flex-wrap:wrap;gap:14px;padding:8px 16px;align-items:center;border-bottom:1px solid var(--line)}
   #wrap{margin:10px 16px}
   canvas{display:block;image-rendering:pixelated;background:#0c0b09}
+  #c{touch-action:none}
   #c{cursor:grab} #c.drag{cursor:grabbing}
   #status{color:var(--muted);font-size:12px}
+  /* A phone has no mouse and no room: the mouse help goes, the map gets the screen */
+  @media (max-width:700px){.help{display:none} #wrap{margin:8px 16px} header{padding:8px 16px}}
 </style></head><body>
 <header>
   <h2>@TITLE@</h2>
-  <p class="sub">@SUBTITLE@<br>
-  <b>Mouse:</b> left-drag pans, the wheel zooms, middle-click centres on the party, Shift shows the whole press chain at spoilers ALL, Shift+wheel scrolls a long tooltip, Ctrl+wheel sizes it, the side buttons or Page Up/Down change level. <b>Keys:</b> / or Ctrl+F searches, Escape closes. Right-click a cell for your own marks; they are not kept when the page is closed.</p>
+  <p class="sub">@SUBTITLE@<span class="help"><br>
+  <b>Mouse:</b> left-drag pans, the wheel zooms, middle-click centres on the party, Shift shows the whole press chain at spoilers ALL, Shift+wheel scrolls a long tooltip, Ctrl+wheel sizes it, the side buttons or Page Up/Down change level. <b>Keys:</b> / or Ctrl+F searches, Escape closes. Right-click a cell for your own marks; they are not kept when the page is closed.</span></p>
 </header>
 <div class="bar"><span id="status">loading…</span></div>
 <div id="wrap"><canvas id="tb"></canvas><canvas id="c"></canvas></div>
@@ -1097,7 +1100,7 @@ function writeLink() {
 // ============================================================================================
 // View
 // ============================================================================================
-function resize() { const top = document.getElementById('wrap').offsetTop; cv.width = Math.max(400, window.innerWidth - 34); cv.height = Math.max(300, window.innerHeight - top - 26 - 14); tbar.width = cv.width; tbar.height = 26; }
+function resize() { const top = document.getElementById('wrap').offsetTop; cv.width = Math.max(200, window.innerWidth - 34); cv.height = Math.max(300, window.innerHeight - top - 26 - 14); tbar.width = cv.width; tbar.height = 26; }
 // zoom in until about three cells span the shorter side of the map area
 // cells are always a whole number of pixels: fractional sizes leave gaps and push patterns past their frames
 function maxCs() { return Math.floor(Math.max(96, Math.min(cv.width - 2 * RUL, cv.height - 2 * RUL) / 3)); }
@@ -1140,6 +1143,36 @@ cv.addEventListener('mousedown', e => {
   if (e.ctrlKey) { const c = cellAt(mx, my); if (c) { const k = C(c.x, c.y); if (followStairs(c.x, c.y) || (k && k.k === 3) || stepByDepth(c.x, c.y, false)) { draw(); return; } } }
   drag = { x: mx, y: my, px: panX, py: panY, moved: false };
 });
+// Touch: one finger pans, two pinch to zoom about their midpoint, a tap is a click (and shows the
+// tile's tooltip). The canvas takes every touch (touch-action: none), so the page neither scrolls
+// nor zooms under the map.
+let touch = null;
+function touchPoints(e) { const r = cv.getBoundingClientRect(); return [...e.touches].map(t => ({ x: t.clientX - r.left, y: t.clientY - r.top })); }
+function mouseAt(type, x, y) { const r = cv.getBoundingClientRect(); cv.dispatchEvent(new MouseEvent(type, { clientX: r.left + x, clientY: r.top + y, button: 0, bubbles: true, cancelable: true })); }
+cv.addEventListener('touchstart', e => {
+  e.preventDefault(); const p = touchPoints(e); landingMark = null;
+  if (p.length === 1) { touch = { x: p[0].x, y: p[0].y, px: panX, py: panY, moved: false }; return; }
+  if (p.length === 2) { touch = { pinch: true, d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) || 1, cs, moved: true }; hover = null; }
+}, { passive: false });
+cv.addEventListener('touchmove', e => {
+  e.preventDefault(); if (!touch) return; const p = touchPoints(e);
+  if (touch.pinch && p.length >= 2) {
+    const d = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), mx = (p[0].x + p[1].x) / 2, my = (p[0].y + p[1].y) / 2;
+    const old = cs; cs = Math.min(maxCs(), Math.max(1, Math.round(touch.cs * d / touch.d)));
+    if (cs <= minCs()) { fitLevel(); draw(); return; }
+    const ax = mx - RUL, ay = my - RUL; zoomFree = true; follow = false; panX = Math.round(ax - (ax - panX) * cs / old); panY = Math.round(ay - (ay - panY) * cs / old); draw(); return;
+  }
+  if (p.length !== 1 || touch.pinch) return;
+  if (Math.abs(p[0].x - touch.x) + Math.abs(p[0].y - touch.y) > 8) { touch.moved = true; follow = false; hover = null; }
+  if (touch.moved) { panX = touch.px + p[0].x - touch.x; panY = touch.py + p[0].y - touch.y; draw(); }
+}, { passive: false });
+cv.addEventListener('touchend', e => {
+  e.preventDefault(); if (!touch) return;
+  // A tap: what a click does, then the tooltip of the tile under the finger
+  if (!touch.moved && e.touches.length === 0) { mouseAt('mousedown', touch.x, touch.y); mouseAt('mouseup', touch.x, touch.y); mouseAt('mousemove', touch.x, touch.y); }
+  if (e.touches.length === 0) touch = null;
+}, { passive: false });
+cv.addEventListener('touchcancel', () => { touch = null; });
 window.addEventListener('mouseup', e => {
   if (drag && !drag.moved && e.button === 0 && linkMode) { const c = cellAt(drag.x, drag.y); if (c && !(c.x === linkMode.x && c.y === linkMode.y)) { const N = noteOf(); const i = N.links.findIndex(l => l[0] === linkMode.x && l[1] === linkMode.y && l[2] === c.x && l[3] === c.y); if (i >= 0) N.links.splice(i, 1); else N.links.push([linkMode.x, linkMode.y, c.x, c.y, linkMode.side >= 0 ? 1 : 0, linkMode.side, 0, 0, 0, 0]); } }
   drag = null; cv.classList.remove('drag'); draw();

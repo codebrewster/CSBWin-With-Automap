@@ -542,7 +542,8 @@ Inside the page the reader switches vision and spoilers like on the bar, up to w
 allowed; the buttons beyond it are greyed out. Nothing beyond that is in the file, so a map
 exported at **SEEN** gives away no secrets, even to someone who reads the file itself. The page
 starts with the vision and spoilers the map window shows, on the party's level, following the
-party; when the party's level was left out, on the level the map window shows.
+party; when the party's level was left out, on the level the map window shows. On a phone or
+tablet one finger pans, two fingers zoom, and a tap shows a tile's tooltip.
 
 **EXPORT** writes the page and shows each level as it goes; the game waits meanwhile.
 **STOP** or **Escape** ends it without a file. A file that is there already is replaced only after a
