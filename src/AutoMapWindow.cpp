@@ -241,14 +241,16 @@ static float viewCenterX = 0;
 static AutoMapPendingCentre pendingCentre = AutoMapScene_NoPendingCentre();
 // The centre waiting for another level is a search hit's: it lands below the search panel too
 static bool pendingCentreIsSearchHit = false;
-// The stair a Ctrl+click or ASCEND / DESCEND came out on, in dungeon coordinates. It is framed
-// (the rest of the level dims) once its level is on screen and the map shows the cell as stairs;
-// a click, the wheel, another way of changing the level or leaving the level ends it.
-static bool stairMarkOn = false;
-static bool stairMarkArrived = false;
-static int stairMarkLevel = AUTOMAP_NO_LEVEL;
-static int stairMarkX = 0;
-static int stairMarkY = 0;
+// The tile a Ctrl+click, a side button or ASCEND / DESCEND came out on, in dungeon coordinates.
+// It is framed (the rest of the level dims) once its level is on screen and the map shows the
+// cell (as stairs, when it came from a stair: AutoMapScene_LandingMarkShows); a click, the wheel,
+// another way of changing the level or leaving the level ends it.
+static bool landingMarkOn = false;
+static bool landingMarkArrived = false;
+static int landingMarkLevel = AUTOMAP_NO_LEVEL;
+static int landingMarkX = 0;
+static int landingMarkY = 0;
+static bool landingMarkFromStairs = false;
 static void ShiftCentreBelowSearchPanel(void);
 static float viewCenterY = 0;
 static const int DRAG_START_DISTANCE = 4;
@@ -340,6 +342,8 @@ enum DebugMenuRowKind
   MenuRowBreakpoint,
   // Ascend or descend the stairs on the cell
   MenuRowFollowStairs,
+  // One depth up or down from a cell that is no stairs, to the same position
+  MenuRowStepUp, MenuRowStepDown,
   // A line between the note rows and the debug rows: never chosen
   MenuRowSeparator
 };
@@ -640,10 +644,10 @@ void AutoMapWindow_ShowDrawList(const AutoMapDrawList &drawList)
   sprites.UseColourSchemes(drawList.paletteScheme9, drawList.paletteScheme10);
   shownDrawList = drawList;
   // The stair mark ends when the level it belongs to has been shown and something else follows
-  if (stairMarkOn)
+  if (landingMarkOn)
   {
-    if (drawList.level == stairMarkLevel) stairMarkArrived = true;
-    else if (stairMarkArrived) stairMarkOn = false;
+    if (drawList.level == landingMarkLevel) landingMarkArrived = true;
+    else if (landingMarkArrived) landingMarkOn = false;
   }
   // The level asked for is here: only now does the view move to the spot asked for on it
   float x = 0, y = 0;
@@ -1181,7 +1185,7 @@ static void GoToLevelCenteredOn(int target, int cellX, int cellY)
   int current = shownDrawList.level;
   if (target < 0) target = 0;
   if (target >= levelCount) target = levelCount - 1;
-  stairMarkOn = false;
+  landingMarkOn = false;
   int globalX = 0, globalY = 0;
   AutoMapScene_GlobalPosition(shownDrawList, cellX, cellY, &globalX, &globalY);
   // The target's draw list counts its cells from the rock the reader adds around it, so its
@@ -1221,6 +1225,19 @@ static void StepLevelCenteredOn(int delta, int cellX, int cellY)
 
 // The shown cell at a pixel's cell when the map draws it as stairs whose target level is known
 static const AutoMapShownCell *StairsShownAt(int cellX, int cellY);
+static const AutoMapShownCell *ShownCellAt(const AutoMapDrawList &drawList, int x, int y);
+
+// Frames a dungeon position on a level once that level is on screen (GoToLevelCenteredOn, which
+// clears the frame, comes first)
+static void SetLandingMark(int level, int globalX, int globalY, bool fromStairs)
+{
+  landingMarkOn = true;
+  landingMarkArrived = false;
+  landingMarkLevel = level;
+  landingMarkX = globalX;
+  landingMarkY = globalY;
+  landingMarkFromStairs = fromStairs;
+}
 
 // Comes out of the stairs on a cell: the level they lead to, centred on the same dungeon
 // position (where the engine puts the party), with that position framed. Returns false when the
@@ -1233,11 +1250,23 @@ static bool FollowStairsAt(int cellX, int cellY)
   int globalX = 0, globalY = 0;
   AutoMapScene_GlobalPosition(shownDrawList, cellX, cellY, &globalX, &globalY);
   GoToLevelCenteredOn(target, cellX, cellY);
-  stairMarkOn = true;
-  stairMarkArrived = false;
-  stairMarkLevel = target;
-  stairMarkX = globalX;
-  stairMarkY = globalY;
+  SetLandingMark(target, globalX, globalY, true);
+  return true;
+}
+
+// Steps one depth up or down from a cell, to the map that covers the same dungeon position (where
+// a pit or the stairs would put the party), with that position framed. Returns false when no map
+// covers it.
+static bool StepByDepthAt(int cellX, int cellY, bool up)
+{
+  if (shownDrawList.level == AUTOMAP_NO_LEVEL) return false;
+  int globalX = 0, globalY = 0;
+  AutoMapScene_GlobalPosition(shownDrawList, cellX, cellY, &globalX, &globalY);
+  int target = AutoMapScene_StairsTarget(AutoMapLevelReader_LevelAreas(), shownDrawList.level, up,
+                                         globalX, globalY);
+  if (target == AUTOMAP_NO_LEVEL) return false;
+  GoToLevelCenteredOn(target, cellX, cellY);
+  SetLandingMark(target, globalX, globalY, false);
   return true;
 }
 
@@ -1271,9 +1300,9 @@ static bool HandleMapPointerEvent(const SDL_Event &event)
 {
   if (!IsPointerEventOfMapWindow(event)) return false;
   // Any press or turn of the wheel ends the frame on a stair; the gestures below may set it again
-  if ((event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEWHEEL) && stairMarkOn)
+  if ((event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEWHEEL) && landingMarkOn)
   {
-    stairMarkOn = false;
+    landingMarkOn = false;
     isDirty = true;
   }
   if (event.type == SDL_MOUSEMOTION)
@@ -1327,13 +1356,18 @@ static bool HandleMapPointerEvent(const SDL_Event &event)
       LinkModeClickAt(event.button.x, event.button.y);
       return true;
     }
-    // Ctrl+click on stairs comes out of them on the other level
+    // Ctrl+click on stairs comes out of them on the other level; on any other tile it goes one
+    // level down, where a pit would drop the party. Stairs the map does not know the target of
+    // take the click and go nowhere: an up stair must not open the level below.
     if ((SDL_GetModState() & KMOD_CTRL) != 0)
     {
       int cellX = -1, cellY = -1;
-      if (CellAtPixel(event.button.x, event.button.y, &cellX, &cellY) && FollowStairsAt(cellX, cellY))
+      if (CellAtPixel(event.button.x, event.button.y, &cellX, &cellY))
       {
-        return true;
+        if (FollowStairsAt(cellX, cellY)) return true;
+        const AutoMapShownCell *shown = ShownCellAt(shownDrawList, cellX, cellY);
+        if (shown != NULL && shown->cell.kind == AutoMapCellStairs) return true;
+        if (StepByDepthAt(cellX, cellY, false)) return true;
       }
     }
     // On the map itself the left button pans, as on a web map; a press that hardly moves is a click
@@ -1357,7 +1391,7 @@ static bool HandleMapPointerEvent(const SDL_Event &event)
   {
     // Side buttons step one level, centred on the hovered tile: back (X1) goes
     // down a level, forward (X2) goes up. At the top or bottom level the view
-    // still recentres on the tile.
+    // still recentres on the tile. Over a tile, the tile is framed on the level stepped to.
     UpdateHoverFromPixel(event.button.x, event.button.y);
     int cellX = -1, cellY = -1;
     if (hoverValid)
@@ -1372,7 +1406,12 @@ static bool HandleMapPointerEvent(const SDL_Event &event)
     if (cellX >= 0 && cellY >= 0 && shownDrawList.level != AUTOMAP_NO_LEVEL)
     {
       int delta = event.button.button == SDL_BUTTON_X1 ? 1 : -1;
+      int current = shownDrawList.level;
+      int globalX = 0, globalY = 0;
+      AutoMapScene_GlobalPosition(shownDrawList, cellX, cellY, &globalX, &globalY);
       StepLevelCenteredOn(delta, cellX, cellY);
+      int target = std::max(0, std::min(current + delta, AutoMap_LevelCount() - 1));
+      if (hoverValid && target != current) SetLandingMark(target, globalX, globalY, false);
     }
     return true;
   }
@@ -4857,15 +4896,15 @@ static void DrawSearchPanel(void)
   }
 }
 
-// The stair the last ASCEND / DESCEND came out on: the level dims around it and it gets a light
-// frame. Nothing is drawn when the map does not show the cell as stairs, so it gives nothing away.
-static void DrawStairMark(const AutoMapView &view)
+// The tile the last stair, level step or ASCEND / DESCEND came out on: the level dims around it and
+// it gets a light frame. Nothing is drawn when the map does not show the cell (as stairs, for a
+// stair), so it gives nothing away.
+static void DrawLandingMark(const AutoMapView &view)
 {
-  if (!stairMarkOn || collectingSpotlight || shownDrawList.level != stairMarkLevel) return;
-  int x = stairMarkX - shownDrawList.offsetX;
-  int y = stairMarkY - shownDrawList.offsetY;
-  const AutoMapShownCell *shown = ShownCellAt(shownDrawList, x, y);
-  if (shown == NULL || shown->cell.kind != AutoMapCellStairs) return;
+  if (!landingMarkOn || collectingSpotlight || shownDrawList.level != landingMarkLevel) return;
+  int x = landingMarkX - shownDrawList.offsetX;
+  int y = landingMarkY - shownDrawList.offsetY;
+  if (!AutoMapScene_LandingMarkShows(shownDrawList, x, y, landingMarkFromStairs)) return;
   std::vector<SDL_Rect> dim;
   for (size_t i = 0; i < shownDrawList.cells.size(); i++)
   {
@@ -5037,6 +5076,30 @@ static void DebugMenuOpenAt(int pixelX, int pixelY)
     DebugMenuRow follow = {MenuRowFollowStairs, 0, stairs->cell.stairsLeadUp ? "ASCEND" : "DESCEND", true};
     debugMenuRows.push_back(follow);
   }
+  // Any other shown tile: one depth up or down, where a map covers the same position
+  else if (shown != NULL && shown->cell.kind != AutoMapCellStairs)
+  {
+    int globalX = 0, globalY = 0;
+    AutoMapScene_GlobalPosition(shownDrawList, x, y, &globalX, &globalY);
+    std::vector<AutoMapLevelArea> areas = AutoMapLevelReader_LevelAreas();
+    bool canAscend = AutoMapScene_StairsTarget(areas, shownDrawList.level, true, globalX, globalY) != AUTOMAP_NO_LEVEL;
+    bool canDescend = AutoMapScene_StairsTarget(areas, shownDrawList.level, false, globalX, globalY) != AUTOMAP_NO_LEVEL;
+    if ((canAscend || canDescend) && !debugMenuRows.empty())
+    {
+      DebugMenuRow separator = {MenuRowSeparator, 0, "", false};
+      debugMenuRows.push_back(separator);
+    }
+    if (canAscend)
+    {
+      DebugMenuRow ascend = {MenuRowStepUp, 0, "ASCEND", true};
+      debugMenuRows.push_back(ascend);
+    }
+    if (canDescend)
+    {
+      DebugMenuRow descend = {MenuRowStepDown, 0, "DESCEND", true};
+      debugMenuRows.push_back(descend);
+    }
+  }
   // The rim rock outside the level is shown but takes no note: the .map file keeps none there
   if (shown != NULL && AutoMapScene_CellTakesNotes(shownDrawList, x, y))
   {
@@ -5193,6 +5256,11 @@ static void DebugMenuCarryOut(const DebugMenuRow &row)
   if (row.kind == MenuRowFollowStairs)
   {
     FollowStairsAt(debugMenuX, debugMenuY);
+    return;
+  }
+  if (row.kind == MenuRowStepUp || row.kind == MenuRowStepDown)
+  {
+    StepByDepthAt(debugMenuX, debugMenuY, row.kind == MenuRowStepUp);
     return;
   }
   if (row.kind == DebugRowMonster)
@@ -5806,7 +5874,7 @@ static void DrawDynamicLayer(const AutoMapView &view)
   collectingSpotlight = false;
   // A hovered trigger or target owns the spotlight; the search marks wait until it is gone
   if (spotlightCells.empty()) DrawSearchMarkers(view);
-  if (spotlightCells.empty()) DrawStairMark(view);
+  if (spotlightCells.empty()) DrawLandingMark(view);
   DrawSpotlight(view);
   DrawLinkArrows(view);
   DrawLinkModeHighlights(view);

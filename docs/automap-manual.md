@@ -87,8 +87,9 @@ click outside closes the list.
 | Left-drag | Pans the view; the map stops following the party |
 | Mouse wheel | Zooms towards the pointer, from the whole level down to about three cells across |
 | Middle-click | Centres the view on the party again and follows it |
-| Mouse side buttons | Back goes down a level, forward goes up, centred on the tile under the pointer |
+| Mouse side buttons | Back goes down a level, forward goes up, centred on the tile under the pointer, which gets a light frame while the rest of the level dims |
 | Ctrl+click on a stair | Comes out of the stair on the level it leads to: that level, centred on the stair you would arrive on, which gets a light frame while the rest of the level dims |
+| Ctrl+click on any other tile | Goes one level down, to the tile below it, framed the same way: where a pit there would drop you |
 | Page Down / Page Up | Goes down / up a level over the middle of the view |
 | Ctrl+Page Down / Ctrl+Page Up | The same from the game window, where the plain keys pick up items in the default `csb.cfg` |
 
@@ -102,6 +103,15 @@ would come out. The map switches to the level the stair leads to and centres on 
 frame and the dimming go away with the next click, turn of the wheel or change of level. The stair you
 land on leads back, so Ctrl+click it to return to where you came from. If the map does not
 show that stair yet, the view still jumps there, without a frame.
+
+### Looking up and down
+
+**Ctrl+click** any other tile, a pit for instance, to see what lies below it: the map goes one level
+down, to the level the party would fall to, and frames the same spot there. Right-click a tile and
+choose **ASCEND** or **DESCEND** to look one level up or down the same way; the entries are missing
+where no level lies above or below the tile. The side buttons frame the tile under the pointer too.
+A spot you have not explored on the other level is centred but not framed, so the frame gives
+nothing away.
 
 ## Vision and spoilers
 
