@@ -908,7 +908,9 @@ function buildIndex() {
         const inAlcove = {}; (c.alc || []).forEach(a => { if (!a[1][2]) return; const key = a[0] + '|' + a[1][2]; (inAlcove[key] = inAlcove[key] || { n: 0, it: a[1] }).n++; });
         for (const key in inAlcove) { const { n, it } = inAlcove[key]; add(c.x, c.y, it[2], counted(n, 'ALCOVE'), it[1] || it[0], 'item', it[3] === FOOD_KIND); }
       }
-      (c.locks || []).forEach(k => { if (k[1] && k[2][2]) add(c.x, c.y, k[2][2], 'NEEDS', k[2][1] || k[2][0], 'needs', k[2][3] === FOOD_KIND); });
+      // A face with several locks that want one item is one row, as its tooltip says it once
+      const lockSaid = new Set();
+      (c.locks || []).forEach(k => { const key = k[0] + '|' + k[2][2]; if (k[1] && k[2][2] && !lockSaid.has(key) && lockSaid.add(key)) add(c.x, c.y, k[2][2], 'NEEDS', k[2][1] || k[2][0], 'needs', k[2][3] === FOOD_KIND); });
       (c.sides || []).forEach((s, i) => { if (s && s[7] === 1) add(c.x, c.y, 'FOUNTAIN', 'NESW'[i], s[0], 'feature'); if (s && s[7] === 2) add(c.x, c.y, 'ALTAR OF VI', 'NESW'[i], s[0], 'feature'); });
       // As AutoMapScene_CellTexts: read scrolls and the wall texts, found by their words
       (c.txt || []).forEach(([wall, tag, words, it]) => add(c.x, c.y, words, tag, wall ? null : it[1] || it[0], wall ? 'wall' : 'scroll'));
