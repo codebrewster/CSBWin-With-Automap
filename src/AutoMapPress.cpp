@@ -1144,19 +1144,44 @@ static const char *PressGoalNoun(const AutoMapDrawList &drawList, const AutoMapE
   }
 }
 
+// Which verbs a goal takes, from what its cell is
+static AutoMapGoalVerbs PressGoalVerbs(const AutoMapDrawList &drawList, const AutoMapEffect &goal)
+{
+  const AutoMapShownCell *cell = FindShownCell(drawList, goal.x, goal.y);
+  if (cell == NULL || goal.target) return AutoMapVerbsSignal;
+  if (PressCellIsPit(cell->cell)) return AutoMapVerbsOpen;
+  switch (cell->cell.kind)
+  {
+  case AutoMapCellTeleporter:
+  case AutoMapCellInvisibleTeleporter:
+  case AutoMapCellDormantTeleporter:
+  case AutoMapCellSpinner:
+  case AutoMapCellDormantSpinner: return AutoMapVerbsWake;
+  case AutoMapCellWall: return AutoMapVerbsFire;
+  case AutoMapCellFloor: return AutoMapVerbsTrigger;
+  default: return AutoMapVerbsOpen;
+  }
+}
+
 // A bare target has nothing to open, so it takes the signal's own verb. A toggle on a pit
 // says which way the pit goes, since a closed one looks like floor and TOGGLES tells nothing.
 static const char *PressGoalVerb(const AutoMapDrawList &drawList, const AutoMapEffect &goal)
 {
+  AutoMapGoalVerbs verbs = PressGoalVerbs(drawList, goal);
+  if (verbs == AutoMapVerbsTrigger) return "TRIGGERS";
+  if (verbs == AutoMapVerbsFire) return "FIRES";
   AutoMapSignal signal = PressCarried(goal);
-  if (signal == AutoMapSignalClear) return goal.target ? "CLEARS" : "CLOSES";
+  if (signal == AutoMapSignalClear)
+  {
+    return verbs == AutoMapVerbsSignal ? "CLEARS" : verbs == AutoMapVerbsWake ? "STOPS" : "CLOSES";
+  }
   if (signal == AutoMapSignalToggle)
   {
     const AutoMapShownCell *cell = FindShownCell(drawList, goal.x, goal.y);
     if (cell == NULL || goal.target || !PressCellIsPit(cell->cell)) return "TOGGLES";
     return cell->cell.kind == AutoMapCellPit && cell->cell.pitIsOpen ? "CLOSES" : "OPENS";
   }
-  return goal.target ? "SETS" : "OPENS";
+  return verbs == AutoMapVerbsSignal ? "SETS" : verbs == AutoMapVerbsWake ? "WAKES" : "OPENS";
 }
 
 static std::string PressBitsOff(int bits)
@@ -1690,6 +1715,11 @@ static std::string HeldGoalText(const AutoMapDrawList &drawList, const AutoMapEf
   set.via.signal = AutoMapSignalSet;
   AutoMapEffect clear = goal;
   clear.via.signal = AutoMapSignalClear;
+  // A generator or launcher goes off both ways, so the sides would say the same
+  if (std::string(PressGoalVerb(drawList, set)) == PressGoalVerb(drawList, clear))
+  {
+    return RouteGoalText(drawList, set, closed);
+  }
   return std::string(PressGoalNoun(drawList, goal)) + " " + PressLocation(drawList, goal.x, goal.y)
          + " " + PressGoalVerb(drawList, set) + " " + HeldSideWords(relay, true) + ", "
          + PressGoalVerb(drawList, clear) + " "
@@ -2218,18 +2248,23 @@ static std::string FeederPlural(const std::string &name)
 }
 
 std::vector<AutoMapTipLine> AutoMapScene_ActedOnBy(const AutoMapDrawList &drawList, int x, int y,
-                                                   bool openable)
+                                                   AutoMapGoalVerbs verbs)
 {
   std::vector<AutoMapTipLine> lines;
   if (drawList.spoilers != AutoMapSpoilersAll) return lines;
   if (AutoMapScene_LinksFrom(drawList, x, y).empty()) return lines;
   if (!AutoMapScene_RelayBlock(drawList, x, y, false).empty()) return lines;
   std::vector<AutoMapLink> incoming = AutoMapScene_LinksTo(drawList, x, y);
-  static const char *const OPENABLE[] = {"OPENED BY: ", "CLOSED BY: ", "TOGGLED BY: ", "HELD BY: "};
-  static const char *const SIGNALLED[] = {"SET BY: ", "CLEARED BY: ", "TOGGLED BY: ", "HELD BY: "};
+  static const char *const WORDS[][4] = {
+      {"OPENED BY: ", "CLOSED BY: ", "TOGGLED BY: ", "HELD BY: "},
+      {"WOKEN BY: ", "STOPPED BY: ", "TOGGLED BY: ", "HELD BY: "},
+      {"TRIGGERED BY: "}, {"FIRED BY: "},
+      {"SET BY: ", "CLEARED BY: ", "TOGGLED BY: ", "HELD BY: "}};
   static const AutoMapSignal ORDER[] = {AutoMapSignalSet, AutoMapSignalClear, AutoMapSignalToggle,
                                         AutoMapSignalPressure};
-  for (int v = 0; v < 4; v++)
+  // A generator or launcher goes off on every message, so its sources share one line
+  bool anySignal = verbs == AutoMapVerbsTrigger || verbs == AutoMapVerbsFire;
+  for (int v = 0; v < (anySignal ? 1 : 4); v++)
   {
     // Kinds in the order they first appear, each with its places
     std::vector<std::string> names;
@@ -2237,7 +2272,7 @@ std::vector<AutoMapTipLine> AutoMapScene_ActedOnBy(const AutoMapDrawList &drawLi
     for (size_t i = 0; i < incoming.size(); i++)
     {
       const AutoMapLink &link = incoming[i];
-      if (link.signal != ORDER[v]) continue;
+      if (!anySignal && link.signal != ORDER[v]) continue;
       std::string name = PressFeederName(drawList, link);
       char where[32];
       std::snprintf(where, sizeof(where), "(%d, %d)", link.srcX + drawList.offsetX,
@@ -2255,7 +2290,7 @@ std::vector<AutoMapTipLine> AutoMapScene_ActedOnBy(const AutoMapDrawList &drawLi
       }
     }
     if (names.empty()) continue;
-    std::string text = openable ? OPENABLE[v] : SIGNALLED[v];
+    std::string text = WORDS[verbs][v];
     for (size_t n = 0; n < names.size(); n++)
     {
       char level[16];

@@ -1552,14 +1552,27 @@ std::string AutoMapScene_GoalBadge(const AutoMapGoalDistance &distance);
 std::vector<AutoMapTipLine> AutoMapScene_RelayBlock(const AutoMapDrawList &drawList, int x, int y,
                                                     bool full);
 
+// The verbs of a goal kind, used both ways (RESULT ... OPENS, OPENED BY): doors, pits and
+// false walls open and close; teleporters and spinners wake and stop (a dormant one is
+// asleep); generators trigger and launchers fire on any message, set or clear
+// (ProcessTT_STONEROOM, ProcessTT_ROOM). A bare target takes the signal's own words.
+enum AutoMapGoalVerbs
+{
+  AutoMapVerbsOpen,
+  AutoMapVerbsWake,
+  AutoMapVerbsTrigger,
+  AutoMapVerbsFire,
+  AutoMapVerbsSignal
+};
+
 // What acts on (x, y), for a cell that is a source as well (a pad on a pit): one line per
-// signal (AutoMapTipFeeder), OPENED BY / CLOSED BY / TOGGLED BY / HELD BY, or SET BY /
-// CLEARED BY for a target that does not open (openable false). The sources of one kind are
-// named once: TOGGLED BY: PADS L4 (21, 8), (20, 9). Unindented; the caller puts the lines
-// under the header of the part they act on. Empty below All, for a cell nothing leaves, for
-// a relay cell (its FED BY says it) and for a cell nothing reaches.
+// signal (AutoMapTipFeeder) in the verbs of its kind, OPENED BY / CLOSED BY / TOGGLED BY /
+// HELD BY, WOKEN BY / STOPPED BY / ..., or one TRIGGERED BY or FIRED BY for every signal.
+// The sources of one kind are named once: TOGGLED BY: PADS L4 (21, 8), (20, 9). Unindented;
+// the caller puts the lines under the header of the part they act on. Empty below All, for
+// a cell nothing leaves, for a relay cell (its FED BY says it) and for a cell nothing reaches.
 std::vector<AutoMapTipLine> AutoMapScene_ActedOnBy(const AutoMapDrawList &drawList, int x, int y,
-                                                   bool openable);
+                                                   AutoMapGoalVerbs verbs);
 
 // How a spinner reads on the map: an absolute spinner forces its exit facing
 // no matter how the victim entered, a relative one turns it (right / around /

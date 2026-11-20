@@ -305,8 +305,8 @@ targets, while the rest of the map dims. At **All** the head says what the signa
 
 | Head | Signal |
 |---|---|
-| filled triangle | sets: opens a door or pit, switches a teleporter on |
-| hollow triangle | clears: closes, switches off |
+| filled triangle | sets: opens a door or pit, wakes a teleporter |
+| hollow triangle | clears: closes, stops a teleporter |
 | rhomb | toggles: the other way each time |
 | crossbar halfway | holds: one way while pressed, back on release |
 | dashed line | works once only |
@@ -331,6 +331,12 @@ cells only. The tooltip then has two parts:
   `FALSE WALL L11 (47, 26) OPENS IN 2 MORE`, `1 BIT OFF` or
   `BLOCKED: COUNTER AT 0`. A goal that comes late says so at the end:
   `DOOR L11 (49, 25) OPENS ON THIS PRESS, AFTER 6 TICKS`.
+
+Each kind of goal has its own verbs, and the cell that is acted on uses the same ones under its
+header: a door, pit or false wall `OPENS` and `CLOSES` (`OPENED BY`, `CLOSED BY`); a teleporter or
+spinner `WAKES` and `STOPS` (`WOKEN BY`, `STOPPED BY`), so a `DORMANT TELEPORTER` is one that waits
+to be woken; a generator `TRIGGERS` and a launcher `FIRES` on every signal, set or clear
+(`TRIGGERED BY`, `FIRED BY`). Any of them can be `TOGGLED BY` or `HELD BY` a source as well.
 
 On the map each goal gets a frame with a badge on its top edge: `NOW`, `2 MORE`, `1 BIT OFF`,
 `NEEDS OTHERS`, `BLOCKED`, `HOLD`, `DSA` or `DONE`. Goals that happen now, soon or already are gold; those that wait

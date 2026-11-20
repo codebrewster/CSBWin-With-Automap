@@ -3215,7 +3215,7 @@ static void MachineryGroupsTeleporterAndPad(void)
            "PAD\n"
            "  TRIGGER: \x01\x01 PARTY\n"
            "  RESULT:\n"
-           "    GENERATOR L0 (2, 1) OPENS ON THIS PRESS");
+           "    GENERATOR L0 (2, 1) TRIGGERS ON THIS PRESS");
   if (lines.size() != 8) return;
   CHECK(lines[0].style == AutoMapTipHeader);
   CHECK(lines[4].style == AutoMapTipHeader);
@@ -3256,8 +3256,8 @@ static void SameTriggerPadsShareOnePadGroup(void)
            "PAD\n"
            "  TRIGGER: \x01\x01 PARTY\n"
            "  RESULT:\n"
-           "    GENERATOR L0 (2, 1) OPENS ON THIS PRESS\n"
-           "    GENERATOR L0 (3, 1) OPENS ON THIS PRESS");
+           "    GENERATOR L0 (2, 1) TRIGGERS ON THIS PRESS\n"
+           "    GENERATOR L0 (3, 1) TRIGGERS ON THIS PRESS");
 }
 
 static void DormantTeleporterKeepsItsWouldLines(void)
@@ -5713,6 +5713,52 @@ static void ResultNamesItsDelay(void)
   CHECK(!AutoMapScene_PressHasSteps(sources[0]));
 }
 
+// What acts on a teleporter or a generator is told in their own verbs: a teleporter is woken
+// and stopped, a generator triggered by every signal, its sources on one line
+static void ActedOnByTakesTheVerbsOfTheKind(void)
+{
+  for (int generator = 0; generator < 2; generator++)
+  {
+    AutoMapLevelSnapshot snapshot = PadRoom(6);
+    snapshot.cells[1 * 6 + 5].doorState = AutoMapDoorClosed;
+    if (generator)
+    {
+      AutoMapFloorActuator makes(1, 1, AutoMapActuatorGenerator);
+      makes.hasGeneratedMonster = true;
+      makes.generatedMonsterName = "Mummy";
+      makes.record = 120;
+      snapshot.actuators.push_back(makes);
+    }
+    else snapshot.cells[1 * 6 + 1].kind = AutoMapCellTeleporter;
+    for (int x = 2; x <= 3; x++)
+    {
+      snapshot.cells[1 * 6 + x].kind = AutoMapCellFloor;
+      AutoMapFloorActuator pad = PadWithOp(x, 1, AutoMapPadParty);
+      pad.record = (AutoMapRecordId)(299 + x);
+      snapshot.actuators.push_back(pad);
+      AutoMapLink clear = Message(x, 1, 1, 1, pad.record, AutoMapSignalClear, 0, 0);
+      clear.srcIsWall = false;
+      clear.srcSide = -1;
+      snapshot.links.push_back(clear);
+    }
+    snapshot.links.push_back(Message(0, 1, 1, 1, LEVER_RECORD, AutoMapSignalSet, 0, 0));
+    snapshot.links.push_back(PadMessage(5, 1, AutoMapSignalSet, 0));
+    AutoMapDrawList drawList = DrawAll(snapshot);
+    std::string tip = JoinedTip(AutoMapTooltip_Machinery(drawList, 1, 1, false, TestItemName));
+    if (generator)
+    {
+      CHECK(tip.find("  TRIGGERED BY: PADS L0 (2, 1), (3, 1), SWITCH (E) L0 (0, 1)")
+            != std::string::npos);
+    }
+    else
+    {
+      CHECK(tip.find("  WOKEN BY: SWITCH (E) L0 (0, 1)\n"
+                     "  STOPPED BY: PADS L0 (2, 1), (3, 1)\n") != std::string::npos);
+    }
+    CHECK(tip.find("SET BY") == std::string::npos && tip.find("CLEARED BY") == std::string::npos);
+  }
+}
+
 // A pad on a pit that other pads and a lever act on: under PIT, one blue line per verb, the
 // sources of a kind named once. Not below All, not for a cell that only receives.
 static void PadOnPitNamesWhatActsOnIt(void)
@@ -5921,23 +5967,31 @@ static void PressLinesWordTheGoalDistance(void)
         == "  DOOR L0 (5, 1) ALREADY OPEN");
   CHECK(ResultLine(room, 5, 1, AutoMapSignalClear, AutoMapGoalAlreadyDone, -1, 0, NULL)
         == "  DOOR L0 (5, 1) ALREADY CLOSED");
-  // The noun follows the cell
-  AutoMapCellKind kinds[] = {AutoMapCellFalseWall, AutoMapCellPit, AutoMapCellTeleporter};
-  const char *nouns[] = {"FALSE WALL", "PIT", "TELEPORTER"};
-  for (int i = 0; i < 3; i++)
+  // The noun follows the cell, and so do the verbs: teleporters and spinners wake and stop
+  AutoMapCellKind kinds[] = {AutoMapCellFalseWall, AutoMapCellPit, AutoMapCellTeleporter,
+                             AutoMapCellDormantSpinner};
+  const char *nouns[] = {"FALSE WALL", "PIT", "TELEPORTER", "SPINNER"};
+  const char *sets[] = {"OPENS", "OPENS", "WAKES", "WAKES"};
+  const char *clears[] = {"CLOSES", "CLOSES", "STOPS", "STOPS"};
+  for (int i = 0; i < 4; i++)
   {
     AutoMapLevelSnapshot other = MachineRoom();
     other.cells[1 * 6 + 5].kind = kinds[i];
     CHECK(ResultLine(other, 5, 1, set, AutoMapGoalOnThisPress, -1, 0, NULL)
-          == std::string("  ") + nouns[i] + " L0 (5, 1) OPENS ON THIS PRESS");
+          == std::string("  ") + nouns[i] + " L0 (5, 1) " + sets[i] + " ON THIS PRESS");
+    CHECK(ResultLine(other, 5, 1, AutoMapSignalClear, AutoMapGoalOnThisPress, -1, 0, NULL)
+          == std::string("  ") + nouns[i] + " L0 (5, 1) " + clears[i] + " ON THIS PRESS");
   }
   AutoMapLevelSnapshot launcher = MachineRoom();
   AutoMapLauncher fires;
   fires.actuatorType = 8;
   fires.side = AutoMapSouth;
   launcher.cells[0 * 6 + 3].wallLaunchers.push_back(fires);
+  // A launcher fires on any message (ProcessTT_STONEROOM)
   CHECK(ResultLine(launcher, 3, 0, set, AutoMapGoalOnThisPress, -1, 0, NULL)
-        == "  LAUNCHER L0 (3, 0) OPENS ON THIS PRESS");
+        == "  LAUNCHER L0 (3, 0) FIRES ON THIS PRESS");
+  CHECK(ResultLine(launcher, 3, 0, AutoMapSignalClear, AutoMapGoalOnThisPress, -1, 0, NULL)
+        == "  LAUNCHER L0 (3, 0) FIRES ON THIS PRESS");
 }
 
 // The route of one hand-built effect over a relay in the cell (2, 0), below ROUTE:
@@ -7298,6 +7352,7 @@ void TestAutoMapScene(void)
   ResultNamesItsDelay();
   ShiftHintOnlyWithStepsBetween();
   PadOnPitNamesWhatActsOnIt();
+  ActedOnByTakesTheVerbsOfTheKind();
   ShiftOnACappedDirectListShowsEveryResult();
   PressLinesWordTheGoalDistance();
   RouteGateNeedsBothConditions();

@@ -606,7 +606,12 @@ function tooltipLines() {
 // What acts on the hovered cell, under the header of the part it acts on (PIT, DOOR, ...): one
 // line per verb, the sources of a kind named once ("PADS L4 (21, 8), (20, 9)"). Relays have their FED BY.
 const TARGET_HEAD = /^(PIT|HIDDEN PIT|DOOR|FALSE WALL|TELEPORTER|SPINNER|GENERATOR|LAUNCHER)/;
-const OPENABLE = /^(PIT|HIDDEN PIT|DOOR|FALSE WALL)/;
+// The verbs of each kind, as the game's AutoMapScene_ActedOnBy: generators and launchers go
+// off on every message, so their sources share one line
+const VERBS = [[/^(PIT|HIDDEN PIT|DOOR|FALSE WALL)/, ['OPENED', 'CLOSED', 'TOGGLED', 'HELD']],
+  [/^(TELEPORTER|DORMANT TELEPORTER|SPINNER|DORMANT SPINNER)/, ['WOKEN', 'STOPPED', 'TOGGLED', 'HELD']],
+  [/^(GENERATOR|SPENT GENERATOR)/, ['TRIGGERED', 'TRIGGERED', 'TRIGGERED', 'TRIGGERED']],
+  [/^LAUNCHER/, ['FIRED', 'FIRED', 'FIRED', 'FIRED']]];
 function feederName(l) {
   if (l[4]) return 'SWITCH (' + 'NESW'[l[5] & 3] + ')';
   const t = (V.hover[l[0] + ',' + l[1]] || {}).tip || [];
@@ -614,13 +619,13 @@ function feederName(l) {
   return relay ? relay.t : 'PAD';
 }
 function actedOnBy(h, head) {
-  const verbs = OPENABLE.test(head) ? ['OPENED', 'CLOSED', 'TOGGLED', 'HELD'] : ['SET', 'CLEARED', 'TOGGLED', 'HELD'];
+  const verbs = (VERBS.find(v => v[0].test(head)) || [0, ['SET', 'CLEARED', 'TOGGLED', 'HELD']])[1];
   const by = {}; // verb -> name -> [loc]
   for (const l of dedupe(h.to || [])) {
-    const v = verbs[l[6]] || 'SET', n = feederName(l), loc = `(${l[0] + OX}, ${l[1] + OY})`;
+    const v = verbs[l[6]] || verbs[0], n = feederName(l), loc = `(${l[0] + OX}, ${l[1] + OY})`;
     const m = by[v] || (by[v] = {}); const a = m[n] || (m[n] = []); if (!a.includes(loc)) a.push(loc);
   }
-  return verbs.filter(v => by[v]).map(v => '  ' + v + ' BY: ' + Object.entries(by[v]).map(([n, a]) =>
+  return [...new Set(verbs)].filter(v => by[v]).map(v => '  ' + v + ' BY: ' + Object.entries(by[v]).map(([n, a]) =>
     (a.length > 1 ? n.replace(/^(PAD|SWITCH|GATE|COUNTER)/, '$1' + (n.startsWith('SWITCH') ? 'ES' : 'S')) : n) + ` L${lvl} ` + a.join(', ')).join(', '));
 }
 function insertActedOnBy(lines, h) {

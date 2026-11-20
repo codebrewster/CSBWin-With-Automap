@@ -104,25 +104,22 @@ static void AddPitGroup(const AutoMapDrawList &drawList, const AutoMapShownCell 
   AddGroup(out, hidden ? "HIDDEN PIT" : "PIT", AutoMapTipHeader, children);
 }
 
-// The headers of a part something acts on, and whether it opens (OPENED BY) or is set (SET BY)
-static bool TargetHeader(const std::string &text, bool *openable)
+// The headers of a part something acts on, and the verbs of its kind
+static bool TargetHeader(const std::string &text, AutoMapGoalVerbs *verbs)
 {
-  static const char *const OPENS[] = {"PIT", "HIDDEN PIT", "DOOR", "FALSE WALL"};
-  static const char *const SET[] = {"TELEPORTER", "DORMANT TELEPORTER", "SPINNER",
-                                    "DORMANT SPINNER", "LAUNCHER", "GENERATOR",
-                                    "SPENT GENERATOR"};
-  for (int pass = 0; pass < 2; pass++)
+  static const struct { const char *name; AutoMapGoalVerbs verbs; } HEADS[] = {
+      {"PIT", AutoMapVerbsOpen}, {"HIDDEN PIT", AutoMapVerbsOpen}, {"DOOR", AutoMapVerbsOpen},
+      {"FALSE WALL", AutoMapVerbsOpen}, {"TELEPORTER", AutoMapVerbsWake},
+      {"DORMANT TELEPORTER", AutoMapVerbsWake}, {"SPINNER", AutoMapVerbsWake},
+      {"DORMANT SPINNER", AutoMapVerbsWake}, {"LAUNCHER", AutoMapVerbsFire},
+      {"GENERATOR", AutoMapVerbsTrigger}, {"SPENT GENERATOR", AutoMapVerbsTrigger}};
+  for (size_t i = 0; i < sizeof(HEADS) / sizeof(HEADS[0]); i++)
   {
-    const char *const *names = pass == 0 ? OPENS : SET;
-    int count = pass == 0 ? 4 : 7;
-    for (int i = 0; i < count; i++)
+    std::string name = HEADS[i].name;
+    if (text == name || text.compare(0, name.size() + 2, name + " (") == 0)
     {
-      std::string name = names[i];
-      if (text == name || text.compare(0, name.size() + 2, name + " (") == 0)
-      {
-        *openable = pass == 0;
-        return true;
-      }
+      *verbs = HEADS[i].verbs;
+      return true;
     }
   }
   return false;
@@ -134,9 +131,9 @@ static void AddActedOnBy(const AutoMapDrawList &drawList, int x, int y,
 {
   for (size_t h = 0; h < out->size(); h++)
   {
-    bool openable = false;
-    if (!TargetHeader((*out)[h].text, &openable)) continue;
-    std::vector<AutoMapTipLine> lines = AutoMapScene_ActedOnBy(drawList, x, y, openable);
+    AutoMapGoalVerbs verbs = AutoMapVerbsOpen;
+    if (!TargetHeader((*out)[h].text, &verbs)) continue;
+    std::vector<AutoMapTipLine> lines = AutoMapScene_ActedOnBy(drawList, x, y, verbs);
     size_t at = h + 1;
     while (at < out->size() && !(*out)[at].text.empty() && (*out)[at].text[0] == ' ') at++;
     for (size_t i = 0; i < lines.size(); i++) out->insert(out->begin() + at + i, Indented(lines[i], 2));
