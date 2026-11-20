@@ -1192,6 +1192,10 @@ static void AFalseWallIsNotHighlighted(void)
       AutoMapScene_BuildDrawList(corridor, NoFogWithExploredHighlighted(explored, visibleNow));
   CHECK(!FindCell(drawList, 1, 1)->isHighlighted);
   CHECK(FindCell(drawList, 2, 1)->isHighlighted);
+  // A walk-through one the party walked is floor to it
+  corridor.cells[1 * 4 + 1].falseWallIsPassable = true;
+  drawList = AutoMapScene_BuildDrawList(corridor, NoFogWithExploredHighlighted(explored, visibleNow));
+  CHECK(FindCell(drawList, 1, 1)->isHighlighted);
 }
 
 static void HiddenCellKindsSurviveTheDrawList(void)

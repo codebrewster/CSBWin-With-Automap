@@ -351,8 +351,10 @@ static bool IsHighlighted(const AutoMapCell &position, const AutoMapCellRecord &
                           const AutoMapFog &fog)
 {
   if (fog.isOn || !fog.highlightsExplored) return false;
-  // The highlight marks walked floor: wall-like cells stay dark, whatever their kind
-  if (record.kind == AutoMapCellWall || record.kind == AutoMapCellFalseWall) return false;
+  // The highlight marks walked floor: wall-like cells stay dark, whatever their kind. A
+  // walk-through false wall is floor to the party: it walks it like any other.
+  if (record.kind == AutoMapCellWall) return false;
+  if (record.kind == AutoMapCellFalseWall && !record.falseWallIsPassable) return false;
   return fog.explored->IsExplored(position);
 }
 
