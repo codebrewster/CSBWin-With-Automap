@@ -478,6 +478,7 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   .dot { width:8px; height:8px; border-radius:50%; display:inline-block; flex:none } .left .dot, th.left .dot { opacity:.45 }
   .ch { background:var(--panel); color:var(--dim); border:0; border-radius:3px; padding:3px 8px }
   .ch:hover { background:var(--hover) } .ch.on { background:var(--on); color:#fff } .ch:disabled { opacity:.35; cursor:default }
+  .ch.off:not(.on) { color:var(--faint) }  /* a number the game ignores (Resistance in old replays) */
   .lab { color:var(--faint); margin:0 6px 0 8px }
   select { background:var(--panel); color:var(--text); border:1px solid #4a4d57; font:inherit; border-radius:3px }
   .tabs { display:flex; gap:2px; padding:6px 10px 0; border-bottom:1px solid var(--line); flex-wrap:wrap }
@@ -1164,7 +1165,7 @@ function perLevel() {
   if (side) {
     const n = grid.includes(st.grid[t]) ? st.grid[t] : grid[0];
     html += '<div class="choices"><span class="lab">Number</span><div class="seg">' + grid.map(g =>
-      `<button class="ch${g === n ? ' on' : ''}" onclick="st.grid[${t}]=${g};draw()">${esc(NUM[g].label)}</button>`).join('') + '</div></div>';
+      `<button class="ch${g === n ? ' on' : ''}${NUM[g].off ? ' off' : ''}"${NUM[g].off ? tipOf(esc(NUM[g].help)) : ''} onclick="st.grid[${t}]=${g};draw()">${esc(NUM[g].label)}</button>`).join('') + '</div></div>';
     // One champion is all of the party: no Total beside the champion, no share
     const share = !NUM[n].rec && shared();
     cols = [nameCol('Level')].concat(H.map((h, i) => heroCol(i)), shared() ? [numCol('Total')] : [], share ? [numCol('Share')] : []);

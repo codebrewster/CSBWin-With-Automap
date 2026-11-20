@@ -306,8 +306,9 @@ static float ButtonWidth(const char *label)
   return ImGui::CalcTextSize(label).x + ImGui::GetStyle().FramePadding.x * 2;
 }
 
-// A button of a group where one is picked (the level picker, Show, Number)
-static bool ChoiceButton(const char *label, bool isOn)
+// A button of a group where one is picked (the level picker, Show, Number). faint: a number the
+// game ignores (Resistance in old replays), greyed while it is not picked
+static bool ChoiceButton(const char *label, bool isOn, bool faint = false)
 {
   if (isOn)
   {
@@ -319,11 +320,17 @@ static bool ChoiceButton(const char *label, bool isOn)
   {
     ImGui::PushStyleColor(ImGuiCol_Button, Colour(PANEL_RGB));
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Colour(PANEL_HOVERED_RGB));
-    ImGui::PushStyleColor(ImGuiCol_Text, Colour(DIM_RGB));
+    ImGui::PushStyleColor(ImGuiCol_Text, Colour(faint ? FAINT_RGB : DIM_RGB));
   }
   bool clicked = ImGui::Button(label);
   ImGui::PopStyleColor(3);
   return clicked;
+}
+
+// Greyed: Resistance in a replay of a version that ignored it (always 0)
+static bool IgnoredNumber(HeroStatsNumber number)
+{
+  return number == HeroNumReducedResistance && HeroStats_ResistanceIgnored();
 }
 
 static void ChampionDot(ImVec2 centre, size_t column, bool dimmed)
@@ -1448,8 +1455,7 @@ static void DrawNumbers(const HeroStatsTopicPage &page, const HeroStatsDrawState
       GroupHeadingRow(page.groups[row.group].title, groupShown < 0);
     groupShown = row.group;
     const HeroStatsNumberInfo &info = HeroStatsCatalogue_Info(row.number);
-    // Greyed: Resistance in a replay of a version that ignored it (always 0)
-    bool off = row.number == HeroNumReducedResistance && HeroStats_ResistanceIgnored();
+    bool off = IgnoredNumber(row.number);
     ImU32 rgb = off ? FAINT_RGB : row.depth > 0 ? PART_RGB : TEXT_RGB;
     NextGuidedRow();
     // Beside Monsters killed, the champions' kills are a part of it
@@ -2798,7 +2804,9 @@ static bool DrawPerLevelChoices(HeroStatsDrawState *state, size_t champions)
         }
       }
       ImGui::PushID((int)n + 1000);
-      if (ChoiceButton(label, state->gridNumber[state->topic] == numbers[n])) state->gridNumber[state->topic] = numbers[n];
+      bool ignored = IgnoredNumber(numbers[n]);
+      if (ChoiceButton(label, state->gridNumber[state->topic] == numbers[n], ignored)) state->gridNumber[state->topic] = numbers[n];
+      if (ignored) HelpTooltip(HeroStatsCatalogue_Info(numbers[n]).help);  // why it is grey
       ImGui::PopID();
     }
   }
