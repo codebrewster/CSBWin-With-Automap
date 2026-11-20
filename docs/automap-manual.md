@@ -178,6 +178,9 @@ open false wall is floor with a dashed edge. A gold badge in the upper right say
 operates it. The tooltip says `SOLID`, `WALK-THROUGH` or `OPEN` under `FALSE WALL`, and `SWITCHED`
 when something operates it.
 
+**Doors** say under `DOOR` whether they are `OPEN`, `CLOSED`, `PARTLY OPEN` or `BROKEN`, as the
+party last saw them, then `SEALED` (at **All**) or the force and the tool that breaks them.
+
 **Stairs** carry a plate with an arrow and the level they lead to. A **teleporter** is a cyan
 checkerboard; one to another level shows that level's number. A pile of more than three items shows
 its count in the upper right.

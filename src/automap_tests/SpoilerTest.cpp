@@ -575,7 +575,6 @@ static void BreakableDoorLooksLikeAPlainDoor(void)
   CHECK(!door.doorBreakableWithAxe);
   CHECK(!door.doorBreakableWithFireball);
   CHECK(!HasLine(Texts(AutoMapScene_RelayLines(drawList, 2, 1)), "  SEALED"));
-  CHECK(!HasLine(Texts(AutoMapScene_RelayLines(drawList, 2, 1)), "DOOR"));
   CHECK(!HasLineStartingWith(Texts(AutoMapScene_RelayLines(drawList, 2, 1)), "  BREAK FORCE"));
 }
 

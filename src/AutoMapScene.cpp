@@ -2001,6 +2001,14 @@ std::vector<AutoMapTipLine> AutoMapScene_RelayLines(const AutoMapDrawList &drawL
   if (shown->cell.kind == AutoMapCellDoor)
   {
     std::vector<std::string> door;
+    // Where it stands now, as the map draws it, then what keeps it shut or breaks it
+    switch (shown->cell.doorState)
+    {
+    case AutoMapDoorOpen: door.push_back("OPEN"); break;
+    case AutoMapDoorClosed: door.push_back("CLOSED"); break;
+    case AutoMapDoorDestroyed: door.push_back("BROKEN"); break;
+    default: door.push_back("PARTLY OPEN"); break;
+    }
     bool linked = !AutoMapScene_LinksTo(drawList, x, y).empty();
     if (drawList.spoilers == AutoMapSpoilersAll && AutoMapScene_DoorIsSealed(shown->cell, linked))
     {
@@ -2017,8 +2025,8 @@ std::vector<AutoMapTipLine> AutoMapScene_RelayLines(const AutoMapDrawList &drawL
       std::snprintf(line, sizeof(line), "BREAK FORCE: %d (%s)", record.doorBreakForce, tools);
       door.push_back(line);
     }
-    // A door with nothing to say gets no header: the map draws it already
-    if (!door.empty()) AddRelayGroup(&lines, "DOOR", door);
+    // Every door gets its header, so OPENED BY has a group to go under
+    AddRelayGroup(&lines, "DOOR", door);
   }
   // What this stone cell throws when messaged: one group per launcher, headed by the
   // firing side (launchers answer only messages naming their side). A spell or missile

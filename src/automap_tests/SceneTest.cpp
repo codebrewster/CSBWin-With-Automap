@@ -2827,26 +2827,27 @@ static void RelayLinesNameSealedDoors(void)
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
   std::vector<std::string> sealed = Texts(AutoMapScene_RelayLines(drawList, 2, 1));
-  CHECK(sealed.size() == 2);
-  CHECK(sealed.size() == 2 && sealed[0] == "DOOR" && sealed[1] == "  SEALED");
+  CHECK(sealed.size() == 3);
+  CHECK(sealed.size() == 3 && sealed[0] == "DOOR" && sealed[1] == "  CLOSED"
+        && sealed[2] == "  SEALED");
   // An own switch, an incoming link or a bashable door each counts as openable.
   AutoMapLevelSnapshot withSwitch = snapshot;
   withSwitch.cells[1 * 4 + 2].doorHasSwitch = true;
   AutoMapDrawList switchDrawList =
       AutoMapScene_BuildDrawList(withSwitch, NoFog(explored, visibleNow));
-  CHECK(Texts(AutoMapScene_RelayLines(switchDrawList, 2, 1)).empty());
+  CHECK(Texts(AutoMapScene_RelayLines(switchDrawList, 2, 1)).size() == 2);
   AutoMapLevelSnapshot withLink = snapshot;
   AutoMapLink open = {1, 0, 2, 1, true, AutoMapSouth};
   withLink.links.push_back(open);
   AutoMapDrawList linkDrawList =
       AutoMapScene_BuildDrawList(withLink, NoFog(explored, visibleNow));
   std::vector<std::string> target = Texts(AutoMapScene_RelayLines(linkDrawList, 2, 1));
-  CHECK(target.empty());
+  CHECK(target.size() == 2 && target[0] == "DOOR" && target[1] == "  CLOSED");
   AutoMapLevelSnapshot bashable = snapshot;
   bashable.cells[1 * 4 + 2].doorBreakableWithAxe = true;
   AutoMapDrawList bashDrawList =
       AutoMapScene_BuildDrawList(bashable, NoFog(explored, visibleNow));
-  CHECK(Texts(AutoMapScene_RelayLines(bashDrawList, 2, 1)).empty());
+  CHECK(Texts(AutoMapScene_RelayLines(bashDrawList, 2, 1)).size() == 2);
 }
 
 static void RelayLinesNameTheForceThatBreaksADoor(void)
@@ -2860,23 +2861,33 @@ static void RelayLinesNameTheForceThatBreaksADoor(void)
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList axeDrawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
   std::vector<std::string> axe = Texts(AutoMapScene_RelayLines(axeDrawList, 2, 1));
-  CHECK(axe.size() == 2);
-  CHECK(axe.size() == 2 && axe[0] == "DOOR" && axe[1] == "  BREAK FORCE: 60 (AXE)");
+  CHECK(axe.size() == 3);
+  CHECK(axe.size() == 3 && axe[0] == "DOOR" && axe[1] == "  CLOSED"
+        && axe[2] == "  BREAK FORCE: 60 (AXE)");
   AutoMapLevelSnapshot both = snapshot;
   both.cells[1 * 4 + 2].doorBreakableWithFireball = true;
   AutoMapDrawList bothDrawList = AutoMapScene_BuildDrawList(both, NoFog(explored, visibleNow));
-  CHECK(Texts(AutoMapScene_RelayLines(bothDrawList, 2, 1))[1] == "  BREAK FORCE: 60 (AXE, FIREBALL)");
+  CHECK(Texts(AutoMapScene_RelayLines(bothDrawList, 2, 1))[2] == "  BREAK FORCE: 60 (AXE, FIREBALL)");
   AutoMapLevelSnapshot fire = snapshot;
   fire.cells[1 * 4 + 2].doorBreakableWithAxe = false;
   fire.cells[1 * 4 + 2].doorBreakableWithFireball = true;
   AutoMapDrawList fireDrawList = AutoMapScene_BuildDrawList(fire, NoFog(explored, visibleNow));
-  CHECK(Texts(AutoMapScene_RelayLines(fireDrawList, 2, 1))[1] == "  BREAK FORCE: 60 (FIREBALL)");
+  CHECK(Texts(AutoMapScene_RelayLines(fireDrawList, 2, 1))[2] == "  BREAK FORCE: 60 (FIREBALL)");
   // A destroyed door has nothing left to break.
   AutoMapLevelSnapshot destroyed = snapshot;
   destroyed.cells[1 * 4 + 2].doorState = AutoMapDoorDestroyed;
   AutoMapDrawList destroyedDrawList =
       AutoMapScene_BuildDrawList(destroyed, NoFog(explored, visibleNow));
-  CHECK(Texts(AutoMapScene_RelayLines(destroyedDrawList, 2, 1)).empty());
+  std::vector<std::string> broken = Texts(AutoMapScene_RelayLines(destroyedDrawList, 2, 1));
+  CHECK(broken.size() == 2 && broken[0] == "DOOR" && broken[1] == "  BROKEN");
+  // An open door and one half way say so
+  AutoMapLevelSnapshot open = snapshot;
+  open.cells[1 * 4 + 2].doorState = AutoMapDoorOpen;
+  CHECK(Texts(AutoMapScene_RelayLines(AutoMapScene_BuildDrawList(open, NoFog(explored, visibleNow)),
+                                      2, 1))[1] == "  OPEN");
+  open.cells[1 * 4 + 2].doorState = AutoMapDoorHalfOpen;
+  CHECK(Texts(AutoMapScene_RelayLines(AutoMapScene_BuildDrawList(open, NoFog(explored, visibleNow)),
+                                      2, 1))[1] == "  PARTLY OPEN");
 }
 
 static void TeleporterLinesDescribeScopeDestinationAndTurn(void)
@@ -3381,7 +3392,7 @@ static void MachineryHeadsPitsDoorsAndGenerators(void)
   const AutoMapTipLine *dormant = TipLineAt(pit, "DORMANT PAD");
   CHECK(dormant != NULL && dormant->style == AutoMapTipDormantHeader);
   CHECK(JoinedTip(AutoMapTooltip_Machinery(drawList, 2, 1, false, TestItemName))
-        == "DOOR\n  BREAK FORCE: 60 (AXE)");
+        == "DOOR\n  CLOSED\n  BREAK FORCE: 60 (AXE)");
   // A once-only pad that fired is type 0 now: spent, not a pad the dungeon left inert
   AutoMapFloorActuator spent(1, 1, AutoMapActuatorDormantPad);
   spent.spent = true;
