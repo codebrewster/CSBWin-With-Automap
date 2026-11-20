@@ -422,6 +422,11 @@ static ROOMTYPE RawRoomType(int x, int y)
   return (ROOMTYPE)((GetCellFlags(x, y) >> 5) & 0x7);
 }
 
+bool AutoMapLevelReader_IsStairsAt(int x, int y)
+{
+  return RawRoomType(x, y) == roomSTAIRS;
+}
+
 
 
 // A teleporter that keeps its victim on its own cell spins it instead of moving it

@@ -86,6 +86,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 **Map**
 - Every door has a tooltip: `DOOR` with `OPEN`, `CLOSED`, `PARTLY OPEN` or `BROKEN` under it, as the party last saw it. A door that switches or pads open had none before. The HTML export too.
+- Stairs the party stood on show at spoilers Learned and Seen too, also in the dark: the 3D view shows their rails, so you know you are on stairs. Before, stairs you arrived on but never saw from in front read as floor (DM L1 (3, 15)).
 - Stairs have a tooltip: `STAIRS DOWN` with where they come out, `TO L2 (6, 40)`. The HTML export too.
 - HTML export: a sideways swipe no longer zooms in, Shift+wheel scrolls a tooltip in browsers that send it sideways, and a touchpad zooms one step per swipe instead of racing.
 - HTML export: the search lists a wall that needs one item in several locks once, as its tooltip does (three `GOLD KEY NEEDS` rows on DM L3 (28, 8) were one).

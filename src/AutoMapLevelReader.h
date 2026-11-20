@@ -45,6 +45,8 @@ struct AutoMapFloorItemPlace
 std::vector<AutoMapFloorItemPlace> AutoMapLevelReader_FloorItemPlacesAt(int x, int y);
 // The loaded level's look of (x, y), as the cell memory keeps it
 AutoMapCellLook AutoMapLevelReader_CellLookAt(int x, int y);
+// Whether (x, y) of the loaded level is stairs
+bool AutoMapLevelReader_IsStairsAt(int x, int y);
 
 // Expects the party's level to be the level the engine has loaded
 AutoMapLevelSnapshot AutoMapLevelReader_ReadPartyLevel(void);

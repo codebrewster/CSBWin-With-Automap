@@ -140,7 +140,7 @@ game does:
   when you are close.
 - The same goes for floor pictures (puddles, moss, pads) and stairs: a tile
   you only glimpsed past a corner shows as plain floor until you see what lies
-  on it.
+  on it. Stairs you stand on are always seen: the 3D view shows their rails.
 - Each item in an alcove appears on its own once it stood out; a cheese in
   the dark does not give away the bread beside it.
 - A champion's mirror shows only its frame until you have stood in front of

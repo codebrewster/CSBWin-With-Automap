@@ -24,7 +24,9 @@ public:
   // neither explored nor visible now. A remembered item no longer on a cell the frame explores
   // is forgotten.
   void RecordViewport(const SUMMARIZEROOMDATA *cellsInView, int lightReach);
-  void MarkPartyCell(void);
+  // The cell the party stands on is explored; stairs under it are seen as well, as the 3D view
+  // shows their rails at the sides and which way they lead
+  void MarkPartyCell(bool onStairs);
   // For the times the 3D view is not drawn: a character sheet is open or the party sleeps
   void SeeOnlyThePartyCell(void);
   // Refreshes the remembered looks from what the party sees this tick: the cells of the last

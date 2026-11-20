@@ -1106,7 +1106,7 @@ void AutoMap_OnEngineTick(void)
   HeroStats_OnPartyOnLevel();
   AutoMap_CheckBreakpoint();
   if (visibilityTestIsPending) RunVisibilityTest();
-  recorder.MarkPartyCell();
+  recorder.MarkPartyCell(AutoMapLevelReader_IsStairsAt(d.partyX, d.partyY));
   if (ViewOfThePartyIsHidden()) recorder.SeeOnlyThePartyCell();
   recorder.SeeCellLooks();
   LearnFalseWallsOfThisTick();

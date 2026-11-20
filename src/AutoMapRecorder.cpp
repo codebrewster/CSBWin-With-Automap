@@ -397,10 +397,11 @@ AutoMapCellLook AutoMapRecorder::VisibleLookAt(const AutoMapCell &cell) const
   return AutoMapScene_VisibleLook(seen, isRemembered ? &remembered : NULL, pitIsKnown);
 }
 
-void AutoMapRecorder::MarkPartyCell(void)
+void AutoMapRecorder::MarkPartyCell(bool onStairs)
 {
   AutoMapCell partyCell = {d.partyLevel, d.partyX, d.partyY};
   m_explored.Mark(partyCell);
+  if (onStairs) m_explored.MarkFloorSeen(partyCell);
 }
 
 void AutoMapRecorder::SeeOnlyThePartyCell(void)
