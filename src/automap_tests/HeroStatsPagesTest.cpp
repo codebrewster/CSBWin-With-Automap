@@ -554,7 +554,7 @@ static void ChampionPageDropsPartyOnlyRows(void)
   for (size_t i = 0; i < halk.numbers.size(); i++) CHECK(!halk.numbers[i].partyOnly && halk.numbers[i].byColumn.size() == 1);
   if (halk.numbers.size() == 5) CHECK(halk.numbers[0].number == HeroNumDoorsBashed && halk.numbers[0].byColumn[0] == 1 && halk.numbers[0].party == 1);
   HeroStatsTopicPage party = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroTopicExploration, NAMES);
-  CHECK(party.numbers.size() == 32);
+  CHECK(party.numbers.size() == 36);
   if (!party.numbers.empty()) CHECK(party.numbers[0].number == HeroNumSteps && party.numbers[0].partyOnly && party.numbers[0].party == 1);
   CHECK(party.tiles.size() == 4);
   // A champion's Overview has tiles of their own
@@ -1105,16 +1105,17 @@ static void PagesCarryTheGroups(void)
 {
   HeroStats stats = KillsOnTwoLevels();
   HeroStatsTopicPage party = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroTopicExploration, NAMES);
-  CHECK(party.groups.size() == 6);
-  if (party.groups.size() != 6) return;
-  CHECK(party.groups[1].title == "Travel" && party.groups[1].panel && party.groups[4].title == "Doors" && !party.groups[4].panel);
-  CHECK(party.groups[5].title == "Door buttons" && party.groups[5].panel);
+  CHECK(party.groups.size() == 7);
+  if (party.groups.size() != 7) return;
+  CHECK(party.groups[1].title == "Formation" && party.groups[1].panel);
+  CHECK(party.groups[2].title == "Travel" && party.groups[2].panel && party.groups[5].title == "Doors" && !party.groups[5].panel);
+  CHECK(party.groups[6].title == "Door buttons" && party.groups[6].panel);
   bool found = false;
   for (size_t r = 0; r < party.numbers.size(); r++)
     if (party.numbers[r].number == HeroNumTelefrags)
     {
       found = true;
-      CHECK(party.numbers[r].label == "onto monsters" && party.numbers[r].group == 1 && party.numbers[r].depth == 1);
+      CHECK(party.numbers[r].label == "onto monsters" && party.numbers[r].group == 2 && party.numbers[r].depth == 1);
     }
   CHECK(found);
   HeroStatsTopicPage one = HeroStatsPages_Topic(stats, Columns(stats), 7, HERO_STATS_WHOLE_RUN, HeroTopicExploration, NAMES);

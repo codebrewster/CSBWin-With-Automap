@@ -315,6 +315,8 @@ those doors only.
 | **Turns** | Turns left or right you made. Turning while on stairs takes the stairs, so it counts as a step. |
 | **Wall bumps** | Moves that ran into a wall, a closed door or a solid false wall |
 | **Monster bumps** | Moves that were stopped by a monster standing on the next square |
+| **Formation changes** | Champions you moved to another place in the party's formation by dragging their portrait. **Swapped places** below it are the drops on another champion (the two trade places); **To an empty place** are the drops where nobody stood. Turning the party, recruiting a champion and a resurrection that puts the champion in a free place move champions too, but are not counted. In a game saved with an earlier version it starts at 0. |
+| **Put back in place** | Portraits picked up and dropped back on their own place: nothing changed. Not part of Formation changes. A portrait dropped when the pointer leaves the portraits is not counted. |
 | **Teleports** | Teleporters that moved the party. Each teleporter in a chain counts. |
 | **onto monsters** (under Teleports) | Telefrags: teleports that ended on a square with monsters, which kills the whole group at once. Counted on the level of the destination; a chain counts once, for its last square. The monsters are Telefragged on the Monsters tab. |
 | **Pit falls** | Pits the party fell into. Each pit of a chain counts, on the level of the pit. |

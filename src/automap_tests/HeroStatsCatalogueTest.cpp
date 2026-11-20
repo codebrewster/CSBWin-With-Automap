@@ -422,14 +422,20 @@ static void TopicsHaveGroups(void)
     CHECK(at == info.rows.size());
   }
   const HeroStatsTopicInfo &exploration = HeroStatsCatalogue_Topic(HeroTopicExploration);
-  CHECK(exploration.groups.size() == 6);
-  if (exploration.groups.size() != 6) return;
+  CHECK(exploration.groups.size() == 7);
+  if (exploration.groups.size() != 7) return;
   CHECK(std::string(exploration.groups[0].title) == "Movement" && exploration.groups[0].panel);
-  CHECK(std::string(exploration.groups[1].title) == "Travel" && exploration.groups[1].rows[1].number == HeroNumTelefrags &&
-        exploration.groups[1].rows[1].depth == 1 && std::string(HeroStatsCatalogue_RowLabel(exploration.groups[1].rows[1])) == "onto monsters");
-  CHECK(std::string(HeroStatsCatalogue_RowLabel(exploration.groups[1].rows[0])) == "Teleports");
-  CHECK(std::string(exploration.groups[4].title) == "Doors" && !exploration.groups[4].panel);
-  CHECK(std::string(exploration.groups[5].title) == "Door buttons" && exploration.groups[5].panel);
+  // Formation changes are the swaps and the moves to an empty place; the put-backs stand apart
+  CHECK(std::string(exploration.groups[1].title) == "Formation" && exploration.groups[1].panel && exploration.groups[1].rows.size() == 4);
+  if (exploration.groups[1].rows.size() == 4)
+    CHECK(exploration.groups[1].rows[0].number == HeroNumFormationChanges && exploration.groups[1].rows[1].depth == 1 &&
+          exploration.groups[1].rows[2].depth == 1 && exploration.groups[1].rows[3].number == HeroNumFormationPutBacks &&
+          exploration.groups[1].rows[3].depth == 0);
+  CHECK(std::string(exploration.groups[2].title) == "Travel" && exploration.groups[2].rows[1].number == HeroNumTelefrags &&
+        exploration.groups[2].rows[1].depth == 1 && std::string(HeroStatsCatalogue_RowLabel(exploration.groups[2].rows[1])) == "onto monsters");
+  CHECK(std::string(HeroStatsCatalogue_RowLabel(exploration.groups[2].rows[0])) == "Teleports");
+  CHECK(std::string(exploration.groups[5].title) == "Doors" && !exploration.groups[5].panel);
+  CHECK(std::string(exploration.groups[6].title) == "Door buttons" && exploration.groups[6].panel);
   CHECK(HeroStatsCatalogue_Topic(HeroTopicCombat).groups.size() == 2 && HeroStatsCatalogue_Topic(HeroTopicMagic).groups.size() == 3);
   // Mana out: Wasted is a part of Spells, and the failed and meaningless casts are its parts
   const std::vector<HeroStatsTopicRow> &out = HeroStatsCatalogue_Topic(HeroTopicMagic).groups[1].rows;

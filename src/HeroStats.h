@@ -124,6 +124,11 @@ struct HeroStatsMovement
   // leaves the stairs.
   int stairDances, stairDanceMoves;
   int strictStairDances, strictStairDanceMoves;
+  // The player rearranging the party on the level, by dragging a champion's portrait onto another
+  // place: swaps (onto a champion, the two trade places), moves (onto an empty place) and put-backs
+  // (dropped where it was picked up: nothing changed). Turning the party, recruiting and
+  // resurrection move champions too, but are none of these.
+  int formationSwaps, formationMoves, formationPutBacks;
 };
 
 // What the party did with items, by item (its basic object type, like a weapon key): items picked
@@ -252,6 +257,9 @@ public:
   void CountClimbLanding(int level);
   void CountArrival(int level);
   void CountStairChange(int level);
+  // A champion's portrait dropped: on a champion (swapped), on an empty place, or back where it was
+  enum FormationChange { FormationSwap, FormationMove, FormationPutBack };
+  void CountFormationChange(int level, FormationChange change);
   // Stair dances: stair changes one after the other, with no step away from the stairs between
   // them; fighting and casting between them is part of the dance. Two kinds are kept: a dance may
   // step to the four squares next to the stairs it came out of and back (a monster backed off), a
@@ -354,8 +362,8 @@ public:
   // from chests (none counted), 24 no poisonings, wounds or stretches of poison, 29 no climbs onto monsters,
   // 30 no arrivals or stair changes, 32 no monster attacks and no defences, 33 no stair dances,
   // 34 no meaningless spells (their runes count as failed) and no regeneration lost at full mana,
-  // 35 no tick of a death.
-  static const int LAYOUT = 36;
+  // 35 no tick of a death, 36 no formation changes.
+  static const int LAYOUT = 37;
   static const int FIRST_LAYOUT_WITH_MOVEMENT = 14;
   static const int FIRST_LAYOUT_WITH_PITS_AND_SLEEP = 15;
   static const int FIRST_LAYOUT_WITH_ITEMS = 16;
@@ -379,6 +387,7 @@ public:
   static const int FIRST_LAYOUT_WITH_STAIR_DANCES = 34;
   static const int FIRST_LAYOUT_WITH_MANA_LOSSES = 35;  // rune outcome 3 (meaningless), mana gain 2 (regeneration lost)
   static const int FIRST_LAYOUT_WITH_DEATH_TICKS = 36;
+  static const int FIRST_LAYOUT_WITH_FORMATION = 37;  // swaps, moves and put-backs in the movement
   // layout: an older one leaves out what it does not have (the tests write old files with it)
   void Serialize(std::vector<uint8_t> *out, int layout = LAYOUT) const;
   bool Deserialize(const uint8_t *data, size_t size, int layout = LAYOUT);

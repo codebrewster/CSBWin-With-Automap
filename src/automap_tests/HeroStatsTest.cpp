@@ -330,6 +330,32 @@ static void MovementIsKeptPerLevel(void)
   CHECK(readAs30.Deserialize(as30.data(), as30.size(), 30) && readAs30.Movement(1).arrivals == 0 && readAs30.Movement(1).stairChanges == 0);
 }
 
+// Layout 37: the formation changes per level, swaps, moves to an empty place and put-backs apart;
+// a layout 36 file has none
+static void FormationChangesAreCounted(void)
+{
+  HeroStats stats;
+  stats.CountFormationChange(1, HeroStats::FormationSwap);
+  stats.CountFormationChange(1, HeroStats::FormationSwap);
+  stats.CountFormationChange(1, HeroStats::FormationPutBack);
+  stats.CountFormationChange(2, HeroStats::FormationMove);
+  CHECK(stats.Movement(1).formationSwaps == 2 && stats.Movement(1).formationMoves == 0 && stats.Movement(1).formationPutBacks == 1);
+  CHECK(stats.Movement(2).formationMoves == 1 && stats.Movement(2).formationSwaps == 0);
+  HeroStatsMovement run = stats.Movement(HERO_STATS_WHOLE_RUN);
+  CHECK(run.formationSwaps == 2 && run.formationMoves == 1 && run.formationPutBacks == 1 && run.steps == 0);
+  std::vector<uint8_t> v37, as36;
+  stats.Serialize(&v37);
+  stats.Serialize(&as36, 36);
+  // Two levels hold movement, three more counts each
+  CHECK(v37.size() == as36.size() + 2 * 3 * 4);
+  HeroStats read37, readAs36;
+  CHECK(read37.Deserialize(v37.data(), v37.size()));
+  CHECK(read37.Movement(1).formationSwaps == 2 && read37.Movement(1).formationPutBacks == 1 && read37.Movement(2).formationMoves == 1);
+  CHECK(readAs36.Deserialize(as36.data(), as36.size(), 36));
+  HeroStatsMovement old = readAs36.Movement(HERO_STATS_WHOLE_RUN);
+  CHECK(old.formationSwaps == 0 && old.formationMoves == 0 && old.formationPutBacks == 0);
+}
+
 // The longest stair dance of a kind over the whole run, or -1
 static int LongestDance(const HeroStats &stats, HeroRecordKind kind, int level = HERO_STATS_WHOLE_RUN)
 {
@@ -426,8 +452,9 @@ static void StairDancesAreCounted(void)
   CHECK(read.Deserialize(bytes.data(), bytes.size()));
   TurnOnStairs(&read, 3, 30);
   CHECK(read.Movement(3).stairDances == 1 && read.Movement(3).stairDanceMoves == 2 && read.Movement(3).strictStairDanceMoves == 2);
-  // Layout 33 has no stair dances: one level of movement with four counts less, and no dance going
-  CHECK(bytes.size() == as33.size() + 16 + 2 * 20 + 12);
+  // Layout 33 has no stair dances: one level of movement with four counts less (and three
+  // formation counts less, from layout 37), and no dance going
+  CHECK(bytes.size() == as33.size() + 16 + 12 + 2 * 20 + 12);
   CHECK(readAs33.Deserialize(as33.data(), as33.size(), 33) && readAs33.Movement(3).stairDances == 0);
   TurnOnStairs(&readAs33, 3, 30);
   CHECK(readAs33.Movement(3).stairDances == 0);
@@ -1196,6 +1223,7 @@ void TestHeroStats(void)
   MonsterMissilesKeepTheirKind();
   MovementIsKeptPerLevel();
   StairDancesAreCounted();
+  FormationChangesAreCounted();
   LayoutThirteenIsStillRead();
   ActionUsesAreKeptApartFromTries();
   LayoutFourteenIsStillRead();

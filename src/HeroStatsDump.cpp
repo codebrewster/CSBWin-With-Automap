@@ -159,6 +159,9 @@ static void DumpOne(const HeroStats &stats, HeroStatsChampion who, std::string *
     Line(out, name, "time ticks %d asleep %d", moved.ticks, moved.sleepTicks);
     Line(out, name, "tiles walked %d explored %d", moved.tilesWalked, moved.tilesExplored);
   }
+  if (moved.formationSwaps != 0 || moved.formationMoves != 0 || moved.formationPutBacks != 0)
+    Line(out, name, "formation swaps %d moves %d put back %d", moved.formationSwaps, moved.formationMoves,
+         moved.formationPutBacks);
   std::vector<HeroStatsItemRow> items = stats.Items(run);
   for (size_t i = 0; i < items.size(); i++)
     Line(out, name, "item %d picked up %d from chests %d used in walls %d", items[i].item, items[i].pickedUp,

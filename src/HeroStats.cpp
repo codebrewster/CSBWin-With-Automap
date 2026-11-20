@@ -668,7 +668,7 @@ std::vector<HeroStatsSpellRow> HeroStats::Spells(HeroStatsChampion who, int leve
 
 static HeroStatsMovement NoMovement(void)
 {
-  HeroStatsMovement none = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  HeroStatsMovement none = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
   return none;
 }
 
@@ -742,6 +742,14 @@ void HeroStats::CountArrival(int level)
 void HeroStats::CountStairChange(int level)
 {
   m_movement.insert(std::make_pair(level, NoMovement())).first->second.stairChanges++;
+}
+
+void HeroStats::CountFormationChange(int level, FormationChange change)
+{
+  HeroStatsMovement &movement = m_movement.insert(std::make_pair(level, NoMovement())).first->second;
+  if (change == FormationSwap) movement.formationSwaps++;
+  else if (change == FormationMove) movement.formationMoves++;
+  else movement.formationPutBacks++;
 }
 
 void HeroStats::TrackStairDance(int level, int x, int y, int toLevel, int toX, int toY, uint32_t time)
@@ -840,6 +848,9 @@ HeroStatsMovement HeroStats::Movement(int level) const
     sum.strictStairDances += at->second.strictStairDances;
     sum.strictStairDanceMoves += at->second.strictStairDanceMoves;
     sum.stairChanges += at->second.stairChanges;
+    sum.formationSwaps += at->second.formationSwaps;
+    sum.formationMoves += at->second.formationMoves;
+    sum.formationPutBacks += at->second.formationPutBacks;
   }
   return sum;
 }
@@ -1354,6 +1365,12 @@ void HeroStats::Serialize(std::vector<uint8_t> *out, int layout) const
       HeroBytes_PutInt(out, it->second.strictStairDances);
       HeroBytes_PutInt(out, it->second.strictStairDanceMoves);
     }
+    if (layout >= FIRST_LAYOUT_WITH_FORMATION)
+    {
+      HeroBytes_PutInt(out, it->second.formationSwaps);
+      HeroBytes_PutInt(out, it->second.formationMoves);
+      HeroBytes_PutInt(out, it->second.formationPutBacks);
+    }
   }
   HeroBytes_Put(out, (uint32_t)m_items.size(), 4);
   for (std::map<std::pair<int, int>, ItemCounts>::const_iterator it = m_items.begin(); it != m_items.end(); ++it)
@@ -1489,6 +1506,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
   bool hasStairDances = layout >= FIRST_LAYOUT_WITH_STAIR_DANCES;
   bool hasManaLosses = layout >= FIRST_LAYOUT_WITH_MANA_LOSSES;
   bool hasDeathTicks = layout >= FIRST_LAYOUT_WITH_DEATH_TICKS;
+  bool hasFormation = layout >= FIRST_LAYOUT_WITH_FORMATION;
   int gainKinds = hasManaLosses ? HERO_MANA_GAIN_COUNT : (int)HeroManaRegenLost;
   int outcomeKinds = hasManaLosses ? HERO_RUNE_OUTCOME_COUNT : (int)HeroRuneMeaningless;
   HeroBytesReader in(data, size);
@@ -1630,7 +1648,7 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
   }
   read.m_partyWipes = in.GetInt();
   read.m_reloads = in.GetInt();
-  count = hasMovement ? in.GetCount((hasStairDances ? 20 : hasStairs ? 16 : hasClimbLandings ? 14 : hasLandings ? 13 : hasTelefragKills ? 12 : hasTelefrags ? 11 : hasMonsterBumps ? 10 : hasPitsAndSleep ? 9 : 5) * 4) : 0;
+  count = hasMovement ? in.GetCount((hasFormation ? 23 : hasStairDances ? 20 : hasStairs ? 16 : hasClimbLandings ? 14 : hasLandings ? 13 : hasTelefragKills ? 12 : hasTelefrags ? 11 : hasMonsterBumps ? 10 : hasPitsAndSleep ? 9 : 5) * 4) : 0;
   for (uint32_t i = 0; i < count && in.ok; i++)
   {
     int level = in.GetInt();
@@ -1661,6 +1679,12 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
         movement.stairDanceMoves = in.GetInt();
         movement.strictStairDances = in.GetInt();
         movement.strictStairDanceMoves = in.GetInt();
+      }
+      if (hasFormation)
+      {
+        movement.formationSwaps = in.GetInt();
+        movement.formationMoves = in.GetInt();
+        movement.formationPutBacks = in.GetInt();
       }
     }
     read.m_movement[level] = movement;
