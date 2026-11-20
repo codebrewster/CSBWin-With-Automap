@@ -1105,9 +1105,9 @@ std::vector<AutoMapTooltipSlot> AutoMapScene_TooltipSlots(const AutoMapDrawList 
 std::vector<AutoMapItemStack> AutoMapScene_MonsterPossessions(const AutoMapDrawList &drawList,
                                                               int x, int y);
 
-// Tooltip lines of the monsters on (x, y) in group order: "HP 42" per member at All; below All
-// "DMG 17" per member with damage, none for a member not hit yet. Fog-safe like everything else
-// here.
+// Tooltip lines of the monsters on (x, y), members in group order: "HP 42, 35" at All; below All
+// "DMG 17, 9" for the members with damage, none while no member is hit. Fog-safe like everything
+// else here.
 std::vector<std::string> AutoMapScene_MonsterHealthLines(const AutoMapDrawList &drawList, int x, int y);
 
 // The group shown on (x, y) as the tooltip names it: "TROLIN X4", "WATER ELEMENTAL"; empty when the

@@ -766,9 +766,8 @@ static void TooltipShowsMonsterHealthPerMember(void)
   CHECK(drawList.monsters.size() == 1);
   CHECK(drawList.monsters[0].memberHealth.size() == 2);
   std::vector<std::string> lines = AutoMapScene_MonsterHealthLines(drawList, 1, 1);
-  CHECK(lines.size() == 2);
-  CHECK(lines[0] == "HP 42");
-  CHECK(lines[1] == "HP 35");
+  CHECK(lines.size() == 1);
+  CHECK(lines.size() == 1 && lines[0] == "HP 42, 35");
 }
 
 static void HealthHidesWithItsMonster(void)

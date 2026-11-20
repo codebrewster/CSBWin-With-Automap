@@ -3823,6 +3823,9 @@ struct TooltipCell
   bool carried;
   int side;
   bool launched;
+  // An opened chest: what follows nested is what it holds. Nested cells after a figure are what
+  // its monster carries or drops
+  bool isChest;
 };
 
 static void MergeTooltipItem(std::vector<AutoMapTooltipSlot> *slots, const AutoMapItem &item,
@@ -3952,6 +3955,7 @@ static std::vector<TooltipCell> FlattenTooltipSlots(const std::vector<AutoMapToo
     chest.carried = slots[i].carried;
     chest.side = slots[i].side;
     chest.launched = slots[i].launched;
+    chest.isChest = slots[i].isChest;
     cells.push_back(chest);
     for (size_t c = 0; c < slots[i].contents.size(); c++)
     {
@@ -3964,6 +3968,7 @@ static std::vector<TooltipCell> FlattenTooltipSlots(const std::vector<AutoMapToo
       held.carried = false;
       held.side = -1;
       held.launched = false;
+      held.isChest = false;
       cells.push_back(held);
     }
     for (size_t c = 0; c < slots[i].uncertainContents.size(); c++)
@@ -3977,6 +3982,7 @@ static std::vector<TooltipCell> FlattenTooltipSlots(const std::vector<AutoMapToo
       maybe.carried = false;
       maybe.side = -1;
       maybe.launched = false;
+      maybe.isChest = false;
       cells.push_back(maybe);
     }
   }
@@ -4096,25 +4102,75 @@ static std::vector<std::string> PlaceLaunchedNames(const std::vector<TooltipCell
 }
 
 // Launched stacks and their contents are not here: they go under their LAUNCHER header
-// (PlaceLaunchedNames)
+// (PlaceLaunchedNames); nor is a monster's gear, which goes under its name (BuildTooltipGearLines).
+// What a chest holds is indented under it
 static std::vector<std::string> BuildTooltipNameLines(const std::vector<TooltipCell> &cells,
                                                       int maxLineW)
 {
   std::vector<std::string> lines;
-  bool inLaunched = false;
+  bool inLaunched = false, inChest = false;
   for (size_t i = 0; i < cells.size(); i++)
   {
-    if (!cells[i].nested) inLaunched = cells[i].launched;
+    if (!cells[i].nested)
+    {
+      inLaunched = cells[i].launched;
+      inChest = cells[i].isChest;
+    }
     if (inLaunched) continue;
+    if (cells[i].nested && !inChest) continue;
     std::string what = TooltipStackName(cells[i]);
     if (what.empty()) continue;
     std::string line = AutoMapScene_StackPrefix(cells[i].required, cells[i].carried, false,
                                                 cells[i].side) + what;
     char sideInitial = SideInitial(cells[i].side);
     if (sideInitial != '\0') line += std::string(" (") + sideInitial + ")";
+    if (cells[i].nested) line = "  " + line;
     line = ShortenedToWidth(line, maxLineW);
     if (!line.empty()) lines.push_back(line);
   }
+  return lines;
+}
+
+// One group of a monster's gear: the heading, then the names indented under it; nothing when no
+// stack has a name
+static void AddGearGroup(std::vector<std::string> *lines, const char *heading,
+                         const std::vector<AutoMapItemStack> &stacks, int maxLineW)
+{
+  bool headed = false;
+  for (size_t i = 0; i < stacks.size(); i++)
+  {
+    TooltipCell cell = TooltipCell();
+    cell.item = stacks[i].item;
+    cell.count = stacks[i].count;
+    cell.side = -1;
+    std::string what = TooltipStackName(cell);
+    if (what.empty()) continue;
+    std::string line = ShortenedToWidth("  " + what, maxLineW);
+    if (line.size() <= 2) continue;
+    if (!headed) lines->push_back(heading);
+    headed = true;
+    lines->push_back(line);
+  }
+}
+
+// What the monster of the cell carries and what it leaves when it dies, for under its name:
+// "CARRIES", then "DROPS" (for sure) and "MAY DROP" (by chance), each with the names indented.
+// Only when the gear hangs off a figure in the icon grid; else the names are plain item lines
+static std::vector<std::string> BuildTooltipGearLines(int x, int y,
+                                                      const std::vector<TooltipCell> &cells,
+                                                      int maxLineW)
+{
+  std::vector<std::string> lines;
+  bool hung = false;
+  for (size_t i = 0; i + 1 < cells.size(); i++)
+  {
+    if (!cells[i].nested && !cells[i].isChest && !cells[i].launched && cells[i + 1].nested) hung = true;
+  }
+  if (!hung) return lines;
+  AutoMapMonsterDrops drops = AutoMapScene_MonsterDrops(shownDrawList, x, y);
+  AddGearGroup(&lines, "CARRIES", AutoMapScene_MonsterPossessions(shownDrawList, x, y), maxLineW);
+  AddGearGroup(&lines, "DROPS", drops.certain, maxLineW);
+  AddGearGroup(&lines, "MAY DROP", drops.chance, maxLineW);
   return lines;
 }
 
@@ -4323,6 +4379,7 @@ static void DrawTileTooltip(const AutoMapView &view)
   if (!monsterName.empty() && Shows(AutoMapShowMonsters))
     footerLines.push_back(AutoMapScene_TipLine(monsterName, AutoMapTipMonsterName));
   AppendTipLines(footerLines, hpLines);
+  AppendTipLines(footerLines, BuildTooltipGearLines(hoverX, hoverY, cells, maxW - 2 * TOOLTIP_PAD));
   std::vector<std::string> nameLines =
       BuildTooltipNameLines(cells, maxW - 2 * TOOLTIP_PAD);
   AppendTipLines(footerLines, nameLines);
@@ -6117,6 +6174,7 @@ void AutoMapWindow_TooltipFor(const AutoMapDrawList &list, int x, int y, bool fu
     std::string monsterName = AutoMapScene_MonsterNameLine(shownDrawList, x, y);
     if (!monsterName.empty()) lines->push_back(AutoMapScene_TipLine(monsterName, AutoMapTipMonsterName));
     AppendTipLines(*lines, hpLines);
+    AppendTipLines(*lines, BuildTooltipGearLines(x, y, cells, 100000));
     AppendTipLines(*lines, BuildTooltipNameLines(cells, 100000));
     AppendTipLines(*lines, PlaceLaunchedNames(cells, &machinery, 100000));
     lines->insert(lines->end(), machinery.begin(), machinery.end());

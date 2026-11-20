@@ -1490,25 +1490,24 @@ std::string AutoMapScene_MonsterNameLine(const AutoMapDrawList &drawList, int x,
 
 std::vector<std::string> AutoMapScene_MonsterHealthLines(const AutoMapDrawList &drawList, int x, int y)
 {
-  std::vector<std::string> lines;
+  std::string health, damage;
   for (size_t i = 0; i < drawList.monsters.size(); i++)
   {
     const AutoMapShownMonster &monster = drawList.monsters[i];
     if (monster.x != x || monster.y != y) continue;
     for (size_t m = 0; m < monster.memberHealth.size(); m++)
     {
-      char line[32];
-      std::snprintf(line, sizeof(line), "HP %d", monster.memberHealth[m]);
-      lines.push_back(line);
+      health += (health.empty() ? "HP " : ", ") + std::to_string(monster.memberHealth[m]);
     }
     for (size_t m = 0; m < monster.memberDamage.size(); m++)
     {
       if (monster.memberDamage[m] <= 0) continue;
-      char line[32];
-      std::snprintf(line, sizeof(line), "DMG %d", monster.memberDamage[m]);
-      lines.push_back(line);
+      damage += (damage.empty() ? "DMG " : ", ") + std::to_string(monster.memberDamage[m]);
     }
   }
+  std::vector<std::string> lines;
+  if (!health.empty()) lines.push_back(health);
+  if (!damage.empty()) lines.push_back(damage);
   return lines;
 }
 

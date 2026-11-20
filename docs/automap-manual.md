@@ -211,9 +211,9 @@ spoiler level.
 At every level:
 
 - **Items**, stacked by name (`SKELETON KEY X3`), and what a chest or alcove
-  holds once the party has looked. A brewed potion has its power rune in front, as in the
-  inventory: `UM VEN POTION`.
-- **Monsters**, with the damage the game showed for each group member.
+  holds once the party has looked, a chest's contents indented under `CHEST`. A brewed potion
+  has its power rune in front, as in the inventory: `UM VEN POTION`.
+- **Monsters**, with the damage the game showed for the group members on one line: `DMG 17, 9`.
 - **Doors and stairs.**
 
 From **Learned** on, also:
@@ -226,6 +226,9 @@ At **All**, also:
 - **Where teleporters lead** and **how spinners turn** the party.
 - **What every lock needs**, such as `NEEDS SOLID KEY (S)`.
 - **What sets off a pad**, such as `TRIGGER: PARTY OR MONSTER`.
+- **Monster hit points**, one line per group, `HP 200, 100, 150, 50`, and the monster's gear under
+  its name: `CARRIES`, then `DROPS` for what it leaves when it dies and `MAY DROP` for what it
+  leaves by chance, each with the names indented.
 - **Monster generators**: what they create and its hit point range.
 - **What a launcher throws**: `LAUNCHES FIREBALL X2`. An object launcher, which throws what lies
   inside its wall, says how many are left, `LAUNCHES OBJECT, 8 LEFT`, and lists what it still

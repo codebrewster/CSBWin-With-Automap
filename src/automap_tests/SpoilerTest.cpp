@@ -1349,8 +1349,7 @@ static void AtAllHitPointsShowAndDamageDoesNot(void)
   damage.Credit(MUMMIES_RECORD, 1, 17);
   AutoMapDrawList drawList = BuildWithDamage(WithHurtMummiesAt11(), AutoMapSpoilersAll, &damage);
   std::vector<std::string> lines = AutoMapScene_MonsterHealthLines(drawList, 1, 1);
-  CHECK(lines.size() == 2);
-  CHECK(lines.size() == 2 && lines[0] == "HP 42" && lines[1] == "HP 35");
+  CHECK(lines.size() == 1 && lines[0] == "HP 42, 35");
   CHECK(drawList.monsters[0].memberDamage.empty());
 }
 
