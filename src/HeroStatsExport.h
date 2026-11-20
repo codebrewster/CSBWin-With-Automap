@@ -25,6 +25,7 @@ struct HeroStatsExportInfo
   std::map<int, std::string> icons;
   std::map<HeroStatsChampion, std::string> portraits;
   bool inventoryList;       // the page starts with the inventory as a list, not as the picture
+  bool resistanceIgnored;   // the game ignores resistance (HeroStats_ResistanceIgnored): its row is greyed
 };
 
 // A JSON string, quotes included. Bytes that are not UTF-8 are taken as Latin-1, and "<" is

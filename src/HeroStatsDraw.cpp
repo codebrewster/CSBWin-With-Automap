@@ -1448,11 +1448,13 @@ static void DrawNumbers(const HeroStatsTopicPage &page, const HeroStatsDrawState
       GroupHeadingRow(page.groups[row.group].title, groupShown < 0);
     groupShown = row.group;
     const HeroStatsNumberInfo &info = HeroStatsCatalogue_Info(row.number);
-    ImU32 rgb = row.depth > 0 ? PART_RGB : TEXT_RGB;
+    // Greyed: Resistance in a replay of a version that ignored it (always 0)
+    bool off = row.number == HeroNumReducedResistance && HeroStats_ResistanceIgnored();
+    ImU32 rgb = off ? FAINT_RGB : row.depth > 0 ? PART_RGB : TEXT_RGB;
     NextGuidedRow();
     // Beside Monsters killed, the champions' kills are a part of it
     bool byChampions = row.number == HeroNumKills && row.label == "By champions";
-    LabelCell(row.label, row.depth, row.depth > 0 ? PART_RGB : TEXT_RGB, byChampions ? HERO_STATS_BY_CHAMPIONS_HELP : info.help);
+    LabelCell(row.label, row.depth, rgb, byChampions ? HERO_STATS_BY_CHAMPIONS_HELP : info.help);
     if (!shared)
     {
       ImGui::TableSetColumnIndex(1);

@@ -102,6 +102,12 @@ std::string HeroStats_DungeonInPlay(void)
   return CurrentDungeon();
 }
 
+extern bool legacyAttributeDefense;
+bool HeroStats_ResistanceIgnored(void)
+{
+  return legacyAttributeDefense;
+}
+
 std::vector<HeroStatsChampion> HeroStats_PartyNow(void)
 {
   std::vector<HeroStatsChampion> party;

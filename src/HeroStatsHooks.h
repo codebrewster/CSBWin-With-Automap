@@ -22,6 +22,9 @@ HeroStatsLiveParty HeroStats_LiveParty(void);
 bool HeroStats_PortraitPixels(HeroStatsChampion who, std::vector<unsigned char> *rgba, int *width, int *height);
 // The dungeon file of the game in play, "" before one is loaded
 std::string HeroStats_DungeonInPlay(void);
+// The game ignores anti-fire and anti-magic: a replay of CSBwin 9.8 to 12.5 or before 9.6
+// (legacyAttributeDefense), where Resistance under Damage reduced is always 0
+bool HeroStats_ResistanceIgnored(void);
 
 // AutoMap_OnDungeonLoaded: forgets the stores of the last dungeon. A new game starts empty; for
 // a saved game the hardship stays in memory until HeroStats_OnMapFileRead (or, without a usable

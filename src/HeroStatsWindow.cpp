@@ -657,6 +657,7 @@ bool HeroStatsWindow_WriteExport(const std::string &path)
   const HeroStats &stats = HeroStats_Store();
   HeroStatsExportInfo info = {HeroStats_DungeonInPlay(), date, HeroStats_LiveParty()};
   info.inventoryList = drawState.inventoryList;
+  info.resistanceIgnored = HeroStats_ResistanceIgnored();
   FillExportPictures(&info);
   std::string html = HeroStatsExport_Html(stats, HeroStatsView_Columns(stats, HeroStats_PartyNow()),
                                           HeroStats_NamesOfTheGame(), info);
@@ -682,6 +683,7 @@ static void ExportStatistics(void)
   const HeroStats &stats = HeroStats_Store();
   HeroStatsExportInfo info = {HeroStats_DungeonInPlay(), date, HeroStats_LiveParty()};
   info.inventoryList = drawState.inventoryList;
+  info.resistanceIgnored = HeroStats_ResistanceIgnored();
   FillExportPictures(&info);
   std::string html = HeroStatsExport_Html(stats, HeroStatsView_Columns(stats, HeroStats_PartyNow()),
                                           HeroStats_NamesOfTheGame(), info);

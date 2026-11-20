@@ -6,7 +6,7 @@
 
 // The JSON the page script reads:
 // { "dungeon", "date", "separator" (between thousands), "heroes": [{"name", "left"}], "levels": [level, ...],
-//   "numbers": the catalogue, one per HeroStatsNumber: [{"label", "help", "party", "run", "bad", "ratio", "pct", "ticks"}],
+//   "numbers": the catalogue, one per HeroStatsNumber: [{"label", "help", "party", "run", "bad", "ratio", "pct", "ticks", "rec", "off" (greyed: the game ignores it), "unit"}],
 //   "topics": one per HeroStatsTopic: [{"label", "rows": [[number, depth], ...] (all its rows),
 //             "groups": [{"title", "panel" (drawn as a panel of the party's numbers), "rows": [[number, depth,
 //             the label in this place or null], ...]}, ...], "tiles": [number, ...],
@@ -399,6 +399,7 @@ std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroS
            ",\"run\":" + Bool(number.wholeRunOnly) + ",\"bad\":" + Bool(number.isBad) + ",\"ratio\":" +
            Bool(number.isRatio) + ",\"pct\":" + Bool(n == HeroNumHitRate) + ",\"ticks\":" + Bool(number.isTicks) +
            ",\"rec\":" + Bool(number.isRecord) +
+           ",\"off\":" + Bool(n == HeroNumReducedResistance && info.resistanceIgnored) +
            ",\"unit\":[" + HeroStatsExport_JsonString(HeroStatsCatalogue_Unit((HeroStatsNumber)n, false)) + "," +
            HeroStatsExport_JsonString(HeroStatsCatalogue_Unit((HeroStatsNumber)n, true)) + "]}";
   }
@@ -539,6 +540,7 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   tr.grp:hover td { background:none; color:var(--dim) } tr.grp:hover td:first-child { box-shadow:none }
   /* A part of the number above it: behind a thin line */
   tr.g1 td, tr.g2 td, tr.g3 td { color:var(--part) }
+  tr.off td, tr.off:hover td { color:var(--faint) }  /* a number the game ignores (Resistance in old replays) */
   tr.g1 td:first-child { padding-left:13px } tr.g2 td:first-child { padding-left:29px } tr.g3 td:first-child { padding-left:45px }
   .ind { display:inline-block; border-left:1px solid var(--faint); padding-left:9px }
   /* A label with a hovertext says so */
@@ -846,7 +848,7 @@ function numbersTable(t) {
     if (g.title) body += `<tr class="grp"><td colspan="${columns}">${esc(g.title)}</td></tr>`;
     for (const row of g.rows) {
       const n = row.n, info = NUM[n], summable = !info.ratio && !info.party && !info.rec;
-      body += `<tr class="g${row.depth}"><td>${labelOf(row)}</td>`;
+      body += `<tr class="g${row.depth}${info.off ? ' off' : ''}"><td>${labelOf(row)}</td>`;
       if (!shared()) body += numCell(n, info.party || one ? rec(st.who, st.level)[n] : rec(0, st.level)[n], isParty() && H[0].left ? 'gone' : '');
       else if (one) {
         const mine = rec(st.who, st.level)[n];

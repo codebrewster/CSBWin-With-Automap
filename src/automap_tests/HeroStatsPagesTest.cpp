@@ -331,6 +331,24 @@ static void ExportHoldsTheChampionsAsTheyWere(void)
                   "[3,\"WOODEN SHIELD\",false,null,0,-1,false,0,0,-1,-1,-1,20,3]]") != std::string::npos);
 }
 
+// Resistance is greyed in a game that ignores it (a replay of CSBwin 9.8 to 12.5 or before 9.6)
+static void ExportGreysResistanceWhereTheGameIgnoresIt(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  HeroStatsExportInfo info = {"dungeon.dat", "2026-11-20 12:00"};
+  const std::string resistance = "{\"label\":\"Resistance\",";
+  std::string json = HeroStatsExport_Json(stats, Columns(stats), NAMES, info);
+  CHECK(json.find("\"off\":true") == std::string::npos);
+  info.resistanceIgnored = true;
+  json = HeroStatsExport_Json(stats, Columns(stats), NAMES, info);
+  size_t at = json.find(resistance);
+  CHECK(at != std::string::npos);
+  size_t off = json.find("\"off\":true");
+  CHECK(off != std::string::npos && off > at && off < json.find('}', at));
+  CHECK(json.find("\"off\":true", off + 1) == std::string::npos);  // that row alone
+}
+
 // An item of the Champions tab: its slot, name, whether it is in a chest, its icon (a place in the
 // icons, each written once in the order first used), its weight and its charges
 static void TheExportCarriesIconsWeightAndCharges(void)
@@ -1290,6 +1308,7 @@ void TestHeroStatsPages(void)
   JsonStringsAreSafeInAScript();
   ExportHoldsEveryLevel();
   ExportHoldsTheChampionsAsTheyWere();
+  ExportGreysResistanceWhereTheGameIgnoresIt();
   TheExportCarriesIconsWeightAndCharges();
   AnItemWithoutAPictureStillExports();
 }
