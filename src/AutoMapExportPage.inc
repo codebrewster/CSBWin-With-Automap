@@ -227,7 +227,7 @@ function breakMarks(c, x, y) {
 function drawStairs(c, x, y) {
   const up = !!c.st[0], ns = c.st[1], L = up ? ['#9a9488', '#5e594f'] : ['#6d685f', '#3a3731'];
   for (let i = 0; i < 4; i++) { const a = Math.round(cs * i / 4), b = Math.round(cs * (i + 1) / 4) - a; if (ns) rect(x, y + a, cs, b, L[i % 2]); else rect(x + a, y, b, cs, L[i % 2]); }
-  levelPlate(x, y, String(lvl + (up ? -1 : 1)), up ? '#fff6dc' : '#c9c0ad', up ? 'up' : 'down');
+  levelPlate(x, y, 'L' + (lvl + (up ? -1 : 1)), up ? '#fff6dc' : '#c9c0ad', up ? 'up' : 'down');
 }
 // spinners: the map's own glyphs (AutoMapScene_SpinnerGeometry), thicker, with a dark rim
 function spinGeom(facing, rot) { const PI = Math.PI, N = PI / 2; if (facing >= 0 && facing <= 3) return { glyph: 'abs', head: (1 - facing) * PI / 2 }; if (rot === 1) return { glyph: 'turn', start: N, sweep: -PI / 2, head: 0 }; if (rot === 2) return { glyph: 'turn', start: N, sweep: PI, head: N + PI }; if (rot === 3) return { glyph: 'turn', start: N, sweep: PI / 2, head: PI }; if (rot === 0) return { glyph: 'straight' }; return { glyph: 'unknown' }; }

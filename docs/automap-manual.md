@@ -181,9 +181,9 @@ when something operates it.
 **Doors** say under `DOOR` whether they are `OPEN`, `CLOSED`, `PARTLY OPEN` or `BROKEN`, as the
 party last saw them, then `SEALED` (at **All**) or the force and the tool that breaks them.
 
-**Stairs** carry a plate with an arrow and the level they lead to; the tooltip says
+**Stairs** carry a plate with an arrow and the level they lead to (`L2`); the tooltip says
 `STAIRS UP` or `STAIRS DOWN` and where they come out, `TO L2 (6, 40)`. A **teleporter** is a cyan
-checkerboard; one to another level shows that level's number. A pile of more than three items shows
+checkerboard; one to another level shows that level the same way (`L11`). A pile of more than three items shows
 its count in the upper right.
 
 ## What the map remembers
