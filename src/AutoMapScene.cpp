@@ -2835,21 +2835,13 @@ struct ViewAxis
   int levelCells;
   float centerCell;
   bool placeFreely;
+  int blackBefore;
+  int blackAfter;
 };
 
 static int RoundToPixels(float position)
 {
   return (int)floor(position + 0.5f);
-}
-
-// The black margin a zoomed level may leave at either end of an axis. A margin shrinks by itself
-// while the pointer zooms: the zoom pushes the level's edge away from it. Taking the margin away at
-// once instead moves the cell under the pointer, so it stays, up to half of the window; only
-// recentring, another level or zooming out to the whole level places the level in the middle again.
-static int AllowedMargin(int windowPixels, int levelPixels)
-{
-  if (levelPixels <= windowPixels) return windowPixels - levelPixels / 2;
-  return windowPixels / 2;
 }
 
 static int OriginAlong(const ViewAxis &axis, int cellSize)
@@ -2859,16 +2851,31 @@ static int OriginAlong(const ViewAxis &axis, int cellSize)
   int originCentred = axis.windowPixels / 2 - RoundToPixels(center);
   if (axis.placeFreely)
   {
-    // After a zoom towards the pointer a black margin may remain: the zoom itself pushes the
-    // level's edge away from the pointer and the margin shrinks with each step, where removing
-    // it at once would move the cell under the pointer. Half of the level stays on screen at
-    // least, and a level that is much larger than the window has no room for a margin.
-    int margin = AllowedMargin(axis.windowPixels, levelPixels);
-    return std::max(axis.windowPixels - levelPixels - margin, std::min(originCentred, margin));
+    // After a zoom towards the pointer the level goes where the pointer keeps its cell, but the
+    // black space beside it never grows: each end keeps at most what it showed. A zoom in
+    // pushes the edges out and shrinks it by itself; a drag cannot pull the level off an edge.
+    // A zoom out that needs more black space than there was shares the extra between the ends.
+    int before = std::max(0, axis.blackBefore), after = std::max(0, axis.blackAfter);
+    int more = axis.windowPixels - levelPixels - before - after;
+    if (more > 0)
+    {
+      before += more / 2;
+      after += more - more / 2;
+    }
+    return std::max(axis.windowPixels - levelPixels - after, std::min(originCentred, before));
   }
   if (levelPixels <= axis.windowPixels) return (axis.windowPixels - levelPixels) / 2;
   int originShowingLastCell = axis.windowPixels - levelPixels;
   return std::max(originShowingLastCell, std::min(originCentred, 0));
+}
+
+void AutoMapScene_BlackSpace(const AutoMapView &view, AutoMapViewRequest *request)
+{
+  int width = request->levelSize.width * view.cellSize, height = request->levelSize.height * view.cellSize;
+  request->blackLeft = std::max(0, view.originX);
+  request->blackRight = std::max(0, request->windowWidth - width - view.originX);
+  request->blackTop = std::max(0, view.originY);
+  request->blackBottom = std::max(0, request->windowHeight - height - view.originY);
 }
 
 static int CellSizeAtStep(int fittingCellSize, int zoomSteps)
@@ -2898,8 +2905,10 @@ AutoMapView AutoMapScene_PlaceLevel(const AutoMapViewRequest &request)
 {
   int zoomSteps = AutoMapScene_ClampZoomSteps(request.zoomSteps, request);
   int fittingCellSize = LargestCellSizeShowingTheWholeLevel(request);
-  ViewAxis horizontal = {request.windowWidth, request.levelSize.width, request.centerX, request.placeFreely};
-  ViewAxis vertical = {request.windowHeight, request.levelSize.height, request.centerY, request.placeFreely};
+  ViewAxis horizontal = {request.windowWidth, request.levelSize.width, request.centerX,
+                         request.placeFreely, request.blackLeft, request.blackRight};
+  ViewAxis vertical = {request.windowHeight, request.levelSize.height, request.centerY,
+                       request.placeFreely, request.blackTop, request.blackBottom};
   AutoMapView view;
   view.cellSize = fittingCellSize > 0 ? CellSizeAtStep(fittingCellSize, zoomSteps) : 0;
   view.originX = OriginAlong(horizontal, view.cellSize);

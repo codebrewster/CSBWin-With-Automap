@@ -1117,6 +1117,8 @@ static void DragLeft(int deltaX, int deltaY)
   }
   viewCenterX -= (float)deltaX / view.cellSize;
   viewCenterY -= (float)deltaY / view.cellSize;
+  // Held at an edge, the centre stays where the view is, so dragging back moves the map at once
+  FreezeExactViewCenter(ViewOfShownLevel());
   isDirty = true;
 }
 
@@ -3170,9 +3172,17 @@ static void DrawMonsters(const AutoMapView &view, const AutoMapDrawList &drawLis
   for (size_t i = 0; i < fromNorthToSouth.size(); i++) DrawFacingMarks(view, fromNorthToSouth[i]);
 }
 
+// The black space beside the level the view showed last (AutoMapScene_BlackSpace): a free
+// placement after a zoom keeps to it, so it only ever shrinks
+static AutoMapViewRequest shownBlackSpace;
+
 static AutoMapViewRequest RequestOfShownLevel(void)
 {
   AutoMapViewRequest request;
+  request.blackLeft = shownBlackSpace.blackLeft;
+  request.blackRight = shownBlackSpace.blackRight;
+  request.blackTop = shownBlackSpace.blackTop;
+  request.blackBottom = shownBlackSpace.blackBottom;
   request.levelSize.width = shownDrawList.width;
   request.levelSize.height = shownDrawList.height;
   MapAreaSize(&request.windowWidth, &request.windowHeight);
@@ -3210,7 +3220,10 @@ static AutoMapView ViewOfShownLevel(void)
                          RULER + mapHeight / 2 - (hoverY * renderCellSize + renderCellSize / 2)};
     return fixed;
   }
-  AutoMapView view = AutoMapScene_PlaceLevel(RequestOfShownLevel());
+  AutoMapViewRequest request = RequestOfShownLevel();
+  AutoMapView view = AutoMapScene_PlaceLevel(request);
+  AutoMapScene_BlackSpace(view, &request);
+  shownBlackSpace = request;
   view.originX += RULER;
   view.originY += RULER;
   return view;

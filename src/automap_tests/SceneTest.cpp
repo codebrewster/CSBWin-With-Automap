@@ -794,6 +794,7 @@ static AutoMapViewRequest RequestFor(int windowWidth, int windowHeight)
   request.centerX = 0;
   request.centerY = 0;
   request.placeFreely = false;
+  request.blackLeft = request.blackRight = request.blackTop = request.blackBottom = 0;
   return request;
 }
 
@@ -975,6 +976,8 @@ static void ZoomFromTheWholeLevelKeepsThePointerCell(void)
   AutoMapViewRequest request = RequestFor(640, 800);
   AutoMapView before = AutoMapScene_PlaceLevel(request);
   CHECK(before.cellSize == 20 && before.originY == 200);
+  AutoMapScene_BlackSpace(before, &request);
+  CHECK(request.blackTop == 200 && request.blackBottom == 200);
   int pointerX = 320, pointerY = 300;
   float pointX = (float)(pointerX - before.originX) / before.cellSize;
   float pointY = (float)(pointerY - before.originY) / before.cellSize;
@@ -992,6 +995,38 @@ static void ZoomFromTheWholeLevelKeepsThePointerCell(void)
   CHECK(std::fabs(after.originY + pointY * after.cellSize - pointerY) <= 1.0f);
   // The level may sit off-centre then, but never off the window
   CHECK(after.originY + 20 * after.cellSize > 0 && after.originY < 800);
+}
+
+// The black space beside a freely placed level only shrinks: a drag past the edge stops at the
+// black space there was, and a zoom out that needs more shares the extra between the ends
+static void BlackSpaceBesideTheLevelOnlyShrinks(void)
+{
+  AutoMapViewRequest request = RequestFor(640, 400);
+  request.zoomSteps = 3;
+  request.placeFreely = true;
+  request.centerX = 16;
+  request.centerY = 10;
+  // Clinging to the edges: no black space anywhere
+  AutoMapView view = AutoMapScene_PlaceLevel(request);
+  AutoMapScene_BlackSpace(view, &request);
+  CHECK(request.blackLeft == 0 && request.blackRight == 0 && request.blackTop == 0 && request.blackBottom == 0);
+  // Dragged far past the left and top edges: the level stays at them
+  request.centerX = -20;
+  request.centerY = -20;
+  view = AutoMapScene_PlaceLevel(request);
+  CHECK(view.originX == 0 && view.originY == 0);
+  // With 30 pixels of black space at the top, a drag down stops there
+  request.blackTop = 30;
+  view = AutoMapScene_PlaceLevel(request);
+  CHECK(view.originY == 30);
+  // Zoomed out to where the level is shorter than the window: the extra is shared
+  AutoMapViewRequest out = RequestFor(640, 500);
+  out.placeFreely = true;
+  out.centerX = 0;
+  out.centerY = 0;
+  AutoMapView fits = AutoMapScene_PlaceLevel(out);
+  int height = 20 * fits.cellSize;
+  CHECK(height == 400 && fits.originY == 50);
 }
 
 static void OnlyTheFittingZoomShowsTheWholeLevel(void)
@@ -7206,6 +7241,7 @@ void TestAutoMapScene(void)
   FarCentresStopAtTheEdgesOfTheLevel();
   ZoomKeepsTheSameSpotCentred();
   ZoomKeepsThePointUnderThePointerStill();
+  BlackSpaceBesideTheLevelOnlyShrinks();
   OnlyTheFittingZoomShowsTheWholeLevel();
   LabelStepKeepsNumbersApart();
   VisibleRangeCoversTheCellsTouchingTheMap();

@@ -380,10 +380,22 @@ var zoomFree = false; // set by a wheel zoom: a level that still fits an axis is
 function fitLevel() { zoomFree = false; cs = minCs(); panX = Math.round(((cv.width - 2 * RUL) - W * cs) / 2); panY = Math.round(((cv.height - 2 * RUL) - H * cs) / 2); }
 function centreOn(x, y) { let top = RUL; if (panelRects.search) top = panelRects.search[1] + panelRects.search[3]; panX = Math.round((cv.width - 2 * RUL) / 2 - (x + .5) * cs); panY = Math.round(((top + cv.height - RUL) / 2 - RUL) - (y + .5) * cs); }
 // as in the game: a level smaller than the map stays centred, a larger one never leaves a gap at an edge
-// the black margin a zoomed level may leave at either end (as AllowedMargin in AutoMapScene.cpp)
-function allowedMargin(room, size) { return size <= room ? room - size / 2 : Math.floor(room / 2); }
-function clampAxis(pan, room, cells) { const size = cells * cs; if (zoomFree) { const m = allowedMargin(room, size); return Math.max(room - size - m, Math.min(pan, m)); } return size <= room ? Math.round((room - size) / 2) : Math.max(room - size, Math.min(pan, 0)); }
-function clampPan() { panX = clampAxis(panX, cv.width - 2 * RUL, W); panY = clampAxis(panY, cv.height - 2 * RUL, H); }
+// After a wheel zoom the level goes where the pointer keeps its cell, but the black space beside it
+// never grows (as OriginAlong in AutoMapScene.cpp): each end keeps at most what it showed (black),
+// a drag cannot pull the level off an edge, and a zoom out that needs more shares the extra.
+const black = { x: [0, 0], y: [0, 0] };
+function clampAxis(pan, room, cells, axis) {
+  const size = cells * cs;
+  if (!zoomFree) pan = size <= room ? Math.round((room - size) / 2) : Math.max(room - size, Math.min(pan, 0));
+  else {
+    let [before, after] = black[axis]; const more = room - size - before - after;
+    if (more > 0) { before += Math.floor(more / 2); after += more - Math.floor(more / 2); }
+    pan = Math.max(room - size - after, Math.min(pan, before));
+  }
+  black[axis] = [Math.max(0, pan), Math.max(0, room - size - pan)];
+  return pan;
+}
+function clampPan() { panX = clampAxis(panX, cv.width - 2 * RUL, W, 'x'); panY = clampAxis(panY, cv.height - 2 * RUL, H, 'y'); }
 function centreOnParty() { const p = party(); if (p && cs > minCs() + .01) centreOn(p.x, p.y); }
 function cellAt(mx, my) { const x = Math.floor((mx - RUL - panX) / cs), y = Math.floor((my - RUL - panY) / cs); return (x >= 0 && x < W && y >= 0 && y < H && mx > RUL && my > RUL && mx < cv.width - RUL && my < cv.height - RUL) ? { x, y } : null; }
 
@@ -435,7 +447,7 @@ cv.addEventListener('touchmove', e => {
   }
   if (p.length !== 1 || touch.pinch) return;
   if (Math.abs(p[0].x - touch.x) + Math.abs(p[0].y - touch.y) > 8) { touch.moved = true; follow = false; hover = null; }
-  if (touch.moved) { panX = touch.px + p[0].x - touch.x; panY = touch.py + p[0].y - touch.y; draw(); }
+  if (touch.moved) { panX = touch.px + p[0].x - touch.x; panY = touch.py + p[0].y - touch.y; clampPan(); touch.px = panX; touch.py = panY; touch.x = p[0].x; touch.y = p[0].y; draw(); }
 }, { passive: false });
 cv.addEventListener('touchend', e => {
   e.preventDefault(); if (!touch) return;
@@ -450,7 +462,7 @@ window.addEventListener('mouseup', e => {
 });
 cv.addEventListener('mousemove', e => {
   const mx = e.offsetX, my = e.offsetY;
-  if (drag) { if (Math.abs(mx - drag.x) + Math.abs(my - drag.y) > 4) { drag.moved = true; cv.classList.add('drag'); follow = false; } if (drag.moved) { panX = drag.px + mx - drag.x; panY = drag.py + my - drag.y; } }
+  if (drag) { if (Math.abs(mx - drag.x) + Math.abs(my - drag.y) > 4) { drag.moved = true; cv.classList.add('drag'); follow = false; } if (drag.moved) { panX = drag.px + mx - drag.x; panY = drag.py + my - drag.y; if (DATA) clampPan(); drag.px = panX; drag.py = panY; drag.x = mx; drag.y = my; } }
   levelHover = -1; for (const [x, y, w, h, l] of levelRows) if (inRect(mx, my, [x, y, w, h])) levelHover = l;
   sHover = -1; for (const [rx, ry, rw, rh, i] of sRects) if (inRect(mx, my, [rx, ry, rw, rh]) && sRows[i].hit) sHover = i;
   if (panelRects.menu) for (const [x, y, w, h, r] of panelRects.menu[4]) r.hov = inRect(mx, my, [x, y, w, h]);
