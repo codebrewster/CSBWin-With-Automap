@@ -1713,10 +1713,9 @@ static void DrawStairs(const SDL_Rect &cell, const AutoMapCellRecord &stairs)
     }
     Fill(step, stripe % 2 == 0 ? light : dark);
   }
-  // A plate with an arrow and the level the stairs lead to, named as on a teleporter's plate
-  // (L11); without a known target, the arrow alone
+  // A plate with an arrow and the level the stairs lead to; without a known target, the arrow alone
   int pixel = AutoMapLayout_PlatePixel(cell.w);
-  std::string label = stairs.stairsTargetLevel == AUTOMAP_NO_LEVEL ? "" : "L" + std::to_string(stairs.stairsTargetLevel);
+  std::string label = stairs.stairsTargetLevel == AUTOMAP_NO_LEVEL ? "" : std::to_string(stairs.stairsTargetLevel);
   int arrowW = 6 * pixel;
   int width = arrowW + AutoMapPaint_TextWidth(label, pixel) + 4 * pixel - (label.empty() ? pixel : 0);
   int height = 9 * pixel;
