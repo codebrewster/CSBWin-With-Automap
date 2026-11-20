@@ -2806,7 +2806,12 @@ static bool DrawPerLevelChoices(HeroStatsDrawState *state, size_t champions)
       ImGui::PushID((int)n + 1000);
       bool ignored = IgnoredNumber(numbers[n]);
       if (ChoiceButton(label, state->gridNumber[state->topic] == numbers[n], ignored)) state->gridNumber[state->topic] = numbers[n];
-      if (ignored) HelpTooltip(HeroStatsCatalogue_Info(numbers[n]).help);  // why it is grey
+      if (ignored)  // why it is grey: a hovertext, dotted under the label as any label with one
+      {
+        HelpTooltip(HeroStatsCatalogue_Info(numbers[n]).help);
+        ImVec2 min = ImGui::GetItemRectMin(), max = ImGui::GetItemRectMax(), pad = ImGui::GetStyle().FramePadding;
+        DottedUnderline(min.x + pad.x, max.x - pad.x, max.y - pad.y);
+      }
       ImGui::PopID();
     }
   }

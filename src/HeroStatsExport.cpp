@@ -1165,7 +1165,7 @@ function perLevel() {
   if (side) {
     const n = grid.includes(st.grid[t]) ? st.grid[t] : grid[0];
     html += '<div class="choices"><span class="lab">Number</span><div class="seg">' + grid.map(g =>
-      `<button class="ch${g === n ? ' on' : ''}${NUM[g].off ? ' off' : ''}"${NUM[g].off ? tipOf(esc(NUM[g].help)) : ''} onclick="st.grid[${t}]=${g};draw()">${esc(NUM[g].label)}</button>`).join('') + '</div></div>';
+      `<button class="ch${g === n ? ' on' : ''}${NUM[g].off ? ' off' : ''}" onclick="st.grid[${t}]=${g};draw()">${NUM[g].off ? `<span class="tip"${tipOf(esc(NUM[g].help))}>${esc(NUM[g].label)}</span>` : esc(NUM[g].label)}</button>`).join('') + '</div></div>';
     // One champion is all of the party: no Total beside the champion, no share
     const share = !NUM[n].rec && shared();
     cols = [nameCol('Level')].concat(H.map((h, i) => heroCol(i)), shared() ? [numCol('Total')] : [], share ? [numCol('Share')] : []);
