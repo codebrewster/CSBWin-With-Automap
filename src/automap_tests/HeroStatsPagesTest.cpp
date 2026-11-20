@@ -550,11 +550,11 @@ static void ChampionPageDropsPartyOnlyRows(void)
   stats.CountStep(1);
   stats.CountDoorBashed(7, 1, HeroDoorSmashed);
   HeroStatsTopicPage halk = HeroStatsPages_Topic(stats, Columns(stats), 7, HERO_STATS_WHOLE_RUN, HeroTopicExploration, NAMES);
-  CHECK(halk.numbers.size() == 5);
+  CHECK(halk.numbers.size() == 10);
   for (size_t i = 0; i < halk.numbers.size(); i++) CHECK(!halk.numbers[i].partyOnly && halk.numbers[i].byColumn.size() == 1);
-  if (halk.numbers.size() == 5) CHECK(halk.numbers[0].number == HeroNumDoorsBashed && halk.numbers[0].byColumn[0] == 1 && halk.numbers[0].party == 1);
+  if (halk.numbers.size() == 10) CHECK(halk.numbers[0].number == HeroNumDoorsBashed && halk.numbers[0].byColumn[0] == 1 && halk.numbers[0].party == 1);
   HeroStatsTopicPage party = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroTopicExploration, NAMES);
-  CHECK(party.numbers.size() == 36);
+  CHECK(party.numbers.size() == 37);
   if (!party.numbers.empty()) CHECK(party.numbers[0].number == HeroNumSteps && party.numbers[0].partyOnly && party.numbers[0].party == 1);
   CHECK(party.tiles.size() == 4);
   // A champion's Overview has tiles of their own
@@ -655,7 +655,8 @@ static void ChampionTotalsSkipPartyNumbers(void)
 {
   HeroStats stats = KillsOnTwoLevels();
   HeroStatsPerLevel table = HeroStatsPages_PerLevelTotals(stats, Columns(stats), 7, HeroTopicExploration);
-  CHECK(table.numbers == std::vector<HeroStatsNumber>({HeroNumDoorsBashed, HeroNumDoorsByZo}));
+  CHECK(table.numbers == std::vector<HeroStatsNumber>({HeroNumDoorsBashed, HeroNumDoorsByZo, HeroNumFormationChanges,
+                                                       HeroNumFormationPutBacks, HeroNumFormationSwappedAside}));
   CHECK(!table.hasShare);
   CHECK(!table.rows.empty() && table.rows[0].share.empty());
 }
@@ -1107,20 +1108,21 @@ static void PagesCarryTheGroups(void)
   HeroStatsTopicPage party = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroTopicExploration, NAMES);
   CHECK(party.groups.size() == 7);
   if (party.groups.size() != 7) return;
-  CHECK(party.groups[1].title == "Formation" && party.groups[1].panel);
-  CHECK(party.groups[2].title == "Travel" && party.groups[2].panel && party.groups[5].title == "Doors" && !party.groups[5].panel);
-  CHECK(party.groups[6].title == "Door buttons" && party.groups[6].panel);
+  CHECK(party.groups[1].title == "Travel" && party.groups[1].panel && party.groups[4].title == "Doors" && !party.groups[4].panel);
+  CHECK(party.groups[5].title == "Door buttons" && party.groups[5].panel);
+  CHECK(party.groups[6].title == "Formation" && !party.groups[6].panel);
   bool found = false;
   for (size_t r = 0; r < party.numbers.size(); r++)
     if (party.numbers[r].number == HeroNumTelefrags)
     {
       found = true;
-      CHECK(party.numbers[r].label == "onto monsters" && party.numbers[r].group == 2 && party.numbers[r].depth == 1);
+      CHECK(party.numbers[r].label == "onto monsters" && party.numbers[r].group == 1 && party.numbers[r].depth == 1);
     }
   CHECK(found);
   HeroStatsTopicPage one = HeroStatsPages_Topic(stats, Columns(stats), 7, HERO_STATS_WHOLE_RUN, HeroTopicExploration, NAMES);
-  CHECK(one.groups.size() == 1 && one.groups[0].title == "Doors");
-  for (size_t r = 0; r < one.numbers.size(); r++) CHECK(one.numbers[r].group == 0);
+  // A champion's are the doors and the formation changes
+  CHECK(one.groups.size() == 2 && one.groups[0].title == "Doors" && one.groups[1].title == "Formation");
+  for (size_t r = 0; r < one.numbers.size(); r++) CHECK(one.numbers[r].group == (r < 5 ? 0 : 1));
   // Wipes and reloads are the whole run's, in a panel of their own: on a level it is not there
   HeroStatsTopicPage level = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, 4, HeroTopicSurvival, NAMES);
   CHECK(level.groups.size() == 5 && level.groups[4].title == "Deaths");

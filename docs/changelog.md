@@ -8,7 +8,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 ## Unreleased
 
 **Statistics**
-- Exploration counts Formation changes: champions you moved to another place in the party by dragging their portrait, split into Swapped places and To an empty place. Put back in place counts the portraits dropped where they were picked up. Turning the party, recruiting and resurrection don't count.
+- Exploration counts Formation changes: champions you moved to another place in the party by dragging their portrait, split into Swapped places and To an empty place. Put back in place counts the portraits dropped where they were picked up, and Swapped aside the champions a dragged portrait was dropped on. Kept per champion and for the party, in a Formation table after the doors. Turning the party, recruiting and resurrection don't count.
 - Records can be sorted by any column, within each group; a click on Record puts them back in their order. The Value header no longer looks sorted while nothing is.
 - Damage reduced by source adds up to Damage reduced: its lines are rounded together, not one by one (1,154, not 1,153).
 - An attribute raised above its max is violet, no longer gold next to the yellow champion; gold is only a party record, always with its ★.

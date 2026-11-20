@@ -57,8 +57,9 @@ void HeroStats_OnPartyStepped(void);
 void HeroStats_OnPartyTurned(void);
 // The player dropped a champion's portrait (the drag in the party's formation): back where it was
 // picked up (samePlace), onto another champion, who trades places with it (ontoChampion), or onto
-// an empty place.
-void HeroStats_OnFormationChanged(bool samePlace, bool ontoChampion);
+// an empty place. dragged: the slot of the champion whose portrait it was; aside: the slot of the
+// champion it was dropped on, or -1 for none.
+void HeroStats_OnFormationChanged(bool samePlace, int dragged, int aside);
 // The party is about to take the stairs (TraverseStairway, after the party move filter let it): the
 // stair change counts on the level it leaves. Its arrival on the next level counts in OnPartyOnLevel.
 // (toLevel, toX, toY): the stairs it comes out of, for the stair dances.

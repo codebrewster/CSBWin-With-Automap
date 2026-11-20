@@ -735,11 +735,15 @@ void HeroStats_OnStairwayTaken(int toLevel, int toX, int toY)
   store.TrackStairDance(d.partyLevel, d.partyX, d.partyY, toLevel, toX, toY, (uint32_t)d.Time);
 }
 
-void HeroStats_OnFormationChanged(bool samePlace, bool ontoChampion)
+void HeroStats_OnFormationChanged(bool samePlace, int dragged, int aside)
 {
   if (d.partyLevel == LEVEL_OF_THE_PRISON_SCREEN) return;
+  bool ontoChampion = !samePlace && aside >= 0;
+  HeroStatsChampion who = IsHero(dragged) ? MetChampion(dragged) : HERO_STATS_NOBODY;
+  HeroStatsChampion other = ontoChampion && IsHero(aside) ? MetChampion(aside) : HERO_STATS_NOBODY;
   store.CountFormationChange(PartyLevel(), samePlace ? HeroStats::FormationPutBack
-                                           : ontoChampion ? HeroStats::FormationSwap : HeroStats::FormationMove);
+                                           : ontoChampion ? HeroStats::FormationSwap : HeroStats::FormationMove,
+                             who, other);
 }
 
 void HeroStats_OnPartyTurned(void)

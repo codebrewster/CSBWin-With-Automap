@@ -304,8 +304,8 @@ A gulp from an empty waterskin or flask does not count.
 
 Most of these are the party's, not a champion's. They stand in panels under **The party**:
 **Movement**, **Travel**, **Time**, **Discoveries** and **Door buttons**. The doors the champions
-opened are the Numbers under them, with a column per champion; a champion's Exploration shows
-those doors only.
+opened and the **Formation** changes are the Numbers under them, with a column per champion; a
+champion's Exploration shows those two only.
 
 | Number | What it counts |
 |---|---|
@@ -315,8 +315,6 @@ those doors only.
 | **Turns** | Turns left or right you made. Turning while on stairs takes the stairs, so it counts as a step. |
 | **Wall bumps** | Moves that ran into a wall, a closed door or a solid false wall |
 | **Monster bumps** | Moves that were stopped by a monster standing on the next square |
-| **Formation changes** | Champions you moved to another place in the party's formation by dragging their portrait. **Swapped places** below it are the drops on another champion (the two trade places); **To an empty place** are the drops where nobody stood. Turning the party, recruiting a champion and a resurrection that puts the champion in a free place move champions too, but are not counted. In a game saved with an earlier version it starts at 0. |
-| **Put back in place** | Portraits picked up and dropped back on their own place: nothing changed. Not part of Formation changes. A portrait dropped when the pointer leaves the portraits is not counted. |
 | **Teleports** | Teleporters that moved the party. Each teleporter in a chain counts. |
 | **onto monsters** (under Teleports) | Telefrags: teleports that ended on a square with monsters, which kills the whole group at once. Counted on the level of the destination; a chain counts once, for its last square. The monsters are Telefragged on the Monsters tab. |
 | **Pit falls** | Pits the party fell into. Each pit of a chain counts, on the level of the pit. |
@@ -331,6 +329,9 @@ those doors only.
 | **Doors bashed open** | Doors a champion broke down ("bashed" is the game's own word), with **Smashed** (an attack), **Shot open** (a thrown or fired item) and **By spell** (a spell's missile or its explosion) below it. Doors broken by monsters or traps are not counted. |
 | **Opened with Zo** | Closed doors a champion's Zo spell opened: the spell works the door's switch like its button and leaves the door whole, so these are not bashed. A Zo on an open door closes it and does not count. |
 | **Opened with button**, **Closed with button** | Clicks on a door's button: a click on an open door closes it, a click on any other door opens it. Doors moved by levers, wall switches, pressure plates or scripts are not counted. |
+| **Formation changes** | Times you moved the champion to another place in the party's formation by dragging their portrait (for the party: all of them). **Swapped places** below it are the drops on another champion (the two trade places); **To an empty place** are the drops where nobody stood. Turning the party, recruiting a champion and a resurrection that puts the champion in a free place move champions too, but are not counted. In a game saved with an earlier version it starts at 0; a game saved with the first version that counted them has the party's numbers but none for the champions. |
+| **Put back in place** | The champion's portrait picked up and dropped back on its own place: nothing changed. Not part of Formation changes. A portrait dropped when the pointer leaves the portraits is not counted. |
+| **Swapped aside** | Another champion's portrait was dropped on the champion, who went to the place it came from: the other side of a swap. For the party it is the same count as Swapped places. Not part of Formation changes. |
 | **Chests opened** | each chest once, the first time the party opens it |
 | **Scrolls read** | each scroll once, the first time it is opened |
 | **Wall texts read** | the wall texts the map knows as read |

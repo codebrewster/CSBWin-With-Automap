@@ -34,7 +34,7 @@ enum HeroStatsNumber {
   HeroNumSteps, HeroNumTilesWalked, HeroNumTilesExplored, HeroNumTurns, HeroNumBumps, HeroNumMonsterBumps, HeroNumTeleports, HeroNumTelefrags, HeroNumTelefragged, HeroNumLandings,
   HeroNumPitFalls, HeroNumPitClimbs, HeroNumClimbLandings, HeroNumArrivals, HeroNumStairChanges,
   HeroNumStairDances, HeroNumStairDanceMoves, HeroNumStrictStairDances, HeroNumStrictStairDanceMoves,
-  HeroNumFormationChanges, HeroNumFormationSwaps, HeroNumFormationMoves, HeroNumFormationPutBacks, HeroNumTicks, HeroNumSleepTicks,
+  HeroNumFormationChanges, HeroNumFormationSwaps, HeroNumFormationMoves, HeroNumFormationPutBacks, HeroNumFormationSwappedAside, HeroNumTicks, HeroNumSleepTicks,
   HeroNumDoorsBashed, HeroNumDoorsSmashed, HeroNumDoorsShot, HeroNumDoorsBySpell, HeroNumDoorsByZo,
   HeroNumDoorsButtonOpened, HeroNumDoorsButtonClosed, HeroNumChests, HeroNumScrolls, HeroNumWallTexts,
   HeroNumChampionsSeen, HeroNumChampionsViewed,

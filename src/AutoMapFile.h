@@ -170,7 +170,9 @@ private:
 //              first level, level, 4 bytes first time, 4 bytes time, (monster type, kills) list);
 //              then (layout 25) the stretches of poison running (2 bytes champion, first level,
 //              level, 4 bytes first time, 4 bytes time, poison damage, doses)
-//     events (layout 25): 2 bytes champion, level, kind (0 poisoned, 1 wounded, (layout 32) 2 potion brewed), count
+//     events (layout 25): 2 bytes champion, level, kind (0 poisoned, 1 wounded, (layout 32) 2 potion brewed,
+//              (layout 38) formation changes of the dragged champion: 3 swapped places, 4 to an
+//              empty place, 5 put back in place, and 6 swapped aside), count
 //     monster attacks (layout 33): 2 bytes champion, level, monster type, outcome (0 hit,
 //              1 dodged, 2 lucky, 3 too weak, 4 blocked), count
 //     defences (layout 33): 2 bytes champion, level, harm source, part (HeroDefencePart: 0
@@ -189,7 +191,7 @@ private:
 // door methods and no food and water, layout 18 no tiles walked, layout 19 no scrolls read,
 // layouts 20 and 21 no rune outcomes (taken from the rune spells' rows), layout 22 no experience
 // and no records, layout 23 no items taken from chests, layout 24 no poisonings, wounds or
-// stretches of poison, layout 25 no bumps into monsters, layout 26 no telefrags, layout 27 no count of their kills, layout 28 no landings and no monster kills by telefrag or landing (a telefrag's kills are among the "other" kills and counted with the movement), layout 29 no climbs down a rope onto monsters, layout 30 no arrivals or stair changes, layout 31 no potions brewed, layout 32 no monster attacks or defences, layout 33 no stair dances, layout 34 no meaningless spells (among the failed) and no regeneration lost, layout 35 no death ticks, layout 36 no formation changes. These older layouts come only inside map files of those versions.
+// stretches of poison, layout 25 no bumps into monsters, layout 26 no telefrags, layout 27 no count of their kills, layout 28 no landings and no monster kills by telefrag or landing (a telefrag's kills are among the "other" kills and counted with the movement), layout 29 no climbs down a rope onto monsters, layout 30 no arrivals or stair changes, layout 31 no potions brewed, layout 32 no monster attacks or defences, layout 33 no stair dances, layout 34 no meaningless spells (among the failed) and no regeneration lost, layout 35 no death ticks, layout 36 no formation changes, layout 37 no formation changes per champion. These older layouts come only inside map files of those versions.
 class AutoMapStatsFile
 {
 public:

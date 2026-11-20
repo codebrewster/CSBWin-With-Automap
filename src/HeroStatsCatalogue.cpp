@@ -96,10 +96,11 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Dance moves", "The stair changes in the stair dances after the first, which only brought the party onto the stairs.", true, false, false, false, false},
     {"Strict stair dances", "Runs of stair changes that never left the stairs: any step off them ends one, and the next stair change begins a new one. So one stair dance can hold several of these, or none.", true, false, false, false, false},
     {"Strict dance moves", "The turns on the stairs in the strict stair dances, after the stair change that brought the party onto them.", true, false, false, false, false},
-    {"Formation changes", "Champions the player moved to another place in the party's formation, by dragging their portrait. Turning the party, recruiting and resurrection are none.", true, false, false, false, false},
-    {"Swapped places", "Portraits dropped on another champion: the two traded places. Part of Formation changes.", true, false, false, false, false},
-    {"To an empty place", "Portraits dropped on an empty place. Part of Formation changes.", true, false, false, false, false},
-    {"Put back in place", "Portraits picked up and dropped where they were: nothing changed. Not part of Formation changes.", true, false, false, false, false},
+    {"Formation changes", "Times the player moved the champion to another place in the party's formation, by dragging their portrait. Swapped aside is apart; turning the party, recruiting and resurrection are none.", false, false, false, false, false},
+    {"Swapped places", "The champion's portrait dropped on another champion: the two traded places. Part of Formation changes.", false, false, false, false, false},
+    {"To an empty place", "The champion's portrait dropped on an empty place. Part of Formation changes.", false, false, false, false, false},
+    {"Put back in place", "The champion's portrait picked up and dropped where it was: nothing changed. Not part of Formation changes.", false, false, false, false, false},
+    {"Swapped aside", "Another champion's portrait dropped on the champion, who went to the place it came from. The other side of a swap: for the party the same count as Swapped places. Not part of Formation changes.", false, false, false, false, false},
     {"Time (ticks)", "Game ticks the party spent, on the level it was on, sleep included.", true, false, false, false, true},
     {"Asleep (ticks)", "Game ticks the party slept. Part of Time.", true, false, false, false, true},
     {"Doors bashed open", "Doors the champion broke: the lines below add up to it.", false, false, false, false, false},
@@ -175,7 +176,7 @@ static const char *const KEYS[] = {
     "steps", "tiles_walked", "tiles_explored", "turns", "wall_bumps", "monster_bumps", "teleports", "telefrags", "telefragged", "landings",
     "pit_falls", "pit_climbs", "climb_landings", "arrivals", "stair_changes",
     "stair_dances", "stair_dance_moves", "strict_stair_dances", "strict_stair_dance_moves",
-    "formation_changes", "formation_swaps", "formation_moves", "formation_put_backs", "ticks", "sleep_ticks",
+    "formation_changes", "formation_swaps", "formation_moves", "formation_put_backs", "formation_swapped_aside", "ticks", "sleep_ticks",
     "doors_bashed", "doors_smashed", "doors_shot", "doors_by_spell", "doors_by_zo",
     "doors_button_opened", "doors_button_closed", "chests", "scrolls", "wall_texts",
     "champions_seen", "champions_viewed",
@@ -277,8 +278,6 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
   SetGroups(&topics[HeroTopicExploration],
             {{"Movement", true,
               {{HeroNumSteps, 0}, {HeroNumTurns, 0}, {HeroNumTilesWalked, 0}, {HeroNumTilesExplored, 0}, {HeroNumBumps, 0}, {HeroNumMonsterBumps, 0}}},
-             {"Formation", true,
-              {{HeroNumFormationChanges, 0}, {HeroNumFormationSwaps, 1}, {HeroNumFormationMoves, 1}, {HeroNumFormationPutBacks, 0}}},
              {"Travel", true,
               {{HeroNumTeleports, 0}, {HeroNumTelefrags, 1, "onto monsters"}, {HeroNumPitFalls, 0}, {HeroNumLandings, 1, "onto monsters"},
                {HeroNumPitClimbs, 0}, {HeroNumClimbLandings, 1, "onto monsters"}, {HeroNumArrivals, 0}, {HeroNumStairChanges, 0},
@@ -288,7 +287,11 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
               {{HeroNumChests, 0}, {HeroNumScrolls, 0}, {HeroNumWallTexts, 0}, {HeroNumChampionsSeen, 0}, {HeroNumChampionsViewed, 0}}},
              {"Doors", false,
               {{HeroNumDoorsBashed, 0}, {HeroNumDoorsSmashed, 1}, {HeroNumDoorsShot, 1}, {HeroNumDoorsBySpell, 1}, {HeroNumDoorsByZo, 0}}},
-             {"Door buttons", true, {{HeroNumDoorsButtonOpened, 0}, {HeroNumDoorsButtonClosed, 0}}}});
+             {"Door buttons", true, {{HeroNumDoorsButtonOpened, 0}, {HeroNumDoorsButtonClosed, 0}}},
+             // Per champion, after the doors: a champion's tiles and summary begin with the doors
+             {"Formation", false,
+              {{HeroNumFormationChanges, 0}, {HeroNumFormationSwaps, 1}, {HeroNumFormationMoves, 1}, {HeroNumFormationPutBacks, 0},
+               {HeroNumFormationSwappedAside, 0}}}});
   // The six causes add up to Monsters killed
   topics[HeroTopicMonsters] = {"Monsters", {}, {HeroNumMonstersKilled, HeroNumKills, HeroNumTelefragged, HeroNumLandedOn}, {}};
   SetRows(&topics[HeroTopicMonsters],
@@ -620,10 +623,6 @@ static void FillMovement(const HeroStats &stats, HeroStatsChampion, int level, i
   v[HeroNumStairDanceMoves] = move.stairDanceMoves;
   v[HeroNumStrictStairDances] = move.strictStairDances;
   v[HeroNumStrictStairDanceMoves] = move.strictStairDanceMoves;
-  v[HeroNumFormationSwaps] = move.formationSwaps;
-  v[HeroNumFormationMoves] = move.formationMoves;
-  v[HeroNumFormationChanges] = move.formationSwaps + move.formationMoves;
-  v[HeroNumFormationPutBacks] = move.formationPutBacks;
   v[HeroNumTicks] = move.ticks;
   v[HeroNumSleepTicks] = move.sleepTicks;
 }
@@ -682,6 +681,27 @@ static void FillEvents(const HeroStats &stats, HeroStatsChampion who, int level,
   v[HeroNumPotionsBrewed] = stats.Events(who, level, HeroEventBrewed);
 }
 
+// A champion's from the events; the party's from the movement, which also holds the changes of a
+// game saved with layout 37, before they were kept per champion
+static void FillFormation(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
+{
+  if (who == HERO_STATS_PARTY)
+  {
+    HeroStatsMovement move = stats.Movement(level);
+    v[HeroNumFormationSwaps] = move.formationSwaps;
+    v[HeroNumFormationMoves] = move.formationMoves;
+    v[HeroNumFormationPutBacks] = move.formationPutBacks;
+  }
+  else
+  {
+    v[HeroNumFormationSwaps] = stats.Events(who, level, HeroEventFormationSwap);
+    v[HeroNumFormationMoves] = stats.Events(who, level, HeroEventFormationMove);
+    v[HeroNumFormationPutBacks] = stats.Events(who, level, HeroEventFormationPutBack);
+  }
+  v[HeroNumFormationChanges] = v[HeroNumFormationSwaps] + v[HeroNumFormationMoves];
+  v[HeroNumFormationSwappedAside] = stats.Events(who, level, HeroEventSwappedAside);
+}
+
 static void FillMonsterAttacks(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
 {
   v[HeroNumAttacksReceived] = stats.MonsterAttacks(who, level);
@@ -731,7 +751,7 @@ static void FillRecords(const HeroStats &stats, HeroStatsChampion who, int level
 
 static const FillGroup CHAMPION_GROUPS[] = {FillDamage, FillKills, FillAttacks, FillFriendlyFire, FillMana, FillCasts,
                                             FillTaken, FillHealing, FillDeaths, FillFood, FillDoors, FillExperience,
-                                            FillEvents, FillMonsterAttacks, FillDefences, FillRecords};
+                                            FillEvents, FillFormation, FillMonsterAttacks, FillDefences, FillRecords};
 static const FillGroup PARTY_GROUPS[] = {FillHardship, FillItems, FillMovement, FillDungeon, FillKillCauses};
 
 static FillGroup GroupOf(HeroStatsNumber number)
@@ -766,9 +786,10 @@ static FillGroup GroupOf(HeroStatsNumber number)
   case HeroNumSteps: case HeroNumTilesWalked: case HeroNumTilesExplored: case HeroNumTurns: case HeroNumBumps:
   case HeroNumMonsterBumps: case HeroNumTeleports: case HeroNumTelefrags: case HeroNumLandings: case HeroNumPitFalls: case HeroNumPitClimbs: case HeroNumClimbLandings: case HeroNumArrivals: case HeroNumStairChanges:
   case HeroNumStairDances: case HeroNumStairDanceMoves: case HeroNumStrictStairDances: case HeroNumStrictStairDanceMoves:
-  case HeroNumFormationChanges: case HeroNumFormationSwaps: case HeroNumFormationMoves: case HeroNumFormationPutBacks: case HeroNumTicks:
-  case HeroNumSleepTicks:
+  case HeroNumTicks: case HeroNumSleepTicks:
     return FillMovement;
+  case HeroNumFormationChanges: case HeroNumFormationSwaps: case HeroNumFormationMoves: case HeroNumFormationPutBacks:
+  case HeroNumFormationSwappedAside: return FillFormation;
   case HeroNumDoorsBashed: case HeroNumDoorsSmashed: case HeroNumDoorsShot: case HeroNumDoorsBySpell:
   case HeroNumDoorsByZo: return FillDoors;
   case HeroNumDoorsButtonOpened: case HeroNumDoorsButtonClosed: case HeroNumChests: case HeroNumScrolls:

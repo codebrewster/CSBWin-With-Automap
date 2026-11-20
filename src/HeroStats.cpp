@@ -744,12 +744,16 @@ void HeroStats::CountStairChange(int level)
   m_movement.insert(std::make_pair(level, NoMovement())).first->second.stairChanges++;
 }
 
-void HeroStats::CountFormationChange(int level, FormationChange change)
+void HeroStats::CountFormationChange(int level, FormationChange change, HeroStatsChampion dragged, HeroStatsChampion aside)
 {
   HeroStatsMovement &movement = m_movement.insert(std::make_pair(level, NoMovement())).first->second;
   if (change == FormationSwap) movement.formationSwaps++;
   else if (change == FormationMove) movement.formationMoves++;
   else movement.formationPutBacks++;
+  if (dragged != HERO_STATS_NOBODY)
+    CountEvent(dragged, level, change == FormationSwap ? HeroEventFormationSwap
+                               : change == FormationMove ? HeroEventFormationMove : HeroEventFormationPutBack);
+  if (change == FormationSwap && aside != HERO_STATS_NOBODY) CountEvent(aside, level, HeroEventSwappedAside);
 }
 
 void HeroStats::TrackStairDance(int level, int x, int y, int toLevel, int toX, int toY, uint32_t time)
@@ -1451,9 +1455,16 @@ void HeroStats::Serialize(std::vector<uint8_t> *out, int layout) const
   }
   m_experience.Serialize(out);
   m_records.Serialize(out);
-  HeroBytes_Put(out, (uint32_t)m_events.size(), 4);
+  // An older layout has no formation kinds
+  int eventKinds = layout >= FIRST_LAYOUT_WITH_CHAMPION_FORMATION ? HERO_EVENT_KIND_COUNT
+                   : layout >= FIRST_LAYOUT_WITH_BREWS ? (int)HeroEventFormationSwap : (int)HeroEventBrewed;
+  uint32_t events = 0;
+  for (std::map<EventKey, int>::const_iterator it = m_events.begin(); it != m_events.end(); ++it)
+    if (std::get<2>(it->first) < eventKinds) events++;
+  HeroBytes_Put(out, events, 4);
   for (std::map<EventKey, int>::const_iterator it = m_events.begin(); it != m_events.end(); ++it)
   {
+    if (std::get<2>(it->first) >= eventKinds) continue;
     HeroBytes_Put(out, std::get<0>(it->first), 2);
     HeroBytes_PutInt(out, std::get<1>(it->first));
     HeroBytes_PutInt(out, std::get<2>(it->first));
@@ -1832,7 +1843,8 @@ bool HeroStats::Deserialize(const uint8_t *data, size_t size, int layout)
       (!read.m_experience.Deserialize(in) || !read.m_records.Deserialize(in, layout >= FIRST_LAYOUT_WITH_POISON)))
     return false;
   count = layout >= FIRST_LAYOUT_WITH_POISON ? in.GetCount(2 + 4 + 4 + 4) : 0;
-  int eventKinds = layout >= FIRST_LAYOUT_WITH_BREWS ? HERO_EVENT_KIND_COUNT : (int)HeroEventBrewed;
+  int eventKinds = layout >= FIRST_LAYOUT_WITH_CHAMPION_FORMATION ? HERO_EVENT_KIND_COUNT
+                   : layout >= FIRST_LAYOUT_WITH_BREWS ? (int)HeroEventFormationSwap : (int)HeroEventBrewed;
   for (uint32_t i = 0; i < count && in.ok; i++)
   {
     HeroStatsChampion who = (HeroStatsChampion)in.Get(2);

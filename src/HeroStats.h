@@ -153,8 +153,13 @@ const int HERO_DOOR_ANY_METHOD = -1;
 
 // Things that happen to a champion and are only counted: poisonings (a new dose of poison, not
 // each tick of it), wounds (a part of the body wounded that was whole before) and potions brewed
-// (each spell that filled an empty flask, on the level of the cast)
-enum HeroEventKind { HeroEventPoisoned, HeroEventWounded, HeroEventBrewed, HERO_EVENT_KIND_COUNT };
+// (each spell that filled an empty flask, on the level of the cast). The formation changes of
+// the champion whose portrait the player dragged (HeroStats::FormationChange), and swapped aside:
+// another champion's portrait was dropped on this one, who went to the place it came from. The
+// values are in the save: new ones go to the end.
+enum HeroEventKind { HeroEventPoisoned, HeroEventWounded, HeroEventBrewed,
+                     HeroEventFormationSwap, HeroEventFormationMove, HeroEventFormationPutBack, HeroEventSwappedAside,
+                     HERO_EVENT_KIND_COUNT };
 
 // How a monster's melee attack on a champion ended (MonsterDamagesCharacter): it hurt, the champion
 // dodged it (quicker than the monster), was lucky, the attack was too weak to hurt (against the
@@ -257,9 +262,13 @@ public:
   void CountClimbLanding(int level);
   void CountArrival(int level);
   void CountStairChange(int level);
-  // A champion's portrait dropped: on a champion (swapped), on an empty place, or back where it was
+  // A champion's portrait dropped: on a champion (swapped), on an empty place, or back where it was.
+  // Counted for the party in the movement, and as events for dragged (the champion whose portrait
+  // it was) and for aside (the champion of a swap who went to dragged's place; HERO_STATS_NOBODY
+  // for none). Either may be HERO_STATS_NOBODY: the party's count alone.
   enum FormationChange { FormationSwap, FormationMove, FormationPutBack };
-  void CountFormationChange(int level, FormationChange change);
+  void CountFormationChange(int level, FormationChange change, HeroStatsChampion dragged = HERO_STATS_NOBODY,
+                            HeroStatsChampion aside = HERO_STATS_NOBODY);
   // Stair dances: stair changes one after the other, with no step away from the stairs between
   // them; fighting and casting between them is part of the dance. Two kinds are kept: a dance may
   // step to the four squares next to the stairs it came out of and back (a monster backed off), a
@@ -362,8 +371,8 @@ public:
   // from chests (none counted), 24 no poisonings, wounds or stretches of poison, 29 no climbs onto monsters,
   // 30 no arrivals or stair changes, 32 no monster attacks and no defences, 33 no stair dances,
   // 34 no meaningless spells (their runes count as failed) and no regeneration lost at full mana,
-  // 35 no tick of a death, 36 no formation changes.
-  static const int LAYOUT = 37;
+  // 35 no tick of a death, 36 no formation changes, 37 no formation changes per champion.
+  static const int LAYOUT = 38;
   static const int FIRST_LAYOUT_WITH_MOVEMENT = 14;
   static const int FIRST_LAYOUT_WITH_PITS_AND_SLEEP = 15;
   static const int FIRST_LAYOUT_WITH_ITEMS = 16;
@@ -388,6 +397,7 @@ public:
   static const int FIRST_LAYOUT_WITH_MANA_LOSSES = 35;  // rune outcome 3 (meaningless), mana gain 2 (regeneration lost)
   static const int FIRST_LAYOUT_WITH_DEATH_TICKS = 36;
   static const int FIRST_LAYOUT_WITH_FORMATION = 37;  // swaps, moves and put-backs in the movement
+  static const int FIRST_LAYOUT_WITH_CHAMPION_FORMATION = 38;  // the event kinds of the formation changes
   // layout: an older one leaves out what it does not have (the tests write old files with it)
   void Serialize(std::vector<uint8_t> *out, int layout = LAYOUT) const;
   bool Deserialize(const uint8_t *data, size_t size, int layout = LAYOUT);

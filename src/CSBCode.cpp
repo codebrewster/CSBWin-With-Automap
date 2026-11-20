@@ -2241,7 +2241,7 @@ void TAG0025a6(i32 P1)
       pcA0 = &d.hero[D4W];
       pcA0->charFlags |= CHARFLAG_positionChanged;
       DrawCharacterState(D4W);
-      HeroStats_OnFormationChanged(true, false);
+      HeroStats_OnFormationChanged(true, D4W, -1);
     }
     else
     {
@@ -2265,7 +2265,7 @@ void TAG0025a6(i32 P1)
       d.hero[D4W].charFlags |= CHARFLAG_positionChanged;
       DrawCharacterState(D4W);
       STShowCursor(HC25);
-      HeroStats_OnFormationChanged(false, D5W >= 0);
+      HeroStats_OnFormationChanged(false, D4W, D5W);
     };
   };
 }

@@ -194,8 +194,10 @@ static void PartyOnlyNumbersSkipChampions(void)
 static void GridOffersChampionNumbersOnly(void)
 {
   std::vector<HeroStatsNumber> doors = HeroStatsCatalogue_GridNumbers(HeroTopicExploration);
-  HeroStatsNumber expected[5] = {HeroNumDoorsBashed, HeroNumDoorsSmashed, HeroNumDoorsShot, HeroNumDoorsBySpell, HeroNumDoorsByZo};
-  CHECK(doors == std::vector<HeroStatsNumber>(expected, expected + 5));
+  HeroStatsNumber expected[10] = {HeroNumDoorsBashed, HeroNumDoorsSmashed, HeroNumDoorsShot, HeroNumDoorsBySpell, HeroNumDoorsByZo,
+                                  HeroNumFormationChanges, HeroNumFormationSwaps, HeroNumFormationMoves, HeroNumFormationPutBacks,
+                                  HeroNumFormationSwappedAside};
+  CHECK(doors == std::vector<HeroStatsNumber>(expected, expected + 10));
   std::vector<HeroStatsNumber> combat = HeroStatsCatalogue_GridNumbers(HeroTopicCombat);
   for (size_t i = 0; i < combat.size(); i++) CHECK(combat[i] != HeroNumHitRate && combat[i] != HeroNumDamagePerHit);
   CHECK(!combat.empty() && combat[0] == HeroNumDamage);
@@ -425,17 +427,19 @@ static void TopicsHaveGroups(void)
   CHECK(exploration.groups.size() == 7);
   if (exploration.groups.size() != 7) return;
   CHECK(std::string(exploration.groups[0].title) == "Movement" && exploration.groups[0].panel);
-  // Formation changes are the swaps and the moves to an empty place; the put-backs stand apart
-  CHECK(std::string(exploration.groups[1].title) == "Formation" && exploration.groups[1].panel && exploration.groups[1].rows.size() == 4);
-  if (exploration.groups[1].rows.size() == 4)
-    CHECK(exploration.groups[1].rows[0].number == HeroNumFormationChanges && exploration.groups[1].rows[1].depth == 1 &&
-          exploration.groups[1].rows[2].depth == 1 && exploration.groups[1].rows[3].number == HeroNumFormationPutBacks &&
-          exploration.groups[1].rows[3].depth == 0);
-  CHECK(std::string(exploration.groups[2].title) == "Travel" && exploration.groups[2].rows[1].number == HeroNumTelefrags &&
-        exploration.groups[2].rows[1].depth == 1 && std::string(HeroStatsCatalogue_RowLabel(exploration.groups[2].rows[1])) == "onto monsters");
-  CHECK(std::string(HeroStatsCatalogue_RowLabel(exploration.groups[2].rows[0])) == "Teleports");
-  CHECK(std::string(exploration.groups[5].title) == "Doors" && !exploration.groups[5].panel);
-  CHECK(std::string(exploration.groups[6].title) == "Door buttons" && exploration.groups[6].panel);
+  CHECK(std::string(exploration.groups[1].title) == "Travel" && exploration.groups[1].rows[1].number == HeroNumTelefrags &&
+        exploration.groups[1].rows[1].depth == 1 && std::string(HeroStatsCatalogue_RowLabel(exploration.groups[1].rows[1])) == "onto monsters");
+  CHECK(std::string(HeroStatsCatalogue_RowLabel(exploration.groups[1].rows[0])) == "Teleports");
+  CHECK(std::string(exploration.groups[4].title) == "Doors" && !exploration.groups[4].panel);
+  CHECK(std::string(exploration.groups[5].title) == "Door buttons" && exploration.groups[5].panel);
+  // Formation changes are the swaps and the moves to an empty place; the put-backs and the swaps
+  // aside stand apart. Kept per champion: a table, no panel, after the doors
+  const HeroStatsTopicGroup &formation = exploration.groups[6];
+  CHECK(std::string(formation.title) == "Formation" && !formation.panel && formation.rows.size() == 5);
+  if (formation.rows.size() == 5)
+    CHECK(formation.rows[0].number == HeroNumFormationChanges && formation.rows[1].depth == 1 && formation.rows[2].depth == 1 &&
+          formation.rows[3].number == HeroNumFormationPutBacks && formation.rows[3].depth == 0 &&
+          formation.rows[4].number == HeroNumFormationSwappedAside && formation.rows[4].depth == 0);
   CHECK(HeroStatsCatalogue_Topic(HeroTopicCombat).groups.size() == 2 && HeroStatsCatalogue_Topic(HeroTopicMagic).groups.size() == 3);
   // Mana out: Wasted is a part of Spells, and the failed and meaningless casts are its parts
   const std::vector<HeroStatsTopicRow> &out = HeroStatsCatalogue_Topic(HeroTopicMagic).groups[1].rows;
@@ -599,8 +603,37 @@ static void TimeIsAShareOfTheRun(void)
   CHECK(HeroStatsCatalogue_RunShare(HeroNumSteps, 2, 250, 1000) == "");
 }
 
+// Formation changes per champion: the dragged champion's swaps and moves, the put-backs and the
+// swaps aside apart; the party's from the movement, which a game saved with layout 37 holds alone
+static void FormationIsPerChampion(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  stats.MeetChampion(9, "SYRA");
+  stats.CountFormationChange(1, HeroStats::FormationSwap, 7, 9);
+  stats.CountFormationChange(1, HeroStats::FormationMove, 7);
+  stats.CountFormationChange(1, HeroStats::FormationPutBack, 9);
+  stats.CountFormationChange(1, HeroStats::FormationMove);  // as layout 37 counted it: the party's alone
+  HeroStatsRecord halk = HeroStatsCatalogue_Record(stats, 7, HERO_STATS_WHOLE_RUN);
+  HeroStatsRecord syra = HeroStatsCatalogue_Record(stats, 9, HERO_STATS_WHOLE_RUN);
+  HeroStatsRecord party = HeroStatsCatalogue_Record(stats, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN);
+  CHECK(halk.value[HeroNumFormationChanges] == 2 && halk.value[HeroNumFormationSwaps] == 1 &&
+        halk.value[HeroNumFormationMoves] == 1 && halk.value[HeroNumFormationPutBacks] == 0 &&
+        halk.value[HeroNumFormationSwappedAside] == 0);
+  CHECK(syra.value[HeroNumFormationChanges] == 0 && syra.value[HeroNumFormationPutBacks] == 1 &&
+        syra.value[HeroNumFormationSwappedAside] == 1);
+  CHECK(party.value[HeroNumFormationChanges] == 3 && party.value[HeroNumFormationMoves] == 2 &&
+        party.value[HeroNumFormationPutBacks] == 1 && party.value[HeroNumFormationSwappedAside] == 1);
+  CHECK(HeroStatsCatalogue_Applies(HeroNumFormationChanges, 7, HERO_STATS_WHOLE_RUN) &&
+        HeroStatsCatalogue_Applies(HeroNumFormationSwappedAside, 9, 1));
+  CHECK(HeroStatsCatalogue_Value(stats, 9, 1, HeroNumFormationSwappedAside) == 1 &&
+        HeroStatsCatalogue_Value(stats, 7, 1, HeroNumFormationChanges) == 2);
+  CHECK(HeroStatsCatalogue_Key(HeroNumFormationSwappedAside) == "formation_swapped_aside");
+}
+
 void TestHeroStatsCatalogue(void)
 {
+  FormationIsPerChampion();
   TopicsHaveGroups();
   PartyNumbersStandInPanels();
   KillCausesAddUp();

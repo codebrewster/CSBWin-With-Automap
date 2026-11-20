@@ -356,6 +356,36 @@ static void FormationChangesAreCounted(void)
   CHECK(old.formationSwaps == 0 && old.formationMoves == 0 && old.formationPutBacks == 0);
 }
 
+// Layout 38: the formation changes per champion too, as events: the dragged champion's swap, move
+// or put-back, and the champion swapped aside; a layout 37 file has the party's alone
+static void FormationChangesPerChampion(void)
+{
+  HeroStats stats;
+  stats.CountFormationChange(1, HeroStats::FormationSwap, 7, 9);
+  stats.CountFormationChange(1, HeroStats::FormationMove, 7);
+  stats.CountFormationChange(2, HeroStats::FormationPutBack, 9);
+  stats.CountFormationChange(2, HeroStats::FormationSwap);
+  CHECK(stats.Events(7, HERO_STATS_WHOLE_RUN, HeroEventFormationSwap) == 1 && stats.Events(7, 1, HeroEventFormationMove) == 1);
+  CHECK(stats.Events(7, HERO_STATS_WHOLE_RUN, HeroEventSwappedAside) == 0);
+  CHECK(stats.Events(9, 1, HeroEventSwappedAside) == 1 && stats.Events(9, 2, HeroEventFormationPutBack) == 1);
+  CHECK(stats.Events(9, HERO_STATS_WHOLE_RUN, HeroEventFormationSwap) == 0);
+  HeroStatsMovement run = stats.Movement(HERO_STATS_WHOLE_RUN);
+  CHECK(run.formationSwaps == 2 && run.formationMoves == 1 && run.formationPutBacks == 1);
+  std::vector<uint8_t> v38, as37;
+  stats.Serialize(&v38);
+  stats.Serialize(&as37, 37);
+  // Four event rows, of 2 + 3 * 4 bytes each
+  CHECK(v38.size() == as37.size() + 4 * 14);
+  HeroStats read38, readAs37;
+  CHECK(read38.Deserialize(v38.data(), v38.size()));
+  CHECK(read38.Events(9, 1, HeroEventSwappedAside) == 1 && read38.Events(7, 1, HeroEventFormationSwap) == 1);
+  CHECK(readAs37.Deserialize(as37.data(), as37.size(), 37));
+  CHECK(readAs37.Events(HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroEventFormationSwap) == 0 &&
+        readAs37.Movement(HERO_STATS_WHOLE_RUN).formationSwaps == 2);
+  // A layout 37 file with a formation kind is broken
+  CHECK(!readAs37.Deserialize(v38.data(), v38.size(), 37));
+}
+
 // The longest stair dance of a kind over the whole run, or -1
 static int LongestDance(const HeroStats &stats, HeroRecordKind kind, int level = HERO_STATS_WHOLE_RUN)
 {
@@ -1224,6 +1254,7 @@ void TestHeroStats(void)
   MovementIsKeptPerLevel();
   StairDancesAreCounted();
   FormationChangesAreCounted();
+  FormationChangesPerChampion();
   LayoutThirteenIsStillRead();
   ActionUsesAreKeptApartFromTries();
   LayoutFourteenIsStillRead();
