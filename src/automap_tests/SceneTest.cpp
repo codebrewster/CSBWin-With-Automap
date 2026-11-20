@@ -1078,6 +1078,32 @@ static void GlobalOffsetsReachTheDrawList(void)
   CHECK(drawList.offsetY == 5);
 }
 
+static AutoMapShownCell ShownCellOfKind(int x, int y, AutoMapCellKind kind)
+{
+  AutoMapShownCell shown;
+  shown.x = x;
+  shown.y = y;
+  shown.cell.kind = kind;
+  return shown;
+}
+
+static void LandingMarkNeedsAShownCell(void)
+{
+  AutoMapDrawList drawList;
+  drawList.cells.push_back(ShownCellOfKind(2, 3, AutoMapCellFloor));
+  CHECK(AutoMapScene_LandingMarkShows(drawList, 2, 3, false));
+  CHECK(!AutoMapScene_LandingMarkShows(drawList, 4, 4, false));
+  CHECK(!AutoMapScene_LandingMarkShows(drawList, 2, 3, true));
+}
+
+static void StairLandingMarkNeedsAShownStair(void)
+{
+  AutoMapDrawList drawList;
+  drawList.cells.push_back(ShownCellOfKind(1, 1, AutoMapCellStairs));
+  CHECK(AutoMapScene_LandingMarkShows(drawList, 1, 1, true));
+  CHECK(AutoMapScene_LandingMarkShows(drawList, 1, 1, false));
+}
+
 static void GlobalPositionAddsTheLevelOffset(void)
 {
   AutoMapDrawList drawList;
@@ -7100,6 +7126,8 @@ void TestAutoMapScene(void)
   NewerRequestReplacesThePendingCentre();
   GlobalOffsetsReachTheDrawList();
   GlobalPositionAddsTheLevelOffset();
+  LandingMarkNeedsAShownCell();
+  StairLandingMarkNeedsAShownStair();
   WithoutFogMissilesAndCloudsAreShown();
   AFluxCageStaysAFluxCageInTheDrawList();
   UnderFogMissilesAndCloudsShowOnlyWhereThePartySees();

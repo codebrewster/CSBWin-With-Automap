@@ -1686,12 +1686,10 @@ std::vector<AutoMapLevelSize> AutoMapLevelReader_DungeonLevelSizes(void)
 
 // The level's offset in global coordinates. The descriptors can be unavailable while a saved
 // game loads; then the level reads as if it started at the origin.
-// Where each map's stairs lead, the way the engine moves the party (IncrementLevel): before the
-// boundary rock is added, while the cells are still in level coordinates
-static void ResolveStairsTargets(AutoMapLevelSnapshot *snapshot)
+std::vector<AutoMapLevelArea> AutoMapLevelReader_LevelAreas(void)
 {
-  if (d.dungeonDatIndex == NULL || d.pLevelDescriptors == NULL) return;
   std::vector<AutoMapLevelArea> areas;
+  if (d.dungeonDatIndex == NULL || d.pLevelDescriptors == NULL) return areas;
   for (int level = 0; level < d.dungeonDatIndex->NumLevel(); level++)
   {
     LEVELDESC &descriptor = d.pLevelDescriptors[level];
@@ -1699,6 +1697,15 @@ static void ResolveStairsTargets(AutoMapLevelSnapshot *snapshot)
                              descriptor.LastColumn() + 1, descriptor.LastRow() + 1};
     areas.push_back(area);
   }
+  return areas;
+}
+
+// Where each map's stairs lead, the way the engine moves the party (IncrementLevel): before the
+// boundary rock is added, while the cells are still in level coordinates
+static void ResolveStairsTargets(AutoMapLevelSnapshot *snapshot)
+{
+  std::vector<AutoMapLevelArea> areas = AutoMapLevelReader_LevelAreas();
+  if (areas.empty()) return;
   for (int y = 0; y < snapshot->height; y++)
   {
     for (int x = 0; x < snapshot->width; x++)

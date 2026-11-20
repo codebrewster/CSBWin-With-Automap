@@ -14,6 +14,10 @@ std::vector<AutoMapLevelSize> AutoMapLevelReader_DungeonLevelSizes(void);
 // (0, 0) when the descriptors are unavailable or the level is out of range.
 void AutoMapLevelReader_LevelOffset(int level, int *offsetX, int *offsetY);
 
+// Each level's depth and area in the dungeon's ruler coordinates, indexed by level, for
+// AutoMapScene_StairsTarget. Empty while the descriptors are unavailable.
+std::vector<AutoMapLevelArea> AutoMapLevelReader_LevelAreas(void);
+
 // The identity of an engine record as the knowledge store keeps it: database number in the
 // high half, index in the low half. The position bits are left out, they change when an
 // item moves within its cell. recordInteger is RN::ConvertToInteger(), as the hooks get it;

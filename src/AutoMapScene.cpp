@@ -3225,6 +3225,17 @@ bool AutoMapScene_TakeCentre(AutoMapPendingCentre *pending, int shownLevel, floa
   return true;
 }
 
+bool AutoMapScene_LandingMarkShows(const AutoMapDrawList &drawList, int x, int y, bool fromStairs)
+{
+  for (size_t i = 0; i < drawList.cells.size(); i++)
+  {
+    const AutoMapShownCell &shown = drawList.cells[i];
+    if (shown.x != x || shown.y != y) continue;
+    return !fromStairs || shown.cell.kind == AutoMapCellStairs;
+  }
+  return false;
+}
+
 int AutoMapScene_StairsTarget(const std::vector<AutoMapLevelArea> &areas, int level, bool up, int absX, int absY)
 {
   if (level < 0 || level >= (int)areas.size()) return AUTOMAP_NO_LEVEL;

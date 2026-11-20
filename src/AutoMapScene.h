@@ -1014,6 +1014,11 @@ std::vector<AutoMapLink> AutoMapScene_LinksTo(const AutoMapDrawList &drawList, i
 void AutoMapScene_GlobalPosition(const AutoMapDrawList &drawList, int x, int y,
                                  int *globalX, int *globalY);
 
+// Whether the landing highlight (a stair followed, a level stepped) is drawn on draw-list cell
+// (x, y): only when the map shows that cell, and for a stair's landing only when it shows it as
+// stairs. An unexplored landing is centred but not framed, so the highlight gives nothing away.
+bool AutoMapScene_LandingMarkShows(const AutoMapDrawList &drawList, int x, int y, bool fromStairs);
+
 // The player's own notes on a cell for the tooltip: "YOUR MARK: HIDDEN PIT OPEN" (or CLOSED), then
 // one "YOUR LINK: L<level> (<x>, <y>)" per player link from the cell, any side. Empty when the
 // cell is not shown.
