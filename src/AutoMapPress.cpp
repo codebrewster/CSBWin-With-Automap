@@ -1474,13 +1474,8 @@ static void FoldStyledBlocks(const std::vector<PressLines> &blocks, PressLines *
     for (size_t l = 0; l < block.size(); l++)
     {
       PressLine line = block[l];
-      if (l == 0 && counts[firsts[f]] > 1)
-      {
-        size_t indent = line.text.find_first_not_of(' ');
-        char count[16];
-        std::snprintf(count, sizeof(count), "%dX ", counts[firsts[f]]);
-        line.text.insert(indent == std::string::npos ? 0 : indent, count);
-      }
+      // How many, after the line as after an item's name: COUNTER A L0 (2, 0) X2
+      if (l == 0 && counts[firsts[f]] > 1) line.text += " X" + std::to_string(counts[firsts[f]]);
       out->push_back(line);
     }
   }

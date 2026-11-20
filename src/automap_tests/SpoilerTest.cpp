@@ -2469,7 +2469,7 @@ static void LaunchedItemsShowAtAllInFiringOrder(void)
 static void DoubleLauncherCountsItemsNotShots(void)
 {
   AutoMapDrawList all = Build(WithObjectLauncher(15), AutoMapSpoilersAll, NULL);
-  CHECK(HasLine(Texts(AutoMapScene_RelayLines(all, 1, 0)), "  LAUNCHES 2X OBJECT, 3 LEFT"));
+  CHECK(HasLine(Texts(AutoMapScene_RelayLines(all, 1, 0)), "  LAUNCHES OBJECT X2, 3 LEFT"));
 }
 
 static void EmptyObjectLauncherSaysEmpty(void)

@@ -210,7 +210,7 @@ spoiler level.
 
 At every level:
 
-- **Items**, stacked by name (`3X SKELETON KEY`), and what a chest or alcove
+- **Items**, stacked by name (`SKELETON KEY X3`), and what a chest or alcove
   holds once the party has looked. A brewed potion has its power rune in front, as in the
   inventory: `UM VEN POTION`.
 - **Monsters**, with the damage the game showed for each group member.
@@ -227,7 +227,7 @@ At **All**, also:
 - **What every lock needs**, such as `NEEDS SOLID KEY (S)`.
 - **What sets off a pad**, such as `TRIGGER: PARTY OR MONSTER`.
 - **Monster generators**: what they create and its hit point range.
-- **What a launcher throws**: `LAUNCHES 2X FIREBALL`. An object launcher, which throws what lies
+- **What a launcher throws**: `LAUNCHES FIREBALL X2`. An object launcher, which throws what lies
   inside its wall, lists what it still holds as icons, next shot first, each chest with what it
   holds: `LAUNCHES CHEST (N)`, and says how many are left: `LAUNCHES OBJECT, 8 LEFT`.
 
@@ -452,9 +452,9 @@ folds it away. Each hit shows its icon, the cell as the rulers number it, its na
 they lead to (`TO L4`). A text hit shows the words around the match, the match in gold, and is
 tagged `SCROLL`, `SCROLL ALCOVE`, `SCROLL IN CHEST`, `SCROLL CARRIED`, `SCROLL LAUNCHER`,
 `SCROLL LAUNCHER CHEST` or `WALL (N)` with the face it
-is written on; text hits come after the names. A stack of more than one says how many in front of where it lies: `X2 ALCOVE`,
-`X3 IN CHEST`; hits of one cell that read the same are one row, so two chests there, opened or not,
-are `CHEST X2`. **Up** and **Down** step
+is written on; text hits come after the names. A stack of more than one says how many after its name, as
+the tooltip does: `DAGGER X2` with `ALCOVE` at the right; hits of one cell that read the same are
+one row, so two chests there, opened or not, are `CHEST X2`. **Up** and **Down** step
 through the hits and jump the map to each, **Enter** centres the selected hit, a click on a hit
 jumps to it, and **Escape** closes the search. The wheel scrolls a long list. On the map every hit
 of the shown level gets a gold frame, the selected one a light frame. Once a hit is selected, the rest

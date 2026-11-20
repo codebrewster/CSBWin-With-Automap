@@ -4647,11 +4647,6 @@ static std::string WithoutGroupCount(const std::string &name)
   return name.substr(0, at);
 }
 
-// A stack of more than one, in front of where it lies: "X2 ALCOVE"
-static std::string Counted(const AutoMapSearchHit &hit, const std::string &tag)
-{
-  return hit.count > 1 ? "X" + std::to_string(hit.count) + " " + tag : tag;
-}
 
 // The tag at the right of a hit: how many, and what kind of find it is
 static std::string SearchTag(const AutoMapSearchHit &hit, SDL_Color *colour)
@@ -4661,13 +4656,13 @@ static std::string SearchTag(const AutoMapSearchHit &hit, SDL_Color *colour)
   {
   case AutoMapHitNeeds:
     *colour = FACING_BADGE_FRAME;
-    if (hit.slot.side < 0) return Counted(hit, hit.slot.carried ? "PAD, CARRIED" : "PAD NEEDS");
-    return Counted(hit, "NEEDS");
-  case AutoMapHitCarried: return Counted(hit, "CARRIED BY " + WithoutGroupCount(hit.carriedBy));
-  case AutoMapHitInChest: return Counted(hit, "IN CHEST");
-  case AutoMapHitAlcove: return Counted(hit, "ALCOVE");
-  case AutoMapHitLauncher: return Counted(hit, "LAUNCHER");
-  case AutoMapHitInLauncherChest: return Counted(hit, "LAUNCHER CHEST");
+    if (hit.slot.side < 0) return hit.slot.carried ? "PAD, CARRIED" : "PAD NEEDS";
+    return "NEEDS";
+  case AutoMapHitCarried: return "CARRIED BY " + WithoutGroupCount(hit.carriedBy);
+  case AutoMapHitInChest: return "IN CHEST";
+  case AutoMapHitAlcove: return "ALCOVE";
+  case AutoMapHitLauncher: return "LAUNCHER";
+  case AutoMapHitInLauncherChest: return "LAUNCHER CHEST";
   case AutoMapHitGenerator: *colour = GEN_TEXT; return "GENERATOR";
   case AutoMapHitScroll:
   case AutoMapHitWallText: return AutoMapScene_TextTag(hit.kind, hit.scrollWhere, hit.slot.side);
@@ -4677,7 +4672,7 @@ static std::string SearchTag(const AutoMapSearchHit &hit, SDL_Color *colour)
     char side = SideInitial(hit.slot.side);
     return side ? std::string("(") + side + ")" : "";
   }
-  default: return hit.count > 1 ? "X" + std::to_string(hit.count) : "";
+  default: return "";
   }
 }
 
@@ -4874,7 +4869,9 @@ static void DrawSearchPanel(void)
       }
       else
       {
-        DrawLegendText(nameX, y + 5, hit.name.c_str(), selected ? dark : WHITE);
+        // A stack of more than one says how many after its name, as the tooltip: DAGGER X2
+        std::string name = hit.count > 1 ? hit.name + " X" + std::to_string(hit.count) : hit.name;
+        DrawLegendText(nameX, y + 5, name.c_str(), selected ? dark : WHITE);
       }
       if (!tag.empty())
       {

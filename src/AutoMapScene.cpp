@@ -1665,8 +1665,8 @@ std::vector<AutoMapTipLine> AutoMapScene_ActuatorLines(const AutoMapDrawList &dr
       if (pad.generatedCount > 1)
       {
         char generated[128];
-        std::snprintf(generated, sizeof(generated), "GENERATES %dX %s", pad.generatedCount,
-                      pad.generatedMonsterName.c_str());
+        std::snprintf(generated, sizeof(generated), "GENERATES %s X%d",
+                      pad.generatedMonsterName.c_str(), pad.generatedCount);
         AddTriggerLine(&lines, AutoMapScene_TipLine(generated, AutoMapTipPlain));
       }
       else
@@ -2061,7 +2061,7 @@ std::vector<AutoMapTipLine> AutoMapScene_RelayLines(const AutoMapDrawList &drawL
     char launches[96];
     if (LauncherShots(launcher) > 1)
     {
-      std::snprintf(launches, sizeof(launches), "LAUNCHES 2X %s", missile);
+      std::snprintf(launches, sizeof(launches), "LAUNCHES %s X2", missile);
     }
     else
     {

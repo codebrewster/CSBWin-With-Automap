@@ -2252,7 +2252,7 @@ static void TriggerLinesFoldDuplicatesAndNameContraptions(void)
   // The cog is left to the relay hover block; the dormant pad and the spent generator are
   // named by their tooltip headers (AutoMapTooltip_Machinery), not by a line here
   CHECK(machineLines.size() == 1);
-  CHECK(machineLines[0] == "GENERATES 3X Mummy");
+  CHECK(machineLines[0] == "GENERATES Mummy X3");
 }
 
 // A party pad and a monster pad want different things: two presses
@@ -2744,7 +2744,7 @@ static void RelayLinesDescribeLaunchers(void)
   CHECK(lines[0] == "LAUNCHER (E)");
   CHECK(lines[1] == "  LAUNCHES POISON CLOUD");
   CHECK(lines[2] == "LAUNCHER (S)");
-  CHECK(lines[3] == "  LAUNCHES 2X FIREBALL");
+  CHECK(lines[3] == "  LAUNCHES FIREBALL X2");
   CHECK(lines[4] == "LAUNCHER");
   CHECK(lines[5] == "  LAUNCHES OBJECT, EMPTY");
 }
@@ -3392,7 +3392,7 @@ static void MachineryHeadsPitsDoorsAndGenerators(void)
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
   std::vector<AutoMapTipLine> pit = AutoMapTooltip_Machinery(drawList, 1, 1, false, TestItemName);
   CHECK(JoinedTip(pit)
-        == "HIDDEN PIT\n  CLOSED\nDORMANT PAD\nGENERATOR\n  GENERATES 3X Mummy\nSPENT GENERATOR");
+        == "HIDDEN PIT\n  CLOSED\nDORMANT PAD\nGENERATOR\n  GENERATES Mummy X3\nSPENT GENERATOR");
   const AutoMapTipLine *dormant = TipLineAt(pit, "DORMANT PAD");
   CHECK(dormant != NULL && dormant->style == AutoMapTipDormantHeader);
   CHECK(JoinedTip(AutoMapTooltip_Machinery(drawList, 2, 1, false, TestItemName))
@@ -3404,7 +3404,7 @@ static void MachineryHeadsPitsDoorsAndGenerators(void)
   drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
   pit = AutoMapTooltip_Machinery(drawList, 1, 1, false, TestItemName);
   CHECK(JoinedTip(pit)
-        == "HIDDEN PIT\n  CLOSED\nSPENT PAD\nGENERATOR\n  GENERATES 3X Mummy\nSPENT GENERATOR");
+        == "HIDDEN PIT\n  CLOSED\nSPENT PAD\nGENERATOR\n  GENERATES Mummy X3\nSPENT GENERATOR");
   const AutoMapTipLine *spentLine = TipLineAt(pit, "SPENT PAD");
   CHECK(spentLine != NULL && spentLine->style == AutoMapTipDormantHeader);
 }
@@ -6284,7 +6284,7 @@ static void PressLinesFoldIdenticalReceiversAndCap(void)
   drawList = DrawAll(dead);
   sources = AutoMapScene_PressEffects(drawList, 0, 1);
   CHECK(Joined(PressText(drawList, sources, true))
-        == "ROUTE:\n  2X COUNTER A L0 (2, 0)\n    AT 0, DEAD");
+        == "ROUTE:\n  COUNTER A L0 (2, 0) X2\n    AT 0, DEAD");
   // A hub with 14 receivers: 10 lines under the headers, the last one the rest
   AutoMapLevelSnapshot hub = MachineRoom();
   for (int i = 0; i < 14; i++) PutRelay(&hub, 2, 0, CounterRelay(5 + i), 200 + i);

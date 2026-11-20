@@ -879,12 +879,11 @@ function buildIndex() {
   DATA.index.levels.forEach((L, l) => {
     const v = viewOf(l); if (!v) return;
     // food: the item is of the food kind (index 6 of KIND_SHOW), which the word FOOD finds as in the game
-    const add = (x, y, name, tag, icon, kind, food) => INDEX.push({ l, x, y, gx: x + L.offsetX, gy: y + L.offsetY, name: (name || '').toUpperCase(), tag, icon, kind, food: !!food });
+    // n: how many, drawn after the name as the tooltip does (DAGGER X2)
+    const add = (x, y, name, tag, icon, kind, food, n) => INDEX.push({ l, x, y, gx: x + L.offsetX, gy: y + L.offsetY, name: (name || '').toUpperCase(), tag, icon, kind, food: !!food, n: n || 1 });
     const FOOD_KIND = KIND_SHOW.indexOf('FOOD');
     const monsterAt = {}; v.monsters.forEach(m => monsterAt[m.x + ',' + m.y] = m);
     for (const c of v.cells) {
-      // A stack of more than one says how many, as the game's tags: X2 ALCOVE, X3 IN CHEST
-      const counted = (n, tag) => n > 1 ? 'X' + n + ' ' + tag : tag;
       const h = v.hover[c.x + ',' + c.y], m = monsterAt[c.x + ',' + c.y];
       if (h && h.icons) {
         // As AutoMapScene_SearchItems: the tooltip's stacks (the floor shows at most three pictures),
@@ -900,11 +899,11 @@ function buildIndex() {
             : launched ? 'LAUNCHER' : side >= 0 ? 'ALCOVE' : '';
           const key = it[2] + '|' + tag; (rows[key] = rows[key] || { n: 0, it, tag }).n += n;
         });
-        for (const key in rows) { const { n, it, tag } = rows[key]; add(c.x, c.y, it[2], tag ? counted(n, tag) : n > 1 ? 'X' + n : '', it[1] || it[0], 'item', it[3] === FOOD_KIND); }
+        for (const key in rows) { const { n, it, tag } = rows[key]; add(c.x, c.y, it[2], tag, it[1] || it[0], 'item', it[3] === FOOD_KIND, n); }
       } else {
-        if (c.items) { const by = {}; c.items.forEach(i => { if (!i[2]) return; (by[i[2]] = by[i[2]] || { n: 0, icon: i[1] || i[0], food: i[3] === FOOD_KIND }).n++; }); for (const n in by) add(c.x, c.y, n, by[n].n > 1 ? 'X' + by[n].n : '', by[n].icon, 'item', by[n].food); }
+        if (c.items) { const by = {}; c.items.forEach(i => { if (!i[2]) return; (by[i[2]] = by[i[2]] || { n: 0, icon: i[1] || i[0], food: i[3] === FOOD_KIND }).n++; }); for (const n in by) add(c.x, c.y, n, '', by[n].icon, 'item', by[n].food, by[n].n); }
         const inAlcove = {}; (c.alc || []).forEach(a => { if (!a[1][2]) return; const key = a[0] + '|' + a[1][2]; (inAlcove[key] = inAlcove[key] || { n: 0, it: a[1] }).n++; });
-        for (const key in inAlcove) { const { n, it } = inAlcove[key]; add(c.x, c.y, it[2], counted(n, 'ALCOVE'), it[1] || it[0], 'item', it[3] === FOOD_KIND); }
+        for (const key in inAlcove) { const { n, it } = inAlcove[key]; add(c.x, c.y, it[2], 'ALCOVE', it[1] || it[0], 'item', it[3] === FOOD_KIND, n); }
       }
       // A face with several locks that want one item is one row, as its tooltip says it once
       const lockSaid = new Set();
@@ -918,7 +917,7 @@ function buildIndex() {
     v.acts.forEach(a => { const k = a[0] + ',' + a[1] + ',' + a[2] + ',' + a[3]; if (seen.has(k)) return; seen.add(k);
       if ((a[3] === 4 || a[3] === 6) && a[2] === 0 && a[5][2]) add(a[0], a[1], a[5][2], a[3] === 6 ? 'PAD, CARRIED' : 'PAD NEEDS', a[5][1] || a[5][0], 'needs', a[5][3] === FOOD_KIND);
       if (a[2] === 2 && a[7]) add(a[0], a[1], nice(a[7]), 'GENERATOR', a[6], 'gen'); });
-    v.monsters.forEach(m => add(m.x, m.y, nice(m.name) || 'MONSTER', m.m.length > 1 ? 'X' + m.m.length : '', m.m[0] && m.m[0][0], 'monster'));
+    v.monsters.forEach(m => add(m.x, m.y, nice(m.name) || 'MONSTER', '', m.m[0] && m.m[0][0], 'monster', false, m.m.length));
   });
 }
 // As AutoMapScene_SearchHitRank: the name, the word FOOD for anything edible, GEN, MON; a text
@@ -965,7 +964,7 @@ function drawSearchPanel() {
       if (hh.kind === 'needs') { rect(x + 21, yy + 1, 18, 18, '#0c0b09'); frame(x + 21, yy + 1, 18, 18, '#e0b64a'); } if (hh.kind.startsWith('stairs')) { const L = hh.kind === 'stairs-up' ? ['#9a9488', '#5e594f'] : ['#6d685f', '#3a3731']; for (let k = 0; k < 4; k++) rect(x + 22, yy + 2 + 4 * k, 16, 4, L[k % 2]); } else spr(hh.icon, x + 22, yy + 2, 16, 16); if (hh.kind === 'gen') { rect(x + 31, yy + 11, 9, 8, '#0d0c0a'); text(g, x + 33, yy + 12, 'G', '#ff8080', 1); }
       text(g, x + 46, yy + 5, `(${hh.gx},${hh.gy})`, sel ? '#1a160f' : '#b8b0a0', p); const nx = x + 46 + textW('(00,00)', p) + 10;
       if (TEXT_KINDS.includes(hh.kind)) { const q = query.trim().toUpperCase(), [line, m] = textExcerpt(hh.name, q, x + w - 16 - textW(hh.tag, p) - 10 - nx, p); const ink = sel ? '#1a160f' : '#b8b0a0', mm = m >= 0 ? m : line.length, ml = m >= 0 ? q.length : 0; text(g, nx, yy + 5, line.slice(0, mm), ink, p); text(g, nx + mm * 4 * p, yy + 5, line.slice(mm, mm + ml), sel ? '#1a160f' : '#ffcc33', p); text(g, nx + (mm + ml) * 4 * p, yy + 5, line.slice(mm + ml), ink, p); }
-      else text(g, nx, yy + 5, hh.name, sel ? '#1a160f' : '#fff', p);
+      else text(g, nx, yy + 5, hh.n > 1 ? hh.name + ' X' + hh.n : hh.name, sel ? '#1a160f' : '#fff', p);
       if (hh.tag) { const tc = sel ? '#1a160f' : hh.kind === 'needs' ? '#e0b64a' : hh.kind === 'gen' ? '#ff8080' : '#8f8676'; text(g, x + w - 16 - textW(hh.tag, p), yy + 5, hh.tag, tc, p); } }
     sRects.push([x, yy, w - 12, S_RH, i]); yy += S_RH; }
   if (sRows.length > S_ROWS) { const tr = h - 34, th = Math.max(14, tr * S_ROWS / sRows.length), ty = y + 28 + (tr - th) * sTop / (sRows.length - S_ROWS); rect(x + w - 8, y + 28, 4, tr, '#2c2822'); rect(x + w - 8, ty, 4, th, '#8f8676'); }
