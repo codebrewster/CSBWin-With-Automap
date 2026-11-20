@@ -1034,28 +1034,6 @@ static void DraggingAddsNoBlackSpace(void)
   CHECK(height == 400 && fits.originY == 50);
 }
 
-// Zooming out glides the extra black space away: in step with the cell size, none at the whole
-// level, never more than the zoom left; a zoom in or a view without extra black is untouched
-static void ZoomOutGlidesTheBlackSpaceAway(void)
-{
-  // A 32-cell level in a 640-pixel window: at 40 pixels it is 1280 wide, clinging at 0..-640
-  CHECK(AutoMapScene_ExtraBlack(0, 640, 1280) == 0);
-  CHECK(AutoMapScene_ExtraBlack(200, 640, 1280) == 200);
-  CHECK(AutoMapScene_ExtraBlack(-700, 640, 1280) == -60);
-  // A level that fits is centred: 320 wide in 640 sits at 160
-  CHECK(AutoMapScene_ExtraBlack(250, 640, 320) == 90);
-  // Halfway from 40 to the fitting 20: at most half of the 200 black pixels stay
-  CHECK(AutoMapScene_GlideOrigin(300, 640, 960, 200, 40, 30, 20) == 100);
-  // Less than its share: unchanged
-  CHECK(AutoMapScene_GlideOrigin(50, 640, 960, 200, 40, 30, 20) == 50);
-  // At the whole level: centred
-  CHECK(AutoMapScene_GlideOrigin(300, 640, 640, 200, 40, 20, 20) == 0);
-  // A zoom in is not touched
-  CHECK(AutoMapScene_GlideOrigin(300, 640, 1600, 200, 40, 50, 20) == 300);
-  // No extra black before: the level clings
-  CHECK(AutoMapScene_GlideOrigin(120, 640, 960, 0, 40, 30, 20) == 0);
-}
-
 static void OnlyTheFittingZoomShowsTheWholeLevel(void)
 {
   AutoMapViewRequest request = RequestFor(640, 400);
@@ -7269,7 +7247,6 @@ void TestAutoMapScene(void)
   ZoomKeepsTheSameSpotCentred();
   ZoomKeepsThePointUnderThePointerStill();
   DraggingAddsNoBlackSpace();
-  ZoomOutGlidesTheBlackSpaceAway();
   OnlyTheFittingZoomShowsTheWholeLevel();
   LabelStepKeepsNumbersApart();
   VisibleRangeCoversTheCellsTouchingTheMap();

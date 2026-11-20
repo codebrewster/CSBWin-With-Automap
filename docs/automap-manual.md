@@ -85,7 +85,7 @@ click outside closes the list.
 | Input | What it does |
 |---|---|
 | Left-drag | Pans the view; the map stops following the party. A drag never adds black space beside the level: once an edge of the level reaches the window's edge, it stays there |
-| Mouse wheel | Zooms towards the pointer, from the whole level down to about three cells across. Zooming out, the black space beside the level shrinks step by step, so the whole level arrives centred |
+| Mouse wheel | Zooms towards the pointer, from the whole level down to about three cells across |
 | Middle-click | Centres the view on the party again and follows it |
 | Mouse side buttons | Back goes down a level, forward goes up, centred on the tile under the pointer, which gets a light frame while the rest of the level dims |
 | Ctrl+click on a stair | Comes out of the stair on the level it leads to: that level, centred on the stair you would arrive on, which gets a light frame while the rest of the level dims |
