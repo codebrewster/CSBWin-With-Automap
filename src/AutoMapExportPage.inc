@@ -1152,8 +1152,21 @@ cv.addEventListener('mousemove', e => {
   const c = overPanel || (drag && drag.moved) ? null : cellAt(mx, my); if (!c || !hover || c.x !== hover.x || c.y !== hover.y) tipScroll = 0; hover = c && V.cells.some(o => o.x === c.x && o.y === c.y) ? c : null; draw();
 });
 cv.addEventListener('mouseleave', () => { hover = null; draw(); });
+// One wheel step from the wheel's deltas: a mouse notch is one step, a touchpad's many small deltas
+// add up until they make one. Shift+wheel is sent as deltaX by some browsers. A sideways swipe
+// without Shift is no step, and neither is an event with no delta at all.
+let wheelSum = 0, wheelAt = 0;
+function wheelStep(e) {
+  const raw = e.shiftKey ? (e.deltaY || e.deltaX) : e.deltaY;
+  if (!raw) return 0;
+  const px = raw * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 400 : 1);
+  if (e.timeStamp - wheelAt > 300 || Math.sign(px) !== Math.sign(wheelSum)) wheelSum = 0;
+  wheelAt = e.timeStamp; wheelSum += px;
+  if (Math.abs(wheelSum) < 40) return 0;
+  const d = wheelSum > 0 ? 1 : -1; wheelSum = 0; return d;
+}
 cv.addEventListener('wheel', e => {
-  e.preventDefault(); const mx = e.offsetX, my = e.offsetY, d = e.deltaY > 0 ? 1 : -1; landingMark = null;
+  e.preventDefault(); const mx = e.offsetX, my = e.offsetY, d = wheelStep(e); if (!d) return; landingMark = null;
   if (levelOpen && inRect(mx, my, panelRects.levels)) { levelScroll = Math.max(0, Math.min(DATA.index.levels.length - ROWS_SHOWN, levelScroll + d * 3)); draw(); return; }
   if (searchOpen && inRect(mx, my, panelRects.search)) { sTop = Math.max(0, Math.min(Math.max(0, sRows.length - S_ROWS), sTop + d * 3)); draw(); return; }
   if (e.ctrlKey) { tipScale = Math.max(1, Math.min(TIP_SCALE_MOST, tipScale - d)); try { localStorage.setItem('csb-map-tip-scale', String(tipScale)); } catch (err) { } draw(); return; }
