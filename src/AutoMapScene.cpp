@@ -1996,6 +1996,22 @@ std::vector<AutoMapTipLine> AutoMapScene_RelayLines(const AutoMapDrawList &drawL
     if (switched) wall.push_back("SWITCHED");
     AddRelayGroup(&lines, "FALSE WALL", wall);
   }
+  // Stairs: which way and where they come out, the same dungeon position on the level they lead
+  // to (the words the search uses)
+  if (shown->cell.kind == AutoMapCellStairs)
+  {
+    std::vector<std::string> to;
+    if (shown->cell.stairsTargetLevel != AUTOMAP_NO_LEVEL)
+    {
+      int globalX = 0, globalY = 0;
+      AutoMapScene_GlobalPosition(drawList, x, y, &globalX, &globalY);
+      char line[48];
+      std::snprintf(line, sizeof(line), "TO L%d (%d, %d)", shown->cell.stairsTargetLevel, globalX,
+                    globalY);
+      to.push_back(line);
+    }
+    AddRelayGroup(&lines, shown->cell.stairsLeadUp ? "STAIRS UP" : "STAIRS DOWN", to);
+  }
   // Sealed doors first: no switch, no incoming link, no axe/fireball way
   // through. Bashable counts as openable and names the force that breaks it.
   if (shown->cell.kind == AutoMapCellDoor)

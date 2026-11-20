@@ -6691,6 +6691,29 @@ static void StairsFindsBothWays(void)
   CHECK(AutoMapScene_SearchItems(drawList, "stairs up", WaterItemName, NULL).size() == 1);
 }
 
+// Stairs say in their tooltip which way they lead and where they come out
+static void RelayLinesNameWhereStairsLead(void)
+{
+  AutoMapLevelSnapshot snapshot = Corridor();
+  snapshot.offsetX = 12;
+  snapshot.offsetY = 3;
+  AutoMapCellRecord &down = snapshot.cells[1 * 4 + 1];
+  down.kind = AutoMapCellStairs;
+  down.stairsLeadUp = false;
+  down.stairsTargetLevel = 4;
+  AutoMapCellRecord &up = snapshot.cells[1 * 4 + 2];
+  up.kind = AutoMapCellStairs;
+  up.stairsLeadUp = true;
+  AutoMapExplored explored = NothingExplored();
+  AutoMapVisibleCells visibleNow;
+  AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
+  std::vector<std::string> lines = Texts(AutoMapScene_RelayLines(drawList, 1, 1));
+  CHECK(lines.size() == 2 && lines[0] == "STAIRS DOWN" && lines[1] == "  TO L4 (13, 4)");
+  // Where they lead is unknown: the header alone
+  lines = Texts(AutoMapScene_RelayLines(drawList, 2, 1));
+  CHECK(lines.size() == 1 && lines[0] == "STAIRS UP");
+}
+
 static void WaterFindsFlasksAndFountains(void)
 {
   std::vector<AutoMapSearchHit> hits = AutoMapScene_SearchItems(
@@ -7290,6 +7313,7 @@ void TestAutoMapScene(void)
   SealedDoorsNeedNoSwitchLinkOrBash();
   RelayLinesNameSealedDoors();
   RelayLinesNameTheForceThatBreaksADoor();
+  RelayLinesNameWhereStairsLead();
   TeleporterLinesDescribeScopeDestinationAndTurn();
   TeleporterLinesDescribeAbsoluteFacing();
   DestinationPrintsGlobalCoordinates();
