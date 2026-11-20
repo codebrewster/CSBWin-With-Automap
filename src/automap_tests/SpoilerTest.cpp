@@ -2554,6 +2554,63 @@ static void LaunchersOnOneFaceListTheirPoolOnce(void)
   CHECK(club.size() == 1 && club[0].count == 1);
 }
 
+// A launcher also takes what lies on the next face, which that face's launcher takes too: what
+// they share shows once, under the first, and the second says how much it shares
+static void LaunchersOfTwoFacesListWhatTheyShareOnce(void)
+{
+  AutoMapLevelSnapshot snapshot = Corridor();
+  AutoMapLauncher south = ObjectLauncher(14);
+  south.ammunition.push_back(Ammo(CLUB, 4, 41, AUTOMAP_NO_RECORD));
+  south.ammunition.push_back(Ammo(SWORD, 2, 42, AUTOMAP_NO_RECORD));
+  AutoMapLauncher east = ObjectLauncher(14);
+  east.side = AutoMapEast;
+  east.actuator = LAUNCHER_RECORD + 1;
+  east.ammunition.push_back(Ammo(CLUB, 4, 43, AUTOMAP_NO_RECORD));
+  east.ammunition.push_back(Ammo(CLUB, 4, 41, AUTOMAP_NO_RECORD));
+  east.ammunition.push_back(Ammo(SWORD, 2, 42, AUTOMAP_NO_RECORD));
+  At(&snapshot, 1, 0).wallLaunchers.push_back(south);
+  At(&snapshot, 1, 0).wallLaunchers.push_back(east);
+  AutoMapDrawList all = Build(snapshot, AutoMapSpoilersAll, NULL);
+  std::vector<AutoMapTooltipSlot> slots = AutoMapScene_TooltipSlots(all, 1, 0);
+  CHECK(slots.size() == 3);
+  if (slots.size() != 3) return;
+  CHECK(slots[0].side == AutoMapSouth && slots[0].item.nameIndex == 4);
+  CHECK(slots[1].side == AutoMapSouth && slots[1].item.nameIndex == 2);
+  CHECK(slots[2].side == AutoMapEast && slots[2].item.nameIndex == 4 && slots[2].count == 1);
+  std::vector<std::string> lines = Texts(AutoMapScene_RelayLines(all, 1, 0));
+  CHECK(HasLine(lines, "  LAUNCHES OBJECT, 3 LEFT"));
+  CHECK(HasLine(lines, "  SHARES 2 WITH (S)"));
+  CHECK(AutoMapScene_SearchItems(all, "club", FakeName, NULL).size() == 2);
+}
+
+// The names of what a launcher throws go under its group, after its LAUNCHES line
+static void LaunchedNamesGoUnderTheirLauncher(void)
+{
+  std::vector<AutoMapTipLine> lines;
+  lines.push_back(AutoMapScene_TipLine("LAUNCHER (S)", AutoMapTipHeader));
+  lines.push_back(AutoMapScene_TipLine("  LAUNCHES OBJECT, 3 LEFT", AutoMapTipPlain));
+  lines.push_back(AutoMapScene_TipLine("  FIRED BY: PAD L0 (1, 2)", AutoMapTipPlain));
+  lines.push_back(AutoMapScene_TipLine("LAUNCHER (E)", AutoMapTipHeader));
+  lines.push_back(AutoMapScene_TipLine("  LAUNCHES OBJECT, 1 LEFT", AutoMapTipPlain));
+  std::vector<std::string> south;
+  south.push_back("CLUB X2");
+  south.push_back("CHEST");
+  south.push_back("  SWORD");
+  CHECK(AutoMapScene_PlaceLaunchedLines(&lines, AutoMapSouth, south));
+  CHECK(AutoMapScene_PlaceLaunchedLines(&lines, AutoMapSouth, std::vector<std::string>(1, "DAGGER")));
+  CHECK(AutoMapScene_PlaceLaunchedLines(&lines, AutoMapEast, std::vector<std::string>(1, "ARMET")));
+  CHECK(!AutoMapScene_PlaceLaunchedLines(&lines, AutoMapNorth, std::vector<std::string>(1, "ROPE")));
+  std::vector<std::string> texts = Texts(lines);
+  CHECK(texts.size() == 10);
+  if (texts.size() != 10) return;
+  CHECK(texts[2] == "    CLUB X2");
+  CHECK(texts[3] == "    CHEST");
+  CHECK(texts[4] == "      SWORD");
+  CHECK(texts[5] == "    DAGGER");
+  CHECK(texts[6] == "  FIRED BY: PAD L0 (1, 2)");
+  CHECK(texts[9] == "    ARMET");
+}
+
 // A scroll the launcher throws, and one in a chest it throws, are found by their words at All only
 static AutoMapLevelSnapshot WithLauncherScrolls(void)
 {
@@ -2716,6 +2773,8 @@ void TestAutoMapSpoilers(void)
   LauncherItemsAreFoundAtAllOnly();
   StackPrefixNamesNeedsAndLaunches();
   LaunchersOnOneFaceListTheirPoolOnce();
+  LaunchersOfTwoFacesListWhatTheyShareOnce();
+  LaunchedNamesGoUnderTheirLauncher();
   LauncherScrollsAreFoundByTheirWordsAtAll();
   PicturelessAmmunitionCountsButDrawsNoIcon();
 }

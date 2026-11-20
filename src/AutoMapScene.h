@@ -1319,7 +1319,9 @@ std::vector<AutoMapTipLine> AutoMapScene_TriggerLines(const AutoMapDrawList &dra
 // lines two spaces in. "ADDED ROCK: OUTSIDE THE LEVEL" (plain, first); "FALSE WALL" with
 // "SOLID", "WALK-THROUGH" (an illusionary wall) or "OPEN" under it, then "SWITCHED" when
 // something operates it; a stone-embedded missile launcher reads
-// "LAUNCHER (N)" with "LAUNCHES POISON CLOUD" ("2X" for paired types 9/10/15) under it;
+// "LAUNCHER (N)" with "LAUNCHES POISON CLOUD" ("X2" for paired types 9/10/15) under it, an
+// object launcher "LAUNCHES OBJECT, 8 LEFT" and "SHARES 3 WITH (S)" when an earlier launcher of
+// the cell takes some of the same items (AutoMapScene_PlaceLaunchedLines puts their names in);
 // "DOOR" with "SEALED" (a door that is not open, with no own switch, no incoming link and no
 // axe/fireball way through, at All only) and "BREAK FORCE: 60 (AXE, FIREBALL)" for a
 // breakable door, and no header when neither applies. Counter, gate and DSA state, and
@@ -1329,6 +1331,12 @@ std::vector<AutoMapTipLine> AutoMapScene_TriggerLines(const AutoMapDrawList &dra
 // absent from the draw list (unexplored); targets naming unexplored cells stay silent like
 // the teleporter destination rule.
 std::vector<AutoMapTipLine> AutoMapScene_RelayLines(const AutoMapDrawList &drawList, int x, int y);
+
+// The names of what an object launcher throws ("DAGGER X10", a chest's contents two spaces
+// further in) go under its "LAUNCHER (S)" group, after the LAUNCHES line and the names put
+// there before, four spaces in. False when the lines have no group for that side.
+bool AutoMapScene_PlaceLaunchedLines(std::vector<AutoMapTipLine> *lines, int side,
+                                     const std::vector<std::string> &names);
 
 // How far a goal is from happening, from the path of the press tree that reaches it:
 // it happens on this press (or already has: OPEN on an open door), needs more presses

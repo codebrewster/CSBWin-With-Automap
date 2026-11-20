@@ -4022,48 +4022,98 @@ static char SideInitial(int side)
   }
 }
 
+// "COPPER COIN X5": the count follows the name; "UM VEN POTION": a potion's power rune goes
+// first, as in the inventory. Empty for a stack without a name.
+static std::string TooltipStackName(const TooltipCell &cell)
+{
+  if (cell.item.nameIndex < 0 && !cell.item.isFluxCage) return "";
+  const char *name = cell.item.isFluxCage ? "FLUXCAGE"
+                   : !cell.item.ownName.empty() ? cell.item.ownName.c_str()
+                   : AutoMapLevelReader_ItemName(cell.item.nameIndex);
+  if (name == NULL || name[0] == '\0') return "";
+  std::string named = name;
+  const char *rune = AutoMapScene_PotionPowerName(cell.item.potionPower);
+  if (rune[0] != '\0') named = std::string(rune) + " " + named;
+  return AutoMapScene_StackLine(named, cell.count);
+}
+
+static std::string ShortenedToWidth(std::string line, int maxLineW)
+{
+  while (!line.empty() && AutoMapScene_TextWidth(line.c_str()) * DIGIT_SCALE > maxLineW)
+  {
+    line.erase(line.size() - 1);
+  }
+  return line;
+}
+
+// What object launchers throw, with a chest's contents under it: one list per firing side, in
+// tooltip order
+static std::vector<std::pair<int, std::vector<std::string> > > LaunchedNames(
+    const std::vector<TooltipCell> &cells)
+{
+  std::vector<std::pair<int, std::vector<std::string> > > sides;
+  bool inLaunched = false;
+  for (size_t i = 0; i < cells.size(); i++)
+  {
+    if (!cells[i].nested) inLaunched = cells[i].launched;
+    if (!inLaunched) continue;
+    std::string what = TooltipStackName(cells[i]);
+    if (what.empty()) continue;
+    if (cells[i].nested) what = "  " + what;
+    else if (sides.empty() || sides.back().first != cells[i].side)
+      sides.push_back(std::make_pair(cells[i].side, std::vector<std::string>()));
+    if (!sides.empty()) sides.back().second.push_back(what);
+  }
+  return sides;
+}
+
+// The names of what launchers throw go under their LAUNCHER group in the machinery lines; a
+// launcher without one (none should be) keeps the names as lines of their own:
+// "LAUNCHES DAGGER (S)"
+static std::vector<std::string> PlaceLaunchedNames(const std::vector<TooltipCell> &cells,
+                                                   std::vector<AutoMapTipLine> *machinery,
+                                                   int maxLineW)
+{
+  std::vector<std::string> unplaced;
+  std::vector<std::pair<int, std::vector<std::string> > > sides = LaunchedNames(cells);
+  for (size_t s = 0; s < sides.size(); s++)
+  {
+    if (AutoMapScene_PlaceLaunchedLines(machinery, sides[s].first, sides[s].second)) continue;
+    char sideInitial = SideInitial(sides[s].first);
+    for (size_t n = 0; n < sides[s].second.size(); n++)
+    {
+      std::string line = sides[s].second[n];
+      if (line.compare(0, 2, "  ") != 0)
+      {
+        line = "LAUNCHES " + line;
+        if (sideInitial != '\0') line += std::string(" (") + sideInitial + ")";
+      }
+      line = ShortenedToWidth(line, maxLineW);
+      if (!line.empty()) unplaced.push_back(line);
+    }
+  }
+  return unplaced;
+}
+
+// Launched stacks and their contents are not here: they go under their LAUNCHER header
+// (PlaceLaunchedNames)
 static std::vector<std::string> BuildTooltipNameLines(const std::vector<TooltipCell> &cells,
                                                       int maxLineW)
 {
   std::vector<std::string> lines;
+  bool inLaunched = false;
   for (size_t i = 0; i < cells.size(); i++)
   {
-    if (cells[i].item.nameIndex < 0 && !cells[i].item.isFluxCage) continue;
-    const char *name = cells[i].item.isFluxCage ? "FLUXCAGE"
-                     : !cells[i].item.ownName.empty() ? cells[i].item.ownName.c_str()
-                     : AutoMapLevelReader_ItemName(cells[i].item.nameIndex);
-    if (name == NULL || name[0] == '\0') continue;
-    char line[64];
-    // "COPPER COIN X5", "NEEDS ON PAD COIN X2": the count follows the name; "UM VEN POTION": a
-    // potion's power rune goes first, as in the inventory
-    std::string named = name;
-    const char *rune = AutoMapScene_PotionPowerName(cells[i].item.potionPower);
-    if (rune[0] != '\0') named = std::string(rune) + " " + named;
-    std::string what = AutoMapScene_StackLine(named, cells[i].count);
-    const char *need = AutoMapScene_StackPrefix(cells[i].required, cells[i].carried,
-                                                cells[i].launched, cells[i].side);
-    std::snprintf(line, sizeof(line), "%s%s", need, what.c_str());
+    if (!cells[i].nested) inLaunched = cells[i].launched;
+    if (inLaunched) continue;
+    std::string what = TooltipStackName(cells[i]);
+    if (what.empty()) continue;
+    std::string line = AutoMapScene_StackPrefix(cells[i].required, cells[i].carried, false,
+                                                cells[i].side) + what;
     char sideInitial = SideInitial(cells[i].side);
-    if (sideInitial != '\0')
-    {
-      size_t length = 0;
-      while (line[length] != '\0') length++;
-      if (length + 4 < sizeof(line))
-      {
-        line[length] = ' ';
-        line[length + 1] = '(';
-        line[length + 2] = sideInitial;
-        line[length + 3] = ')';
-        line[length + 4] = '\0';
-      }
-    }
-    std::string shortened = line;
-    while (!shortened.empty()
-           && AutoMapScene_TextWidth(shortened.c_str()) * DIGIT_SCALE > maxLineW)
-    {
-      shortened.erase(shortened.size() - 1);
-    }
-    if (!shortened.empty()) lines.push_back(shortened);
+    if (sideInitial != '\0') line += std::string(" (") + sideInitial + ")";
+    line = ShortenedToWidth(line, maxLineW);
+    if (!line.empty()) lines.push_back(line);
   }
   return lines;
 }
@@ -4276,6 +4326,7 @@ static void DrawTileTooltip(const AutoMapView &view)
   std::vector<std::string> nameLines =
       BuildTooltipNameLines(cells, maxW - 2 * TOOLTIP_PAD);
   AppendTipLines(footerLines, nameLines);
+  AppendTipLines(footerLines, PlaceLaunchedNames(cells, &machinery, maxW - 2 * TOOLTIP_PAD));
   footerLines.insert(footerLines.end(), machinery.begin(), machinery.end());
   std::vector<std::string> textLines =
       BuildTooltipTextLines(scrolls, walls, maxW - 2 * TOOLTIP_PAD);
@@ -6067,6 +6118,7 @@ void AutoMapWindow_TooltipFor(const AutoMapDrawList &list, int x, int y, bool fu
     if (!monsterName.empty()) lines->push_back(AutoMapScene_TipLine(monsterName, AutoMapTipMonsterName));
     AppendTipLines(*lines, hpLines);
     AppendTipLines(*lines, BuildTooltipNameLines(cells, 100000));
+    AppendTipLines(*lines, PlaceLaunchedNames(cells, &machinery, 100000));
     lines->insert(lines->end(), machinery.begin(), machinery.end());
     AppendTipLines(*lines, BuildTooltipTextLines(scrolls, walls, 100000));
     AppendTipLines(*lines, notes);

@@ -228,8 +228,10 @@ At **All**, also:
 - **What sets off a pad**, such as `TRIGGER: PARTY OR MONSTER`.
 - **Monster generators**: what they create and its hit point range.
 - **What a launcher throws**: `LAUNCHES FIREBALL X2`. An object launcher, which throws what lies
-  inside its wall, lists what it still holds as icons, next shot first, each chest with what it
-  holds: `LAUNCHES CHEST (N)`, and says how many are left: `LAUNCHES OBJECT, 8 LEFT`.
+  inside its wall, says how many are left, `LAUNCHES OBJECT, 8 LEFT`, and lists what it still
+  holds under that, next shot first, as icons and by name, each chest with what it holds indented
+  under it. A launcher also takes what lies on the next face of its wall; what two launchers share
+  is listed under the first, and the second says `SHARES 11 WITH (S)`.
 
 A generator the map knows that has fired and sleeps for a while is headed `SLEEPING GENERATOR`, with
 when it wakes: `WAKES IN 380 TICKS, ABOUT 1:30`. The time is measured: the map counts how many ticks

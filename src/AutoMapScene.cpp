@@ -1334,19 +1334,21 @@ static AutoMapItem FloorScrollItem(const AutoMapShownCell &shown, AutoMapRecordI
   return AutoMapItem();
 }
 
-// Launchers on one face draw from one pool: whether an earlier launcher of the cell already
-// listed the pool of launcher l
-static bool LauncherPoolListedBefore(const AutoMapCellRecord &cell, size_t l)
+// Launchers can draw from one pool: two on one face share it, and a launcher also takes what
+// lies on the face after its own, which the launcher of that next face takes too. The side of
+// an earlier launcher of the cell that already takes this record, or -1
+static int LauncherTakesBefore(const AutoMapCellRecord &cell, size_t l, AutoMapRecordId record)
 {
+  if (record == AUTOMAP_NO_RECORD) return -1;
   for (size_t e = 0; e < l; e++)
   {
-    if (cell.wallLaunchers[e].side == cell.wallLaunchers[l].side
-        && !cell.wallLaunchers[e].ammunition.empty())
+    const std::vector<AutoMapAlcoveEntry> &ammunition = cell.wallLaunchers[e].ammunition;
+    for (size_t a = 0; a < ammunition.size(); a++)
     {
-      return true;
+      if (ammunition[a].record == record) return cell.wallLaunchers[e].side;
     }
   }
-  return false;
+  return -1;
 }
 
 std::string AutoMapScene_TextTag(AutoMapHitKind kind, AutoMapHitKind where, int side)
@@ -1407,14 +1409,14 @@ std::vector<AutoMapCellText> AutoMapScene_CellTexts(const AutoMapDrawList &drawL
       found.push_back(entry);
     }
   }
-  // What object launchers will throw (All only: the filter empties it below), each face's pool once
+  // What object launchers will throw (All only: the filter empties it below), a shared pool once
   for (size_t l = 0; l < cell.wallLaunchers.size(); l++)
   {
-    if (LauncherPoolListedBefore(cell, l)) continue;
     const std::vector<AutoMapAlcoveEntry> &ammunition = cell.wallLaunchers[l].ammunition;
     for (size_t a = 0; a < ammunition.size(); a++)
     {
       if (ammunition[a].text.empty()) continue;
+      if (LauncherTakesBefore(cell, l, ammunition[a].record) >= 0) continue;
       entry.where = ammunition[a].inChest == AUTOMAP_NO_RECORD ? AutoMapHitLauncher : AutoMapHitInLauncherChest;
       entry.text = ammunition[a].text;
       entry.item = ammunition[a].item;
@@ -1978,6 +1980,33 @@ std::string DelayWord(int delay)
   return " AFTER " + std::to_string(delay) + (delay == 1 ? " TICK" : " TICKS");
 }
 
+bool AutoMapScene_PlaceLaunchedLines(std::vector<AutoMapTipLine> *lines, int side,
+                                     const std::vector<std::string> &names)
+{
+  std::string header("LAUNCHER");
+  if (side >= AutoMapNorth && side <= AutoMapWest)
+  {
+    header += " (";
+    header += FacingInitial(side);
+    header += ")";
+  }
+  for (size_t i = 0; i < lines->size(); i++)
+  {
+    if ((*lines)[i].style != AutoMapTipHeader || (*lines)[i].text != header) continue;
+    // After the LAUNCHES line and the names placed there before
+    size_t at = i + 2 < lines->size() ? i + 2 : lines->size();
+    while (at < lines->size() && (*lines)[at].text.compare(0, 4, "    ") == 0) at++;
+    std::vector<AutoMapTipLine> placed;
+    for (size_t n = 0; n < names.size(); n++)
+    {
+      placed.push_back(AutoMapScene_TipLine("    " + names[n], AutoMapTipPlain));
+    }
+    lines->insert(lines->begin() + (std::ptrdiff_t)at, placed.begin(), placed.end());
+    return true;
+  }
+  return false;
+}
+
 std::vector<AutoMapTipLine> AutoMapScene_RelayLines(const AutoMapDrawList &drawList, int x, int y)
 {
   std::vector<AutoMapTipLine> lines;
@@ -2086,7 +2115,24 @@ std::vector<AutoMapTipLine> AutoMapScene_RelayLines(const AutoMapDrawList &drawL
       header += FacingInitial(launcher.side);
       header += ")";
     }
-    AddRelayGroup(&lines, header, std::vector<std::string>(1, launches));
+    std::vector<std::string> children(1, launches);
+    // What a launcher of another face takes too is listed under that one: say how much
+    int sharedSide = -1, shared = 0;
+    for (size_t a = 0; a < launcher.ammunition.size(); a++)
+    {
+      if (launcher.ammunition[a].inChest != AUTOMAP_NO_RECORD) continue;
+      int side = LauncherTakesBefore(shown->cell, l, launcher.ammunition[a].record);
+      if (side < 0 || side == launcher.side) continue;
+      if (sharedSide < 0) sharedSide = side;
+      shared++;
+    }
+    if (shared > 0 && sharedSide >= AutoMapNorth && sharedSide <= AutoMapWest)
+    {
+      char line[64];
+      std::snprintf(line, sizeof(line), "SHARES %d WITH (%c)", shared, FacingInitial(sharedSide));
+      children.push_back(line);
+    }
+    AddRelayGroup(&lines, header, children);
   }
   // At All the press block (AutoMapScene_PressBlock) names what a press reaches, so
   // the tooltip does not also list this cell's direct links. Below All the party saw
@@ -2351,17 +2397,18 @@ std::vector<AutoMapTooltipSlot> AutoMapScene_TooltipSlots(const AutoMapDrawList 
     }
   }
   // What object launchers will throw, next shot first: neighbours that read the same group (the
-  // order between them does not matter), a chest keeps a slot of its own with its contents
+  // order between them does not matter), a chest keeps a slot of its own with its contents. What
+  // two launchers share shows once, under the first
   for (size_t l = 0; l < shown->cell.wallLaunchers.size(); l++)
   {
     const AutoMapLauncher &launcher = shown->cell.wallLaunchers[l];
-    if (LauncherPoolListedBefore(shown->cell, l)) continue;
     const std::vector<AutoMapAlcoveEntry> &ammunition = launcher.ammunition;
     for (size_t i = 0; i < ammunition.size(); i++)
     {
       const AutoMapAlcoveEntry &entry = ammunition[i];
       if (entry.inChest != AUTOMAP_NO_RECORD) continue;
       if (entry.item.worldPicture == AUTOMAP_NO_PICTURE) continue;
+      if (LauncherTakesBefore(shown->cell, l, entry.record) >= 0) continue;
       std::vector<AutoMapItem> held;
       bool isChest = false;
       for (size_t c = 0; c < ammunition.size(); c++)
