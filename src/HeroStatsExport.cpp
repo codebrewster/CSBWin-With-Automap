@@ -706,7 +706,7 @@ function sortTable(id, cols, rows, foot, defaultCol) {
   const measure = whoCol ? (whoCol.who.split.includes(s.col) ? s.col : whoCol.who.fallback) : null;
   const label = c => c.who ? 'Who: ' + cols[measure].label : c.label;
   const head = cols.map((c, i) => `<th class="sort${c.cls ? ' ' + c.cls : ''}"${c.help ? tipOf(esc(c.help)) : ''}${c.hero !== undefined ? ` data-name="${esc(H[c.hero].name)}"` : ''} onclick="sortBy('${id}',${i},${c.num ? 1 : 0})">` +
-    (c.html || esc(label(c))) + (s.col === i ? ` <span class="arrow">${s.desc ? '&#9660;' : '&#9650;'}</span>` : '') + '</th>').join('');
+    tipLabel(c.html || esc(label(c)), c.help) + (s.col === i ? ` <span class="arrow">${s.desc ? '&#9660;' : '&#9650;'}</span>` : '') + '</th>').join('');
   const html = c => c.by ? whoBar(c.by(measure)) : c.html;
   const line = r => `<tr${r.cls ? ` class="${r.cls}"` : ''}${r.act ? ` onclick="${r.act}"` : ''}>` + r.cells.map(html).join('') + '</tr>';
   let body = '';
@@ -840,8 +840,8 @@ function numbersTable(t) {
   let head = '<tr><th></th>';
   // One champion is all of the party: their column alone, on the Party's page with the party's own numbers
   if (!shared()) head += `<th class="${H[0].left ? 'left' : ''}" data-name="${esc(H[0].name)}">${heroHead(0)}</th>`;
-  else if (one) head += `<th class="${H[st.who].left ? 'left' : ''}" data-name="${esc(H[st.who].name)}">${heroHead(st.who)}</th><th${tipOf(totalHelp)}>Total</th><th>Share of party</th>`;
-  else head += H.map((h, i) => `<th class="${h.left ? 'left' : ''}" data-name="${esc(h.name)}">${heroHead(i)}</th>`).join('') + `<th${tipOf(totalHelp)}>Total</th><th>Share</th>`;
+  else if (one) head += `<th class="${H[st.who].left ? 'left' : ''}" data-name="${esc(H[st.who].name)}">${heroHead(st.who)}</th><th${tipOf(totalHelp)}><span class="tip">Total</span></th><th>Share of party</th>`;
+  else head += H.map((h, i) => `<th class="${h.left ? 'left' : ''}" data-name="${esc(h.name)}">${heroHead(i)}</th>`).join('') + `<th${tipOf(totalHelp)}><span class="tip">Total</span></th><th>Share</th>`;
   const columns = shared() ? (one ? 1 : N) + 3 : 2;
   let body = '';
   for (const g of groups) {
@@ -1099,7 +1099,7 @@ function records(p) {
     return (s.desc ? -c : c) || a[1] - b[1];
   }).map(p => p[0]);
   let head = '<tr>' + heads.map((h, i) => `<th class="sort${h[1] ? ' ' + h[1] : ''}"${h[2] ? tipOf(esc(h[2])) : ''} onclick="sortBy('records',${i},${h[3] ? 1 : 0})">` +
-    `${h[0]}${s.col === i ? ` <span class="arrow">${s.desc ? '&#9660;' : '&#9650;'}</span>` : ''}</th>`).join('');
+    `${tipLabel(h[0], h[2])}${s.col === i ? ` <span class="arrow">${s.desc ? '&#9660;' : '&#9650;'}</span>` : ''}</th>`).join('');
   let body = '', group = '';
   const span = heads.length;
   for (const l of sorted) {
@@ -1228,6 +1228,8 @@ const listKinetic = it => hasWeaponLine(it) ? it[10] : -1;
 const worth = it => (weaponText(it) ? `<div class="dmg">${weaponText(it)}</div>` : '') + (armorText(it) ? `<div class="arm">${armorText(it)}</div>` : '');
 let TIPS = [];
 function tipOf(html) { TIPS.push(html); return ` data-tip="${TIPS.length - 1}"`; }
+// A header's words dotted underneath when it has a hovertext (its cell holds the tip itself)
+const tipLabel = (html, help) => help ? `<span class="tip">${html}</span>` : html;
 function slotTip(items, i, slot, wounded) {
   const hurt = wounded ? ' · <span class="bad">wounded</span>' : '';
   if (i < 0) return `<div class="s">${slotName(slot)} · empty${hurt}</div>`;
@@ -1313,7 +1315,7 @@ function liveInventory(c) {
   if (!c.items.length) return '<div class="note">Carries nothing.</div>';
   // The list sorts by slot, name or a column's number; a chest keeps what it holds under it
   const s = st.sort.ilist || {col: 0, desc: false};
-  const th = (col, label, num, cls, help) => `<th class="sort${cls}" onclick="sortBy('ilist',${col},${num})"${help ? tipOf(help) : ''}>${label}` +
+  const th = (col, label, num, cls, help) => `<th class="sort${cls}" onclick="sortBy('ilist',${col},${num})"${help ? tipOf(help) : ''}>${tipLabel(label, help)}` +
     (s.col === col ? ` <span class="arrow">${s.desc ? '&#9660;' : '&#9650;'}</span>` : '') + '</th>';
   if (st.list) return '<div class="wide"><table class="ilist"><tr>' + th(0, 'Slot', 0, '') + '<th></th>' + th(2, 'Item', 0, ' l') + th(6, 'Damage', 1, ' c-der', 'The weapon\'s own strength in a blow. Blank for what shoots: see its hovertext.') +
     th(7, 'Kinetic', 1, ' c-kin', 'Kinetic energy: how far and how hard it flies when thrown, or what a bow or sling adds to a shot.') +

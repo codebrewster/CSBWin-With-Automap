@@ -17,6 +17,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 - Side by side, the sections keep their order: the first ones fill the left column and the rest the right, so the order no longer depends on the numbers.
 - A zero is a dim dot on the headline tiles too, as in the tables.
 - Resistance under Damage reduced is greyed in replays of CSBwin 9.8 to 12.5 or before 9.6, which ignored resistance, so it is always 0 there: its row, and its Number button in Per level, whose hovertext (dotted underneath) says why.
+- A column header with a hovertext (Total, Tries, Rate, Avg, Damage, Record ...) is dotted underneath, as every label with one.
 - Deaths is a table: Who, Killed by, Lv and Tick, newest first and sortable; in a replay a click on the tick goes there. A death's tick is kept from this version on (save layout 36); older games show "-".
 - Ranks gained and Records align text the same way (left), and what brought a rank or a record (With, How, On / from) is a lighter grey than a zero or a hint, so it no longer looks disabled; the Tick is plain. The skill notes in Experience by source are no longer faint either.
 - Eaten and drunk's Who bar splits a drink by who drank it while the table is sorted by Eaten, instead of staying empty.

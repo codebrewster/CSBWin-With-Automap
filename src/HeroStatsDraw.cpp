@@ -664,6 +664,7 @@ static void RightText(const std::string &text, ImU32 rgb)
 }
 
 static void WrappedTooltip(const char *text);
+static void DottedUnderline(float left, float right, float y);
 
 // A number in a table cell: a dim dot for zero, bad news on a red pill. In a table that fits no
 // other way a plain number from 10,000 on is short (86k, 1.2M), with the number as its tooltip;
@@ -1030,7 +1031,13 @@ static void HeaderRow(const std::vector<int> &columnOfHeader, const std::vector<
     ImGui::TableHeader(label.c_str());
     ImGui::PopID();
     ImGui::PopStyleColor();
-    if (i < (int)helps.size() && helps[i] != NULL) HelpTooltip(helps[i]);
+    if (i < (int)helps.size() && helps[i] != NULL && helps[i][0] != 0)
+    {
+      HelpTooltip(helps[i]);
+      // Dotted under the name, as any label with a hovertext
+      float x = ImGui::GetItemRectMin().x + ImGui::CalcTextSize((prefix + (champion >= 0 ? "  " : "")).c_str()).x;
+      DottedUnderline(x, x + ImGui::CalcTextSize(name).x, ImGui::GetItemRectMin().y + ImGui::GetTextLineHeight());
+    }
     if (namesOff && ImGui::IsItemHovered()) WrappedTooltip(fullName);
     if (guided)
     {
