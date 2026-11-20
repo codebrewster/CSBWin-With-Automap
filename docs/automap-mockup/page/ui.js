@@ -482,8 +482,20 @@ cv.addEventListener('wheel', e => {
   if (e.ctrlKey) { tipScale = Math.max(1, Math.min(TIP_SCALE_MOST, tipScale - d)); try { localStorage.setItem('csb-map-tip-scale', String(tipScale)); } catch (err) { } draw(); return; }
   if (e.shiftKey) { tipScroll = Math.max(0, tipScroll + d); draw(); return; }
   const old = cs; let next = Math.round(cs * (d < 0 ? 1.15 : 1 / 1.15)); if (next === cs) next += d < 0 ? 1 : -1; cs = Math.min(maxCs(), next); if (cs <= minCs()) { fitLevel(); draw(); return; }
-  const ax = mx - RUL, ay = my - RUL; zoomFree = true; black.x = black.y = null; panX = Math.round(ax - (ax - panX) * cs / old); panY = Math.round(ay - (ay - panY) * cs / old); draw();
+  const ax = mx - RUL, ay = my - RUL, rw = cv.width - 2 * RUL, rh = cv.height - 2 * RUL, xb = extraBlack(panX, rw, W * old), yb = extraBlack(panY, rh, H * old);
+  zoomFree = true; black.x = black.y = null; panX = Math.round(ax - (ax - panX) * cs / old); panY = Math.round(ay - (ay - panY) * cs / old);
+  // Zooming out, the black space glides away with the cell size, to none at the whole level (as the game)
+  if (d > 0) { panX = glide(panX, rw, W * cs, xb, old, cs, minCs()); panY = glide(panY, rh, H * cs, yb, old, cs, minCs()); }
+  draw();
 }, { passive: false });
+// As AutoMapScene_ExtraBlack and AutoMapScene_GlideOrigin
+function baseOrigin(o, room, size) { return size <= room ? Math.round((room - size) / 2) : Math.max(room - size, Math.min(o, 0)); }
+function extraBlack(o, room, size) { return o - baseOrigin(o, room, size); }
+function glide(o, room, size, extra, before, after, fit) {
+  if (after >= before || before <= fit) return o;
+  const most = Math.floor(Math.abs(extra) * Math.max(0, (after - fit) / (before - fit))), b = baseOrigin(o, room, size);
+  return Math.max(b - most, Math.min(o, b + most));
+}
 tbar.addEventListener('wheel', e => { e.preventDefault(); barScroll = Math.max(0, barScroll + (e.deltaY > 0 ? 24 : -24)); draw(); }, { passive: false });
 tbar.addEventListener('mousedown', e => { if (barLeft && e.offsetX < barArrowW()) { barScroll = Math.max(0, barScroll - tbar.width / 2); draw(); return; } if (barRight && e.offsetX >= tbar.width - barArrowW()) { barScroll += tbar.width / 2; draw(); return; } for (const [x, w, act] of barHits) if (e.offsetX >= x && e.offsetX < x + w && e.offsetY >= 4 && e.offsetY < 22) { act(); draw(); return; } });
 window.addEventListener('keydown', e => {

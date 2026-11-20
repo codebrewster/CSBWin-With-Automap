@@ -1175,6 +1175,23 @@ static void ZoomTowardsPointer(int notches)
                                                      after.cellSize);
   viewCenterY = AutoMapScene_CentreKeepingPointStill(viewCenterY, pointY, before.cellSize,
                                                      after.cellSize);
+  // Zooming out, the black space beside the level glides away: what the pointer would keep
+  // shrinks with the cell size, to none at the whole level, so the level never jumps back
+  if (notches < 0)
+  {
+    AutoMapView placed = ViewOfShownLevel();
+    int fitting = AutoMapScene_FittingCellSize(RequestOfShownLevel());
+    int levelW = shownDrawList.width, levelH = shownDrawList.height;
+    int extraX = AutoMapScene_ExtraBlack(before.originX - RULER, mapWidth, levelW * before.cellSize);
+    int extraY = AutoMapScene_ExtraBlack(before.originY - RULER, mapHeight, levelH * before.cellSize);
+    placed.originX = RULER + AutoMapScene_GlideOrigin(placed.originX - RULER, mapWidth, levelW * placed.cellSize,
+                                                      extraX, before.cellSize, placed.cellSize, fitting);
+    placed.originY = RULER + AutoMapScene_GlideOrigin(placed.originY - RULER, mapHeight, levelH * placed.cellSize,
+                                                      extraY, before.cellSize, placed.cellSize, fitting);
+    FreezeExactViewCenter(placed);
+    // Records the black space the glide left, which a drag keeps to
+    ViewOfShownLevel();
+  }
   if (viewFollowsParty)
   {
     followWhenPartyShown = false;

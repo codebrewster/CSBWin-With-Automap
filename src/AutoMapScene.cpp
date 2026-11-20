@@ -2880,6 +2880,27 @@ static int OriginAlong(const ViewAxis &axis, int cellSize)
   return std::max(originShowingLastCell, std::min(originCentred, 0));
 }
 
+static int OriginWithoutExtraBlack(int origin, int windowPixels, int levelPixels)
+{
+  if (levelPixels <= windowPixels) return (windowPixels - levelPixels) / 2;
+  return std::max(windowPixels - levelPixels, std::min(origin, 0));
+}
+
+int AutoMapScene_ExtraBlack(int origin, int windowPixels, int levelPixels)
+{
+  return origin - OriginWithoutExtraBlack(origin, windowPixels, levelPixels);
+}
+
+int AutoMapScene_GlideOrigin(int origin, int windowPixels, int levelPixels, int extraBefore,
+                             int cellBefore, int cellAfter, int fittingCell)
+{
+  if (cellAfter >= cellBefore || cellBefore <= fittingCell) return origin;
+  double share = std::max(0.0, (double)(cellAfter - fittingCell) / (cellBefore - fittingCell));
+  int most = (int)std::floor(std::abs(extraBefore) * share);
+  int base = OriginWithoutExtraBlack(origin, windowPixels, levelPixels);
+  return std::max(base - most, std::min(origin, base + most));
+}
+
 void AutoMapScene_BlackSpace(const AutoMapView &view, AutoMapViewRequest *request)
 {
   int width = request->levelSize.width * view.cellSize, height = request->levelSize.height * view.cellSize;
@@ -2893,6 +2914,11 @@ static int CellSizeAtStep(int fittingCellSize, int zoomSteps)
 {
   int grown = (int)std::lround(fittingCellSize * std::pow(ZOOM_FACTOR_PER_STEP, zoomSteps));
   return std::max(grown, fittingCellSize + zoomSteps);
+}
+
+int AutoMapScene_FittingCellSize(const AutoMapViewRequest &request)
+{
+  return LargestCellSizeShowingTheWholeLevel(request);
 }
 
 int AutoMapScene_MostZoomSteps(const AutoMapViewRequest &request)

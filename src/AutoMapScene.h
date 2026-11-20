@@ -1675,6 +1675,20 @@ struct AutoMapView
   int originY;
 };
 
+// The largest cell size showing the whole level: the zoom's far end
+int AutoMapScene_FittingCellSize(const AutoMapViewRequest &request);
+
+// How far an origin lies past where the level would sit without black space it does not need
+// (centred where it fits, at the window's edges where it is larger): the extra black, signed
+int AutoMapScene_ExtraBlack(int origin, int windowPixels, int levelPixels);
+
+// A zoom out glides the level back: the extra black space it keeps (AutoMapScene_ExtraBlack)
+// shrinks in step with the cell size, from extraBefore at cellBefore to none at fittingCell,
+// so the whole level arrives centred instead of jumping there. origin is where the zoom put the
+// level to keep the pointer's cell; returns it, moved back where it keeps more than its share.
+int AutoMapScene_GlideOrigin(int origin, int windowPixels, int levelPixels, int extraBefore,
+                             int cellBefore, int cellAfter, int fittingCell);
+
 // Stores in request the black space beside the level that view shows (origins without the
 // rulers), for the next placement to keep to
 void AutoMapScene_BlackSpace(const AutoMapView &view, AutoMapViewRequest *request);
