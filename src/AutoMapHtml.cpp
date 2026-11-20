@@ -64,6 +64,12 @@ std::string AutoMapHtml_Png(const unsigned char *rgba, int w, int h)
   return out;
 }
 
+std::string AutoMapHtml_LevelAreaFields(int depth, int x, int y, int w, int h)
+{
+  return ",\"depth\":" + std::to_string(depth) + ",\"area\":[" + std::to_string(x) + "," + std::to_string(y) + ","
+         + std::to_string(w) + "," + std::to_string(h) + "]";
+}
+
 std::string AutoMapHtml_Escape(const std::string &text)
 {
   std::string out;

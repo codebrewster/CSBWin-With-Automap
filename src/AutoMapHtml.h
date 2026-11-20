@@ -18,6 +18,10 @@ std::string AutoMapHtml_Png(const unsigned char *rgba, int w, int h);
 // &, <, > and " as entities
 std::string AutoMapHtml_Escape(const std::string &text);
 
+// A level's depth and its area in dungeon coordinates as index.json fields, comma first:
+// ,"depth":D,"area":[x,y,w,h]. The page finds where a stair or a step down lands with them.
+std::string AutoMapHtml_LevelAreaFields(int depth, int x, int y, int w, int h);
+
 // The draw lists the page holds: every vision up to maxVision (0 fog, 1 explored live, 2 whole
 // level) and every spoiler level up to maxSpoilers, numbered as in csb.cfg (0 seen, 1 learned,
 // 2 all). Pairs of vision and the scene's spoiler number (0 All, 1 Learned, 2 Seen), as the

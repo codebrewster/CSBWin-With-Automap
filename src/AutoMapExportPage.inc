@@ -58,7 +58,7 @@ const ITEM_KINDS = ['WEAPONS', 'ARMOUR', 'POTIONS', 'SCROLLS', 'CHESTS', 'FOOD',
 let showOpen = false, helpOpen = false, levelOpen = false, searchOpen = false, debugOpen = false;
 let menu = null;             // right-click menu: {x, y, title, rows:[{label, act, grey}], cell}
 let linkMode = null;         // {x, y, side}
-let stairMark = null;        // the stair a Ctrl+click or ASCEND / DESCEND came out on: {l, x, y} in dungeon coordinates
+let landingMark = null;      // the tile a Ctrl+click, a side button or ASCEND / DESCEND came out on: {l, x, y, stair} in dungeon coordinates
 const notes = {};            // per save/level: {pits:{key:0|1}, links:[[sx,sy,dx,dy,wall,side]]}
 let barHits = [], panelRects = {};
 let partyOverride = null;
@@ -100,7 +100,7 @@ function spoilAllowed(s) { const X = DATA.index.export; return !X || s >= X.minS
 function followParty() { if (!hasLevel(DATA.index.partyLevel)) return false; follow = true; setLevel(DATA.index.partyLevel); centreOnParty(); return true; }
 function viewOf(l) { return DATA.views[`L${l}_v${vision}_s${spoil}`]; }
 function setLevel(l) {
-  if (stairMark && stairMark.l !== l) stairMark = null;
+  if (landingMark && landingMark.l !== l) landingMark = null;
   lvl = l; zoomFree = false; const L = DATA.index.levels[l]; W = L.w; H = L.h; OX = L.offsetX; OY = L.offsetY;
   refreshView(); hover = null; tipScroll = 0;
   if (cv.width && cs < minCs()) fitLevel();
@@ -843,7 +843,7 @@ function drawShowPanel() {
 function showClick(mx, my) { const P = panelRects.show; if (!P) return false; if (!inRect(mx, my, P)) { showOpen = false; return true; } for (const [x, y, w, h, r] of P[4]) if (inRect(mx, my, [x, y, w, h])) { if (r === 'SHOW ALL') Object.keys(SHOW).forEach(k => SHOW[k] = true); else if (r === 'HIDE ALL') Object.keys(SHOW).forEach(k => SHOW[k] = false); else if (r === 'PITS') { pitStyle = (pitStyle + 1) % 3; try { localStorage.setItem('csb-map-pit-style', String(pitStyle)); } catch (e) { } } else SHOW[r] = !SHOW[r]; } return true; }
 
 // ---------------- controls help ----------------
-const HELP = [['LEFT-DRAG', 'PAN THE MAP'], ['WHEEL', 'ZOOM TOWARDS THE POINTER'], ['MIDDLE-CLICK', 'CENTRE ON THE PARTY AND FOLLOW'], ['SIDE BUTTONS', 'LEVEL DOWN / UP UNDER THE POINTER'], ['PAGE DOWN / UP', 'LEVEL DOWN / UP (CTRL IN THE GAME)'], ['/ OR CTRL+F', 'SEARCH ALL LEVELS'], ['HOVER', 'WHAT IS THERE, AND ITS LINKS'], ['SHIFT', 'THE WHOLE PRESS CHAIN (SPOILERS ALL)'], ['SHIFT+WHEEL', 'SCROLL A LONG TOOLTIP'], ['CTRL+WHEEL', 'SIZE OF THE TOOLTIP'], ['CTRL+CLICK', 'ON A STAIR: COME OUT ON THE OTHER LEVEL'], ['RIGHT-CLICK', 'MARKS, LINKS, ASCEND / DESCEND'], ['', ''], ['', 'CLICK ANYWHERE TO CLOSE']];
+const HELP = [['LEFT-DRAG', 'PAN THE MAP'], ['WHEEL', 'ZOOM TOWARDS THE POINTER'], ['MIDDLE-CLICK', 'CENTRE ON THE PARTY AND FOLLOW'], ['SIDE BUTTONS', 'LEVEL DOWN / UP, THE TILE FRAMED'], ['PAGE DOWN / UP', 'LEVEL DOWN / UP (CTRL IN THE GAME)'], ['/ OR CTRL+F', 'SEARCH ALL LEVELS'], ['HOVER', 'WHAT IS THERE, AND ITS LINKS'], ['SHIFT', 'THE WHOLE PRESS CHAIN (SPOILERS ALL)'], ['SHIFT+WHEEL', 'SCROLL A LONG TOOLTIP'], ['CTRL+WHEEL', 'SIZE OF THE TOOLTIP'], ['CTRL+CLICK', 'ONE LEVEL DOWN, OR THROUGH A STAIR'], ['RIGHT-CLICK', 'MARKS, LINKS, ASCEND / DESCEND'], ['', ''], ['', 'CLICK ANYWHERE TO CLOSE']];
 function drawHelp() { if (!helpOpen) return; const widest = (i, q) => Math.max(...HELP.map(r => textW(r[i], q))); const fit = q => widest(0, q) + widest(1, q) + 40; const p = fit(2) <= cv.width - 8 ? 2 : 1, c1 = widest(0, p) + 20, w = Math.min(c1 + widest(1, p) + 20, cv.width - 4), h = HELP.length * 16 + 30; const x = Math.max(2, Math.round((cv.width - w) / 2)), y = 40; plate(x, y, w, h); text(g, x + 10, y + 8, 'CONTROLS', '#ffcc33', p); HELP.forEach((r, i) => { text(g, x + 10, y + 26 + i * 16, r[0], '#ffcc33', p); text(g, x + 10 + c1, y + 26 + i * 16, r[1], '#fff', p); }); }
 
 // ---------------- level list ----------------
@@ -969,17 +969,33 @@ function drawSearchMarks() {
 }
 function searchClick(mx, my) { const P = panelRects.search; if (!P || !inRect(mx, my, P)) return false; for (const [rx, ry, rw, rh, i] of sRects) if (inRect(mx, my, [rx, ry, rw, rh])) { const r = sRows[i]; if (r.head) { folded.has(r.l) ? folded.delete(r.l) : folded.add(r.l); rebuild(true); keepVisible(); } else goTo(i); } return true; }
 
-// ---------------- ascend / descend: come out of a stair on the level it leads to ----------------
-// The stair the plate names (lvl + 1 or - 1), when the page has that level and the cell is a stair.
-function stairTarget(c) { if (!c || c.k !== 3) return -1; const t = lvl + (c.st[0] ? -1 : 1); return t >= 0 && t < DATA.index.levels.length && hasLevel(t) ? t : -1; }
-// The dungeon position stays; the level it lands on is framed when the page shows that cell as a stair
-function followStairs(cx, cy) {
-  const t = stairTarget(C(cx, cy)); if (t < 0) return false;
-  const gx = cx + OX, gy = cy + OY; setLevel(t); follow = t === DATA.index.partyLevel;
-  centreOn(gx - OX, gy - OY); stairMark = { l: t, x: gx, y: gy }; return true;
+// ---------------- ascend / descend: one depth up or down, the way the game moves the party ----------------
+// The level one depth up or down from the shown one that covers dungeon position (gx, gy), as
+// AutoMapScene_StairsTarget; -1 when none does or the page left it out. Data without depths (the
+// mockup's) steps to the next level number, as the page did before
+function depthTarget(up, gx, gy) {
+  const L = DATA.index.levels, here = L[lvl]; if (!here) return -1;
+  if (here.depth === undefined) { const t = lvl + (up ? -1 : 1); return t >= 0 && t < L.length && hasLevel(t) ? t : -1; }
+  if (here.depth < 0) return -1;
+  const depth = here.depth + (up ? -1 : 1);
+  for (let i = 0; i < L.length; i++) {
+    const a = L[i].area; if (L[i].depth !== depth || !a) continue;
+    if (gx < a[0] || gx >= a[0] + a[2] || gy < a[1] || gy >= a[1] + a[3]) continue;
+    return hasLevel(i) ? i : -1;
+  }
+  return -1;
 }
-function drawStairMark() {
-  if (!stairMark || stairMark.l !== lvl) return; const x = stairMark.x - OX, y = stairMark.y - OY, c = C(x, y); if (!c || c.k !== 3) return;
+// The level a stair cell leads to, -1 when the cell is no stair or the level is unknown
+function stairTarget(c, cx, cy) { if (!c || c.k !== 3) return -1; return depthTarget(!!c.st[0], cx + OX, cy + OY); }
+// Goes to level t centred on dungeon position (gx, gy) and frames it there
+function landOn(t, gx, gy, stair) { setLevel(t); follow = t === DATA.index.partyLevel; centreOn(gx - OX, gy - OY); landingMark = { l: t, x: gx, y: gy, stair }; }
+// The dungeon position stays; the level it lands on is framed when the page shows that cell as a stair
+function followStairs(cx, cy) { const t = stairTarget(C(cx, cy), cx, cy); if (t < 0) return false; landOn(t, cx + OX, cy + OY, true); return true; }
+// One depth up or down from a tile; false when no level lies there
+function stepByDepth(cx, cy, up) { const t = depthTarget(up, cx + OX, cy + OY); if (t < 0) return false; landOn(t, cx + OX, cy + OY, false); return true; }
+// Drawn only on a tile the page shows, as a stair for a stair's landing: it gives nothing away
+function drawLandingMark() {
+  if (!landingMark || landingMark.l !== lvl) return; const x = landingMark.x - OX, y = landingMark.y - OY, c = C(x, y); if (!c || (landingMark.stair && c.k !== 3)) return;
   spotlight([x + ',' + y]); const t = Math.max(2, Math.round(cs / 14)); frame(px(x) + 1, py(y) + 1, cs - 2, cs - 2, '#0b0a08', t + 2); frame(px(x) + 2, py(y) + 2, cs - 4, cs - 4, '#fff6dc', t);
 }
 // ---------------- right-click menu: your notes, and with map_debug the testing aids ----------------
@@ -997,7 +1013,14 @@ function openMenu(mx, my, cx, cy) {
     DATA.index.levels[lvl].types.forEach(t => rows.push({ label: 'SPAWN ' + nice(t), grey: !stand, act: () => spawnSteps(nice(t), mx, my, cx, cy) }));
   }
   const notesRows = [];
-  if (stairTarget(c) >= 0) { if (rows.length) rows.push(null); rows.push({ label: c.st[0] ? 'ASCEND' : 'DESCEND', act: () => { followStairs(cx, cy); } }); }
+  if (stairTarget(c, cx, cy) >= 0) { if (rows.length) rows.push(null); rows.push({ label: c.st[0] ? 'ASCEND' : 'DESCEND', act: () => { followStairs(cx, cy); } }); }
+  else if (c && c.k !== 3) {
+    // any other shown tile: one depth up or down, where a level covers the same position
+    const up = depthTarget(true, cx + OX, cy + OY) >= 0, down = depthTarget(false, cx + OX, cy + OY) >= 0;
+    if ((up || down) && rows.length) rows.push(null);
+    if (up) rows.push({ label: 'ASCEND', act: () => { stepByDepth(cx, cy, true); } });
+    if (down) rows.push({ label: 'DESCEND', act: () => { stepByDepth(cx, cy, false); } });
+  }
   if (c && c.k === 1) { notesRows.push({ label: 'HIDDEN PIT (OPEN)', act: () => N.pits[key] = 1 }); notesRows.push({ label: 'HIDDEN PIT (CLOSED)', act: () => N.pits[key] = 0 }); }
   if (c && (c.k === 1 || c.k === 0)) { const side = c.k === 0 ? nearestSide(mx, my, cx, cy) : -1; notesRows.push({ label: 'LINK FROM HERE' + (side >= 0 ? ' (' + NESW[side] + ')' : ''), act: () => linkMode = { x: cx, y: cy, side } }); }
   if (key in N.pits) notesRows.push({ label: 'REMOVE MARK', act: () => delete N.pits[key] });
@@ -1048,7 +1071,7 @@ function draw() {
   drawClouds();
   for (const c of V.cells) { drawCellOverlay(c); drawActuators(c); drawItems(c); }
   drawNotes(); drawGlimpses(); drawMissiles(); drawMonsters(); drawParty();
-  const L = drawHover(); if (!L.lit) { drawSearchMarks(); drawStairMark(); } drawLinkMode();
+  const L = drawHover(); if (!L.lit) { drawSearchMarks(); drawLandingMark(); } drawLinkMode();
   g.restore(); rulers(); drawTooltip(L); drawSearchPanel(); drawShowPanel(); drawHelp(); drawLevels(); drawDebugPanel(); drawMenu(); drawBar();
   writeLink();
 }
@@ -1094,9 +1117,14 @@ function cellAt(mx, my) { const x = Math.floor((mx - RUL - panX) / cs), y = Math
 let drag = null;
 cv.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('mousedown', e => {
-  const mx = e.offsetX, my = e.offsetY; stairMark = null;
+  const mx = e.offsetX, my = e.offsetY; landingMark = null;
   if (e.button === 1) { e.preventDefault(); followParty(); draw(); return; }
-  if (e.button === 3 || e.button === 4) { e.preventDefault(); stepLevel(e.button === 3 ? 1 : -1); draw(); return; }
+  if (e.button === 3 || e.button === 4) {
+    // over a tile, the view stays on its dungeon position and frames it on the level stepped to
+    e.preventDefault(); const c = cellAt(mx, my), was = lvl, gx = c ? c.x + OX : 0, gy = c ? c.y + OY : 0;
+    stepLevel(e.button === 3 ? 1 : -1); if (c && lvl !== was) { centreOn(gx - OX, gy - OY); landingMark = { l: lvl, x: gx, y: gy, stair: false }; }
+    draw(); return;
+  }
   if (e.button === 2) { if (linkMode) { linkMode = null; draw(); return; } const c = cellAt(mx, my); closePanels(); if (c && (debugOn || V.cells.some(o => o.x === c.x && o.y === c.y))) openMenu(mx, my, c.x, c.y); draw(); return; }
   if (e.button !== 0) return;
   if (menu) { menuClick(mx, my); draw(); return; }
@@ -1105,7 +1133,9 @@ cv.addEventListener('mousedown', e => {
   if (showOpen && showClick(mx, my)) { draw(); return; }
   if (debugOpen && debugClick(mx, my)) { draw(); return; }
   if (searchClick(mx, my)) { draw(); return; }
-  if (e.ctrlKey) { const c = cellAt(mx, my); if (c && followStairs(c.x, c.y)) { draw(); return; } }
+  // Ctrl+click: through a stair, else one level down where a pit would drop the party; a stair that
+  // leads nowhere known takes the click, so an up stair never opens the level below
+  if (e.ctrlKey) { const c = cellAt(mx, my); if (c) { const k = C(c.x, c.y); if (followStairs(c.x, c.y) || (k && k.k === 3) || stepByDepth(c.x, c.y, false)) { draw(); return; } } }
   drag = { x: mx, y: my, px: panX, py: panY, moved: false };
 });
 window.addEventListener('mouseup', e => {
@@ -1123,7 +1153,7 @@ cv.addEventListener('mousemove', e => {
 });
 cv.addEventListener('mouseleave', () => { hover = null; draw(); });
 cv.addEventListener('wheel', e => {
-  e.preventDefault(); const mx = e.offsetX, my = e.offsetY, d = e.deltaY > 0 ? 1 : -1; stairMark = null;
+  e.preventDefault(); const mx = e.offsetX, my = e.offsetY, d = e.deltaY > 0 ? 1 : -1; landingMark = null;
   if (levelOpen && inRect(mx, my, panelRects.levels)) { levelScroll = Math.max(0, Math.min(DATA.index.levels.length - ROWS_SHOWN, levelScroll + d * 3)); draw(); return; }
   if (searchOpen && inRect(mx, my, panelRects.search)) { sTop = Math.max(0, Math.min(Math.max(0, sRows.length - S_ROWS), sTop + d * 3)); draw(); return; }
   if (e.ctrlKey) { tipScale = Math.max(1, Math.min(TIP_SCALE_MOST, tipScale - d)); try { localStorage.setItem('csb-map-tip-scale', String(tipScale)); } catch (err) { } draw(); return; }

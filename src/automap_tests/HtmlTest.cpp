@@ -78,6 +78,11 @@ static void ViewsStopAtTheChosenLimits(void)
   CHECK(!anyAll);
 }
 
+static void LevelAreaFieldsCarryDepthAndArea(void)
+{
+  CHECK(AutoMapHtml_LevelAreaFields(3, 10, -2, 32, 20) == ",\"depth\":3,\"area\":[10,-2,32,20]");
+}
+
 static void PageCarriesTitleDataAndCode(void)
 {
   std::string page = AutoMapHtml_Page("Map of <csb> & co", "Exported", "window.MAPDATA={\"t\":\"</script>\"};");
@@ -98,4 +103,5 @@ void TestAutoMapHtml(void)
   PngHasItsSignatureAndSize();
   ViewsStopAtTheChosenLimits();
   PageCarriesTitleDataAndCode();
+  LevelAreaFieldsCarryDepthAndArea();
 }

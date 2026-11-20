@@ -382,12 +382,21 @@ static int LevelIsVisited(AutoMapRecorder &recorder, int level)
   return 0;
 }
 
+// A level's depth and area for index.json; depth -1 when the descriptors are unavailable
+static std::string LevelAreaFields(int level)
+{
+  std::vector<AutoMapLevelArea> areas = AutoMapLevelReader_LevelAreas();
+  if (level < 0 || level >= (int)areas.size()) return AutoMapHtml_LevelAreaFields(-1, 0, 0, 0, 0);
+  const AutoMapLevelArea &a = areas[(size_t)level];
+  return AutoMapHtml_LevelAreaFields(a.depth, a.offsetX, a.offsetY, a.width, a.height);
+}
+
 // One level's entry of index.json
 static void AppendLevelIndex(std::string &idx, AutoMapRecorder &recorder, int level, const AutoMapLevelSnapshot &s,
                              const std::vector<AutoMapMonsterChoice> &types)
 {
-  Append(idx, "%s{\"level\":%d,\"w\":%d,\"h\":%d,\"offsetX\":%d,\"offsetY\":%d,\"visited\":%d,\"types\":[", level ? "," : "", level,
-         s.width, s.height, s.offsetX, s.offsetY, LevelIsVisited(recorder, level));
+  Append(idx, "%s{\"level\":%d,\"w\":%d,\"h\":%d,\"offsetX\":%d,\"offsetY\":%d%s,\"visited\":%d,\"types\":[", level ? "," : "", level,
+         s.width, s.height, s.offsetX, s.offsetY, LevelAreaFields(level).c_str(), LevelIsVisited(recorder, level));
   for (size_t i = 0; i < types.size(); i++) Append(idx, "%s%s", i ? "," : "", JsonText(types[i].name).c_str());
   Append(idx, "]}");
 }
@@ -505,8 +514,8 @@ bool AutoMapExport_HtmlStep(void)
     int level = html->nextLevel++;
     if (!html->chosen.count(level))
     {
-      Append(html->index, "%s{\"level\":%d,\"absent\":1,\"w\":0,\"h\":0,\"offsetX\":0,\"offsetY\":0,\"visited\":%d,\"types\":[]}",
-             level ? "," : "", level, LevelIsVisited(*html->recorder, level));
+      Append(html->index, "%s{\"level\":%d,\"absent\":1,\"w\":0,\"h\":0,\"offsetX\":0,\"offsetY\":0%s,\"visited\":%d,\"types\":[]}",
+             level ? "," : "", level, LevelAreaFields(level).c_str(), LevelIsVisited(*html->recorder, level));
       continue;
     }
     AutoMapLevelSnapshot s = AutoMapLevelReader_ReadLevel(level);
