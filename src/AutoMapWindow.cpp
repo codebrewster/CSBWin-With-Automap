@@ -3081,9 +3081,32 @@ static SDL_Rect AreaOfMember(const SDL_Rect &cell, const AutoMapShownMonster &mo
   return onScreen;
 }
 
+// Below this cell size a member's quarter is too small for its own mark: the marks of a group
+// piled up at the cell's edges, so the group gets one mark, the way most of it faces
+static const int GROUP_FACING_MARK_BELOW = 20;
+
+// The facing most members share; on a tie the first member's among the tied
+static AutoMapDirection GroupFacing(const AutoMapShownMonster &monster)
+{
+  int count[4] = {0, 0, 0, 0};
+  for (int member = 0; member < monster.memberCount; member++) count[monster.memberFacings[member] & 3]++;
+  int best = monster.memberFacings[0] & 3;
+  for (int member = 1; member < monster.memberCount; member++)
+  {
+    int facing = monster.memberFacings[member] & 3;
+    if (count[facing] > count[best]) best = facing;
+  }
+  return (AutoMapDirection)best;
+}
+
 static void DrawFacingMarks(const AutoMapView &view, const AutoMapShownMonster &monster)
 {
   SDL_Rect cell = CellArea(view, monster.x, monster.y);
+  if (monster.memberCount > 0 && std::min(cell.w, cell.h) < GROUP_FACING_MARK_BELOW)
+  {
+    DrawFacingMark(cell, cell, GroupFacing(monster));
+    return;
+  }
   for (int member = 0; member < monster.memberCount; member++)
   {
     DrawFacingMark(cell, AreaOfMember(cell, monster, member), monster.memberFacings[member]);

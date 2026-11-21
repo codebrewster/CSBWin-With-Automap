@@ -390,6 +390,14 @@ function grownTri(p, d) {
 }
 // The facing mark sits against the side of the area the member faces, in a square of the area's shorter side but at least 14 px
 // (never more than the cell, kept inside it); a 1-px black rim outside the white triangle keeps it apart from a pale figure
+// Below this cell size a member's quarter is too small for its own mark: the marks of a group
+// piled up at the cell's edges, so the group gets one mark, the way most of it faces
+const GROUP_MARK_BELOW = 20;
+// The facing most members share; on a tie the first member's among the tied
+function groupFacing(facings) {
+  const n = [0, 0, 0, 0]; facings.forEach(f => n[f]++);
+  return facings.reduce((best, f) => n[f] > n[best] ? f : best, facings[0]);
+}
 function facingMark(a, facing, x, y) {
   const side = Math.min(Math.max(Math.min(a.w, a.h), 14), cs); let sx = a.x + Math.trunc((a.w - side) / 2), sy = a.y + Math.trunc((a.h - side) / 2);
   if (facing === 0) sy = a.y; if (facing === 1) sx = a.x + a.w - side; if (facing === 2) sy = a.y + a.h - side; if (facing === 3) sx = a.x;
@@ -416,7 +424,8 @@ function drawMonsters() {
   }
   for (const m of ms) { // over the figures, so a tall one does not hide a mark
     const x = px(m.x), y = py(m.y);
-    if (m.size !== undefined) m.m.forEach((mb, i) => facingMark(memberArea(m.pos === undefined ? 255 : m.pos, i, m.size, m.m[0][2], cs), mb[2] & 3, x, y));
+    if (m.size !== undefined && cs < GROUP_MARK_BELOW) facingMark({ x: 0, y: 0, w: cs, h: cs }, groupFacing(m.m.map(mb => mb[2] & 3)), x, y);
+    else if (m.size !== undefined) m.m.forEach((mb, i) => facingMark(memberArea(m.pos === undefined ? 255 : m.pos, i, m.size, m.m[0][2], cs), mb[2] & 3, x, y));
     else m.m.forEach(mb => { const [dx, dy] = [[0, -1], [1, 0], [0, 1], [-1, 0]][mb[2] & 3]; const tx = x + cs / 2 + dx * cs / 2, ty = y + cs / 2 + dy * cs / 2, qx = -dy, qy = dx; tri([[tx, ty], [tx - dx * cs * .18 + qx * cs * .14, ty - dy * cs * .18 + qy * cs * .14], [tx - dx * cs * .18 - qx * cs * .14, ty - dy * cs * .18 - qy * cs * .14]], '#e9e2d2'); });
   }
 }

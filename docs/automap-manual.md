@@ -39,7 +39,8 @@ Every other map setting is on the bar at the top of the map window; see
   and the game's 3×5 font.
 - The party is the red arrow, pointing the way it faces. Monsters stand where the game places them on
   their tile (a group of four in a 2×2, medium monsters side by side or one behind the other, a large
-  monster, and usually a lone one, in the middle), each with a small white triangle showing the way it faces.
+  monster, and usually a lone one, in the middle), each with a small white triangle showing the way it faces. Zoomed out, when cells are smaller than
+  20 pixels, a group has one triangle, the way most of its members face.
 - **Rulers** run along all four edges and show the dungeon's coordinates. The row and column of
   the cell under the pointer are marked in yellow, so a position such as `L4 (12, 3)` is easy to
   read off.
