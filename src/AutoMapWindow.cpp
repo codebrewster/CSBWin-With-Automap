@@ -2087,7 +2087,9 @@ static void DrawWallSide(const SDL_Rect &cell, const AutoMapCellRecord &wall, in
   bool drawsPicture = Shows(AutoMapShowWallDecorations)
       && (wallSide.picture != AUTOMAP_NO_PICTURE || wallSide.portrait != AUTOMAP_NO_PICTURE);
   bool drawsWriting = Shows(AutoMapShowWallWriting) && wallSide.hasWriting;
-  if (wallSide.hidden)
+  // With the mechanisms hidden a switch reads like any decoration
+  bool mechanisms = Shows(AutoMapShowMechanisms);
+  if (wallSide.hidden && mechanisms)
   {
     DrawHiddenSwitchMark(cell, slot, side);
     if (drawsPicture && wallSide.portrait != AUTOMAP_NO_PICTURE) DrawPortrait(slot, wallSide.portrait);
@@ -2096,11 +2098,12 @@ static void DrawWallSide(const SDL_Rect &cell, const AutoMapCellRecord &wall, in
   }
   // Below All the fog filter clears `functional` for switches the party has not found out about:
   // those read like any decoration
-  const SDL_Color &faceColour = wallSide.functional ? KNOWN_SWITCH_LINE : DECORATION_LINE;
+  bool knownSwitch = wallSide.functional && mechanisms;
+  const SDL_Color &faceColour = knownSwitch ? KNOWN_SWITCH_LINE : DECORATION_LINE;
   if (!drawsPicture && !drawsWriting)
   {
     // A known switch keeps its line with its picture hidden
-    if (wallSide.functional) DrawFaceLine(cell, slot, side, KNOWN_SWITCH_LINE);
+    if (knownSwitch) DrawFaceLine(cell, slot, side, KNOWN_SWITCH_LINE);
     return;
   }
   if (drawsPicture)
@@ -2654,6 +2657,7 @@ static void DrawBadge(const SDL_Rect &cell, const AutoMapBadge &badge, const Aut
 // carry no scope and stay unmarked.
 static void DrawTeleporterScopeMark(const SDL_Rect &cell, const AutoMapCellRecord &record)
 {
+  if (!Shows(AutoMapShowMechanisms)) return;
   DrawBadge(cell, AutoMapLayout_TeleporterBadge(record.teleporterScope), NULL, TELEPORTER_BADGE_FRAME);
 }
 
@@ -2772,6 +2776,7 @@ static void DrawSleepingGenerator(const SDL_Rect &cell, const AutoMapFloorActuat
 static void DrawFloorActuators(const SDL_Rect &cell, const AutoMapShownCell &shown,
                                const AutoMapDrawList &drawList)
 {
+  if (!Shows(AutoMapShowMechanisms)) return;
   // A hidden pad's plate is see-through: drawn once per cell, so that a cell of five pads does
   // not look brighter than one of a single pad
   bool plateDrawn = shown.cell.floorPicture != AUTOMAP_NO_PICTURE;
@@ -2806,7 +2811,7 @@ static bool CellIsLinked(const AutoMapDrawList &drawList, int x, int y)
 static void DrawLinkBadgeIfLinked(const SDL_Rect &cell, const AutoMapShownCell &shown,
                                   const AutoMapDrawList &drawList)
 {
-  if (!CellIsLinked(drawList, shown.x, shown.y)) return;
+  if (!Shows(AutoMapShowMechanisms) || !CellIsLinked(drawList, shown.x, shown.y)) return;
   // Upper right, clear of the wall slots and the who-badge in the lower left; a dark rim keeps it
   // apart from the stone
   int size = std::max(4, cell.w / 7);
@@ -6038,7 +6043,7 @@ static void DrawDynamicLayer(const AutoMapView &view)
     const AutoMapShownCell &shown = shownDrawList.cells[i];
     DrawMissiles(CellArea(view, shown.x, shown.y), shown, shownDrawList);
   }
-  if (shownDrawList.partyIsOnShownLevel) DrawParty(view, shownDrawList.party);
+  if (shownDrawList.partyIsOnShownLevel && Shows(AutoMapShowParty)) DrawParty(view, shownDrawList.party);
   if (Shows(AutoMapShowMonsters)) DrawMonsters(view, shownDrawList);
   spotlightCells.clear();
   spotlightLines.clear();

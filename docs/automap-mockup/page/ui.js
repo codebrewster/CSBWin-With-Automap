@@ -107,7 +107,7 @@ function stepLevel(d) { let l = lvl + d; while (l >= 0 && l < DATA.index.levels.
 
 // ---------------- SHOW ----------------
 function drawShowPanel() {
-  panelRects.show = null; if (!showOpen) return; const p = 2, rows = ['SHOW ALL', 'HIDE ALL', null, ...ITEM_KINDS, null, 'MONSTERS', null, 'WALL DECORATIONS', 'WALL WRITING', 'FLOOR DECORATIONS', null, 'PITS'];
+  panelRects.show = null; if (!showOpen) return; const p = 2, rows = ['SHOW ALL', 'HIDE ALL', null, ...ITEM_KINDS, null, 'MONSTERS', 'PARTY', null, 'WALL DECORATIONS', 'WALL WRITING', 'FLOOR DECORATIONS', null, 'MECHANISMS', 'PITS'];
   const w = textW('X FLOOR DECORATIONS', p) + 24, h = rows.reduce((n, r) => n + (r ? 16 : 6), 0) + 8; const x = Math.min(showBtnX, cv.width - w - 4), y = 2;
   plate(x, y, w, h); let yy = y + 5; const hits = [];
   for (const r of rows) { if (!r) { rect(x + 6, yy + 2, w - 12, 1, '#3a362f'); yy += 6; continue; }

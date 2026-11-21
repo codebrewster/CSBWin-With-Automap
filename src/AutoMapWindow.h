@@ -45,6 +45,10 @@ enum AutoMapShown
   AutoMapShowFloorDecorations,
   AutoMapShowFood,
   AutoMapShowKeys,
+  // The marks the map adds for pads, switches, generators, cogs and what is operated (the
+  // who-badges, the link dot, a switch's bright face line); the cells and their pictures stay
+  AutoMapShowMechanisms,
+  AutoMapShowParty,
   AUTOMAP_SHOWN_COUNT
 };
 // How a pit is drawn: by the game's picture, by red stripes, or by the size of the cells

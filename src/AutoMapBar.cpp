@@ -405,9 +405,10 @@ static const ShowRow SHOW_ROWS[] = {
     {"WEAPONS", AutoMapShowWeapons}, {"ARMOUR", AutoMapShowArmour}, {"POTIONS", AutoMapShowPotions},
     {"SCROLLS", AutoMapShowScrolls}, {"CHESTS", AutoMapShowChests}, {"FOOD", AutoMapShowFood},
     {"KEYS", AutoMapShowKeys}, {"OTHER ITEMS", AutoMapShowOtherItems}, {NULL, 0},
-    {"MONSTERS", AutoMapShowMonsters}, {NULL, 0},
+    {"MONSTERS", AutoMapShowMonsters}, {"PARTY", AutoMapShowParty}, {NULL, 0},
     {"WALL DECORATIONS", AutoMapShowWallDecorations}, {"WALL WRITING", AutoMapShowWallWriting},
-    {"FLOOR DECORATIONS", AutoMapShowFloorDecorations}, {NULL, 0}, {"PITS", PITS_ROW}};
+    {"FLOOR DECORATIONS", AutoMapShowFloorDecorations}, {NULL, 0},
+    {"MECHANISMS", AutoMapShowMechanisms}, {"PITS", PITS_ROW}};
 static const int SHOW_ROW_COUNT = sizeof(SHOW_ROWS) / sizeof(SHOW_ROWS[0]);
 static const int ROW = 16;
 static const int DIVIDER_ROW = 6;

@@ -155,7 +155,11 @@ game does:
 ### What the map draws
 
 **SHOW** on the bar switches kinds of things on and off: weapons, armour, potions, scrolls,
-chests, food, keys, other items, monsters, wall decorations, wall writing and floor decorations.
+chests, food, keys, other items, monsters, the party, wall decorations, wall writing, floor
+decorations and mechanisms. Mechanisms are the marks the map adds for what works the dungeon: the
+badges that say who sets off a pad or a teleporter, generators, cogs, the dot on a door or wall
+something operates, and a switch's bright face line (it then reads as any decoration). The cells
+themselves, pits and what a hover shows stay.
 **SHOW ALL** and **HIDE ALL** set them all at once. Hiding an item kind also hides it in alcoves and
 on altars. Floor decorations are the dressing only (grates, moss, flame pits, cracks, puddles):
 pressure pads and pits always show. Hidden things still turn up in the search and in the tooltip.
