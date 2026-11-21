@@ -4941,7 +4941,7 @@ static void DrawSearchPanel(void)
   if (!searchQuery.empty() && searchHits.empty()) DrawLegendText(plate.x + 8, y + 4, "NOTHING SEEN MATCHES", RULER_TEXT);
   if (searchQuery.empty()) DrawLegendText(plate.x + 8, y + 4, "TYPE A NAME OR WORDS OF A TEXT", FLAVOR_TICK);
   int visible = SearchVisibleRows();
-  int coordsW = AutoMapPaint_TextWidth("(00,00)", DIGIT_SCALE);
+  int coordsW = AutoMapPaint_TextWidth("(00, 00)", DIGIT_SCALE);
   for (int r = searchTop; r < (int)rows.size() && r < searchTop + visible; r++)
   {
     const AutoMapSearchRow &row = rows[(size_t)r];
@@ -4970,7 +4970,7 @@ static void DrawSearchPanel(void)
       SDL_Rect icon = {band.x + 18, y + 2, 16, 16};
       DrawSearchIcon(icon, hit);
       SDL_Color dark = {0x1a, 0x16, 0x0f, 0xff};
-      std::string at = "(" + std::to_string(hit.globalX) + "," + std::to_string(hit.globalY) + ")";
+      std::string at = "(" + std::to_string(hit.globalX) + ", " + std::to_string(hit.globalY) + ")";
       DrawLegendText(band.x + 42, y + 5, at.c_str(), selected ? dark : RULER_TEXT);
       SDL_Color tagColour;
       std::string tag = SearchTag(hit, &tagColour);
