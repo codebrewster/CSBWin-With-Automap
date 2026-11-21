@@ -24,6 +24,7 @@ int main(void)
   TestAutoMapHtml();
   TestAutoMapExportChoice();
   TestAutoMapTickRate();
+  TestAutoMapLegend();
   TestShotMissiles();
   TestPlaybackControl();
   TestGameRules();

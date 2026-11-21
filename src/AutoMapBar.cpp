@@ -9,6 +9,7 @@
 #include "AutoMapPaint.h"
 #include "AutoMapBar.h"
 #include "AutoMapExportDialog.h"
+#include "AutoMapLegend.h"
 #include "AutoMapHooks.h"
 #include "AutoMapWindow.h"
 
@@ -480,7 +481,7 @@ static bool ShowPanelPress(int x, int y, int width)
   return true;
 }
 
-// ---------------- controls help ----------------
+// ---------------- ?: CONTROLS and SYMBOLS ----------------
 static const char *const HELP[][2] = {
     {"LEFT-DRAG", "PAN THE MAP"},
     {"WHEEL", "ZOOM TOWARDS THE POINTER"},
@@ -495,30 +496,136 @@ static const char *const HELP[][2] = {
     {"CTRL+CLICK", "ONE LEVEL DOWN, OR THROUGH A STAIR"},
     {"RIGHT-CLICK", "MARKS, LINKS, ASCEND / DESCEND"},
     {"", ""},
-    {"", "CLICK ANYWHERE TO CLOSE"}};
+    {"", "CLICK OUTSIDE OR ESCAPE TO CLOSE"}};
 static const int HELP_ROWS = sizeof(HELP) / sizeof(HELP[0]);
+static const char *const HELP_TABS[] = {"CONTROLS", "SYMBOLS"};
+static const int HELP_TAB_H = 18;
+static const int HELP_TOP = 6;
+// 0 CONTROLS, 1 SYMBOLS; the list's scroll in pixels, and how far it can go (from the last draw)
+static int helpTab = 0;
+static int legendTop = 0;
+static int legendMost = 0;
+static AutoMapRect helpPanel = {0, 0, 0, 0};
+static std::vector<AutoMapRect> helpTabRects;
 
-static void DrawHelp(int width)
+static AutoMapRect HelpPanel(int width, int height)
 {
-  // Measured from the rows, so a longer line never runs out of the box
-  int keyW = 0, textW = 0;
-  for (int i = 0; i < HELP_ROWS; i++)
+  int y = AutoMapBar_Height() + HELP_TOP;
+  if (helpTab == 0)
   {
-    keyW = std::max(keyW, AutoMapPaint_TextWidth(HELP[i][0], PIXEL));
-    textW = std::max(textW, AutoMapPaint_TextWidth(HELP[i][1], PIXEL));
+    // Measured from the rows, so a longer line never runs out of the box
+    int keyW = 0, textW = 0;
+    for (int i = 0; i < HELP_ROWS; i++)
+    {
+      keyW = std::max(keyW, AutoMapPaint_TextWidth(HELP[i][0], PIXEL));
+      textW = std::max(textW, AutoMapPaint_TextWidth(HELP[i][1], PIXEL));
+    }
+    int w = std::min(std::max(10 + keyW + 20 + textW + 10, 260), width - 4);
+    AutoMapRect panel = {std::max(2, (width - w) / 2), y, w, HELP_ROWS * ROW + HELP_TAB_H + 18};
+    return panel;
   }
-  keyW += 20;
-  int w = 10 + keyW + textW + 10;
-  int h = HELP_ROWS * ROW + 30;
-  AutoMapRect panel = {std::max(4, (width - w) / 2), AutoMapBar_Height() + 30, w, h};
+  AutoMapLegendLayout layout = AutoMapLegend_Layout(width - 4, PIXEL);
+  int w = std::min(layout.columns * layout.columnWidth + 20, width - 4);
+  int room = std::max(AUTOMAP_LEGEND_ROW, height - y - 4 - HELP_TAB_H - 16);
+  AutoMapRect panel = {std::max(2, (width - w) / 2), y, w, std::min(layout.height, room) + HELP_TAB_H + 16};
+  return panel;
+}
+
+static void DrawHelp(int width, int height)
+{
+  AutoMapRect panel = HelpPanel(width, height);
+  helpPanel = panel;
   AutoMapPaint_Fill(panel, PANEL_FILL);
   AutoMapPaint_Frame(panel, PANEL_FRAME, 1);
-  AutoMapPaint_Text(panel.x + 10, panel.y + 8, "CONTROLS", GOLD, PIXEL);
-  for (int i = 0; i < HELP_ROWS; i++)
+  if (helpTab == 0)
   {
-    AutoMapPaint_Text(panel.x + 10, panel.y + 26 + i * ROW, HELP[i][0], GOLD, PIXEL);
-    AutoMapPaint_Text(panel.x + 10 + keyW, panel.y + 26 + i * ROW, HELP[i][1], WHITE, PIXEL);
+    int keyW = 0;
+    for (int i = 0; i < HELP_ROWS; i++) keyW = std::max(keyW, AutoMapPaint_TextWidth(HELP[i][0], PIXEL));
+    keyW += 20;
+    for (int i = 0; i < HELP_ROWS; i++)
+    {
+      int y = panel.y + HELP_TAB_H + 12 + i * ROW;
+      AutoMapPaint_Text(panel.x + 10, y, HELP[i][0], GOLD, PIXEL);
+      AutoMapPaint_Text(panel.x + 10 + keyW, y, HELP[i][1], WHITE, PIXEL);
+    }
   }
+  else
+  {
+    // Every mark the map draws, each by the map's own painters (AutoMapWindow_DrawLegendSample)
+    AutoMapLegendLayout layout = AutoMapLegend_Layout(width - 4, PIXEL);
+    const std::vector<AutoMapLegendEntry> &rows = AutoMapLegend_Entries();
+    int top = panel.y + HELP_TAB_H + 10;
+    int view = panel.h - HELP_TAB_H - 16;
+    legendMost = std::max(0, layout.height - view);
+    legendTop = std::max(0, std::min(legendTop, legendMost));
+    SDL_Rect clip = {panel.x + 1, top, panel.w - 2, panel.h - HELP_TAB_H - 12};
+    AutoMapPaint_Clip(&clip);
+    for (size_t i = 0; i < layout.places.size(); i++)
+    {
+      const AutoMapLegendPlace &place = layout.places[i];
+      const AutoMapLegendEntry &row = rows[place.entry];
+      int y = top + place.y - legendTop;
+      if (y > panel.y + panel.h || y + AUTOMAP_LEGEND_ROW < top) continue;
+      if (row.sample == AutoMapLegendHeading)
+      {
+        int headW = AutoMapPaint_TextWidth(row.label, PIXEL);
+        AutoMapPaint_Text(panel.x + 10, y + 8, row.label, GOLD, PIXEL);
+        AutoMapRect rule = {panel.x + 10 + headW + 8, y + 10, panel.w - 30 - headW - 8, 1};
+        AutoMapPaint_Fill(rule, DIVIDER);
+        continue;
+      }
+      int x = panel.x + 10 + place.column * layout.columnWidth;
+      AutoMapWindow_DrawLegendSample(row.sample, x, y, clip);
+      AutoMapPaint_Text(x + 2 * AUTOMAP_LEGEND_CELL + 10, y + (AUTOMAP_LEGEND_CELL - 10) / 2, row.label, WHITE, PIXEL);
+    }
+    AutoMapPaint_Clip(NULL);
+    if (legendMost > 0)
+    {
+      int track = view;
+      int thumb = std::max(16, track * track / std::max(1, layout.height));
+      AutoMapRect rail = {panel.x + panel.w - 7, top, 4, track};
+      AutoMapRect knob = {rail.x, top + (track - thumb) * legendTop / legendMost, 4, thumb};
+      AutoMapPaint_Fill(rail, DIVIDER);
+      AutoMapPaint_Fill(knob, GREY);
+    }
+  }
+  // The tabs on the panel's top edge
+  helpTabRects.clear();
+  int x = panel.x + 8;
+  for (int i = 0; i < 2; i++)
+  {
+    bool on = i == helpTab;
+    AutoMapRect tab = {x, panel.y + 4, AutoMapPaint_TextWidth(HELP_TABS[i], PIXEL) + 16, HELP_TAB_H};
+    AutoMapPaint_Fill(tab, on ? ON_FILL : BUTTON_FILL);
+    AutoMapPaint_Frame(tab, on ? ON_FILL : BUTTON_FRAME, 1);
+    AutoMapPaint_Text(tab.x + 8, tab.y + (HELP_TAB_H - 10) / 2, HELP_TABS[i], on ? ON_TEXT : BUTTON_TEXT, PIXEL);
+    helpTabRects.push_back(tab);
+    x += tab.w + 6;
+  }
+}
+
+static bool Inside(const AutoMapRect &r, int x, int y)
+{
+  return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
+}
+
+// A tab switches; a click outside closes; one inside the panel does nothing else
+static void HelpPress(int x, int y)
+{
+  for (size_t i = 0; i < helpTabRects.size(); i++)
+  {
+    if (Inside(helpTabRects[i], x, y))
+    {
+      helpTab = (int)i;
+      return;
+    }
+  }
+  if (!Inside(helpPanel, x, y)) helpOpen = false;
+}
+
+static void ScrollLegend(int pixels)
+{
+  legendTop = std::max(0, std::min(legendMost, legendTop + pixels));
 }
 
 // ---------------- level list ----------------
@@ -608,7 +715,7 @@ void AutoMapBar_DrawPanels(int width, int height)
 {
   (void)height;
   if (showOpen) DrawShowPanel(width);
-  if (helpOpen) DrawHelp(width);
+  if (helpOpen) DrawHelp(width, height);
   if (levelListOpen) DrawLevelList();
   if (AutoMapExportDialog_IsOpen()) AutoMapExportDialog_Draw(width, height);
 }
@@ -682,7 +789,7 @@ bool AutoMapBar_HandlePress(int x, int y, int width)
 {
   if (helpOpen)
   {
-    helpOpen = false;
+    HelpPress(x, y);
     return true;
   }
   if (showOpen && y >= AutoMapBar_Height()) return ShowPanelPress(x, y, width);
@@ -717,6 +824,11 @@ bool AutoMapBar_HandlePress(int x, int y, int width)
 
 bool AutoMapBar_HandleWheel(int x, int y, int notches)
 {
+  if (helpOpen && helpTab == 1 && Inside(helpPanel, x, y))
+  {
+    ScrollLegend(-notches * 2 * AUTOMAP_LEGEND_ROW);
+    return true;
+  }
   if (levelListOpen)
   {
     AutoMapRect panel = LevelList();
@@ -740,6 +852,11 @@ bool AutoMapBar_HandleKey(int sym)
   if (sym == SDLK_ESCAPE)
   {
     AutoMapBar_ClosePanels();
+    return true;
+  }
+  if (helpOpen && helpTab == 1 && (sym == SDLK_DOWN || sym == SDLK_UP))
+  {
+    ScrollLegend(sym == SDLK_DOWN ? AUTOMAP_LEGEND_ROW : -AUTOMAP_LEGEND_ROW);
     return true;
   }
   if (!levelListOpen) return false;

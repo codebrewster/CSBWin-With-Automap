@@ -481,14 +481,14 @@ nothing beyond the explored cells is found, and a scroll's words only once the p
 
 ## Controls help
 
-Click **?** on the bar for one page of the mouse buttons and keys. Any click or **Escape** closes it.
-Everything else the map draws is explained by hovering it: the tooltip names it.
-
-On the exported page, **?** has two tabs: **CONTROLS**, the keys and buttons, and **SYMBOLS**, every
-mark the map draws with a word on what it means: the cells, wall faces, pads and the badge of who
-sets them off, generators, items and monsters, the lines and goal badges of a hover, and your own
-marks. The samples are drawn by the page's own map code, with pictures from the file itself. The
-wheel, the arrow keys or a finger scroll the list; a click outside it or **Escape** closes it.
+Click **?** on the bar for the mouse buttons and keys. It has two tabs: **CONTROLS**, the keys and
+buttons, and **SYMBOLS**, every mark the map draws with a word on what it means: the cells, wall
+faces, pads and the badge of who sets them off, generators, items and monsters, the lines and goal
+badges of a hover, and your own marks. The samples are drawn by the map's own code, with the
+switches, items and monsters of the level shown (on the exported page, of the file). The wheel or
+the arrow keys scroll the list (on a phone, a finger); a click outside the panel or **Escape**
+closes it. The exported page has the same tabs, so a page shared with someone who has no manual
+explains itself. Everything else the map draws is explained by hovering it: the tooltip names it.
 
 ## Your own notes
 

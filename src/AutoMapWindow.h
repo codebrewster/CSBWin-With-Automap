@@ -2,6 +2,7 @@
 #define AUTOMAPWINDOW_H
 
 #include <SDL.h>
+#include "AutoMapLegend.h"
 
 // The second OS window that shows the map. This header declares functions only, so that it can
 // be included after CSB.h, which leaves #pragma pack(1) switched on.
@@ -67,6 +68,9 @@ bool AutoMapWindow_DebugIsOn(void);
 void AutoMapWindow_TurnDebugOff(void);
 // Hands the view back to the party without touching which level is shown
 void AutoMapWindow_RecenterView(void);
+// One sample of the ? panel's SYMBOLS, two legend cells wide, its top left at (x, y), drawn by the
+// map's own painters on made-up records; nothing reaches outside clip, which stays set after
+void AutoMapWindow_DrawLegendSample(AutoMapLegendSample sample, int x, int y, const SDL_Rect &clip);
 // Both return true when the event belongs to the map window and must go no further
 bool AutoMapWindow_HandleWindowEvent(const SDL_Event &event);
 bool AutoMapWindow_HandlePointerEvent(const SDL_Event &event);

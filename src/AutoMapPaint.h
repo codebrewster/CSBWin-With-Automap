@@ -14,6 +14,8 @@ void AutoMapPaint_Use(SDL_Renderer *renderer);
 void AutoMapPaint_Fill(const AutoMapRect &area, SDL_Color colour);
 // A frame of thickness pixels inside area
 void AutoMapPaint_Frame(const AutoMapRect &area, SDL_Color colour, int thickness);
+// Nothing is drawn outside area from now on; NULL draws everywhere again
+void AutoMapPaint_Clip(const SDL_Rect *area);
 // A plate: dark fill (#0d0c0a) and a one-pixel frame
 void AutoMapPaint_Plate(const AutoMapRect &area, SDL_Color frame);
 

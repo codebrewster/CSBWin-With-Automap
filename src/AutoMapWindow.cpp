@@ -6055,6 +6055,505 @@ static void DrawDynamicLayer(const AutoMapView &view)
   DrawTileTooltip(view);
 }
 
+// ---------------------------------------------------------------------------------------------
+// The ? panel's SYMBOLS (AutoMapLegend.h): each sample is drawn by the painters above, on made-up
+// records in a draw list of its own that stands in for the shown one while it draws. Pictures
+// the game keeps under fixed numbers (pits, the pad's plate) are those; switches, items and
+// monsters are the shown level's own, and a sample without one draws what the map draws for a
+// missing picture.
+
+// What the samples borrow from the shown level, found once per draw list
+struct LegendFinds
+{
+  Uint32 serial = 0;
+  bool found = false;
+  int switchPicture = AUTOMAP_NO_PICTURE;
+  int decorationPicture = AUTOMAP_NO_PICTURE;
+  bool hasAlcove = false;
+  AutoMapCellRecord alcove;
+  bool hasLock = false;
+  AutoMapCellRecord lock;
+  bool hasItem = false;
+  AutoMapItem item;
+  bool hasPile = false;
+  AutoMapShownCell pile;
+  bool hasPadItem = false;
+  AutoMapItem padItem;
+  bool hasGenerator = false;
+  AutoMapFloorActuator generator;
+  bool hasMonsters = false;
+  AutoMapShownMonster monsters;
+  bool hasMissile = false;
+  AutoMapItem missile;
+  int cloud = AUTOMAP_NO_PICTURE;
+};
+static LegendFinds legendFinds;
+
+static const LegendFinds &FindLegendPictures(void)
+{
+  if (legendFinds.found && legendFinds.serial == drawListSerial) return legendFinds;
+  LegendFinds f;
+  f.found = true;
+  f.serial = drawListSerial;
+  for (size_t i = 0; i < shownDrawList.cells.size(); i++)
+  {
+    const AutoMapShownCell &shown = shownDrawList.cells[i];
+    const AutoMapCellRecord &c = shown.cell;
+    for (int side = 0; side < AUTOMAP_SIDE_COUNT; side++)
+    {
+      const AutoMapWallSide &s = c.wallSides[side];
+      if (s.hidden || s.portrait != AUTOMAP_NO_PICTURE || s.isTorchHolder || s.picture == AUTOMAP_NO_PICTURE) continue;
+      if (s.functional && !s.isAlcove && f.switchPicture == AUTOMAP_NO_PICTURE) f.switchPicture = s.picture;
+      if (!s.functional && !s.isAlcove && !s.hasWriting && f.decorationPicture == AUTOMAP_NO_PICTURE) f.decorationPicture = s.picture;
+      if (s.isAlcove && !f.hasAlcove)
+      {
+        for (size_t k = 0; k < c.alcoveContents.size() && !f.hasAlcove; k++)
+        {
+          if (c.alcoveContents[k].side != side || c.alcoveContents[k].item.worldPicture == AUTOMAP_NO_PICTURE) continue;
+          // That face alone, with what lies on it
+          f.hasAlcove = true;
+          f.alcove.kind = AutoMapCellWall;
+          f.alcove.wallSides[side] = s;
+          for (size_t n = 0; n < c.alcoveContents.size(); n++)
+            if (c.alcoveContents[n].side == side) f.alcove.alcoveContents.push_back(c.alcoveContents[n]);
+        }
+      }
+    }
+    for (size_t k = 0; k < c.wallLocks.size() && !f.hasLock; k++)
+    {
+      if (!c.wallLocks[k].required || c.wallLocks[k].object.worldPicture == AUTOMAP_NO_PICTURE) continue;
+      f.hasLock = true;
+      f.lock = c;
+      f.lock.alcoveContents.clear();
+    }
+    if (!c.itemPictures.empty() && c.itemPictures[0].worldPicture != AUTOMAP_NO_PICTURE && !f.hasItem)
+    {
+      f.hasItem = true;
+      f.item = c.itemPictures[0];
+    }
+    if (c.itemPictures.size() == AUTOMAP_MOST_ITEMS_SHOWN && shown.hasMoreItems && !f.hasPile)
+    {
+      f.hasPile = true;
+      f.pile = shown;
+    }
+  }
+  for (size_t i = 0; i < shownDrawList.actuators.size(); i++)
+  {
+    const AutoMapFloorActuator &a = shownDrawList.actuators[i];
+    bool generates = a.kind == AutoMapActuatorGenerator || a.kind == AutoMapActuatorSleepingGenerator;
+    if (generates && a.hasGeneratedMonster && !f.hasGenerator)
+    {
+      f.hasGenerator = true;
+      f.generator = a;
+    }
+    bool wantsItem = a.kind == AutoMapActuatorPad && (a.op == AutoMapPadObject || a.op == AutoMapPadPossession);
+    if (wantsItem && a.object.worldPicture != AUTOMAP_NO_PICTURE && !f.hasPadItem)
+    {
+      f.hasPadItem = true;
+      f.padItem = a.object;
+    }
+  }
+  for (size_t i = 0; i < shownDrawList.monsters.size() && !f.hasMonsters; i++)
+  {
+    if (shownDrawList.monsters[i].memberCount < 2) continue;
+    f.hasMonsters = true;
+    f.monsters = shownDrawList.monsters[i];
+  }
+  if (!shownDrawList.missiles.empty())
+  {
+    f.hasMissile = true;
+    f.missile = shownDrawList.missiles[0].item;
+  }
+  for (size_t i = 0; i < shownDrawList.clouds.size() && f.cloud == AUTOMAP_NO_PICTURE; i++)
+  {
+    if (!shownDrawList.clouds[i].fluxCage) f.cloud = shownDrawList.clouds[i].picture;
+  }
+  legendFinds = f;
+  return legendFinds;
+}
+
+static const int PIT_PICTURE = 54;
+static const int CONCEALED_PIT_PICTURE = 60;
+
+static AutoMapShownCell LegendCell(int x, AutoMapCellKind kind)
+{
+  AutoMapShownCell shown = AutoMapShownCell();
+  shown.x = x;
+  shown.y = 0;
+  shown.cell.kind = kind;
+  shown.hasMoreItems = false;
+  shown.isHighlighted = false;
+  shown.isWalked = false;
+  shown.teleporterTargetVisible = false;
+  shown.playerPit = -1;
+  return shown;
+}
+
+static AutoMapShownCell LegendDoor(AutoMapDoorState state)
+{
+  AutoMapShownCell door = LegendCell(0, AutoMapCellDoor);
+  door.cell.doorState = state;
+  // Something opens it, so it is not sealed
+  door.cell.doorHasSwitch = true;
+  return door;
+}
+
+static AutoMapShownCell LegendTeleporter(AutoMapCellKind kind, int scope)
+{
+  AutoMapShownCell teleporter = LegendCell(0, kind);
+  teleporter.cell.teleporterScope = scope;
+  teleporter.cell.teleporterDestLevel = shownDrawList.level;
+  return teleporter;
+}
+
+static AutoMapShownCell LegendSpinner(AutoMapCellKind kind, int facing, int rotation)
+{
+  AutoMapShownCell spinner = LegendCell(0, kind);
+  spinner.cell.spinnerFacing = facing;
+  spinner.cell.spinnerRotation = rotation;
+  return spinner;
+}
+
+static AutoMapShownCell LegendWall(int side, int picture, bool functional, bool hidden, bool writing)
+{
+  AutoMapShownCell wall = LegendCell(0, AutoMapCellWall);
+  AutoMapWallSide &face = wall.cell.wallSides[side];
+  face.picture = picture;
+  face.functional = functional;
+  face.hidden = hidden;
+  face.hasWriting = writing;
+  return wall;
+}
+
+static AutoMapShownCell LegendPadFloor(void)
+{
+  AutoMapShownCell floor = LegendCell(0, AutoMapCellFloor);
+  floor.cell.floorPicture = PRESSURE_PLATE_PICTURE;
+  return floor;
+}
+
+static void LegendPad(AutoMapDrawList *list, AutoMapActuatorKind kind, AutoMapPadOperator op, int facing,
+                      const AutoMapItem *item)
+{
+  AutoMapFloorActuator pad(0, 0, kind);
+  pad.op = op;
+  pad.requiredFacing = facing;
+  if (item != NULL) pad.object = *item;
+  list->actuators.push_back(pad);
+}
+
+// The floor strip a line sample runs over: three cells, the outer ones half in the box, so the
+// line runs from the middle of the left half to the right one
+static void LegendStrip(AutoMapDrawList *list, const AutoMapShownCell &from)
+{
+  AutoMapShownCell source = from;
+  source.x = 0;
+  list->cells.push_back(source);
+  list->cells.push_back(LegendCell(1, AutoMapCellFloor));
+  list->cells.push_back(LegendCell(2, AutoMapCellFloor));
+}
+
+static void LegendLine(AutoMapDrawList *list, AutoMapSignal signal, bool once)
+{
+  LegendStrip(list, LegendCell(0, AutoMapCellFloor));
+  AutoMapLink link(0, 0, 2, 0, false, -1, signal, once);
+  list->links.push_back(link);
+}
+
+static AutoMapEffect LegendGoal(AutoMapGoalStatus status)
+{
+  AutoMapEffect goal;
+  goal.x = 0;
+  goal.y = 0;
+  goal.distance.status = status;
+  return goal;
+}
+
+static void LegendSearchFrame(const AutoMapView &view, const SDL_Color &colour)
+{
+  int thickness = AutoMapLayout_FaceLine(view.cellSize);
+  SDL_Rect cell = CellArea(view, 0, 0);
+  AutoMapRect rim = {cell.x + 1, cell.y + 1, cell.w - 2, cell.h - 2};
+  AutoMapRect frame = {cell.x + 2, cell.y + 2, cell.w - 4, cell.h - 4};
+  SDL_Color dark = {0x0b, 0x0a, 0x08, 0xff};
+  AutoMapPaint_Frame(rim, dark, thickness + 2);
+  AutoMapPaint_Frame(frame, colour, thickness);
+}
+
+void AutoMapWindow_DrawLegendSample(AutoMapLegendSample sample, int x, int y, const SDL_Rect &clip)
+{
+  if (mapRenderer == NULL || sample == AutoMapLegendHeading) return;
+  const LegendFinds &found = FindLegendPictures();
+  const int size = AUTOMAP_LEGEND_CELL;
+  AutoMapDrawList list;
+  list.level = shownDrawList.level;
+  list.spoilers = AutoMapSpoilersAll;
+  list.paletteScheme9 = shownDrawList.paletteScheme9;
+  list.paletteScheme10 = shownDrawList.paletteScheme10;
+  // A single cell sits in the middle of the box; a strip starts half a cell before it
+  bool strip = false;
+  int lowered = 0;
+  AutoMapShownCell cell = LegendCell(0, AutoMapCellFloor);
+  bool partyShown = false;
+  bool fluxCage = false;
+  int noteLink = 0;
+  int searchFrame = 0;
+  bool doorPreview = false;
+  int goal = -1;
+  bool teleportLine = false, dormantLine = false;
+  SDL_Color lineColour = LINK_GOLD;
+  switch (sample)
+  {
+  case AutoMapLegendRock: cell = LegendCell(0, AutoMapCellWall); break;
+  case AutoMapLegendFloor: break;
+  case AutoMapLegendExplored: cell.isHighlighted = true; break;
+  case AutoMapLegendWalked: cell.isWalked = true; break;
+  case AutoMapLegendDoor: cell = LegendDoor(AutoMapDoorClosed); break;
+  case AutoMapLegendOpenDoor: cell = LegendDoor(AutoMapDoorOpen); break;
+  case AutoMapLegendBrokenDoor: cell = LegendDoor(AutoMapDoorDestroyed); break;
+  case AutoMapLegendSealedDoor:
+    cell = LegendDoor(AutoMapDoorClosed);
+    cell.cell.doorHasSwitch = false;
+    break;
+  case AutoMapLegendAxeDoor:
+    cell = LegendDoor(AutoMapDoorClosed);
+    cell.cell.doorBreakableWithAxe = true;
+    break;
+  case AutoMapLegendFireballDoor:
+    cell = LegendDoor(AutoMapDoorClosed);
+    cell.cell.doorBreakableWithFireball = true;
+    break;
+  case AutoMapLegendLinkedDoor:
+  {
+    cell = LegendDoor(AutoMapDoorClosed);
+    AutoMapCell linked = {list.level, 0, 0};
+    list.linkedCells.push_back(linked);
+    break;
+  }
+  case AutoMapLegendStairsUp:
+  case AutoMapLegendStairsDown:
+    cell = LegendCell(0, AutoMapCellStairs);
+    cell.cell.stairsLeadUp = sample == AutoMapLegendStairsUp;
+    cell.cell.stairsTargetLevel = std::max(0, list.level + (cell.cell.stairsLeadUp ? -1 : 1));
+    break;
+  case AutoMapLegendPit:
+  case AutoMapLegendPitZoomedOut:
+    cell = LegendCell(0, AutoMapCellPit);
+    cell.cell.floorPicture = PIT_PICTURE;
+    cell.cell.pitIsOpen = true;
+    break;
+  case AutoMapLegendHiddenPit:
+  case AutoMapLegendHiddenPitOpen:
+    cell = LegendCell(0, AutoMapCellPit);
+    cell.cell.floorPicture = CONCEALED_PIT_PICTURE;
+    cell.cell.pitIsHidden = true;
+    cell.cell.pitIsOpen = sample == AutoMapLegendHiddenPitOpen;
+    break;
+  case AutoMapLegendSwitchablePit: cell.cell.pitIsClosedSwitchable = true; break;
+  case AutoMapLegendFalseWallSolid: cell = LegendCell(0, AutoMapCellFalseWall); break;
+  case AutoMapLegendFalseWallWalkThrough:
+    cell = LegendCell(0, AutoMapCellFalseWall);
+    cell.cell.falseWallIsPassable = true;
+    break;
+  case AutoMapLegendFalseWallOpen: cell = LegendCell(0, AutoMapCellOpenFalseWall); break;
+  case AutoMapLegendTeleporter: cell = LegendTeleporter(AutoMapCellTeleporter, 3); break;
+  case AutoMapLegendTeleporterToLevel:
+    cell = LegendTeleporter(AutoMapCellTeleporter, 3);
+    cell.cell.teleporterDestLevel = list.level > 0 ? list.level - 1 : 1;
+    cell.teleporterTargetVisible = true;
+    break;
+  case AutoMapLegendInvisibleTeleporter: cell = LegendTeleporter(AutoMapCellInvisibleTeleporter, 3); break;
+  case AutoMapLegendDormantTeleporter: cell = LegendTeleporter(AutoMapCellDormantTeleporter, 3); break;
+  case AutoMapLegendSpinnerRight: cell = LegendSpinner(AutoMapCellSpinner, -1, 1); break;
+  case AutoMapLegendSpinnerLeft: cell = LegendSpinner(AutoMapCellSpinner, -1, 3); break;
+  case AutoMapLegendSpinnerAround: cell = LegendSpinner(AutoMapCellSpinner, -1, 2); break;
+  case AutoMapLegendSpinnerFaceNorth: cell = LegendSpinner(AutoMapCellSpinner, AutoMapNorth, 0); break;
+  case AutoMapLegendSpinnerKeeps: cell = LegendSpinner(AutoMapCellSpinner, -1, 0); break;
+  case AutoMapLegendDormantSpinner: cell = LegendSpinner(AutoMapCellDormantSpinner, -1, 1); break;
+  case AutoMapLegendSwitch: cell = LegendWall(AutoMapSouth, found.switchPicture, true, false, false); break;
+  case AutoMapLegendDecoration: cell = LegendWall(AutoMapSouth, found.decorationPicture, false, false, false); break;
+  case AutoMapLegendHiddenSwitch: cell = LegendWall(AutoMapSouth, AUTOMAP_NO_PICTURE, true, true, false); break;
+  case AutoMapLegendWriting: cell = LegendWall(AutoMapSouth, AUTOMAP_NO_PICTURE, false, false, true); break;
+  case AutoMapLegendAlcove:
+    if (!found.hasAlcove) return;
+    cell = LegendCell(0, AutoMapCellWall);
+    cell.cell = found.alcove;
+    break;
+  case AutoMapLegendLock:
+    if (!found.hasLock) return;
+    cell = LegendCell(0, AutoMapCellWall);
+    cell.cell = found.lock;
+    break;
+  case AutoMapLegendPadAnything: cell = LegendPadFloor(); LegendPad(&list, AutoMapActuatorPad, AutoMapPadAnything, -1, NULL); break;
+  case AutoMapLegendPadParty: cell = LegendPadFloor(); LegendPad(&list, AutoMapActuatorPad, AutoMapPadParty, -1, NULL); break;
+  case AutoMapLegendPadPartyFacing: cell = LegendPadFloor(); LegendPad(&list, AutoMapActuatorPad, AutoMapPadPartyFacing, AutoMapEast, NULL); break;
+  case AutoMapLegendPadMonsters: cell = LegendPadFloor(); LegendPad(&list, AutoMapActuatorPad, AutoMapPadMonster, -1, NULL); break;
+  case AutoMapLegendPadPartyOrMonsters: cell = LegendPadFloor(); LegendPad(&list, AutoMapActuatorPad, AutoMapPadPartyOrMonster, -1, NULL); break;
+  case AutoMapLegendPadItem:
+  case AutoMapLegendPadCarried:
+  {
+    cell = LegendPadFloor();
+    const AutoMapItem *item = found.hasPadItem ? &found.padItem : found.hasItem ? &found.item : NULL;
+    LegendPad(&list, AutoMapActuatorPad, sample == AutoMapLegendPadItem ? AutoMapPadObject : AutoMapPadPossession, -1, item);
+    break;
+  }
+  case AutoMapLegendHiddenPad: LegendPad(&list, AutoMapActuatorPad, AutoMapPadAnything, -1, NULL); break;
+  case AutoMapLegendDormantPad: LegendPad(&list, AutoMapActuatorDormantPad, AutoMapPadAnything, -1, NULL); break;
+  case AutoMapLegendTeleporterPartyObjects: cell = LegendTeleporter(AutoMapCellTeleporter, 2); break;
+  case AutoMapLegendTeleporterObjects: cell = LegendTeleporter(AutoMapCellTeleporter, 0); break;
+  case AutoMapLegendTeleporterMonsters: cell = LegendTeleporter(AutoMapCellTeleporter, 1); break;
+  case AutoMapLegendParty: partyShown = true; break;
+  case AutoMapLegendMonsters:
+    if (found.hasMonsters)
+    {
+      list.monsters.push_back(found.monsters);
+      list.monsters[0].x = 0;
+      list.monsters[0].y = 0;
+    }
+    break;
+  case AutoMapLegendGenerator:
+  case AutoMapLegendGeneratorAsleep:
+  case AutoMapLegendGeneratorSpent:
+  {
+    AutoMapFloorActuator generator = found.hasGenerator ? found.generator : AutoMapFloorActuator();
+    generator.x = 0;
+    generator.y = 0;
+    generator.kind = sample == AutoMapLegendGenerator         ? AutoMapActuatorGenerator
+                     : sample == AutoMapLegendGeneratorAsleep ? AutoMapActuatorSleepingGenerator
+                                                              : AutoMapActuatorSpentGenerator;
+    if (sample == AutoMapLegendGeneratorSpent) generator.hasGeneratedMonster = false;
+    list.actuators.push_back(generator);
+    break;
+  }
+  case AutoMapLegendItems:
+    if (found.hasPile)
+    {
+      cell.cell.itemPictures = found.pile.cell.itemPictures;
+      cell.allItemPictures = found.pile.allItemPictures;
+    }
+    else if (found.hasItem)
+    {
+      cell.cell.itemPictures.assign(AUTOMAP_MOST_ITEMS_SHOWN, found.item);
+      cell.allItemPictures.assign(AUTOMAP_MOST_ITEMS_SHOWN + 2, found.item);
+    }
+    cell.hasMoreItems = !cell.cell.itemPictures.empty();
+    break;
+  case AutoMapLegendGlimpse:
+  {
+    AutoMapCell glimpse = {list.level, 0, 0};
+    list.glimpsedItems.push_back(glimpse);
+    break;
+  }
+  case AutoMapLegendMissile:
+  {
+    AutoMapShownMissile missile = AutoMapShownMissile();
+    missile.item = found.hasMissile ? found.missile : found.item;
+    missile.sizeShowsRange = false;
+    if (found.hasMissile || found.hasItem) list.missiles.push_back(missile);
+    break;
+  }
+  case AutoMapLegendCloud:
+  {
+    AutoMapShownCloud cloud = {0, 0, found.cloud, false};
+    list.clouds.push_back(cloud);
+    break;
+  }
+  case AutoMapLegendFluxCage: fluxCage = true; break;
+  case AutoMapLegendSends: LegendLine(&list, AutoMapSignalSet, false); strip = true; break;
+  case AutoMapLegendFeeds: LegendLine(&list, AutoMapSignalSet, false); strip = true; lineColour = LINK_INCOMING; break;
+  case AutoMapLegendSets: LegendLine(&list, AutoMapSignalSet, false); strip = true; break;
+  case AutoMapLegendClears: LegendLine(&list, AutoMapSignalClear, false); strip = true; break;
+  case AutoMapLegendToggles: LegendLine(&list, AutoMapSignalToggle, false); strip = true; break;
+  case AutoMapLegendHolds: LegendLine(&list, AutoMapSignalPressure, false); strip = true; break;
+  case AutoMapLegendOnce: LegendLine(&list, AutoMapSignalSet, true); strip = true; break;
+  case AutoMapLegendLearned:
+    LegendLine(&list, AutoMapSignalSet, false);
+    list.spoilers = AutoMapSpoilersLearned;
+    strip = true;
+    break;
+  case AutoMapLegendGoalNow:
+  case AutoMapLegendGoalWaits:
+    cell = LegendDoor(AutoMapDoorClosed);
+    goal = sample == AutoMapLegendGoalNow ? AutoMapGoalOnThisPress : AutoMapGoalBlocked;
+    lowered = size / 5;
+    break;
+  case AutoMapLegendDoorPreview: cell = LegendDoor(AutoMapDoorClosed); doorPreview = true; break;
+  case AutoMapLegendTeleportLine:
+  case AutoMapLegendDormantTeleportLine:
+  {
+    bool dormant = sample == AutoMapLegendDormantTeleportLine;
+    LegendStrip(&list, LegendTeleporter(dormant ? AutoMapCellDormantTeleporter : AutoMapCellTeleporter, 3));
+    strip = true;
+    teleportLine = !dormant;
+    dormantLine = dormant;
+    break;
+  }
+  case AutoMapLegendPitNote: cell.playerPit = 0; break;
+  case AutoMapLegendPitNoteOpen: cell.playerPit = 1; break;
+  case AutoMapLegendPlayerLink:
+  {
+    LegendStrip(&list, LegendCell(0, AutoMapCellFloor));
+    strip = true;
+    noteLink = 1;
+    break;
+  }
+  case AutoMapLegendSearchHit: searchFrame = 1; break;
+  case AutoMapLegendChosenHit: searchFrame = 2; break;
+  default: break;
+  }
+  if (!strip) list.cells.push_back(cell);
+  list.width = strip ? 3 : 1;
+  list.height = 1;
+  AutoMapView view = {size, strip ? x - size / 2 : x + size / 2, y + lowered};
+  // What the sample changes, put back after: the shown list, the SHOW choices and the pit style
+  SDL_Rect box = {x, y - 3, 2 * size, size + 6};
+  SDL_Rect inside;
+  if (!SDL_IntersectRect(&box, &clip, &inside)) return;
+  unsigned keepShown = shownThings;
+  AutoMapPitStyle keepPitStyle = pitStyle;
+  shownThings = (1u << AUTOMAP_SHOWN_COUNT) - 1;
+  pitStyle = sample == AutoMapLegendPitZoomedOut ? AutoMapPitStyleStripes : AutoMapPitStylePicture;
+  std::swap(shownDrawList, list);
+  SDL_RenderSetClipRect(mapRenderer, &inside);
+  const AutoMapDrawList &drawn = shownDrawList;
+  for (size_t i = 0; i < drawn.cells.size(); i++) DrawCellBase(view, drawn.cells[i], drawn);
+  DrawGlimpses(view, drawn);
+  for (size_t i = 0; i < drawn.cells.size(); i++)
+  {
+    if (drawn.cells[i].playerPit >= 0) DrawPlayerNotesOfCell(view, drawn.cells[i], drawn);
+    DrawMissiles(CellArea(view, drawn.cells[i].x, drawn.cells[i].y), drawn.cells[i], drawn);
+  }
+  if (fluxCage) DrawFluxCage(CellArea(view, 0, 0));
+  if (partyShown)
+  {
+    AutoMapParty party = {0, 0, AutoMapEast};
+    DrawParty(view, party);
+  }
+  if (!drawn.monsters.empty()) DrawMonsters(view, drawn);
+  for (size_t i = 0; i < drawn.links.size(); i++)
+  {
+    DrawLinkEdge(view, drawn.links[i], lineColour);
+    DrawSourceNode(view, drawn.links[i], lineColour);
+  }
+  if (teleportLine || dormantLine) DrawTeleportLine(view, AutoMapLink(0, 0, 2, 0), dormantLine);
+  if (noteLink)
+  {
+    AutoMapLink link(0, 0, 2, 0);
+    DrawLinkEdge(view, link, PLAYER_NOTE, true);
+    SDL_Rect target = CellArea(view, 2, 0);
+    int dot = std::max(3, target.w / 6);
+    SDL_Rect mark = {target.x + 2, target.y + target.h - dot - 2, dot, dot};
+    Fill(mark, PLAYER_NOTE);
+  }
+  if (goal >= 0) DrawGoalBadge(view, LegendGoal((AutoMapGoalStatus)goal));
+  if (doorPreview) DrawDoorPreview(view, AutoMapLink(0, 0, 0, 0, false, -1, AutoMapSignalSet));
+  if (searchFrame) LegendSearchFrame(view, searchFrame == 2 ? KNOWN_SWITCH_LINE : LINK_GOLD);
+  std::swap(shownDrawList, list);
+  shownThings = keepShown;
+  pitStyle = keepPitStyle;
+  SDL_RenderSetClipRect(mapRenderer, &clip);
+}
+
 static void DrawLevel(void)
 {
   AutoMapView view = ViewOfShownLevel();

@@ -21,6 +21,11 @@ void AutoMapPaint_Use(SDL_Renderer *renderer)
   painter = renderer;
 }
 
+void AutoMapPaint_Clip(const SDL_Rect *area)
+{
+  SDL_RenderSetClipRect(painter, area);
+}
+
 void AutoMapPaint_Fill(const AutoMapRect &area, SDL_Color colour)
 {
   if (painter == NULL || area.w <= 0 || area.h <= 0) return;
