@@ -1993,7 +1993,7 @@ static AutoMapFloorActuator PadNeed(int x, int y, AutoMapPadOperator op, int pic
 
 static void PadCarryNeedShowsAsRequired(void)
 {
-  // A CARRY pad alone: one NEEDS CARRIED slot, no side, never plain.
+  // A CARRY pad alone: one NEEDS ... CARRIED slot, no side, never plain.
   AutoMapLevelSnapshot snapshot = Corridor();
   snapshot.actuators.push_back(PadNeed(1, 1, AutoMapPadPossession, 360));
   AutoMapExplored explored = NothingExplored();
@@ -2609,7 +2609,7 @@ static void RelayLinesDescribeWallCounterChain(void)
   CHECK(Joined(PressText(drawList, AutoMapScene_PressEffects(drawList, 1, 0), true))
         == "ROUTE:\n  COUNTER A L2 (12, 23)\n    COUNTS 2 -> 1");
   CHECK(Joined(RelayTexts(drawList, 0, 1, false))
-        == "COUNTER A\n  COUNT 2\nFED BY:\n  L2 (13, 22) SWITCH (S) A-1");
+        == "COUNTER A\n  COUNT 2\nFED BY:\n  L2 (13, 22) SWITCH (S): A-1");
   // A SET firing increments instead: same chain, opposite delta.
   AutoMapLevelSnapshot upSnapshot = Corridor();
   upSnapshot.level = 2;
@@ -2683,7 +2683,7 @@ static void PressLinesDescribeGateBitsAndSwitches(void)
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
   CHECK(Joined(RelayTexts(drawList, 0, 1, false))
-        == "GATE A\n  BITS 0011, NEEDS 0000\nFED BY:\n  L2 (13, 22) SWITCH (S) A BIT 1 TOGGLE");
+        == "GATE A\n  NEEDS BITS 0, 1 OFF\nFED BY:\n  L2 (13, 22) SWITCH (S): A BIT 1 TOGGLE");
   CHECK(Joined(PressText(drawList, AutoMapScene_PressEffects(drawList, 1, 0), true))
         == "ROUTE:\n  GATE A L2 (12, 23), TOGGLES BIT 1\n    BITS 0011 -> 0001, NEEDS 0000");
   // Same switch, second bit: same source and target but another position stays
@@ -2703,8 +2703,8 @@ static void PressLinesDescribeGateBitsAndSwitches(void)
   AutoMapDrawList bankDrawList =
       AutoMapScene_BuildDrawList(bank, NoFog(explored, visibleNow));
   CHECK(Joined(RelayTexts(bankDrawList, 0, 1, false))
-        == "GATE A\n  BITS 0011, NEEDS 0000\nGATE B\n  BITS 0001, NEEDS 1111\nFED BY:\n"
-           "  L2 (13, 22) SWITCH (S) A BIT 1 TOGGLE B BIT 1 TOGGLE");
+        == "GATE A\n  NEEDS BITS 0, 1 OFF\nGATE B\n  NEEDS BITS 1, 2, 3 ON\nFED BY:\n"
+           "  L2 (13, 22) SWITCH (S): A BIT 1 TOGGLE, B BIT 1 TOGGLE");
 }
 
 static void RelayBlockKeepIdenticalGates(void)
@@ -2723,7 +2723,7 @@ static void RelayBlockKeepIdenticalGates(void)
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
   CHECK(FindCell(drawList, 0, 1)->cell.wallRelays.size() == 2);
   CHECK(Joined(RelayTexts(drawList, 0, 1, false))
-        == "GATE A\n  BITS 0011, NEEDS 0000\nGATE B\n  BITS 0011, NEEDS 0000");
+        == "GATE A\n  NEEDS BITS 0, 1 OFF\nGATE B\n  NEEDS BITS 0, 1 OFF");
 }
 
 static void RelayBlockNameLocalGatesAsMessageDriven(void)
@@ -2737,12 +2737,12 @@ static void RelayBlockNameLocalGatesAsMessageDriven(void)
   AutoMapVisibleCells visibleNow;
   AutoMapDrawList drawList = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
   CHECK(Joined(RelayTexts(drawList, 0, 1, false))
-        == "GATE A\n  BITS 0000, NEEDS 0000\n  -> LOCAL ACTION");
+        == "GATE A\n  MATCHES NOW\n  -> LOCAL ACTION");
   // A co-located ordinary gate keeps its own line, even at the same value.
   snapshot.cells[1 * 4 + 0].wallRelays.push_back(GateRelay(0, false));
   AutoMapDrawList both = AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
   CHECK(Joined(RelayTexts(both, 0, 1, false))
-        == "GATE A\n  BITS 0000, NEEDS 0000\n  -> LOCAL ACTION\nGATE B\n  BITS 0000, NEEDS 0000");
+        == "GATE A\n  MATCHES NOW\n  -> LOCAL ACTION\nGATE B\n  MATCHES NOW");
 }
 
 static void RelayLinesAtAllKeepOnlyCellFacts(void)
@@ -2980,7 +2980,7 @@ static void TeleporterLinesDescribeScopeDestinationAndTurn(void)
   CHECK(lines.size() == 3);
   CHECK(lines[0] == "TAKES: PARTY+OBJECTS");
   CHECK(lines[1] == "SENDS: L0 (2, 1)");
-  CHECK(lines[2] == "TURN: RIGHT");
+  CHECK(lines[2] == "TURNS RIGHT");
   CHECK(Texts(AutoMapScene_TeleporterLines(drawList, 2, 1)).empty());
 }
 
@@ -3022,7 +3022,7 @@ static void DestinationPrintsGlobalCoordinates(void)
   CHECK(lines.size() == 3);
   CHECK(lines[0] == "TAKES: ANYTHING");
   CHECK(lines[1] == "SENDS: L4 (15, 10)");
-  CHECK(lines[2] == "TURN: RIGHT");
+  CHECK(lines[2] == "TURNS RIGHT");
 }
 
 static void SpinnerLinesDescribeAbsoluteAndRelativeSpin(void)
@@ -3197,7 +3197,7 @@ static void DormantTeleporterNamesWhatItWouldDo(void)
   CHECK(lines.size() == 3);
   CHECK(lines[0] == "WOULD TAKE: MONSTERS");
   CHECK(lines[1] == "WOULD SEND: L0 (2, 1)");
-  CHECK(lines[2] == "WOULD TURN: AROUND");
+  CHECK(lines[2] == "WOULD TURN AROUND");
 }
 
 static void DormantDestinationHidesWithItsCell(void)
@@ -3212,7 +3212,7 @@ static void DormantDestinationHidesWithItsCell(void)
   std::vector<std::string> lines = Texts(AutoMapScene_TeleporterLines(drawList, 1, 1));
   CHECK(lines.size() == 2);
   CHECK(lines[0] == "WOULD TAKE: MONSTERS");
-  CHECK(lines[1] == "WOULD TURN: AROUND");
+  CHECK(lines[1] == "WOULD TURN AROUND");
 }
 
 static void LiveDestinationHidesWithItsCell(void)
@@ -3230,7 +3230,7 @@ static void LiveDestinationHidesWithItsCell(void)
   std::vector<std::string> lines = Texts(AutoMapScene_TeleporterLines(drawList, 1, 1));
   CHECK(lines.size() == 2);
   CHECK(lines[0] == "TAKES: PARTY+OBJECTS");
-  CHECK(lines[1] == "TURN: RIGHT");
+  CHECK(lines[1] == "TURNS RIGHT");
 }
 
 static std::string JoinedTip(const std::vector<AutoMapTipLine> &lines)
@@ -3284,7 +3284,7 @@ static void MachineryGroupsTeleporterAndPad(void)
         == "TELEPORTER\n"
            "  TAKES: \x02\x02 MONSTERS\n"
            "  SENDS: L0 (2, 1)\n"
-           "  TURN: STRAIGHT\n"
+           "  KEEPS FACING\n"
            "PAD\n"
            "  TRIGGER: \x01\x01 PARTY\n"
            "  RESULT:\n"
@@ -3325,7 +3325,7 @@ static void SameTriggerPadsShareOnePadGroup(void)
         == "TELEPORTER\n"
            "  TAKES: \x02\x02 MONSTERS\n"
            "  SENDS: L0 (2, 1)\n"
-           "  TURN: STRAIGHT\n"
+           "  KEEPS FACING\n"
            "PAD\n"
            "  TRIGGER: \x01\x01 PARTY\n"
            "  RESULT:\n"
@@ -3345,7 +3345,7 @@ static void DormantTeleporterKeepsItsWouldLines(void)
         == "DORMANT TELEPORTER\n"
            "  WOULD TAKE: \x02\x02 MONSTERS\n"
            "  WOULD SEND: L0 (2, 1)\n"
-           "  WOULD TURN: AROUND");
+           "  WOULD TURN AROUND");
   CHECK(!lines.empty() && lines[0].style == AutoMapTipDormantHeader);
   for (size_t i = 1; i < lines.size(); i++)
   {
@@ -4605,7 +4605,7 @@ static void PressEffectsLeaveARelayCellUnpressed(void)
   CHECK(Joined(RelayTexts(drawList, 2, 0, false))
         == "COUNTER A\n  COUNT 4\n  -> L0 (5, 1) DOOR OPENS AT 0\n"
            "COUNTER B\n  COUNT 3\n  -> L0 (5, 1) DOOR CLOSES AT 0\nFED BY:\n"
-           "  L0 (0, 1) SWITCH (E) A-1 B-1");
+           "  L0 (0, 1) SWITCH (E): A-1, B-1");
   // A floor cog's own link is no press of the floor either
   snapshot.cells[1 * 6 + 1].kind = AutoMapCellFloor;
   AutoMapFloorActuator cog(1, 1, AutoMapActuatorCog);
@@ -4646,8 +4646,8 @@ static void PressEffectsFireEveryActuatorOfTheFace(void)
   CHECK(sources[0].effects[1].before == 0x1 && sources[0].effects[1].after == 0x3);
   CHECK(sources[0].effects[1].fires);
   CHECK(Joined(PressText(drawList, sources, false))
-        == "THIS PRESS:\n  L0 (2, 0) GATE A 0000->0001 (NEEDS 0011) NO MATCH\n"
-           "  L0 (2, 0) GATE A 0001->0011 (NEEDS 0011) MATCH\n"
+        == "THIS PRESS:\n  L0 (2, 0) GATE A: NEEDS BIT 1 ON\n"
+           "  L0 (2, 0) GATE A: MATCHES NOW\n"
            "RESULT:\n  DOOR L0 (5, 1) OPENS ON THIS PRESS");
   CHECK(sources[0].effects[0].next.empty());
   // Beside a lever on another face, the east face still takes one header
@@ -4673,8 +4673,8 @@ static void PressEffectsFireEveryActuatorOfTheFace(void)
   CHECK(sources[0].effects[1].before == 0x1 && sources[0].effects[1].after == 0x0);
   CHECK(!sources[0].effects[0].fires && !sources[0].effects[1].fires);
   std::string lines = Joined(PressText(drawList, sources, false));
-  CHECK(lines.find("GATE A 0001->0000 (NEEDS 0011) NO MATCH") != std::string::npos);
-  CHECK(lines.find(") MATCH") == std::string::npos);
+  CHECK(lines.find("GATE A: NEEDS BITS 0, 1 ON") != std::string::npos);
+  CHECK(lines.find("MATCHES NOW") == std::string::npos);
   CHECK(lines.find("SWITCH") == std::string::npos);
 }
 
@@ -5187,7 +5187,7 @@ static void RouteHoldCounterToDoorNamesBothSides(void)
   CHECK(Joined(RelayTexts(SlotHeldCounterDoor(2, false), 0, 1, false))
         == "COUNTER A\n  COUNT 2\n  HOLD: REPORTS EVERY COUNT\n"
            "  -> L2 (14, 23) DOOR OPENS AT 0\n  -> L2 (14, 23) DOOR CLOSES ABOVE 0\n"
-           "FED BY:\n  L2 (13, 22) SWITCH (S) A-1");
+           "FED BY:\n  L2 (13, 22) SWITCH (S): A-1");
 }
 
 static void RouteHoldGateToDoorNamesBothSides(void)
@@ -5217,13 +5217,13 @@ static void RouteHoldGateToDoorNamesBothSides(void)
              + (nc ? "NOT MATCHING" : "MATCHING") + ", CLOSES OTHERWISE");
     // The relay block: its state lines, then one send line per side
     CHECK(Joined(RelayTexts(drawList, 2, 0, false))
-          == std::string("GATE A\n  BITS 0000, NEEDS 0001\n  HOLD: REPORTS EVERY MESSAGE\n"
+          == std::string("GATE A\n  NEEDS BIT 0 ON\n  HOLD: REPORTS EVERY MESSAGE\n"
                          "  ONLY ON SET\n")
              + (nc ? "  NORMALLY CLOSED\n  -> L0 (5, 1) DOOR OPENS WHILE NOT MATCHING\n"
                      "  -> L0 (5, 1) DOOR CLOSES WHILE MATCHING\n"
                    : "  -> L0 (5, 1) DOOR OPENS WHILE MATCHING\n"
                      "  -> L0 (5, 1) DOOR CLOSES WHILE NOT MATCHING\n")
-             + "FED BY:\n  L0 (0, 1) SWITCH (E) A BIT 0 SET");
+             + "FED BY:\n  L0 (0, 1) SWITCH (E): A BIT 0 SET");
   }
 }
 
@@ -5481,9 +5481,9 @@ static void OverlappingPadsFireTogether(void)
   std::string badge;
   PadResults(drawList, &texts, &badge);
   std::string joined = Joined(texts);
-  CHECK(joined == "THIS PRESS:\n  L0 (0, 1) GATE A 0000->0010 (NEEDS 0001) NO MATCH\nRESULT:\n"
+  CHECK(joined == "THIS PRESS:\n  L0 (0, 1) GATE A: NEEDS BIT 0 ON, BIT 1 OFF\nRESULT:\n"
                   "  DOOR L0 (2, 1) NEEDS OTHER SOURCES\n"
-                  "THIS PRESS:\n  L0 (0, 1) GATE A 0010->0011 (NEEDS 0001) NO MATCH\nRESULT:\n"
+                  "THIS PRESS:\n  L0 (0, 1) GATE A: NEEDS BIT 1 OFF\nRESULT:\n"
                   "  DOOR L0 (2, 1) NEEDS OTHER SOURCES");
   CHECK(joined.find("ON THIS PRESS") == std::string::npos);
   CHECK(badge == "NEEDS OTHERS");
@@ -5516,7 +5516,7 @@ static void FacingPadOverlapNeedsOtherSources(void)
   if (texts.size() != 8) return;
   CHECK(texts[3] == "  DOOR L0 (2, 1) NEEDS OTHER SOURCES");
   // The party pad's own message still matches: the facing pad may or may not come too
-  CHECK(texts[5] == "  L0 (0, 1) GATE A 0000->0001 (NEEDS 0001) MATCH");
+  CHECK(texts[5] == "  L0 (0, 1) GATE A: MATCHES NOW");
   CHECK(texts[7] == "  DOOR L0 (2, 1) NEEDS OTHER SOURCES");
   CHECK(badge == "NEEDS OTHERS");
   // A MONSTER pad never fires on the party's step: the party pad keeps its match
@@ -5674,6 +5674,16 @@ static void RouteStopsAtADSA(void)
   CHECK(block[2].text == "    IF ITS PROGRAM PASSES IT ON (NOT FOLLOWED)");
   CHECK(block[2].style == AutoMapTipCondition);
   CHECK(block[3].text.compare(0, 3, "  C") == 0);
+}
+
+// FED BY names what a feeder does to each relay of the cell after a colon, a DSA in words:
+// what its program does with the message is not known
+static void FedByRunsADSA(void)
+{
+  std::string text = Joined(RelayTexts(DSAThenCounter(), 2, 0, false));
+  CHECK(text.find("FED BY:\n  L0 (0, 1) ") != std::string::npos);
+  CHECK(text.find(": RUNS A, B-1") != std::string::npos);
+  CHECK(text.find("?") == std::string::npos);
 }
 
 static void RouteMarksStepsAfterADSA(void)
@@ -6437,11 +6447,11 @@ static void RelayBlockLetterRelays(void)
   CHECK(Joined(RelayTexts(drawList, 2, 3, false))
         == "COUNTER A\n  COUNT 4\n  -> L5 (25, 26) GATE A BIT 2 SET AT 0\n"
            "COUNTER B\n  COUNT 3\n  -> L5 (20, 29) DOOR OPENS AT 0\nFED BY:\n"
-           "  L5 (16, 28) SWITCH (E) A-1 B-1\n  L5 (19, 28) PAD A-1 B-1");
+           "  L5 (16, 28) SWITCH (E): A-1, B-1\n  L5 (19, 28) PAD: A-1, B-1");
   // A gate shows its bits and what the counter feeding it does to which bit
   CHECK(Joined(RelayTexts(drawList, 9, 1, false))
-        == "GATE A\n  BITS 1011, NEEDS 1111\n  -> L5 (26, 26) DOOR OPENS ON MATCH, AFTER 6 TICKS\n"
-           "FED BY:\n  L5 (18, 28) COUNTER A BIT 2 SET");
+        == "GATE A\n  NEEDS BIT 2 ON\n  -> L5 (26, 26) DOOR OPENS ON MATCH, AFTER 6 TICKS\n"
+           "FED BY:\n  L5 (18, 28) COUNTER: A BIT 2 SET");
   // A mixed cell names each kind
   AutoMapLevelSnapshot mixed = L5Machine();
   PutRelay(&mixed, 2, 3, GateRelay(0x3, false), 203);
@@ -6449,7 +6459,7 @@ static void RelayBlockLetterRelays(void)
   drawList = DrawAll(mixed);
   std::vector<std::string> lines = RelayTexts(drawList, 2, 3, false);
   CHECK(!lines.empty() && lines[0] == "COUNTER A");
-  CHECK(Joined(lines).find("\nGATE C\n  BITS 0011, NEEDS 0000") != std::string::npos);
+  CHECK(Joined(lines).find("\nGATE C\n  NEEDS BITS 0, 1 OFF") != std::string::npos);
   CHECK(HasText(lines, "C BIT 1 TOGGLE"));
   // A message reaches every gate of its target cell: the target names them all
   AutoMapLevelSnapshot bank = L5Machine();
@@ -6468,13 +6478,13 @@ static void RelayBlockLetterRelays(void)
   AutoMapLevelSnapshot up = L5Machine();
   up.links[0].signal = AutoMapSignalSet;
   drawList = DrawAll(up);
-  CHECK(HasText(RelayTexts(drawList, 2, 3, false), "SWITCH (E) A+1 B+1"));
+  CHECK(HasText(RelayTexts(drawList, 2, 3, false), "SWITCH (E): A+1, B+1"));
   // A normally-closed CONSTPRESSURE alcove sends CLEAR when an item goes in: it counts down
   AutoMapLevelSnapshot alcove = L5Machine();
   alcove.links[0].signal = AutoMapSignalPressure;
   alcove.links[0].sourceNormallyClosed = true;
   drawList = DrawAll(alcove);
-  CHECK(HasText(RelayTexts(drawList, 2, 3, false), "SWITCH (E) A-1 B-1"));
+  CHECK(HasText(RelayTexts(drawList, 2, 3, false), "SWITCH (E): A-1, B-1"));
   // Into a gate it names the bit and the signal it really sends, not HOLD
   AutoMapLevelSnapshot gated = L5Machine();
   PutRelay(&gated, 2, 3, GateRelay(0x3, false), 203);
@@ -7421,6 +7431,7 @@ void TestAutoMapScene(void)
   RouteHoldGateToDoorNamesBothSides();
   RouteHoldCounterToGateFollowsOneSideAndSaysSo();
   RouteStopsAtADSA();
+  FedByRunsADSA();
   RouteMarksStepsAfterADSA();
   RouteNamesTheLoop();
   RouteNamesBareTargetsAndLocalActions();

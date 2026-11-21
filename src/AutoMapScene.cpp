@@ -1881,6 +1881,32 @@ static void AddRelayLine(std::vector<AutoMapTipLine> *lines, const std::string &
   lines->push_back(AutoMapScene_TipLine(line, AutoMapTipPlain));
 }
 
+// The gate bits whose value is on (or off) where the pattern wants the other: "BIT 1 ON",
+// "BITS 0, 2 OFF"; "" when none
+static std::string GateBitsWanted(int bits, int pattern, bool on)
+{
+  std::vector<int> wanted;
+  for (int bit = 0; bit < 4; bit++)
+  {
+    bool want = ((pattern >> bit) & 1) != 0, has = ((bits >> bit) & 1) != 0;
+    if (want == on && want != has) wanted.push_back(bit);
+  }
+  if (wanted.empty()) return "";
+  std::string text = wanted.size() == 1 ? "BIT " : "BITS ";
+  for (size_t i = 0; i < wanted.size(); i++)
+  {
+    text += (i == 0 ? "" : ", ") + std::to_string(wanted[i]);
+  }
+  return text + (on ? " ON" : " OFF");
+}
+
+std::string GateNeedWords(int bits, int pattern)
+{
+  if ((bits & 15) == (pattern & 15)) return "MATCHES NOW";
+  std::string on = GateBitsWanted(bits, pattern, true), off = GateBitsWanted(bits, pattern, false);
+  return "NEEDS " + on + (on.empty() || off.empty() ? "" : ", ") + off;
+}
+
 // Four bits MSB-first, the way the gate compares them: low nibble first,
 // e.g. value 3 reads "0011".
 std::string GateBits(int value)
@@ -2183,7 +2209,9 @@ static std::string FacingLine(int rotation, int facingMode, bool hypothetical)
     line += FacingInitial(rotation);
     return line;
   }
-  return prefix + "TURN: " + TurnName(rotation);
+  // A turn in words: KEEPS FACING, TURNS RIGHT; WOULD KEEP FACING, WOULD TURN RIGHT
+  if (rotation == 0) return hypothetical ? "WOULD KEEP FACING" : "KEEPS FACING";
+  return prefix + (hypothetical ? "TURN " : "TURNS ") + TurnName(rotation);
 }
 
 std::vector<AutoMapTipLine> AutoMapScene_TeleporterLines(const AutoMapDrawList &drawList,
@@ -3369,8 +3397,13 @@ const char *AutoMapScene_StackPrefix(bool required, bool carried, bool launched,
 {
   if (launched) return "LAUNCHES ";
   if (!required) return "";
-  if (side == -1) return carried ? "NEEDS CARRIED " : "NEEDS ON PAD ";
   return "NEEDS ";
+}
+
+const char *AutoMapScene_StackSuffix(bool required, bool carried, bool launched, int side)
+{
+  if (launched || !required || side != -1) return "";
+  return carried ? " CARRIED" : " ON PAD";
 }
 
 std::string AutoMapScene_StackLine(const std::string &name, int count)

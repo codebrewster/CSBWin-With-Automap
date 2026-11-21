@@ -275,7 +275,7 @@ mirror was clicked), then the monster names, then one **header** per thing in th
 `GATE A`, `COUNTER B`. A thing the party cannot use yet is a *dormant* one: its header
 (`DORMANT TELEPORTER`) and its `WOULD ...` lines are in pale blue-grey. Everything that belongs to a
 header sits under it, indented by the one rule: **every line is two spaces further in than the
-header or line it belongs to.** So a teleporter's `TAKES:`, `SENDS:` and `TURN:` lines are two in,
+header or line it belongs to.** So a teleporter's `TAKES:`, `SENDS:` and `TURNS RIGHT` lines are two in,
 and the lines under `RESULT:` or `THIS PRESS:` are two further in again. Pads with the same
 trigger share **one** `PAD` group: the trigger is written once and all their results follow under
 it. A pad or switch that works only once (the map draws its arrow dashed) has `ONCE ONLY` in grey
@@ -417,11 +417,14 @@ COUNTER A L9 (15, 3)
 ```
 
 Hovering a stone or floor cell with relays gives one header per relay, lettered in record order
-(`COUNTER A`, `GATE B`, `DSA C`). Under it, in grey, its state (`COUNT 2`, `BITS 0101, NEEDS 0111`,
-`ONCE ONLY`, `HOLD: ...`, the gate's filter, `NORMALLY CLOSED`), then what it sends
+(`COUNTER A`, `GATE B`, `DSA C`). Under it, in grey, its state (`COUNT 2`; a gate's in words,
+`MATCHES NOW` or what still differs, `NEEDS BIT 1 ON`; `ONCE ONLY`, `HOLD: ...`, the gate's filter,
+`NORMALLY CLOSED`), then what it sends
 (`-> L5 (20, 29) DOOR OPENS AT 0`; a hold-type relay gets one line per side). `FED BY:` follows,
 listing the switches, pads and relays that reach the cell and what each does to which letter
-(`L5 (16, 28) SWITCH (E) A-1 B-1`): every relay of the cell takes their message.
+(`L5 (16, 28) SWITCH (E): A-1, B-1`, `L0 (7, 8) SWITCH (S): RUNS A` for a DSA): every relay of the
+cell takes their message. The gate's bits themselves (`BITS 0101 -> 0111, NEEDS 0111`) are in the
+route, under Shift.
 
 A DSA reads `IF ITS PROGRAM PASSES IT ON (NOT FOLLOWED)` with nothing below it, and
 steps after it in the same cell end in `(IF DSA PASSES)`. A message that comes back to a step on the

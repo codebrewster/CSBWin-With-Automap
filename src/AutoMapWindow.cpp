@@ -3998,7 +3998,7 @@ static std::vector<std::string> BuildTooltipHealthLines(int x, int y)
 // One footer line per named item stack, in tooltip order: "3X SKELETON KEY".
 // Lock requirements read as needs on their side: "NEEDS SOLID KEY (S)".
 // Pad requirements carry no side and name where the item must be:
-// "NEEDS CARRIED FIRESTAFF" (in the inventory) vs "NEEDS ON PAD COIN"
+// "NEEDS FIRESTAFF CARRIED" (in the inventory) vs "NEEDS COIN ON PAD"
 // (lying on the pad).
 // Names come from the engine's object names; the 3x5 font renders lowercase as
 // uppercase and blanks what it has no glyph for. Lines are truncated to maxLineW.
@@ -4107,7 +4107,9 @@ static std::vector<std::string> BuildTooltipNameLines(const std::vector<TooltipC
     std::string what = TooltipStackName(cells[i]);
     if (what.empty()) continue;
     std::string line = AutoMapScene_StackPrefix(cells[i].required, cells[i].carried, false,
-                                                cells[i].side) + what;
+                                                cells[i].side) + what
+                       + AutoMapScene_StackSuffix(cells[i].required, cells[i].carried, false,
+                                                  cells[i].side);
     char sideInitial = SideInitial(cells[i].side);
     if (sideInitial != '\0') line += std::string(" (") + sideInitial + ")";
     if (cells[i].nested) line = "  " + line;

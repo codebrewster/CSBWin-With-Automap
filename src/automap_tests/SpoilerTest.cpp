@@ -2661,8 +2661,11 @@ static void StackPrefixNamesNeedsAndLaunches(void)
 {
   CHECK(std::string(AutoMapScene_StackPrefix(false, false, false, -1)) == "");
   CHECK(std::string(AutoMapScene_StackPrefix(true, false, false, AutoMapSouth)) == "NEEDS ");
-  CHECK(std::string(AutoMapScene_StackPrefix(true, true, false, -1)) == "NEEDS CARRIED ");
-  CHECK(std::string(AutoMapScene_StackPrefix(true, false, false, -1)) == "NEEDS ON PAD ");
+  CHECK(std::string(AutoMapScene_StackPrefix(true, true, false, -1)) == "NEEDS ");
+  CHECK(std::string(AutoMapScene_StackPrefix(true, false, false, -1)) == "NEEDS ");
+  CHECK(std::string(AutoMapScene_StackSuffix(true, true, false, -1)) == " CARRIED");
+  CHECK(std::string(AutoMapScene_StackSuffix(true, false, false, -1)) == " ON PAD");
+  CHECK(std::string(AutoMapScene_StackSuffix(true, true, false, 2)).empty());
   CHECK(std::string(AutoMapScene_StackPrefix(false, false, true, AutoMapSouth)) == "LAUNCHES ");
 }
 

@@ -1390,9 +1390,7 @@ static std::string PressStateText(const AutoMapDrawList &drawList, const AutoMap
   case AutoMapEffectGate:
   {
     int pattern = relay != NULL ? (relay->value >> 4) & 15 : 0;
-    return PressReceiverName(drawList, effect, "GATE") + " " + GateBits(effect.before) + "->"
-           + GateBits(effect.after) + " (NEEDS " + GateBits(pattern) + ") "
-           + ((effect.after & 15) == pattern ? "MATCH" : "NO MATCH");
+    return PressReceiverName(drawList, effect, "GATE") + ": " + GateNeedWords(effect.after, pattern);
   }
   case AutoMapEffectDSA: return PressReceiverName(drawList, effect, "DSA") + ": NOT FOLLOWED";
   case AutoMapEffectLocalAction:
@@ -2087,8 +2085,7 @@ static void RelayBlockOf(const AutoMapDrawList &drawList, int x, int y, const Au
   }
   else if (relay.kind == AutoMapRelayGate)
   {
-    children.push_back(RelayBlockLine(1, "BITS " + GateBits(relay.value & 15) + ", NEEDS "
-                                             + GateBits((relay.value >> 4) & 15),
+    children.push_back(RelayBlockLine(1, GateNeedWords(relay.value & 15, (relay.value >> 4) & 15),
                                       AutoMapTipState));
   }
   bool held = relay.kind != AutoMapRelayDSA && relay.signal == AutoMapSignalPressure;
@@ -2145,7 +2142,7 @@ static void RelayBlockOf(const AutoMapDrawList &drawList, int x, int y, const Au
   out->insert(out->end(), children.begin(), children.end());
 }
 
-// What a feeder does to one relay of the cell: A-1, A+1, A BIT 2 TOGGLE, A? for a DSA. A held
+// What a feeder does to one relay of the cell: A-1, A+1, A BIT 2 TOGGLE, RUNS A for a DSA. A held
 // relay feeding it sends SET or CLEAR by its own state: A+1/-1, A BIT 2 SET/CLEAR.
 static std::string FeederDoing(const AutoMapDrawList &drawList, const AutoMapLink &link,
                                const AutoMapRelay &relay, const std::string &letter)
@@ -2160,7 +2157,7 @@ static std::string FeederDoing(const AutoMapDrawList &drawList, const AutoMapLin
     if (heldRelay) return doing + "+1/-1";
     return doing + (signal == AutoMapSignalSet ? "+1" : "-1");
   }
-  if (relay.kind != AutoMapRelayGate) return doing + "?";
+  if (relay.kind != AutoMapRelayGate) return "RUNS " + doing;
   if (link.targetPos >= 0 && link.targetPos <= 3) doing += " BIT " + std::to_string(link.targetPos);
   if (heldRelay) return doing + " SET/CLEAR";
   return doing + SignalWord(signal);
@@ -2208,13 +2205,13 @@ std::vector<AutoMapTipLine> AutoMapScene_RelayBlock(const AutoMapDrawList &drawL
     for (size_t r = 0; r < receivers.size(); r++)
     {
       std::string doing = FeederDoing(drawList, link, *receivers[r].relay, HoverLetter(r));
-      doings[found] += (doings[found].empty() ? "" : " ") + doing;
+      doings[found] += (doings[found].empty() ? "" : ", ") + doing;
     }
   }
   std::vector<std::vector<std::string> > blocks;
   for (size_t f = 0; f < feeders.size(); f++)
   {
-    blocks.push_back(std::vector<std::string>(1, " " + feeders[f] + " " + doings[f]));
+    blocks.push_back(std::vector<std::string>(1, " " + feeders[f] + ": " + doings[f]));
   }
   if (!blocks.empty()) lines.push_back(MakePressLine("FED BY:", true, false));
   FoldPressBlocks(blocks, &lines);

@@ -633,9 +633,12 @@ int AutoMapScene_StairsTarget(const std::vector<AutoMapLevelArea> &areas, int le
 
 // A stack in the tooltip: "COPPER COIN X5", the name alone for one
 std::string AutoMapScene_StackLine(const std::string &name, int count);
-// The words before a tooltip stack's name: "NEEDS " for a lock (side >= 0), "NEEDS CARRIED " or
-// "NEEDS ON PAD " for a pad (side -1), "LAUNCHES " for what an object launcher throws, "" else
+// The words before a tooltip stack's name: "NEEDS " for a lock or a pad, "LAUNCHES " for what an
+// object launcher throws, "" else
 const char *AutoMapScene_StackPrefix(bool required, bool carried, bool launched, int side);
+// The words after it: " CARRIED" or " ON PAD" for a pad's need (side -1), "" else, so a pad reads
+// "NEEDS THE FIRESTAFF CARRIED" and "NEEDS COIN ON PAD"
+const char *AutoMapScene_StackSuffix(bool required, bool carried, bool launched, int side);
 
 struct AutoMapLevelSnapshot
 {
@@ -1081,8 +1084,8 @@ struct AutoMapTooltipSlot
   // present ones, and the window labels them NEEDS.
   bool required;
   // For a required pad slot (side == -1): true when the item must be carried
-  // (Possession, "NEEDS CARRIED"), false when it must lie on the pad (Object,
-  // "NEEDS ON PAD"). Wall locks keep false and read as bare NEEDS with a side.
+  // (Possession, "NEEDS ... CARRIED"), false when it must lie on the pad (Object,
+  // "NEEDS ... ON PAD"). Wall locks keep false and read as bare NEEDS with a side.
   bool carried;
   // What an object launcher will throw (side: the side it fires to): never merges with alcove
   // goods, the window labels it LAUNCHES

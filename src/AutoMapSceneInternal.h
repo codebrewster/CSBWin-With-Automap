@@ -16,6 +16,10 @@ char FacingInitial(int facing);
 // A gate's four bits, highest first: 0011
 std::string GateBits(int value);
 
+// A gate's state in words, the bits only under Shift: MATCHES NOW, or what still differs from
+// its pattern, NEEDS BIT 1 ON, NEEDS BITS 0, 2 OFF, NEEDS BIT 3 ON, BIT 0 OFF
+std::string GateNeedWords(int bits, int pattern);
+
 // What a message does to a door, false wall or pit, with a leading space: " OPEN"
 const char *DoorEffectWord(AutoMapSignal signal);
 
