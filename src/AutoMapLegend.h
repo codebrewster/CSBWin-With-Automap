@@ -31,7 +31,6 @@ enum AutoMapLegendSample
   AutoMapLegendPitZoomedOut,
   AutoMapLegendHiddenPit,
   AutoMapLegendHiddenPitOpen,
-  AutoMapLegendSwitchablePit,
   AutoMapLegendFalseWallSolid,
   AutoMapLegendFalseWallWalkThrough,
   AutoMapLegendFalseWallOpen,
@@ -77,9 +76,8 @@ enum AutoMapLegendSample
   AutoMapLegendCloud,
   AutoMapLegendFluxCage,
   // hovering a cell
-  AutoMapLegendSends,
-  AutoMapLegendFeeds,
   AutoMapLegendSets,
+  AutoMapLegendFeeds,
   AutoMapLegendClears,
   AutoMapLegendToggles,
   AutoMapLegendHolds,

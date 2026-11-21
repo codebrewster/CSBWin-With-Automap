@@ -67,13 +67,13 @@ static void TheLayoutFillsColumnsTopToBottom(void)
   AutoMapLegendLayout wide = AutoMapLegend_Layout(2000, 2);
   CHECK(wide.columns == AUTOMAP_LEGEND_MOST_COLUMNS);
   CHECK(wide.places.size() == rows.size());
-  // CELLS has 31 rows: 11 to a column, the twelfth starts the second
+  // CELLS has 30 rows: 10 to a column, the eleventh starts the second
   CHECK(wide.places[0].y == 0 && rows[wide.places[0].entry].sample == AutoMapLegendHeading);
   CHECK(wide.places[1].column == 0 && wide.places[1].y == AUTOMAP_LEGEND_HEADING);
-  CHECK(wide.places[12].column == 1 && wide.places[12].y == AUTOMAP_LEGEND_HEADING);
-  CHECK(wide.places[11].y == AUTOMAP_LEGEND_HEADING + 10 * AUTOMAP_LEGEND_ROW);
-  CHECK(wide.places[32].entry == 32 && rows[32].sample == AutoMapLegendHeading);
-  CHECK(wide.places[32].y == AUTOMAP_LEGEND_HEADING + 11 * AUTOMAP_LEGEND_ROW + 6);
+  CHECK(wide.places[11].column == 1 && wide.places[11].y == AUTOMAP_LEGEND_HEADING);
+  CHECK(wide.places[10].y == AUTOMAP_LEGEND_HEADING + 9 * AUTOMAP_LEGEND_ROW);
+  CHECK(wide.places[31].entry == 31 && rows[31].sample == AutoMapLegendHeading);
+  CHECK(wide.places[31].y == AUTOMAP_LEGEND_HEADING + 10 * AUTOMAP_LEGEND_ROW + 6);
   AutoMapLegendLayout phone = AutoMapLegend_Layout(300, 2);
   CHECK(phone.columns == 1);
   CHECK(phone.height > wide.height);

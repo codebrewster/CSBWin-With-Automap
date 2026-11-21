@@ -6088,6 +6088,18 @@ struct LegendFinds
   int cloud = AUTOMAP_NO_PICTURE;
 };
 static LegendFinds legendFinds;
+// The game's pictures for what the shown level lacks (Dungeon Master's graphics): a button, a
+// ring, the square alcove, a keyhole and its gold key, a falchion, a wooden shield, an apple and a
+// flying eye
+static const int LEGEND_SWITCH_PICTURE = 192;
+static const int LEGEND_DECORATION_PICTURE = 188;
+static const int LEGEND_ALCOVE_PICTURE = 124;
+static const int LEGEND_LOCK_PICTURE = 174;
+static const int LEGEND_KEY_PICTURE = 423;
+static const int LEGEND_ITEM_PICTURE = 373;
+static const int LEGEND_PILE_PICTURES[3] = {373, 371, 388};
+static const int LEGEND_MONSTER_PICTURE = 456;
+static const int LEGEND_MONSTER_TRANSPARENT = 4;
 
 static const LegendFinds &FindLegendPictures(void)
 {
@@ -6167,6 +6179,87 @@ static const LegendFinds &FindLegendPictures(void)
   for (size_t i = 0; i < shownDrawList.clouds.size() && f.cloud == AUTOMAP_NO_PICTURE; i++)
   {
     if (!shownDrawList.clouds[i].fluxCage) f.cloud = shownDrawList.clouds[i].picture;
+  }
+  // What the level shown has not (or the party has not seen yet): the game's own pictures, so no
+  // sample stays empty
+  AutoMapItem falchion;
+  falchion.worldPicture = LEGEND_ITEM_PICTURE;
+  if (f.switchPicture == AUTOMAP_NO_PICTURE) f.switchPicture = LEGEND_SWITCH_PICTURE;
+  if (f.decorationPicture == AUTOMAP_NO_PICTURE) f.decorationPicture = LEGEND_DECORATION_PICTURE;
+  if (!f.hasAlcove)
+  {
+    f.hasAlcove = true;
+    f.alcove.kind = AutoMapCellWall;
+    f.alcove.wallSides[AutoMapSouth].picture = LEGEND_ALCOVE_PICTURE;
+    f.alcove.wallSides[AutoMapSouth].isAlcove = true;
+    f.alcove.wallSides[AutoMapSouth].functional = true;
+    AutoMapAlcoveEntry entry;
+    entry.side = AutoMapSouth;
+    entry.item = falchion;
+    f.alcove.alcoveContents.push_back(entry);
+  }
+  if (!f.hasLock)
+  {
+    f.hasLock = true;
+    f.lock.kind = AutoMapCellWall;
+    f.lock.wallSides[AutoMapSouth].picture = LEGEND_LOCK_PICTURE;
+    f.lock.wallSides[AutoMapSouth].functional = true;
+    AutoMapWallLock lock;
+    lock.side = AutoMapSouth;
+    lock.required = true;
+    lock.object.worldPicture = LEGEND_KEY_PICTURE;
+    f.lock.wallLocks.push_back(lock);
+  }
+  if (!f.hasItem)
+  {
+    f.hasItem = true;
+    f.item = falchion;
+  }
+  if (!f.hasPile)
+  {
+    f.hasPile = true;
+    f.pile = AutoMapShownCell();
+    for (int i = 0; i < 5; i++)
+    {
+      AutoMapItem item;
+      item.worldPicture = LEGEND_PILE_PICTURES[i % 3];
+      if (i < AUTOMAP_MOST_ITEMS_SHOWN) f.pile.cell.itemPictures.push_back(item);
+      f.pile.allItemPictures.push_back(item);
+    }
+  }
+  if (!f.hasPadItem)
+  {
+    f.hasPadItem = true;
+    f.padItem = f.item;
+  }
+  if (!f.hasGenerator)
+  {
+    f.hasGenerator = true;
+    f.generator.hasGeneratedMonster = true;
+    f.generator.generatedKind.frontPicture = LEGEND_MONSTER_PICTURE;
+    f.generator.generatedKind.transparentColour = LEGEND_MONSTER_TRANSPARENT;
+  }
+  if (!f.hasMonsters)
+  {
+    // Two small monsters, in the north-west and south-east corners, one facing south, one east
+    f.hasMonsters = true;
+    f.monsters = AutoMapShownMonster();
+    f.monsters.transparentColour = LEGEND_MONSTER_TRANSPARENT;
+    f.monsters.size = 0;
+    f.monsters.positions = 0 | (2 << 2);
+    f.monsters.memberCount = 2;
+    for (int i = 0; i < 2; i++)
+    {
+      f.monsters.memberPictures[i].picture = LEGEND_MONSTER_PICTURE;
+      f.monsters.memberPictures[i].isMirrored = false;
+    }
+    f.monsters.memberFacings[0] = AutoMapSouth;
+    f.monsters.memberFacings[1] = AutoMapEast;
+  }
+  if (!f.hasMissile)
+  {
+    f.hasMissile = true;
+    f.missile = f.item;
   }
   legendFinds = f;
   return legendFinds;
@@ -6349,7 +6442,6 @@ void AutoMapWindow_DrawLegendSample(AutoMapLegendSample sample, int x, int y, co
     cell.cell.pitIsHidden = true;
     cell.cell.pitIsOpen = sample == AutoMapLegendHiddenPitOpen;
     break;
-  case AutoMapLegendSwitchablePit: cell.cell.pitIsClosedSwitchable = true; break;
   case AutoMapLegendFalseWallSolid: cell = LegendCell(0, AutoMapCellFalseWall); break;
   case AutoMapLegendFalseWallWalkThrough:
     cell = LegendCell(0, AutoMapCellFalseWall);
@@ -6375,12 +6467,10 @@ void AutoMapWindow_DrawLegendSample(AutoMapLegendSample sample, int x, int y, co
   case AutoMapLegendHiddenSwitch: cell = LegendWall(AutoMapSouth, AUTOMAP_NO_PICTURE, true, true, false); break;
   case AutoMapLegendWriting: cell = LegendWall(AutoMapSouth, AUTOMAP_NO_PICTURE, false, false, true); break;
   case AutoMapLegendAlcove:
-    if (!found.hasAlcove) return;
     cell = LegendCell(0, AutoMapCellWall);
     cell.cell = found.alcove;
     break;
   case AutoMapLegendLock:
-    if (!found.hasLock) return;
     cell = LegendCell(0, AutoMapCellWall);
     cell.cell = found.lock;
     break;
@@ -6393,8 +6483,7 @@ void AutoMapWindow_DrawLegendSample(AutoMapLegendSample sample, int x, int y, co
   case AutoMapLegendPadCarried:
   {
     cell = LegendPadFloor();
-    const AutoMapItem *item = found.hasPadItem ? &found.padItem : found.hasItem ? &found.item : NULL;
-    LegendPad(&list, AutoMapActuatorPad, sample == AutoMapLegendPadItem ? AutoMapPadObject : AutoMapPadPossession, -1, item);
+    LegendPad(&list, AutoMapActuatorPad, sample == AutoMapLegendPadItem ? AutoMapPadObject : AutoMapPadPossession, -1, &found.padItem);
     break;
   }
   case AutoMapLegendHiddenPad: LegendPad(&list, AutoMapActuatorPad, AutoMapPadAnything, -1, NULL); break;
@@ -6404,18 +6493,15 @@ void AutoMapWindow_DrawLegendSample(AutoMapLegendSample sample, int x, int y, co
   case AutoMapLegendTeleporterMonsters: cell = LegendTeleporter(AutoMapCellTeleporter, 1); break;
   case AutoMapLegendParty: partyShown = true; break;
   case AutoMapLegendMonsters:
-    if (found.hasMonsters)
-    {
-      list.monsters.push_back(found.monsters);
-      list.monsters[0].x = 0;
-      list.monsters[0].y = 0;
-    }
+    list.monsters.push_back(found.monsters);
+    list.monsters[0].x = 0;
+    list.monsters[0].y = 0;
     break;
   case AutoMapLegendGenerator:
   case AutoMapLegendGeneratorAsleep:
   case AutoMapLegendGeneratorSpent:
   {
-    AutoMapFloorActuator generator = found.hasGenerator ? found.generator : AutoMapFloorActuator();
+    AutoMapFloorActuator generator = found.generator;
     generator.x = 0;
     generator.y = 0;
     generator.kind = sample == AutoMapLegendGenerator         ? AutoMapActuatorGenerator
@@ -6426,17 +6512,9 @@ void AutoMapWindow_DrawLegendSample(AutoMapLegendSample sample, int x, int y, co
     break;
   }
   case AutoMapLegendItems:
-    if (found.hasPile)
-    {
-      cell.cell.itemPictures = found.pile.cell.itemPictures;
-      cell.allItemPictures = found.pile.allItemPictures;
-    }
-    else if (found.hasItem)
-    {
-      cell.cell.itemPictures.assign(AUTOMAP_MOST_ITEMS_SHOWN, found.item);
-      cell.allItemPictures.assign(AUTOMAP_MOST_ITEMS_SHOWN + 2, found.item);
-    }
-    cell.hasMoreItems = !cell.cell.itemPictures.empty();
+    cell.cell.itemPictures = found.pile.cell.itemPictures;
+    cell.allItemPictures = found.pile.allItemPictures;
+    cell.hasMoreItems = true;
     break;
   case AutoMapLegendGlimpse:
   {
@@ -6447,9 +6525,9 @@ void AutoMapWindow_DrawLegendSample(AutoMapLegendSample sample, int x, int y, co
   case AutoMapLegendMissile:
   {
     AutoMapShownMissile missile = AutoMapShownMissile();
-    missile.item = found.hasMissile ? found.missile : found.item;
+    missile.item = found.missile;
     missile.sizeShowsRange = false;
-    if (found.hasMissile || found.hasItem) list.missiles.push_back(missile);
+    list.missiles.push_back(missile);
     break;
   }
   case AutoMapLegendCloud:
@@ -6459,7 +6537,6 @@ void AutoMapWindow_DrawLegendSample(AutoMapLegendSample sample, int x, int y, co
     break;
   }
   case AutoMapLegendFluxCage: fluxCage = true; break;
-  case AutoMapLegendSends: LegendLine(&list, AutoMapSignalSet, false); strip = true; break;
   case AutoMapLegendFeeds: LegendLine(&list, AutoMapSignalSet, false); strip = true; lineColour = LINK_INCOMING; break;
   case AutoMapLegendSets: LegendLine(&list, AutoMapSignalSet, false); strip = true; break;
   case AutoMapLegendClears: LegendLine(&list, AutoMapSignalClear, false); strip = true; break;

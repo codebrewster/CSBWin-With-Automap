@@ -937,7 +937,6 @@ const LEGEND = [
     ['PIT, ZOOMED OUT', () => { pitStyle = 2; sampleCell({ k: 2, fp: legendFind().pit, flav: 0, pit: [0, 1, 0] }); }],
     ['PIT THAT LOOKS LIKE FLOOR', () => sampleCell({ k: 2, fp: legendFind().hiddenPit || legendFind().pit, flav: 0, pit: [1, 0, 0] })],
     ['THE SAME, OPEN', () => sampleCell({ k: 2, fp: legendFind().hiddenPit || legendFind().pit, flav: 0, pit: [1, 1, 0] })],
-    ['PIT A SWITCH CAN OPEN', () => sampleCell({ k: 1, pit: [0, 0, 1] })],
     ['FALSE WALL, SOLID', () => sampleCell({ k: 6 })],
     ['FALSE WALL, WALK-THROUGH', () => sampleCell({ k: 6, fwp: 1 })],
     ['FALSE WALL, OPEN', () => sampleCell({ k: 7 })],
@@ -987,9 +986,8 @@ const LEGEND = [
     ['FLUXCAGE', () => { sampleCell({ k: 1 }); drawFlux(px(.5), py(0)); }],
   ]],
   ['HOVERING A CELL', [
-    ['WHAT IT SENDS', () => sampleLine(COL.link, 0, false, false)],
+    ['WHAT IT SENDS: SETS, OPENS', () => sampleLine(COL.link, 0, false, false)],
     ['WHAT FEEDS IT', () => sampleLine(COL.feed, 0, false, false)],
-    ['SETS: OPENS, WAKES', () => sampleLine(COL.link, 0, false, false)],
     ['CLEARS: CLOSES, STOPS', () => sampleLine(COL.link, 1, false, false)],
     ['TOGGLES', () => sampleLine(COL.link, 2, false, false)],
     ['HOLDS WHILE PRESSED', () => sampleLine(COL.link, 3, false, false)],
