@@ -11,21 +11,18 @@ static const char *const EXPORT_PAGE_HEAD = R"CSBPAGE(<!doctype html>
   h2{margin:0 0 4px;font-size:16px;color:#eee3c8}
   .sub{color:var(--muted);margin:0;max-width:1200px}
   .sub b{color:#ffcc33}
-  .bar{display:flex;flex-wrap:wrap;gap:14px;padding:8px 16px;align-items:center;border-bottom:1px solid var(--line)}
   #wrap{margin:10px 16px}
   canvas{display:block;image-rendering:pixelated;background:#0c0b09}
   #c{touch-action:none}
   #c{cursor:grab} #c.drag{cursor:grabbing}
-  #status{color:var(--muted);font-size:12px}
   /* A phone has no mouse and no room: the mouse help goes, the map gets the screen */
   @media (max-width:700px){.help{display:none} #wrap{margin:8px 16px} header{padding:8px 16px}}
 </style></head><body>
 <header>
   <h2>@TITLE@</h2>
   <p class="sub">@SUBTITLE@<span class="help"><br>
-  <b>Mouse:</b> left-drag pans, the wheel zooms, middle-click centres on the party, Shift shows the route at spoilers ALL, Shift+wheel scrolls a long tooltip, Ctrl+wheel sizes it, the side buttons or Page Up/Down change level. <b>Keys:</b> / or Ctrl+F searches, Escape closes. Right-click a cell for your own marks; they are not kept when the page is closed.</span></p>
+  Drag pans, the wheel zooms, hover a cell for what is there. <b>?</b> on the bar over the map lists every button and key. Right-click a cell for your own marks; the page forgets them when it is closed.</span></p>
 </header>
-<div class="bar"><span id="status">loading…</span></div>
 <div id="wrap"><canvas id="tb"></canvas><canvas id="c"></canvas></div>
 )CSBPAGE";
 static const char *const EXPORT_PAGE_CODE = R"CSBPAGE("use strict";
@@ -90,7 +87,8 @@ async function loadSave(n) {
   const X = DATA.index.export;
   if (X) { vision = X.vision; spoil = X.spoil; debugOn = false; if (BAR_LOOKS.includes(X.bar)) barLook = X.bar; }
   const shown = DATA.index.levels.filter(L => !L.absent).length;
-  document.getElementById('status').textContent = SAVE_NAMES[n] + ': ' + (shown < DATA.index.levels.length ? shown + ' of ' : '') + DATA.index.levels.length + ' levels, party on L' + DATA.index.partyLevel;
+  const status = document.getElementById('status'); // the mockup's; an export says it in the header
+  if (status) status.textContent = SAVE_NAMES[n] + ': ' + (shown < DATA.index.levels.length ? shown + ' of ' : '') + DATA.index.levels.length + ' levels, party on L' + DATA.index.partyLevel;
   partyOverride = null; menu = null; linkMode = null;
   setLevel(hasLevel(DATA.index.partyLevel) ? DATA.index.partyLevel : X.level); follow = hasLevel(DATA.index.partyLevel); fitLevel(); cs = Math.max(minCs(), 36); centreOnParty(); buildIndex(); if (query) rebuild(false);
 }
@@ -851,7 +849,7 @@ function drawShowPanel() {
 function showClick(mx, my) { const P = panelRects.show; if (!P) return false; if (!inRect(mx, my, P)) { showOpen = false; return true; } for (const [x, y, w, h, r] of P[4]) if (inRect(mx, my, [x, y, w, h])) { if (r === 'SHOW ALL') Object.keys(SHOW).forEach(k => SHOW[k] = true); else if (r === 'HIDE ALL') Object.keys(SHOW).forEach(k => SHOW[k] = false); else if (r === 'PITS') { pitStyle = (pitStyle + 1) % 3; try { localStorage.setItem('csb-map-pit-style', String(pitStyle)); } catch (e) { } } else SHOW[r] = !SHOW[r]; } return true; }
 
 // ---------------- controls help ----------------
-const HELP = [['LEFT-DRAG', 'PAN THE MAP'], ['WHEEL', 'ZOOM TOWARDS THE POINTER'], ['MIDDLE-CLICK', 'CENTRE ON THE PARTY AND FOLLOW'], ['SIDE BUTTONS', 'LEVEL DOWN / UP, THE TILE FRAMED'], ['PAGE DOWN / UP', 'LEVEL DOWN / UP (CTRL IN THE GAME)'], ['/ OR CTRL+F', 'SEARCH ALL LEVELS'], ['HOVER', 'WHAT IS THERE, AND ITS LINKS'], ['SHIFT', 'THE ROUTE (SPOILERS ALL)'], ['SHIFT+WHEEL', 'SCROLL A LONG TOOLTIP'], ['CTRL+WHEEL', 'SIZE OF THE TOOLTIP'], ['CTRL+CLICK', 'ONE LEVEL DOWN, OR THROUGH A STAIR'], ['RIGHT-CLICK', 'MARKS, LINKS, ASCEND / DESCEND'], ['', ''], ['', 'CLICK ANYWHERE TO CLOSE']];
+const HELP = [['LEFT-DRAG', 'PAN THE MAP'], ['WHEEL', 'ZOOM TOWARDS THE POINTER'], ['MIDDLE-CLICK', 'CENTRE ON THE PARTY AND FOLLOW'], ['SIDE BUTTONS', 'LEVEL DOWN / UP, THE TILE FRAMED'], ['PAGE DOWN / UP', 'LEVEL DOWN / UP'], ['/ OR CTRL+F', 'SEARCH ALL LEVELS'], ['HOVER', 'WHAT IS THERE, AND ITS LINKS'], ['SHIFT', 'THE ROUTE (SPOILERS ALL)'], ['SHIFT+WHEEL', 'SCROLL A LONG TOOLTIP'], ['CTRL+WHEEL', 'SIZE OF THE TOOLTIP'], ['CTRL+CLICK', 'ONE LEVEL DOWN, OR THROUGH A STAIR'], ['RIGHT-CLICK', 'MARKS, LINKS, ASCEND / DESCEND'], ['', ''], ['', 'CLICK ANYWHERE TO CLOSE']];
 function drawHelp() { if (!helpOpen) return; const widest = (i, q) => Math.max(...HELP.map(r => textW(r[i], q))); const fit = q => widest(0, q) + widest(1, q) + 40; const p = fit(2) <= cv.width - 8 ? 2 : 1, c1 = widest(0, p) + 20, w = Math.min(c1 + widest(1, p) + 20, cv.width - 4), h = HELP.length * 16 + 30; const x = Math.max(2, Math.round((cv.width - w) / 2)), y = 40; plate(x, y, w, h); text(g, x + 10, y + 8, 'CONTROLS', '#ffcc33', p); HELP.forEach((r, i) => { text(g, x + 10, y + 26 + i * 16, r[0], '#ffcc33', p); text(g, x + 10 + c1, y + 26 + i * 16, r[1], '#fff', p); }); }
 
 // ---------------- level list ----------------

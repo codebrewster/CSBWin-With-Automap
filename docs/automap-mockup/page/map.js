@@ -60,7 +60,8 @@ async function loadSave(n) {
   const X = DATA.index.export;
   if (X) { vision = X.vision; spoil = X.spoil; debugOn = false; if (BAR_LOOKS.includes(X.bar)) barLook = X.bar; }
   const shown = DATA.index.levels.filter(L => !L.absent).length;
-  document.getElementById('status').textContent = SAVE_NAMES[n] + ': ' + (shown < DATA.index.levels.length ? shown + ' of ' : '') + DATA.index.levels.length + ' levels, party on L' + DATA.index.partyLevel;
+  const status = document.getElementById('status'); // the mockup's; an export says it in the header
+  if (status) status.textContent = SAVE_NAMES[n] + ': ' + (shown < DATA.index.levels.length ? shown + ' of ' : '') + DATA.index.levels.length + ' levels, party on L' + DATA.index.partyLevel;
   partyOverride = null; menu = null; linkMode = null;
   setLevel(hasLevel(DATA.index.partyLevel) ? DATA.index.partyLevel : X.level); follow = hasLevel(DATA.index.partyLevel); fitLevel(); cs = Math.max(minCs(), 36); centreOnParty(); buildIndex(); if (query) rebuild(false);
 }

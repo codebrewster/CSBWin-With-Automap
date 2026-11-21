@@ -536,7 +536,9 @@ Click **EXPORT** on the bar to write the map into one `.html` file. It opens in 
 also offline, and can be mailed or put on a website. The page works like the map window: drag
 to pan, wheel to zoom, the level list, hover for the tooltips and links, **Ctrl**+wheel for the
 tooltip's size (the browser keeps it), **SHOW**, the search and your own marks with a right-click
-(the page forgets those when it is closed).
+(the page forgets those when it is closed). Its header says when it was exported, how many levels
+it holds, the party's level and how far vision and spoilers go; **?** on its bar lists every
+button and key.
 
 The dialog asks for:
 
