@@ -554,6 +554,12 @@ tooltip's size (the browser keeps it), **SHOW**, the search and your own marks w
 it holds, the party's level and how far vision and spoilers go; **?** on its bar lists every
 button and key.
 
+The page keeps its settings in the address: the level, vision, spoilers, what **SHOW** hides,
+and once zoomed in the zoom and the cell in the middle. A copied address opens the page as it
+was. **LINK TO THIS CELL** in the right-click menu copies a link that opens on that cell, framed;
+where the browser gives the page no clipboard, the link stands in the address bar for a few
+seconds to copy from there.
+
 The dialog asks for:
 
 | Choice | What it does |

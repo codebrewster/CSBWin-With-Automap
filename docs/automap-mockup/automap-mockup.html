@@ -1245,6 +1245,7 @@ function openMenu(mx, my, cx, cy) {
   if (N.links.some(l => (l[0] === cx && l[1] === cy) || (l[2] === cx && l[3] === cy))) notesRows.push({ label: 'REMOVE LINKS', act: () => N.links = N.links.filter(l => !((l[0] === cx && l[1] === cy) || (l[2] === cx && l[3] === cy))) });
   if (rows.length && notesRows.length) rows.push(null);
   rows.push(...notesRows);
+  if (c) { if (rows.length) rows.push(null); rows.push({ label: 'LINK TO THIS CELL', act: () => copyCellLink(cx, cy) }); }
   if (!rows.length) return;
   menu = { x: mx, y: my, title: `L${lvl} (${cx + OX}, ${cy + OY})`, rows };
 }
@@ -1289,15 +1290,42 @@ function draw() {
   drawClouds();
   for (const c of V.cells) { drawCellOverlay(c); drawActuators(c); drawItems(c); }
   drawNotes(); drawGlimpses(); drawMissiles(); drawMonsters(); drawParty();
-  const L = drawHover(); if (!L.lit) { drawSearchMarks(); drawLandingMark(); } drawLinkMode();
+  const L = drawHover(); if (!L.lit) { drawSearchMarks(); drawLandingMark(); } drawLinkMode(); drawFlash();
   g.restore(); rulers(); drawTooltip(L); drawSearchPanel(); drawShowPanel(); drawHelp(); drawLevels(); drawDebugPanel(); drawMenu(); drawBar();
   writeLink();
 }
 // The settings as a link in the address bar (read again in init): #L=3&v=all&s=seen&tint=0&walked=1&hide=MONSTERS,KEYS
-// Following the party writes follow=1 instead of the level. Only a change is written.
+// Following the party writes follow=1 instead of the level. Only a change is written. Zoomed in,
+// the place too: cs=24 the cell size, at=10,15 the cell in the middle as the rulers number it
+// (following the party it is the party's cell, so no at).
 const VISION_WORDS = ['fog', 'explored', 'all'], SPOIL_WORDS = ['all', 'learned', 'seen'];
 let lastLink = null;
+function placeLink(h, at) {
+  if (cs <= minCs() + .01 && !at) return; h.set('cs', Math.round(cs));
+  if (follow && !at) return; const [x, y] = at || middleCell(); h.set('at', (x + OX) + ',' + (y + OY));
+}
+// The cell in the middle of the map area
+function middleCell() { return [Math.floor(((cv.width - 2 * RUL) / 2 - panX) / cs), Math.floor(((cv.height - 2 * RUL) / 2 - panY) / cs)]; }
+// A link that opens on this cell, framed as a landing is: the settings, the zoom, at= and mark=1
+function cellLink(cx, cy) {
+  const h = new URLSearchParams(location.hash.replace(/^#/, '')); ['follow', 'cs', 'at', 'mark', 'hh', 'find', 'shift'].forEach(k => h.delete(k));
+  h.set('L', lvl); placeLink(h, [cx, cy]); h.set('mark', '1');
+  return location.href.replace(/#.*$/, '') + '#' + h.toString().replace(/\+/g, '%20').replace(/%2C/g, ',');
+}
+let flash = null; // a short note at the foot of the map: {t, until}
+function copyCellLink(cx, cy) {
+  // Without the clipboard (a page opened from a file in some browsers) the address bar holds the
+  // link until the note goes, so it can be copied from there
+  const link = cellLink(cx, cy), say = (t, hold) => { flash = { t, until: Date.now() + (hold ? 6000 : 2500), hold }; draw(); setTimeout(draw, hold ? 6100 : 2600); };
+  const inBar = () => { try { history.replaceState(null, '', link); } catch (e) { } say('LINK IN THE ADDRESS BAR', true); };
+  try { navigator.clipboard.writeText(link).then(() => say('LINK TO L' + lvl + ' (' + (cx + OX) + ', ' + (cy + OY) + ') COPIED'), inBar); } catch (e) { inBar(); }
+}
+function drawFlash() {
+  if (!flash || Date.now() > flash.until) { if (flash && flash.hold) lastLink = null; flash = null; return; } const p = 2, w = textW(flash.t, p) + 12, X = Math.round((cv.width - w) / 2);
+  plate(X, cv.height - RUL - 26, w, 20); text(g, X + 6, cv.height - RUL - 20, flash.t, '#ffcc33', p);
+}
 function writeLink() {
+  if (flash && flash.hold && Date.now() <= flash.until) return;
   const h = new URLSearchParams();
   if (follow && hasLevel(DATA.index.partyLevel)) h.set('follow', '1'); else h.set('L', lvl);
   h.set('v', VISION_WORDS[vision]); h.set('s', SPOIL_WORDS[spoil]);
@@ -1306,6 +1334,7 @@ function writeLink() {
   const hidden = Object.keys(SHOW).filter(k => !SHOW[k]);
   if (hidden.length) h.set('hide', hidden.length === Object.keys(SHOW).length ? 'ALL' : hidden.join(','));
   if (barLook !== 'stone') h.set('bar', barLook);
+  placeLink(h);
   const link = '#' + h.toString().replace(/\+/g, '%20').replace(/%2C/g, ',');
   if (link === lastLink) return; lastLink = link;
   try { history.replaceState(null, '', link); } catch (e) { }
@@ -1473,7 +1502,10 @@ setInterval(() => { if (searchOpen) draw(); }, 500);
   refreshAll();
   if (flag('follow') === true && followParty()) { /* the party's level */ }
   else if (q.get('L') && hasLevel(+q.get('L'))) { setLevel(+q.get('L')); follow = false; fitLevel(); }
-  if (q.get('cs')) { cs = Math.round(Math.min(maxCs(), Math.max(minCs(), +q.get('cs')))); if (cs <= minCs()) fitLevel(); }
+  if (q.get('cs')) { cs = Math.round(Math.min(maxCs(), Math.max(minCs(), +q.get('cs')))); if (cs <= minCs()) fitLevel(); else if (follow) centreOnParty(); }
+  // at=10,15: the cell in the middle, as the rulers number it; mark=1 frames it as a landing
+  const at = (q.get('at') || '').split(',').map(Number);
+  if (at.length === 2 && at.every(Number.isFinite)) { follow = false; centreOn(at[0] - OX, at[1] - OY); if (q.get('mark')) landingMark = { l: lvl, x: at[0], y: at[1], stair: false }; }
   if (q.get('hh')) { const [a, b] = q.get('hh').split(',').map(Number); hover = { x: a, y: b }; centreOn(a, b); }
   if (q.get('find')) { openSearch(); query = q.get('find').toUpperCase(); rebuild(false); }
   if (q.get('shift')) shiftHeld = true;
