@@ -2610,6 +2610,11 @@ static void RelayLinesDescribeWallCounterChain(void)
         == "ROUTE:\n  COUNTER A L2 (12, 23)\n    COUNTS 2 -> 1");
   CHECK(Joined(RelayTexts(drawList, 0, 1, false))
         == "COUNTER A\n  COUNT 2\nFED BY:\n  L2 (13, 22) SWITCH (S): A-1");
+  // FED BY heads a part of the tooltip as COUNTER A does, so it is gold too
+  std::vector<AutoMapTipLine> fedBlock = AutoMapScene_RelayBlock(drawList, 0, 1, false);
+  CHECK(fedBlock.size() == 4 && fedBlock[2].text == "FED BY:"
+        && fedBlock[2].style == AutoMapTipHeader);
+  CHECK(fedBlock.size() == 4 && fedBlock[3].style == AutoMapTipPlain);
   // A SET firing increments instead: same chain, opposite delta.
   AutoMapLevelSnapshot upSnapshot = Corridor();
   upSnapshot.level = 2;

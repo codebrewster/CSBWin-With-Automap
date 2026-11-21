@@ -2213,7 +2213,12 @@ std::vector<AutoMapTipLine> AutoMapScene_RelayBlock(const AutoMapDrawList &drawL
   {
     blocks.push_back(std::vector<std::string>(1, " " + feeders[f] + ": " + doings[f]));
   }
-  if (!blocks.empty()) lines.push_back(MakePressLine("FED BY:", true, false));
+  // A part of the tooltip as the relay headers are, so gold as they are
+  if (!blocks.empty())
+  {
+    lines.push_back(MakePressLine("FED BY:", true, false));
+    lines.back().style = AutoMapTipHeader;
+  }
   FoldPressBlocks(blocks, &lines);
   // The cap counts the lines under the headers, as the press block's does, and says how to see
   // the rest
