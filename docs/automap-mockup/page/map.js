@@ -545,9 +545,17 @@ function presentLine(s) {
   if ((m = s.match(/^(\d+)x (.*)$/))) return m[2] + ' X' + m[1];
   return s;
 }
+const RIM_ROCK = 'ADDED ROCK: OUTSIDE THE LEVEL'; // the game's AUTOMAP_RIM_ROCK_LINE
 function tooltipLines() {
   const h = V.hover[hover.x + ',' + hover.y]; const lines = [];
   const raw = (h && h.tip ? ((shiftHeld && h.tipFull) ? h.tipFull : h.tip) : []).map(l => typeof l === 'string' ? { t: l } : l);
+  // The rim rock the reader adds around a level: the file leaves out its line under POS (and
+  // POS too when nothing else is said there), so the page puts them back from the "out" flag
+  const cell = C(hover.x, hover.y);
+  if (cell && cell.out && !raw.some(l => l.t === RIM_ROCK)) {
+    if (!raw.length) raw.push({ t: `POS: L${lvl} (${hover.x + OX}, ${hover.y + OY})`, s: 0 });
+    raw.splice(1, 0, { t: RIM_ROCK, s: 0 });
+  }
   // The game's tooltip names the group right after POS (gold); older exports lacked it, so the page adds it then
   const m = monAt[hover.x + ',' + hover.y];
   const nameLine = m && m.name ? nice(m.name) + (m.m.length > 1 ? ' X' + m.m.length : '') : '';

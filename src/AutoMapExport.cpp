@@ -161,6 +161,16 @@ static std::string ItemArr(ExportPictures &sp, const AutoMapItem &item)
          JsonText(named) + "," + std::to_string((int)AutoMapScene_KindOfItem(item)) + (item.isFluxCage ? ",1" : "") + "]";
 }
 
+// A cell of the rim rock the reader adds around a level says AUTOMAP_RIM_ROCK_LINE right under
+// POS; the page puts it back from the cell's "out" flag, so the file leaves it out. With only POS
+// left the cell keeps no tooltip, and the page builds POS too: most of the rim then stores no
+// hover entry at all (DM's whole dungeon held about 5,000 of them).
+static void DropRimRockLine(std::vector<AutoMapTipLine> *lines)
+{
+  if (lines->size() < 2 || (*lines)[1].text != AUTOMAP_RIM_ROCK_LINE || (*lines)[0].text.compare(0, 5, "POS: ") != 0) return;
+  lines->erase(lines->begin() + 1);
+}
+
 // Tooltip lines as {"t":text,"s":style,"i":[item pictures]}; the text keeps its glyph codes
 // (\x01\x01 party, \x02\x02 claw, \x03\x03 box, \x04<n> item n of "i", \x05<facing> turned arrow)
 static std::string TipArr(ExportPictures &sp, const std::vector<AutoMapTipLine> &v)
@@ -314,6 +324,16 @@ static void WriteDrawList(std::string &f, ExportPictures &sp, const AutoMapDrawL
     std::vector<AutoMapTooltipEntry> tip, tipFull;
     AutoMapWindow_TooltipFor(l, x, y, false, &tipLines, &tip);
     AutoMapWindow_TooltipFor(l, x, y, true, &tipLinesFull, &tipFull);
+    if (l.cells[i].cell.isOutsideLevel)
+    {
+      DropRimRockLine(&tipLines);
+      DropRimRockLine(&tipLinesFull);
+      if (tipLines.size() == 1 && tipLinesFull.size() == 1 && tip.empty() && tipFull.empty())
+      {
+        tipLines.clear();
+        tipLinesFull.clear();
+      }
+    }
     std::string lines = TipArr(sp, tipLines), linesFull = TipArr(sp, tipLinesFull);
     std::vector<AutoMapLink> from = AutoMapScene_LinksFrom(l, x, y), to = AutoMapScene_LinksTo(l, x, y);
     std::ostringstream o;

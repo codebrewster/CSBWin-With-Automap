@@ -2006,12 +2006,14 @@ bool AutoMapScene_PlaceLaunchedLines(std::vector<AutoMapTipLine> *lines, int sid
   return false;
 }
 
+const char *const AUTOMAP_RIM_ROCK_LINE = "ADDED ROCK: OUTSIDE THE LEVEL";
+
 std::vector<AutoMapTipLine> AutoMapScene_RelayLines(const AutoMapDrawList &drawList, int x, int y)
 {
   std::vector<AutoMapTipLine> lines;
   const AutoMapShownCell *shown = FindShownCell(drawList, x, y);
   if (shown == NULL) return lines;
-  if (shown->cell.isOutsideLevel) AddRelayLine(&lines, "ADDED ROCK: OUTSIDE THE LEVEL");
+  if (shown->cell.isOutsideLevel) AddRelayLine(&lines, AUTOMAP_RIM_ROCK_LINE);
   if (shown->cell.kind == AutoMapCellFalseWall || shown->cell.kind == AutoMapCellOpenFalseWall)
   {
     bool switched = !AutoMapScene_LinksTo(drawList, x, y).empty();

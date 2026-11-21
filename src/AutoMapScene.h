@@ -1314,6 +1314,10 @@ double AutoMapScene_TicksPerSecond(void);
 std::vector<AutoMapTipLine> AutoMapScene_TriggerLines(const AutoMapDrawList &drawList, int x, int y,
                                                       AutoMapItemNameFn nameForIndex);
 
+// The first relay line of a cell of the rock the reader adds around a level (isOutsideLevel).
+// The HTML export leaves it out and the page puts it back from the cell's "out" flag.
+extern const char *const AUTOMAP_RIM_ROCK_LINE;
+
 // Tooltip lines for what a cell is, not what a press does (that is AutoMapScene_PressBlock
 // and AutoMapScene_RelayBlock), already grouped: a header (AutoMapTipHeader) with its
 // lines two spaces in. "ADDED ROCK: OUTSIDE THE LEVEL" (plain, first); "FALSE WALL" with
