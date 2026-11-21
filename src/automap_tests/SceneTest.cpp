@@ -1034,6 +1034,38 @@ static void DraggingAddsNoBlackSpace(void)
   CHECK(height == 400 && fits.originY == 50);
 }
 
+// Zooming out keeps the pointer's cell however much black space that leaves (every cell moves
+// towards the pointer, so the level stays on screen); a zoom in keeps the black space there was,
+// or up to half the window; a drag keeps what shows rather than cutting it to half the window
+static void ZoomOutKeepsThePointersCell(void)
+{
+  AutoMapViewRequest request = RequestFor(640, 400);
+  request.zoomSteps = 2;
+  request.placeFreely = true;
+  int cell = AutoMapScene_PlaceLevel(request).cellSize;
+  CHECK(32 * cell > 640);
+  // A centre that puts the level's left edge 400 pixels in, past half the window
+  request.centerX = (320.0f - 400.0f - cell / 2.0f) / cell;
+  request.centerY = 10;
+  AutoMapView noBlack = {cell * 2, -100, -100};
+  AutoMapScene_ZoomBlackSpace(noBlack, cell, true, &request);
+  CHECK(request.blackLeft == 640 && request.blackTop == 400);
+  CHECK(AutoMapScene_PlaceLevel(request).originX == 400);
+  // A zoom in from no black space: up to half the window
+  AutoMapView inFrom = {cell / 2, 0, 0};
+  AutoMapScene_ZoomBlackSpace(inFrom, cell, false, &request);
+  CHECK(request.blackLeft == 320);
+  CHECK(AutoMapScene_PlaceLevel(request).originX == 320);
+  // A zoom in from 400 black pixels keeps them
+  AutoMapView wideBlack = {cell / 2, 400, 0};
+  AutoMapScene_ZoomBlackSpace(wideBlack, cell, false, &request);
+  CHECK(request.blackLeft == 400);
+  CHECK(AutoMapScene_PlaceLevel(request).originX == 400);
+  // A drag with 400 black pixels showing keeps them
+  request.blackLeft = 400;
+  CHECK(AutoMapScene_PlaceLevel(request).originX == 400);
+}
+
 static void OnlyTheFittingZoomShowsTheWholeLevel(void)
 {
   AutoMapViewRequest request = RequestFor(640, 400);
@@ -7247,6 +7279,7 @@ void TestAutoMapScene(void)
   ZoomKeepsTheSameSpotCentred();
   ZoomKeepsThePointUnderThePointerStill();
   DraggingAddsNoBlackSpace();
+  ZoomOutKeepsThePointersCell();
   OnlyTheFittingZoomShowsTheWholeLevel();
   LabelStepKeepsNumbersApart();
   VisibleRangeCoversTheCellsTouchingTheMap();

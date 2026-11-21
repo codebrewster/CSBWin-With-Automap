@@ -381,15 +381,18 @@ function fitLevel() { zoomFree = false; cs = minCs(); panX = Math.round(((cv.wid
 function centreOn(x, y) { let top = RUL; if (panelRects.search) top = panelRects.search[1] + panelRects.search[3]; panX = Math.round((cv.width - 2 * RUL) / 2 - (x + .5) * cs); panY = Math.round(((top + cv.height - RUL) / 2 - RUL) - (y + .5) * cs); }
 // as in the game: a level smaller than the map stays centred, a larger one never leaves a gap at an edge
 // the black margin a zoomed level may leave at either end (as AllowedMargin in AutoMapScene.cpp): a
-// wheel zoom keeps the cell under the pointer, up to half the window black; a drag keeps each end to
-// the black space it showed (black, per axis; null right after a zoom), as OriginAlong
+// wheel zoom in keeps the cell under the pointer, up to half the window black; a drag keeps each end to
+// the black space it showed (black, per axis; a zoom sets it by zoomBlack), as OriginAlong
 function allowedMargin(room, size) { return size <= room ? room - size / 2 : Math.floor(room / 2); }
+// as AutoMapScene_ZoomBlackSpace: what a zoom may leave black at each end so the pointer keeps its
+// cell; zooming out any (every cell moves towards the pointer), zooming in what showed or up to the margin
+function zoomBlack(pan, room, oldSize, newSize, out) { const m = allowedMargin(room, newSize); return [Math.max(0, pan), Math.max(0, room - oldSize - pan)].map(b => out ? room : Math.max(b, m)); }
 const black = { x: null, y: null };
 function clampAxis(pan, room, cells, axis) {
   const size = cells * cs;
   if (!zoomFree) pan = size <= room ? Math.round((room - size) / 2) : Math.max(room - size, Math.min(pan, 0));
   else {
-    const m = allowedMargin(room, size); let [before, after] = black[axis] ? black[axis].map(b => Math.min(m, b)) : [m, m];
+    const m = allowedMargin(room, size); let [before, after] = black[axis] ? black[axis].slice() : [m, m];
     const more = room - size - before - after;
     if (more > 0) { before += Math.floor(more / 2); after += more - Math.floor(more / 2); }
     pan = Math.max(room - size - after, Math.min(pan, before));
@@ -445,7 +448,7 @@ cv.addEventListener('touchmove', e => {
     const d = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), mx = (p[0].x + p[1].x) / 2, my = (p[0].y + p[1].y) / 2;
     const old = cs; cs = Math.min(maxCs(), Math.max(1, Math.round(touch.cs * d / touch.d)));
     if (cs <= minCs()) { fitLevel(); draw(); return; }
-    const ax = mx - RUL, ay = my - RUL; zoomFree = true; black.x = black.y = null; follow = false; panX = Math.round(ax - (ax - panX) * cs / old); panY = Math.round(ay - (ay - panY) * cs / old); draw(); return;
+    const ax = mx - RUL, ay = my - RUL, rw = cv.width - 2 * RUL, rh = cv.height - 2 * RUL; zoomFree = true; black.x = zoomBlack(panX, rw, W * old, W * cs, cs < old); black.y = zoomBlack(panY, rh, H * old, H * cs, cs < old); follow = false; panX = Math.round(ax - (ax - panX) * cs / old); panY = Math.round(ay - (ay - panY) * cs / old); draw(); return;
   }
   if (p.length !== 1 || touch.pinch) return;
   if (Math.abs(p[0].x - touch.x) + Math.abs(p[0].y - touch.y) > 8) { touch.moved = true; follow = false; hover = null; }
@@ -482,7 +485,7 @@ cv.addEventListener('wheel', e => {
   if (e.ctrlKey) { tipScale = Math.max(1, Math.min(TIP_SCALE_MOST, tipScale - d)); try { localStorage.setItem('csb-map-tip-scale', String(tipScale)); } catch (err) { } draw(); return; }
   if (e.shiftKey) { tipScroll = Math.max(0, tipScroll + d); draw(); return; }
   const old = cs; let next = Math.round(cs * (d < 0 ? 1.15 : 1 / 1.15)); if (next === cs) next += d < 0 ? 1 : -1; cs = Math.min(maxCs(), next); if (cs <= minCs()) { fitLevel(); draw(); return; }
-  const ax = mx - RUL, ay = my - RUL; zoomFree = true; black.x = black.y = null; panX = Math.round(ax - (ax - panX) * cs / old); panY = Math.round(ay - (ay - panY) * cs / old); draw();
+  const ax = mx - RUL, ay = my - RUL, rw = cv.width - 2 * RUL, rh = cv.height - 2 * RUL; zoomFree = true; black.x = zoomBlack(panX, rw, W * old, W * cs, d > 0); black.y = zoomBlack(panY, rh, H * old, H * cs, d > 0); panX = Math.round(ax - (ax - panX) * cs / old); panY = Math.round(ay - (ay - panY) * cs / old); draw();
 }, { passive: false });
 tbar.addEventListener('wheel', e => { e.preventDefault(); barScroll = Math.max(0, barScroll + (e.deltaY > 0 ? 24 : -24)); draw(); }, { passive: false });
 tbar.addEventListener('mousedown', e => { if (barLeft && e.offsetX < barArrowW()) { barScroll = Math.max(0, barScroll - tbar.width / 2); draw(); return; } if (barRight && e.offsetX >= tbar.width - barArrowW()) { barScroll += tbar.width / 2; draw(); return; } for (const [x, w, act] of barHits) if (e.offsetX >= x && e.offsetX < x + w && e.offsetY >= 4 && e.offsetY < 22) { act(); draw(); return; } });

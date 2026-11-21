@@ -2890,13 +2890,33 @@ static int RoundToPixels(float position)
   return (int)floor(position + 0.5f);
 }
 
-// The black space a zoomed level may leave at either end of an axis. A zoom towards the pointer
-// keeps the cell under it where it is, up to half of the window; a drag never adds to what the
-// view showed (ViewAxis::blackBefore, blackAfter).
+// The black space a zoom in may leave at either end of an axis when there was less: the cell
+// under the pointer stays, up to half of the window (AutoMapScene_ZoomBlackSpace)
 static int AllowedMargin(int windowPixels, int levelPixels)
 {
   if (levelPixels <= windowPixels) return windowPixels - levelPixels / 2;
   return windowPixels / 2;
+}
+
+// One end of an axis for a zoom: a zoom out moves every cell towards the pointer, so none
+// leaves the window and the end needs no limit (the window itself); a zoom in keeps what it
+// showed, or up to AllowedMargin where that is more
+static int ZoomLimit(int shown, int windowPixels, int levelPixels, bool zoomOut)
+{
+  if (zoomOut) return windowPixels;
+  return std::max(shown, AllowedMargin(windowPixels, levelPixels));
+}
+
+void AutoMapScene_ZoomBlackSpace(const AutoMapView &before, int cellSizeAfter, bool zoomOut,
+                                 AutoMapViewRequest *request)
+{
+  AutoMapScene_BlackSpace(before, request);
+  int width = request->levelSize.width * cellSizeAfter;
+  int height = request->levelSize.height * cellSizeAfter;
+  request->blackLeft = ZoomLimit(request->blackLeft, request->windowWidth, width, zoomOut);
+  request->blackRight = ZoomLimit(request->blackRight, request->windowWidth, width, zoomOut);
+  request->blackTop = ZoomLimit(request->blackTop, request->windowHeight, height, zoomOut);
+  request->blackBottom = ZoomLimit(request->blackBottom, request->windowHeight, height, zoomOut);
 }
 
 static int OriginAlong(const ViewAxis &axis, int cellSize)
@@ -2907,12 +2927,12 @@ static int OriginAlong(const ViewAxis &axis, int cellSize)
   if (axis.placeFreely)
   {
     // After a zoom towards the pointer a black margin may remain, so the cell under the pointer
-    // stays; it shrinks as the zoom pushes the level's edges out. A drag keeps each end to the
-    // black space it showed (negative: no limit, right after a zoom), so it cannot pull the
-    // level away from an edge; where the window grew, the extra is shared by both ends.
+    // stays (AutoMapScene_ZoomBlackSpace sets the limits). A drag keeps each end to the black
+    // space it showed, so it cannot pull the level away from an edge, nor does it cut what is
+    // there; where the window grew, the extra is shared by both ends. Negative: AllowedMargin.
     int margin = AllowedMargin(axis.windowPixels, levelPixels);
-    int before = axis.blackBefore < 0 ? margin : std::min(margin, axis.blackBefore);
-    int after = axis.blackAfter < 0 ? margin : std::min(margin, axis.blackAfter);
+    int before = axis.blackBefore < 0 ? margin : axis.blackBefore;
+    int after = axis.blackAfter < 0 ? margin : axis.blackAfter;
     int more = axis.windowPixels - levelPixels - before - after;
     if (more > 0)
     {

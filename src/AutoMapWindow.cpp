@@ -1168,9 +1168,12 @@ static void ZoomTowardsPointer(int notches)
   float pointX = (float)(pointerPixelX - before.originX) / before.cellSize;
   float pointY = (float)(pointerPixelY - before.originY) / before.cellSize;
   zoomPlacesFreely = true;
-  // The zoom places the level where the pointer keeps its cell, even with more black space
-  shownBlackSpace.blackLeft = shownBlackSpace.blackRight = -1;
-  shownBlackSpace.blackTop = shownBlackSpace.blackBottom = -1;
+  // The zoom places the level where the pointer keeps its cell, even with more black space:
+  // zooming out it stays until the whole level jumps to the centre
+  AutoMapView shownBefore = {before.cellSize, before.originX - RULER, before.originY - RULER};
+  AutoMapViewRequest limits = RequestOfShownLevel();
+  AutoMapScene_ZoomBlackSpace(shownBefore, after.cellSize, notches < 0, &limits);
+  shownBlackSpace = limits;
   viewCenterX = AutoMapScene_CentreKeepingPointStill(viewCenterX, pointX, before.cellSize,
                                                      after.cellSize);
   viewCenterY = AutoMapScene_CentreKeepingPointStill(viewCenterY, pointY, before.cellSize,
@@ -5918,13 +5921,38 @@ static void DrawLevelPanel(void)
 }
 
 
+// The cache holds the whole level at the cell size. Zoomed far in that is tens of thousands
+// of pixels a side (gigabytes, every cell drawn into it on each zoom step, seconds of lag);
+// past a few windows' worth the visible cells are drawn directly instead, which is cheap
+// there because only a handful show
+static const int STATIC_CACHE_MOST_WINDOWS = 4;
+
+static bool StaticCacheFits(int levelPixelsX, int levelPixelsY, int mapWidth, int mapHeight)
+{
+  SDL_RendererInfo info;
+  if (SDL_GetRendererInfo(mapRenderer, &info) == 0 &&
+      ((info.max_texture_width > 0 && levelPixelsX > info.max_texture_width) ||
+       (info.max_texture_height > 0 && levelPixelsY > info.max_texture_height)))
+    return false;
+  return (Sint64)levelPixelsX * levelPixelsY <=
+         (Sint64)STATIC_CACHE_MOST_WINDOWS * std::max(1, mapWidth) * std::max(1, mapHeight);
+}
+
 // Renders the unmoving layer into the cache texture when the draw list or the zoom
-// changed. False when the renderer cannot hold a target: the caller draws directly.
-static bool RenderStaticCache(const AutoMapView &view)
+// changed. False when the renderer cannot hold a target or the level is too large for the
+// cache (StaticCacheFits): the caller draws directly.
+static bool RenderStaticCache(const AutoMapView &view, int mapWidth, int mapHeight)
 {
   int levelPixelsX = shownDrawList.width * view.cellSize;
   int levelPixelsY = shownDrawList.height * view.cellSize;
   if (levelPixelsX <= 0 || levelPixelsY <= 0) return false;
+  if (!StaticCacheFits(levelPixelsX, levelPixelsY, mapWidth, mapHeight))
+  {
+    // Frees the last cache: a level this large never blits from it
+    if (staticCache != NULL) SDL_DestroyTexture(staticCache);
+    staticCache = NULL;
+    return false;
+  }
   if (staticCache == NULL || staticSerial != drawListSerial || staticCellSize != view.cellSize)
   {
     if (staticCache != NULL) SDL_DestroyTexture(staticCache);
@@ -6012,7 +6040,7 @@ static void DrawLevel(void)
   int mapHeight = windowHeight - 2 * RULER;
   // The zoomed level reaches past the map area: keep it off the rulers
   SDL_Rect mapArea = {RULER, RULER, mapWidth, mapHeight};
-  bool cached = RenderStaticCache(view);
+  bool cached = RenderStaticCache(view, mapWidth, mapHeight);
   SDL_RenderSetClipRect(mapRenderer, &mapArea);
   if (cached)
   {
@@ -6020,12 +6048,23 @@ static void DrawLevel(void)
   }
   else
   {
+    // Only the cells on or next to the map area (a mark may reach past its own cell): zoomed
+    // far in, nearly all of the level is off it
+    SDL_Rect nearMap = {mapArea.x - view.cellSize, mapArea.y - view.cellSize,
+                        mapArea.w + 2 * view.cellSize, mapArea.h + 2 * view.cellSize};
     for (size_t i = 0; i < shownDrawList.cells.size(); i++)
     {
-      DrawCellBase(view, shownDrawList.cells[i], shownDrawList);
+      const AutoMapShownCell &shown = shownDrawList.cells[i];
+      SDL_Rect cell = CellArea(view, shown.x, shown.y);
+      if (SDL_HasIntersection(&cell, &nearMap)) DrawCellBase(view, shown, shownDrawList);
     }
     DrawGlimpses(view, shownDrawList);
-    DrawPlayerNotes(view, shownDrawList);
+    for (size_t i = 0; i < shownDrawList.cells.size(); i++)
+    {
+      const AutoMapShownCell &shown = shownDrawList.cells[i];
+      SDL_Rect cell = CellArea(view, shown.x, shown.y);
+      if (SDL_HasIntersection(&cell, &nearMap)) DrawPlayerNotesOfCell(view, shown, shownDrawList);
+    }
   }
   DrawDynamicLayer(view);
   SDL_RenderSetClipRect(mapRenderer, NULL);

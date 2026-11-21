@@ -1666,9 +1666,9 @@ struct AutoMapViewRequest
   // remains, so that the cell under the pointer stays where it is. Unset, an axis on which the
   // level fits is centred and a larger level never leaves black space at an edge.
   bool placeFreely;
-  // With placeFreely: the black space the view showed last, in pixels, at each edge
-  // (AutoMapScene_BlackSpace). A drag may only shrink it; -1 after a zoom, which may leave up to
-  // half the window black so the cell under the pointer stays.
+  // With placeFreely: the most black space, in pixels, at each edge. The view's last black space
+  // (AutoMapScene_BlackSpace), so a drag may only shrink it; after a zoom, what the zoom may leave
+  // (AutoMapScene_ZoomBlackSpace) so the cell under the pointer stays; -1: up to half the window.
   int blackLeft;
   int blackRight;
   int blackTop;
@@ -1682,6 +1682,13 @@ struct AutoMapView
   int originX;
   int originY;
 };
+
+// Stores in request the black space a zoom from view before (origins without the rulers) to
+// cellSizeAfter may leave beside the level, so the cell under the pointer stays: a zoom out any
+// (it moves every cell towards the pointer, so the level stays on screen and only the whole
+// level, centred, moves it); a zoom in what view showed, or up to half the window where more
+void AutoMapScene_ZoomBlackSpace(const AutoMapView &before, int cellSizeAfter, bool zoomOut,
+                                 AutoMapViewRequest *request);
 
 // Stores in request the black space beside the level that view shows (origins without the
 // rulers), for the next placement to keep to
