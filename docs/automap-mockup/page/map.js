@@ -665,7 +665,7 @@ function drawTooltip(L) {
   // Magnified, the tooltip is laid out at its own size and drawn k times as big
   const maxLines = Math.max(4, Math.floor((room - gridH) / lh)); const lineMax = Math.max(0, lines.length - maxLines);
   tipScroll = Math.min(tipScroll, GW.hiddenRows + lineMax); const ls = Math.max(0, tipScroll - GW.hiddenRows);
-  const shown = lines.slice(ls, ls + maxLines); if (ls > 0) shown[0] = { t: `-${ls} MORE`, s: 7 }; if (ls + maxLines < lines.length) shown[shown.length - 1] = { t: `+${lines.length - ls - maxLines + 1} MORE, SHIFT+WHEEL`, s: 7 };
+  const shown = lines.slice(ls, ls + maxLines); if (ls > 0) shown[0] = { t: `-${ls} MORE`, s: 7 }; if (ls + maxLines < lines.length) shown[shown.length - 1] = { t: `+${lines.length - ls - maxLines + 1} MORE (SHIFT+WHEEL)`, s: 7 };
   const w = Math.max(gridW + 4, ...shown.map(l => richW(l.t, p))) + 10, h = gridH + shown.length * lh + 8;
   const [X0, Y0] = tooltipPlace(L, w * k, h * k);
   g.save(); g.translate(X0, Y0); g.scale(k, k); const x = 0, y = 0;

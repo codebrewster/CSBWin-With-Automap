@@ -2,6 +2,7 @@
 #include "../AutoMapScene.h"
 #include "../AutoMapTooltip.h"
 
+#include <algorithm>
 #include <cmath>
 #include <set>
 #include <cstddef>
@@ -5918,7 +5919,7 @@ static void ShiftOnACappedDirectListShowsEveryResult(void)
   std::vector<std::string> compact = PadBlock(drawList, false);
   CHECK(compact.size() == 1 + AUTOMAP_PRESS_MAX_LINES);
   CHECK(!compact.empty() && compact[0] == "RESULT:");
-  CHECK(!compact.empty() && compact.back() == "+3 MORE (SHIFT)");
+  CHECK(!compact.empty() && compact.back() == "+3 MORE (SHIFT: ROUTE)");
   std::vector<std::string> full = PadBlock(drawList, true);
   CHECK(full.size() == 13);
   CHECK(!full.empty() && full[0] == "RESULT:");
@@ -6372,8 +6373,8 @@ static void PressLinesFoldIdenticalReceiversAndCap(void)
       else if (lines[i].find("MORE") != std::string::npos) body++;
     }
     CHECK(body == AUTOMAP_PRESS_MAX_LINES);
-    CHECK(!lines.empty() && lines.back() == "+5 MORE (SHIFT)");
-    CHECK(!HasText(lines, "SHIFT:"));
+    CHECK(!lines.empty() && lines.back() == "+5 MORE (SHIFT: ROUTE)");
+    CHECK(std::count(lines.begin(), lines.end(), std::string("SHIFT: ROUTE")) == 0);
     CHECK(HasText(lines, "COUNTER A 5->4") && HasText(lines, "COUNTER I 13->12"));
     CHECK(!HasText(lines, "COUNTER J 14->13"));
   }
@@ -6541,7 +6542,7 @@ static void PressLinesCutShortSurvivesTheCap(void)
   CHECK(lines.size() >= 3);
   if (lines.size() >= 3)
   {
-    CHECK(lines[lines.size() - 2] == "+5 MORE (SHIFT)");
+    CHECK(lines[lines.size() - 2] == "+5 MORE (SHIFT: ROUTE)");
     CHECK(lines.back() == "  CHAIN CUT SHORT");
     size_t body = 0;
     for (size_t i = 0; i < lines.size(); i++)
@@ -6575,7 +6576,7 @@ static void RelayBlockCapTheTargets(void)
     if (lines[i] != "FED BY:" && lines[i].compare(0, 8, "COUNTER ") != 0) body++;
   }
   CHECK(body == AUTOMAP_PRESS_MAX_LINES);
-  CHECK(!lines.empty() && lines.back() == "+8 MORE (SHIFT)");
+  CHECK(!lines.empty() && lines.back() == "+8 MORE (SHIFT: ROUTE)");
   CHECK(lines[0] == "COUNTER A" && lines[1] == "  COUNT 4");
   // Shift lifts the cap: every line, and no hint
   std::vector<std::string> full = RelayTexts(drawList, 2, 3, true);

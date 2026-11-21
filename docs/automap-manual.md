@@ -242,7 +242,7 @@ the game runs a second on your machine at the speed you set (at **Normal** about
 at **Fast** about 6), and counts down as you watch. Asleep the game runs far faster, so the time
 holds for when the party is awake.
 - **The monsters' hit points**, under the damage lines.
-- **The whole press chain** of a switch or pad; see
+- **The ROUTE** of a switch or pad (hold Shift); see
   [Tracing switches and pads](#tracing-switches-and-pads).
 
 Hovering a cell that something else acts on, such as a door or a generator,
@@ -427,7 +427,7 @@ A DSA reads `IF ITS PROGRAM PASSES IT ON (NOT FOLLOWED)` with nothing below it, 
 steps after it in the same cell end in `(IF DSA PASSES)`. A message that comes back to a step on the
 route reads `LOOPS BACK TO COUNTER A L11 (47, 27)`. A switch or pad wired straight to its goals has no
 route and shows no hint; when its RESULT list, or the list of a relay cell (its counters, gates and
-what feeds them), is too long for the tooltip (`+3 MORE (SHIFT)`), Shift shows all of it. Delays are in the game's ticks (about four a second at Normal speed): `AFTER 6 TICKS`. In the route a
+what feeds them), is too long for the tooltip (`+3 MORE (SHIFT: ROUTE)`), Shift shows all of it. Delays are in the game's ticks (about four a second at Normal speed): `AFTER 6 TICKS`. In the route a
 line's delay is the wait after the line above lets the signal through; RESULT gives the total from
 the press.
 

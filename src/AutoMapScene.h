@@ -1516,7 +1516,7 @@ std::vector<const AutoMapEffect *> AutoMapScene_PressGoalsByCell(
 // (AutoMapTipResult), a DSA (IF ITS PROGRAM PASSES IT ON (NOT FOLLOWED)), a local action,
 // LOOPS BACK TO COUNTER A. Shift without steps: the full RESULT list. The font is ASCII:
 // arrows read 4->3, identical siblings fold as 3X .... Compact keeps at most
-// AUTOMAP_PRESS_MAX_LINES lines below the headings, the last one +N MORE (SHIFT); Shift
+// AUTOMAP_PRESS_MAX_LINES lines below the headings, the last one +N MORE (SHIFT: ROUTE); Shift
 // lifts the cap. A walk that ran out of budget ends with CHAIN CUT SHORT. No hint: the
 // tooltip adds SHIFT: ROUTE once for the tile.
 const size_t AUTOMAP_PRESS_MAX_LINES = 10;
