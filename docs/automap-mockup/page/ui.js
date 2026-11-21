@@ -518,7 +518,7 @@ function draw() {
   drawClouds();
   for (const c of V.cells) { drawCellOverlay(c); drawActuators(c); drawItems(c); }
   drawNotes(); drawGlimpses(); drawMissiles(); drawMonsters(); drawParty();
-  const L = drawHover(); if (!L.lit) { drawSearchMarks(); drawLandingMark(); } drawLinkMode(); drawFlash();
+  const L = drawHover(); if (!L.lit) { drawSearchMarks(); drawLandingMark(); } drawLinkMode(); drawFlash(); drawNothingExplored();
   g.restore(); rulers(); drawTooltip(L); drawSearchPanel(); drawShowPanel(); drawHelp(); drawLevels(); drawDebugPanel(); drawMenu(); drawBar();
   writeLink();
 }
@@ -548,6 +548,8 @@ function copyCellLink(cx, cy) {
   const inBar = () => { try { history.replaceState(null, '', link); } catch (e) { } say('LINK IN THE ADDRESS BAR', true); };
   try { navigator.clipboard.writeText(link).then(() => say('LINK TO L' + lvl + ' (' + (cx + OX) + ', ' + (cy + OY) + ') COPIED'), inBar); } catch (e) { inBar(); }
 }
+// A level the fog leaves empty says so, as the game does, rather than stay black
+function drawNothingExplored() { if (V.cells.length) return; const s = 'NOTHING EXPLORED ON L' + lvl, p = 2; text(g, Math.round((cv.width - textW(s, p)) / 2), Math.round((cv.height - 5 * p) / 2), s, '#b8b0a0', p); }
 function drawFlash() {
   if (!flash || Date.now() > flash.until) { if (flash && flash.hold) lastLink = null; flash = null; return; } const p = 2, w = textW(flash.t, p) + 12, X = Math.round((cv.width - w) / 2);
   plate(X, cv.height - RUL - 26, w, 20); text(g, X + 6, cv.height - RUL - 20, flash.t, '#ffcc33', p);

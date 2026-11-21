@@ -6636,12 +6636,25 @@ void AutoMapWindow_DrawLegendSample(AutoMapLegendSample sample, int x, int y, co
   SDL_RenderSetClipRect(mapRenderer, &clip);
 }
 
+// A level the fog leaves empty says so, in the middle of the map, rather than stay black
+static void DrawNothingExplored(int windowWidth, int windowHeight)
+{
+  if (!shownDrawList.cells.empty()) return;
+  std::string line = "NOTHING EXPLORED ON L" + std::to_string(shownDrawList.level);
+  int width = AutoMapPaint_TextWidth(line, DIGIT_SCALE);
+  DrawLegendText((windowWidth - width) / 2, (windowHeight - 5 * DIGIT_SCALE) / 2, line.c_str(), RULER_TEXT);
+}
+
 static void DrawLevel(void)
 {
   AutoMapView view = ViewOfShownLevel();
-  if (view.cellSize == 0) return;
   int windowWidth = 0, windowHeight = 0;
   OutputSizeBelowBar(&windowWidth, &windowHeight);
+  if (view.cellSize == 0)
+  {
+    DrawNothingExplored(windowWidth, windowHeight);
+    return;
+  }
   int mapWidth = windowWidth - 2 * RULER;
   int mapHeight = windowHeight - 2 * RULER;
   // The zoomed level reaches past the map area: keep it off the rulers
@@ -6674,6 +6687,7 @@ static void DrawLevel(void)
   }
   DrawDynamicLayer(view);
   SDL_RenderSetClipRect(mapRenderer, NULL);
+  DrawNothingExplored(windowWidth, windowHeight);
   DrawRulers(view, windowWidth, windowHeight);
   DrawLinkModeHint();
   DrawSearchPanel();
