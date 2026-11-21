@@ -183,7 +183,7 @@ function buildIndex() {
     const seen = new Set();
     v.acts.forEach(a => { const k = a[0] + ',' + a[1] + ',' + a[2] + ',' + a[3]; if (seen.has(k)) return; seen.add(k);
       if ((a[3] === 4 || a[3] === 6) && a[2] === 0 && a[5][2]) add(a[0], a[1], a[5][2], a[3] === 6 ? 'PAD, CARRIED' : 'PAD NEEDS', a[5][1] || a[5][0], 'needs', a[5][3] === FOOD_KIND);
-      if (a[2] === 2 && a[7]) add(a[0], a[1], nice(a[7]), 'GENERATOR', a[6], 'gen'); });
+      if ((a[2] === 2 || a[2] === 4) && a[7]) add(a[0], a[1], nice(a[7]), 'GENERATOR', a[6], 'gen'); });
     v.monsters.forEach(m => add(m.x, m.y, nice(m.name) || 'MONSTER', '', m.m[0] && m.m[0][0], 'monster', false, m.m.length));
   });
 }

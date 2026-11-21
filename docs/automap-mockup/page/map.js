@@ -265,8 +265,11 @@ function drawActuators(c) {
   for (const a of list) {
     const [, , kind, op, facing, item, genPic] = a; const key = kind + ':' + op; if (seen.has(key)) continue; seen.add(key);
     if (kind === 2) { if (genPic) spr(genPic, x + cs * .1, y + cs * .05, cs * .8, cs * .8, .45); chip(x, y, [['txt', 'GEN']], '#c05050'); continue; }
-    if (kind === 3) { const cx = x + cs / 2, cy = y + cs / 2, r = cs * .25; g.strokeStyle = '#8a5a5a'; g.lineWidth = 1; g.beginPath(); g.moveTo(cx, cy - r); g.lineTo(cx + r, cy); g.lineTo(cx, cy + r); g.lineTo(cx - r, cy); g.closePath(); g.stroke(); continue; }
-    if (kind === 4) { const cx = x + cs / 2, cy = y + cs / 2, r = cs * .2; g.strokeStyle = '#9a9488'; g.lineWidth = 1; g.beginPath(); for (let i = 0; i <= 8; i++) { const an = 2 * Math.PI * i / 8; i ? g.lineTo(cx + r * Math.cos(an), cy + r * Math.sin(an)) : g.moveTo(cx + r, cy); } g.moveTo(cx - r, cy); g.lineTo(cx + r, cy); g.moveTo(cx, cy - r); g.lineTo(cx, cy + r); g.stroke(); continue; }
+    // The kinds as AutoMapActuatorKind numbers them: 3 spent, 4 sleeping (it fired and waits to wake), 5 a counter or DSA (cog)
+    const diamond = () => { const cx = x + cs / 2, cy = y + cs / 2, r = cs * .25; g.strokeStyle = '#8a5a5a'; g.lineWidth = 1; g.beginPath(); g.moveTo(cx, cy - r); g.lineTo(cx + r, cy); g.lineTo(cx, cy + r); g.lineTo(cx - r, cy); g.closePath(); g.stroke(); };
+    if (kind === 3) { diamond(); continue; }
+    if (kind === 4) { if (genPic) spr(genPic, x + cs * .1, y + cs * .05, cs * .8, cs * .8, .2); diamond(); continue; }
+    if (kind === 5) { const cx = x + cs / 2, cy = y + cs / 2, r = cs * .2; g.strokeStyle = '#9a9488'; g.lineWidth = 1; g.beginPath(); for (let i = 0; i <= 8; i++) { const an = 2 * Math.PI * i / 8; i ? g.lineTo(cx + r * Math.cos(an), cy + r * Math.sin(an)) : g.moveTo(cx + r, cy); } g.moveTo(cx - r, cy); g.lineTo(cx + r, cy); g.moveTo(cx, cy - r); g.lineTo(cx, cy + r); g.stroke(); continue; }
     if (!plated) { if (PLATE) spr(PLATE, x + cs * .08, y + cs * .18, cs * .84, cs * .64, kind === 1 ? .2 : .35); dashed(x + cs * .12, y + cs * .22, cs * .76, cs * .56, kind === 1 ? '#8a847a' : COL.pad, 2); if (kind !== 1) plated = true; }
     if (kind === 1) continue;
     const who = []; const icon = item[1] || item[0];
