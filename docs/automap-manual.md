@@ -76,7 +76,9 @@ each group one framed control), `cyan` (black and cyan, like a champion's action
 ### The level list
 
 Click the level on the bar for a list of every level. The shown level is gold, the party's level
-has the red arrow, and levels the party has not visited yet are grey and say `NOT VISITED`. While
+has the red arrow, and levels the party has not visited yet are grey and say `NOT VISITED`. A
+visited level says how much of it is explored: the share of the cells one can stand on that the
+party has seen, `64%`. While
 a search is open, each level shows its number of hits. The wheel scrolls the list, typing a number
 jumps to that level and **Enter** shows it, a click on a row shows that level, and **Escape** or a
 click outside closes the list.

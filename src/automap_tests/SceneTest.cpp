@@ -7224,8 +7224,35 @@ static void TipTextWithoutGlyphsBlanksTheArgumentCharacters(void)
   CHECK(AutoMapScene_TipTextWithoutGlyphs("PLAIN 12") == "PLAIN 12");
 }
 
+// The level list's share: cells one can stand on, explored ones among them; stone, a solid false
+// wall and the rim rock do not count, a walk-through false wall does
+static void ExploredShareCountsTheCellsOneCanStandOn(void)
+{
+  AutoMapLevelSnapshot snapshot = Corridor();  // floor at (1, 1) and (2, 1), stone elsewhere
+  snapshot.cells[1 * 4 + 3].kind = AutoMapCellFalseWall;
+  snapshot.cells[1 * 4 + 3].falseWallIsPassable = true;
+  snapshot.cells[2 * 4 + 1].kind = AutoMapCellFalseWall;  // solid
+  snapshot.cells[2 * 4 + 2].kind = AutoMapCellFloor;
+  snapshot.cells[2 * 4 + 2].isOutsideLevel = true;  // rim
+  std::vector<AutoMapLevelSize> sizes(1, AutoMapLevelSize{4, 3});
+  AutoMapExplored explored;
+  explored.Reset(sizes);
+  CHECK(AutoMapScene_ExploredPercent(snapshot, explored) == 0);
+  explored.Mark(AutoMapCell{LEVEL, 1, 1});
+  CHECK(AutoMapScene_ExploredPercent(snapshot, explored) == 33);
+  explored.Mark(AutoMapCell{LEVEL, 0, 0});  // stone seen from the floor does not count
+  explored.Mark(AutoMapCell{LEVEL, 2, 1});
+  CHECK(AutoMapScene_ExploredPercent(snapshot, explored) == 66);
+  explored.Mark(AutoMapCell{LEVEL, 3, 1});
+  CHECK(AutoMapScene_ExploredPercent(snapshot, explored) == 100);
+  AutoMapLevelSnapshot rock = Corridor();
+  for (size_t i = 0; i < rock.cells.size(); i++) rock.cells[i].kind = AutoMapCellWall;
+  CHECK(AutoMapScene_ExploredPercent(rock, explored) == -1);
+}
+
 void TestAutoMapScene(void)
 {
+  ExploredShareCountsTheCellsOneCanStandOn();
   TipTextWithoutGlyphsBlanksTheArgumentCharacters();
   TipGlyphsFindEveryInlineIcon();
   AGroupKeepsWhereItsMembersStandAndItsSize();

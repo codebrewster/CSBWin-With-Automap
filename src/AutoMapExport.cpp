@@ -415,8 +415,10 @@ static std::string LevelAreaFields(int level)
 static void AppendLevelIndex(std::string &idx, AutoMapRecorder &recorder, int level, const AutoMapLevelSnapshot &s,
                              const std::vector<AutoMapMonsterChoice> &types)
 {
-  Append(idx, "%s{\"level\":%d,\"w\":%d,\"h\":%d,\"offsetX\":%d,\"offsetY\":%d%s,\"visited\":%d,\"types\":[", level ? "," : "", level,
-         s.width, s.height, s.offsetX, s.offsetY, LevelAreaFields(level).c_str(), LevelIsVisited(recorder, level));
+  // How much is explored, as the level list shows it (AutoMapScene_ExploredPercent)
+  int explored = level < recorder.Explored().LevelCount() ? AutoMapScene_ExploredPercent(s, recorder.Explored()) : -1;
+  Append(idx, "%s{\"level\":%d,\"w\":%d,\"h\":%d,\"offsetX\":%d,\"offsetY\":%d%s,\"visited\":%d,\"explored\":%d,\"types\":[", level ? "," : "", level,
+         s.width, s.height, s.offsetX, s.offsetY, LevelAreaFields(level).c_str(), LevelIsVisited(recorder, level), explored);
   for (size_t i = 0; i < types.size(); i++) Append(idx, "%s%s", i ? "," : "", JsonText(types[i].name).c_str());
   Append(idx, "]}");
 }

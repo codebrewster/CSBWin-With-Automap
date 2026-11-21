@@ -681,6 +681,18 @@ static void DrawLevelList(void)
       AutoMapPaint_Text(x, y + 3, "NOT VISITED", selected ? ON_TEXT : GREY, PIXEL);
       x += AutoMapPaint_TextWidth("NOT VISITED", PIXEL) + 10;
     }
+    else
+    {
+      // How much of it is explored, right-aligned so the numbers line up
+      int percent = AutoMap_LevelExploredPercent(level);
+      int slot = AutoMapPaint_TextWidth("100%", PIXEL);
+      if (percent >= 0)
+      {
+        std::string share = std::to_string(percent) + "%";
+        AutoMapPaint_Text(x + slot - AutoMapPaint_TextWidth(share, PIXEL), y + 3, share, text, PIXEL);
+      }
+      x += slot + 10;
+    }
     int hits = AutoMapWindow_SearchHitsOnLevel(level);
     if (hits > 0) AutoMapPaint_Text(x, y + 3, std::to_string(hits) + (hits > 1 ? " HITS" : " HIT"), selected ? ON_TEXT : GOLD, PIXEL);
     y += ROW;

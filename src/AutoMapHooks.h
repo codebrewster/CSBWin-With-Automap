@@ -175,6 +175,8 @@ int AutoMap_LevelCount(void);
 void AutoMap_ShowLevel(int level);
 // For the level list: whether the party has explored any cell of level, and where the party is
 bool AutoMap_LevelIsVisited(int level);
+// How much of level is explored, in percent (AutoMapScene_ExploredPercent); -1 when it has no floor
+int AutoMap_LevelExploredPercent(int level);
 int AutoMap_PartyLevel(void);
 // The palette the vertical blank shows the 3D view in: realPalette, or the map_debug light
 // override when one is set. Game logic keeps reading d.CurrentPalette itself.

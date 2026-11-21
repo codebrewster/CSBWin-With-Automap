@@ -2234,6 +2234,26 @@ bool AutoMap_LevelIsVisited(int level)
   return false;
 }
 
+// Reading a level costs more than a paint should: the share is kept per level and read again
+// only when the level's explored cells changed (their count of set bits)
+int AutoMap_LevelExploredPercent(int level)
+{
+  if (level < 0 || level >= recorder.Explored().LevelCount()) return -1;
+  static std::vector<std::pair<long, int> > known;
+  if (known.size() != (size_t)recorder.Explored().LevelCount()) known.assign((size_t)recorder.Explored().LevelCount(), std::make_pair(-1L, -1));
+  const std::vector<uint8_t> &bits = recorder.Explored().BitsOfLevel(level);
+  long count = 0;
+  for (size_t i = 0; i < bits.size(); i++) count += __builtin_popcount(bits[i]);
+  std::pair<long, int> &entry = known[(size_t)level];
+  if (entry.first != count)
+  {
+    AutoMapLevelSnapshot snapshot = AutoMapLevelReader_ReadLevel(level);
+    entry.first = count;
+    entry.second = snapshot.width > 0 ? AutoMapScene_ExploredPercent(snapshot, recorder.Explored()) : -1;
+  }
+  return entry.second;
+}
+
 int AutoMap_PartyLevel(void)
 {
   return d.partyLevel;

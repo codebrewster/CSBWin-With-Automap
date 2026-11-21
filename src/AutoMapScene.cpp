@@ -3322,6 +3322,25 @@ int AutoMapScene_ExperienceToNextLevel(int experience)
   return (int)(next - experience);
 }
 
+int AutoMapScene_ExploredPercent(const AutoMapLevelSnapshot &snapshot, const AutoMapExplored &explored)
+{
+  int open = 0, seen = 0;
+  for (int y = 0; y < snapshot.height; y++)
+  {
+    for (int x = 0; x < snapshot.width; x++)
+    {
+      const AutoMapCellRecord &cell = snapshot.cells[(size_t)y * snapshot.width + x];
+      if (cell.isOutsideLevel || cell.kind == AutoMapCellWall) continue;
+      if (cell.kind == AutoMapCellFalseWall && !cell.falseWallIsPassable) continue;
+      open++;
+      if (explored.IsExplored(LevelCellOf(snapshot, x, y))) seen++;
+    }
+  }
+  if (open == 0) return -1;
+  int percent = seen * 100 / open;
+  return seen > 0 && percent == 0 ? 1 : percent;
+}
+
 void AutoMapScene_RememberExploredLooks(const AutoMapLevelSnapshot &snapshot,
                                         const AutoMapExplored &explored, AutoMapCellMemory *memory)
 {

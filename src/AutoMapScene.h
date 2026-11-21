@@ -947,6 +947,12 @@ void AutoMapScene_RememberExploredItems(const AutoMapLevelSnapshot &snapshot,
 void AutoMapScene_RememberExploredLooks(const AutoMapLevelSnapshot &snapshot,
                                         const AutoMapExplored &explored, AutoMapCellMemory *memory);
 
+// How much of the level the party has explored, in whole percent (rounded down, at least 1 once
+// any of it is): explored cells out of the cells one can stand on, as the explored tint counts
+// them (no stone, no solid false wall, not the rim rock the reader adds). -1 for a level with
+// none. The level list shows it, in the map window and the exported page.
+int AutoMapScene_ExploredPercent(const AutoMapLevelSnapshot &snapshot, const AutoMapExplored &explored);
+
 // The map is looked at from the south, so a monster facing south shows its front
 AutoMapMonsterPicture AutoMapScene_ChooseMonsterPicture(const AutoMapMonsterKind &kind,
                                                         AutoMapDirection facing);
