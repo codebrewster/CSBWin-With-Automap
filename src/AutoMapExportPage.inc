@@ -421,15 +421,18 @@ function drawMonsters() {
     else m.m.forEach(mb => { const [dx, dy] = [[0, -1], [1, 0], [0, 1], [-1, 0]][mb[2] & 3]; const tx = x + cs / 2 + dx * cs / 2, ty = y + cs / 2 + dy * cs / 2, qx = -dy, qy = dx; tri([[tx, ty], [tx - dx * cs * .18 + qx * cs * .14, ty - dy * cs * .18 + qy * cs * .14], [tx - dx * cs * .18 - qx * cs * .14, ty - dy * cs * .18 - qy * cs * .14]], '#e9e2d2'); });
   }
 }
-function drawParty() { const p = party(); if (!p) return; partyArrow(px(p.x) + cs / 2, py(p.y) + cs / 2, cs * .38, p.f, '#ff4d4d', '#fff'); }
+function drawParty(p = party()) { if (!p) return; partyArrow(px(p.x) + cs / 2, py(p.y) + cs / 2, cs * .38, p.f, '#ff4d4d', '#fff'); }
 function drawNotes() {
   const N = noteOf();
   for (const c of V.cells) {
     const key = c.x + ',' + c.y; const pit = key in N.pits ? N.pits[key] : c.ppit; if (pit === undefined || pit < 0) continue;
-    const x = px(c.x), y = py(c.y); dashed(x + cs * .06, y + cs * .06, cs * .88, cs * .88, COL.note); if (pit === 1) { const d = Math.max(2, Math.round(cs / 12)); rect(x + cs / 2 - d / 2, y + cs / 2 - d / 2, d, d, COL.note); }
+    pitNote(c.x, c.y, pit);
   }
-  for (const l of allPlayerLinks()) { const s = Math.max(3, Math.round(cs / 6)); rect(px(l[2]) + 2, py(l[3]) + cs - s - 2, s, s, COL.note); }
+  for (const l of allPlayerLinks()) linkNote(l);
 }
+// Your pit mark (open: with a dot) and the corner square on a cell your link goes to
+function pitNote(cx, cy, open) { const x = px(cx), y = py(cy); dashed(x + cs * .06, y + cs * .06, cs * .88, cs * .88, COL.note); if (open === 1) { const d = Math.max(2, Math.round(cs / 12)); rect(x + cs / 2 - d / 2, y + cs / 2 - d / 2, d, d, COL.note); } }
+function linkNote(l) { const s = Math.max(3, Math.round(cs / 6)); rect(px(l[2]) + 2, py(l[3]) + cs - s - 2, s, s, COL.note); }
 function allPlayerLinks() { return [...V.plinks, ...noteOf().links]; }
 
 // ============================================================================================
@@ -530,9 +533,8 @@ function drawHover() {
   if (!all.length && !L.goals.length) return L; L.lit = true;
   const keep = new Set(); all.forEach(l => { keep.add(l[0] + ',' + l[1]); keep.add(l[2] + ',' + l[3]); }); L.goals.forEach(gl => keep.add(gl[0] + ',' + gl[1])); keep.add(hover.x + ',' + hover.y);
   spotlight([...keep]);
-  const w = Math.max(2, Math.round(cs / 12)), hs = Math.max(7, cs * .26);
-  for (const [sx0, sy0, dx0, dy0] of L.cyan) { const sx = px(sx0) + cs / 2, sy = py(sy0) + cs / 2; const [tx, ty] = clipToCell(sx, sy, dx0, dy0); const a = Math.atan2(ty - sy, tx - sx); chunkyLine(sx, sy, tx - Math.cos(a) * hs * .8, ty - Math.sin(a) * hs * .8, COL.cyan, w, false); head(tx, ty, a, hs, COL.cyan, 'fill'); frame(px(dx0) + 2, py(dy0) + 2, cs - 4, cs - 4, COL.cyan, Math.max(2, Math.round(cs / 14))); }
-  for (const [sx0, sy0, dx0, dy0] of L.dormant) { const sx = px(sx0) + cs / 2, sy = py(sy0) + cs / 2; const [tx, ty] = clipToCell(sx, sy, dx0, dy0); const a = Math.atan2(ty - sy, tx - sx); chunkyLine(sx, sy, tx - Math.cos(a) * hs * .8, ty - Math.sin(a) * hs * .8, '#5a8a94', w, true); head(tx, ty, a, hs, '#5a8a94', 'hollow'); dashed(px(dx0) + 2, py(dy0) + 2, cs - 4, cs - 4, '#5a8a94'); }
+  for (const l of L.cyan) teleportLine(l, false);
+  for (const l of L.dormant) teleportLine(l, true);
   // A link drawn in gold is not drawn again in blue (a relay that feeds itself is in both lists)
   const gold = dedupe(L.gold), same = (a, b) => a.slice(0, 6).join() === b.slice(0, 6).join();
   const feed = dedupe(L.feed).filter(l => !gold.some(g => same(g, l)));
@@ -547,6 +549,13 @@ function drawHover() {
   // As the game: every source gets its square, the hovered one and those of incoming gold lines
   const sent = new Set(); for (const l of gold) { const k = l.slice(0, 2).join() + ',' + l[4] + ',' + l[5]; if (!sent.has(k)) { sent.add(k); sourceNode(l, COL.link); } }
   return L;
+}
+// Where a teleporter sends you: cyan into a framed cell; a dormant one's, dashed and dim
+function teleportLine([sx0, sy0, dx0, dy0], dormant) {
+  const w = Math.max(2, Math.round(cs / 12)), hs = Math.max(7, cs * .26), col = dormant ? '#5a8a94' : COL.cyan;
+  const sx = px(sx0) + cs / 2, sy = py(sy0) + cs / 2; const [tx, ty] = clipToCell(sx, sy, dx0, dy0); const a = Math.atan2(ty - sy, tx - sx);
+  chunkyLine(sx, sy, tx - Math.cos(a) * hs * .8, ty - Math.sin(a) * hs * .8, col, w, dormant); head(tx, ty, a, hs, col, dormant ? 'hollow' : 'fill');
+  if (dormant) dashed(px(dx0) + 2, py(dy0) + 2, cs - 4, cs - 4, col); else frame(px(dx0) + 2, py(dy0) + 2, cs - 4, cs - 4, col, Math.max(2, Math.round(cs / 14)));
 }
 function dedupe(ls) { const s = new Set(); return ls.filter(l => { const k = l.slice(0, 4).join(); if (s.has(k)) return false; s.add(k); return true; }); }
 
@@ -868,9 +877,179 @@ function drawShowPanel() {
 }
 function showClick(mx, my) { const P = panelRects.show; if (!P) return false; if (!inRect(mx, my, P)) { showOpen = false; return true; } for (const [x, y, w, h, r] of P[4]) if (inRect(mx, my, [x, y, w, h])) { if (r === 'SHOW ALL') Object.keys(SHOW).forEach(k => SHOW[k] = true); else if (r === 'HIDE ALL') Object.keys(SHOW).forEach(k => SHOW[k] = false); else if (r === 'PITS') { pitStyle = (pitStyle + 1) % 3; try { localStorage.setItem('csb-map-pit-style', String(pitStyle)); } catch (e) { } } else SHOW[r] = !SHOW[r]; } return true; }
 
-// ---------------- controls help ----------------
-const HELP = [['LEFT-DRAG', 'PAN THE MAP'], ['WHEEL', 'ZOOM TOWARDS THE POINTER'], ['MIDDLE-CLICK', 'CENTRE ON THE PARTY AND FOLLOW'], ['SIDE BUTTONS', 'LEVEL DOWN / UP, THE TILE FRAMED'], ['PAGE DOWN / UP', 'LEVEL DOWN / UP'], ['/ OR CTRL+F', 'SEARCH ALL LEVELS'], ['HOVER', 'WHAT IS THERE, AND ITS LINKS'], ['SHIFT', 'THE ROUTE (SPOILERS ALL)'], ['SHIFT+WHEEL', 'SCROLL A LONG TOOLTIP'], ['CTRL+WHEEL', 'SIZE OF THE TOOLTIP'], ['CTRL+CLICK', 'ONE LEVEL DOWN, OR THROUGH A STAIR'], ['RIGHT-CLICK', 'MARKS, LINKS, ASCEND / DESCEND'], ['', ''], ['', 'CLICK ANYWHERE TO CLOSE']];
-function drawHelp() { if (!helpOpen) return; const widest = (i, q) => Math.max(...HELP.map(r => textW(r[i], q))); const fit = q => widest(0, q) + widest(1, q) + 40; const p = fit(2) <= cv.width - 8 ? 2 : 1, c1 = widest(0, p) + 20, w = Math.min(c1 + widest(1, p) + 20, cv.width - 4), h = HELP.length * 16 + 30; const x = Math.max(2, Math.round((cv.width - w) / 2)), y = 40; plate(x, y, w, h); text(g, x + 10, y + 8, 'CONTROLS', '#ffcc33', p); HELP.forEach((r, i) => { text(g, x + 10, y + 26 + i * 16, r[0], '#ffcc33', p); text(g, x + 10 + c1, y + 26 + i * 16, r[1], '#fff', p); }); }
+// ---------------- ?: CONTROLS and SYMBOLS ----------------
+const HELP = [['LEFT-DRAG', 'PAN THE MAP'], ['WHEEL', 'ZOOM TOWARDS THE POINTER'], ['MIDDLE-CLICK', 'CENTRE ON THE PARTY AND FOLLOW'], ['SIDE BUTTONS', 'LEVEL DOWN / UP, THE TILE FRAMED'], ['PAGE DOWN / UP', 'LEVEL DOWN / UP'], ['/ OR CTRL+F', 'SEARCH ALL LEVELS'], ['HOVER', 'WHAT IS THERE, AND ITS LINKS'], ['SHIFT', 'THE ROUTE (SPOILERS ALL)'], ['SHIFT+WHEEL', 'SCROLL A LONG TOOLTIP'], ['CTRL+WHEEL', 'SIZE OF THE TOOLTIP'], ['CTRL+CLICK', 'ONE LEVEL DOWN, OR THROUGH A STAIR'], ['RIGHT-CLICK', 'MARKS, LINKS, ASCEND / DESCEND'], ['', ''], ['', 'CLICK OUTSIDE OR ESCAPE TO CLOSE']];
+const HELP_TABS = ['CONTROLS', 'SYMBOLS'];
+let helpTab = 0, legendTop = 0, legendMost = 0, helpTabRects = [];
+// The legend draws every sample with the map's own functions, on cells of this size; a sample is
+// two cells wide (cells 0 and 1), a single cell sits in its middle (x .5)
+const LEG_CS = 32, LEG_ROW = LEG_CS + 6, LEG_HEAD = 22;
+// Pictures for the samples, taken from this file's own data (what is not there is drawn without)
+let legendPics = null;
+function legendFind() {
+  if (legendPics && legendPics.data === DATA) return legendPics;
+  const P = { data: DATA };
+  for (const v of Object.values(DATA.views)) {
+    for (const c of v.cells) {
+      if (c.k === 2 && c.fp && !c.pit[0] && !P.pit) P.pit = c.fp;
+      if (c.k === 2 && c.fp && c.pit[0] && !P.hiddenPit) P.hiddenPit = c.fp;
+      (c.sides || []).forEach((s, i) => { if (!s || s[4] || s[6] || s[8] || !s[1]) return; if (s[3] && !s[5] && !P.switch) P.switch = s[0]; if (!s[3] && !s[5] && !s[2] && !P.deco) P.deco = s[0]; if (s[5] && (c.alc || []).some(a => a[0] === i && (a[1][1] || a[1][0])) && !P.alcove) P.alcove = { side: i, cell: c }; });
+      if ((c.locks || []).some(l => l[1] && (l[2][1] || l[2][0])) && !P.lock) P.lock = c;
+      if (c.items && c.items.length && c.items[0][0] && !P.item) P.item = c.items[0];
+      if (c.items && c.items.length === 3 && c.all > 3 && c.items.every(it => it[0]) && !P.pile) P.pile = c;
+    }
+    for (const a of v.acts) { if ((a[2] === 2 || a[2] === 4) && a[6] && !P.gen) P.gen = a[6]; if ((a[3] === 4 || a[3] === 6) && (a[5][1] || a[5][0]) && !P.padItem) P.padItem = a[5]; }
+    for (const m of v.monsters) if (m.size !== undefined && m.m.length >= 2 && !P.monsters) P.monsters = m;
+    for (const cl of v.clouds) if (!cl[3] && !P.cloud) P.cloud = cl[2];
+    for (const m of v.missiles) if (m[2] && !P.missile) P.missile = m[2];
+  }
+  return legendPics = P;
+}
+const NO_ITEM = ['', '', '', 5];
+// One cell as the map draws it: floor, wall faces, tint, pads, items. acts as in the data, without x and y.
+function sampleCell(c, acts) {
+  c = { x: .5, y: 0, ...c }; actsAt = acts ? { [c.x + ',' + c.y]: acts.map(a => [c.x, c.y, ...a]) } : {};
+  drawCellBase(c); drawWallFaces(c); drawCellOverlay(c); drawActuators(c); drawItems(c);
+}
+const pad = (op, facing, item) => sampleCell({ k: 1, fp: PLATE, flav: 0 }, [[0, op, facing ?? -1, item || NO_ITEM, '', '']]);
+const sideOf = (side, s) => { const sides = [null, null, null, null]; sides[side] = s; return sides; };
+// A line across the whole sample: from a pad in the middle of the half cell on the left to the
+// half cell on the right, over floor. from: what the source cell is.
+function sampleStrip(from) { sampleCell({ k: 1, ...from, x: -.5 }); sampleCell({ x: .5, k: 1 }); sampleCell({ x: 1.5, k: 1 }); }
+const STRIP = [-.5, 0, 1.5, 0];
+function sampleLine(col, signal, once, learned) { sampleStrip(); const l = [...STRIP, 0, 0, signal, once ? 1 : 0]; drawEdge(l, col, learned, 0); sourceNode(l, col); }
+const LEGEND = [
+  ['CELLS', [
+    ['ROCK', () => sampleCell({ k: 0 })],
+    ['FLOOR', () => sampleCell({ k: 1 })],
+    ['EXPLORED (VISION ALL, TINT)', () => { tint = true; sampleCell({ k: 1, hl: 1 }); }],
+    ['WALKED BY THE PARTY', () => { walked = true; sampleCell({ k: 1, wk: 1 }); }],
+    ['DOOR', () => sampleCell({ k: 4, door: [4, 0, 0, 0, 0, 0] })],
+    ['OPEN DOOR', () => sampleCell({ k: 4, door: [0, 0, 0, 0, 0, 0] })],
+    ['BROKEN DOOR', () => sampleCell({ k: 4, door: [5, 0, 0, 0, 0, 0] })],
+    ['SEALED DOOR (SPOILERS ALL)', () => sampleCell({ k: 4, door: [4, 0, 0, 0, 1, 0] })],
+    ['DOOR AN AXE BREAKS', () => sampleCell({ k: 4, door: [4, 0, 1, 0, 0, 0] })],
+    ['DOOR A FIREBALL BREAKS', () => sampleCell({ k: 4, door: [4, 0, 0, 1, 0, 0] })],
+    ['A SWITCH OR PAD WORKS IT', () => sampleCell({ k: 4, door: [4, 0, 0, 0, 0, 0], linked: 1 })],
+    ['STAIRS UP, TO THE LEVEL SHOWN', () => sampleCell({ k: 3, st: [1, 0] })],
+    ['STAIRS DOWN', () => sampleCell({ k: 3, st: [0, 0] })],
+    ['PIT', () => sampleCell({ k: 2, fp: legendFind().pit, flav: 0, pit: [0, 1, 0] })],
+    ['PIT, ZOOMED OUT', () => { pitStyle = 2; sampleCell({ k: 2, fp: legendFind().pit, flav: 0, pit: [0, 1, 0] }); }],
+    ['PIT THAT LOOKS LIKE FLOOR', () => sampleCell({ k: 2, fp: legendFind().hiddenPit || legendFind().pit, flav: 0, pit: [1, 0, 0] })],
+    ['THE SAME, OPEN', () => sampleCell({ k: 2, fp: legendFind().hiddenPit || legendFind().pit, flav: 0, pit: [1, 1, 0] })],
+    ['PIT A SWITCH CAN OPEN', () => sampleCell({ k: 1, pit: [0, 0, 1] })],
+    ['FALSE WALL, SOLID', () => sampleCell({ k: 6 })],
+    ['FALSE WALL, WALK-THROUGH', () => sampleCell({ k: 6, fwp: 1 })],
+    ['FALSE WALL, OPEN', () => sampleCell({ k: 7 })],
+    ['TELEPORTER', () => sampleCell({ k: 5, tele: [lvl, 0, 0, 3, 0, 0, 0, 0] })],
+    ['TELEPORTER TO ANOTHER LEVEL', () => sampleCell({ k: 5, tele: [lvl ? lvl - 1 : 1, 0, 0, 3, 0, 0, 1, 1] })],
+    ['INVISIBLE TELEPORTER', () => sampleCell({ k: 8, tele: [lvl, 0, 0, 3, 0, 0, 0, 0] })],
+    ['DORMANT TELEPORTER', () => sampleCell({ k: 9, tele: [lvl, 0, 0, 3, 0, 0, 0, 0] })],
+    ['SPINNER: TURNS RIGHT', () => sampleCell({ k: 10, spin: [-1, 1] })],
+    ['SPINNER: TURNS LEFT', () => sampleCell({ k: 10, spin: [-1, 3] })],
+    ['SPINNER: TURNS AROUND', () => sampleCell({ k: 10, spin: [-1, 2] })],
+    ['SPINNER: FACE NORTH', () => sampleCell({ k: 10, spin: [0, 0] })],
+    ['SPINNER: KEEPS FACING', () => sampleCell({ k: 10, spin: [-1, 0] })],
+    ['DORMANT SPINNER', () => sampleCell({ k: 11, spin: [-1, 1] })],
+  ]],
+  ['WALLS', [
+    ['SWITCH, LEVER, BUTTON', () => sampleCell({ k: 0, sides: sideOf(2, [legendFind().switch || '', 1, 0, 1, 0, 0, '', 0, 0]) })],
+    ['DECORATION', () => sampleCell({ k: 0, sides: sideOf(2, [legendFind().deco || '', 1, 0, 0, 0, 0, '', 0, 0]) })],
+    ['HIDDEN SWITCH', () => sampleCell({ k: 0, sides: sideOf(2, ['', 0, 0, 1, 1, 0, '', 0, 0]) })],
+    ['WALL WRITING', () => sampleCell({ k: 0, sides: sideOf(2, ['', 0, 1, 0, 0, 0, '', 0, 0]) })],
+    ['ALCOVE AND WHAT LIES IN IT', () => { const A = legendFind().alcove; if (A) sampleCell({ k: 0, sides: sideOf(A.side, A.cell.sides[A.side]), alc: A.cell.alc.filter(a => a[0] === A.side) }); }],
+    ['LOCK AND THE KEY IT WANTS', () => { const c = legendFind().lock; if (c) sampleCell({ k: 0, sides: c.sides, locks: c.locks }); }],
+  ]],
+  ['PADS AND WHO SETS THEM OFF', [
+    ['PAD: ANYTHING', () => pad(0)],
+    ['THE PARTY', () => pad(2)],
+    ['THE PARTY FACING EAST', () => pad(3, 1)],
+    ['MONSTERS', () => pad(5)],
+    ['THE PARTY OR MONSTERS', () => pad(1)],
+    ['THIS ITEM LYING ON IT', () => pad(4, -1, legendFind().padItem || legendFind().item)],
+    ['THE PARTY CARRYING THIS', () => pad(6, -1, legendFind().padItem || legendFind().item)],
+    ['HIDDEN PAD', () => sampleCell({ k: 1 }, [[0, 0, -1, NO_ITEM, '', '']])],
+    ['PAD THAT CANNOT FIRE', () => sampleCell({ k: 1 }, [[1, 0, -1, NO_ITEM, '', '']])],
+    ['TELEPORTER: PARTY, OBJECTS', () => sampleCell({ k: 5, tele: [lvl, 0, 0, 2, 0, 0, 1, 0] })],
+    ['TELEPORTER: OBJECTS', () => sampleCell({ k: 5, tele: [lvl, 0, 0, 0, 0, 0, 1, 0] })],
+    ['TELEPORTER: MONSTERS', () => sampleCell({ k: 5, tele: [lvl, 0, 0, 1, 0, 0, 1, 0] })],
+  ]],
+  ['THINGS', [
+    ['THE PARTY', () => drawParty({ x: .5, y: 0, f: 1 })],
+    ['MONSTERS, WHERE THEY FACE', () => { const m = legendFind().monsters; sampleCell({ k: 1 }); if (m) { V = { ...V, monsters: [{ ...m, x: .5, y: 0 }] }; SHOW.MONSTERS = true; drawMonsters(); } }],
+    ['GENERATOR', () => sampleCell({ k: 1 }, [[2, 0, -1, NO_ITEM, legendFind().gen || '', '']])],
+    ['GENERATOR, ASLEEP', () => sampleCell({ k: 1 }, [[4, 0, -1, NO_ITEM, legendFind().gen || '', '']])],
+    ['GENERATOR, SPENT', () => sampleCell({ k: 1 }, [[3, 0, -1, NO_ITEM, '', '']])],
+    ['ITEMS, MORE THAN THREE', () => { const P = legendFind(); if (P.pile) sampleCell({ k: 1, items: P.pile.items, all: P.pile.all }); else if (P.item) sampleCell({ k: 1, items: [P.item, P.item, P.item], all: 5 }); }],
+    ['AN ITEM ONLY GLIMPSED', () => { sampleCell({ k: 1 }); V = { ...V, glimpses: [[.5, 0]], gfaces: [] }; drawGlimpses(); }],
+    ['FLYING: THROWN, SPELL', () => { const P = legendFind(), s = P.missile || (P.item && P.item[0]); sampleCell({ k: 1 }); if (s) { V = { ...V, missiles: [[.5, 0, s, 1]] }; drawMissiles(); } }],
+    ['CLOUD', () => { sampleCell({ k: 1 }); V = { ...V, clouds: [[.5, 0, legendFind().cloud || '', 0]] }; drawClouds(); }],
+    ['FLUXCAGE', () => { sampleCell({ k: 1 }); drawFlux(px(.5), py(0)); }],
+  ]],
+  ['HOVERING A CELL', [
+    ['WHAT IT SENDS', () => sampleLine(COL.link, 0, false, false)],
+    ['WHAT FEEDS IT', () => sampleLine(COL.feed, 0, false, false)],
+    ['SETS: OPENS, WAKES', () => sampleLine(COL.link, 0, false, false)],
+    ['CLEARS: CLOSES, STOPS', () => sampleLine(COL.link, 1, false, false)],
+    ['TOGGLES', () => sampleLine(COL.link, 2, false, false)],
+    ['HOLDS WHILE PRESSED', () => sampleLine(COL.link, 3, false, false)],
+    ['WORKS ONCE ONLY', () => sampleLine(COL.link, 0, true, false)],
+    ['SEEN TO WORK (LEARNED)', () => sampleLine(COL.link, 0, false, true)],
+    ['GOAL: HAPPENS NOW, SOON, DONE', () => { sampleCell({ y: .2, k: 4, door: [4, 0, 0, 0, 0, 0] }); goalBadge([.5, .2, 'NOW', 1]); }],
+    ['GOAL: WAITS ON SOMETHING', () => { sampleCell({ y: .2, k: 4, door: [4, 0, 0, 0, 0, 0] }); goalBadge([.5, .2, 'BLOCKED', 0]); }],
+    ['THE DOOR AS IT WILL BE', () => { sampleCell({ k: 4, door: [4, 0, 0, 0, 0, 0] }); doorGhost(px(.5), py(0), 0, 0); }],
+    ['WHERE A TELEPORTER SENDS', () => { sampleStrip({ k: 5, tele: [lvl, 1, 0, 3, 0, 0, 0, 0] }); teleportLine(STRIP, false); }],
+    ['WHERE IT WOULD, WHEN WOKEN', () => { sampleStrip({ k: 9, tele: [lvl, 1, 0, 3, 0, 0, 0, 0] }); teleportLine(STRIP, true); }],
+  ]],
+  ['YOUR MARKS, THE SEARCH', [
+    ['YOUR PIT MARK', () => { sampleCell({ k: 1 }); pitNote(.5, 0, 0); }],
+    ['YOUR PIT MARK, OPEN', () => { sampleCell({ k: 1 }); pitNote(.5, 0, 1); }],
+    ['YOUR LINK', () => { sampleStrip(); const l = [...STRIP, 0, 0, 0, 0]; drawEdge(l, COL.note, true); linkNote(l); }],
+    ['SEARCH HIT', () => { sampleCell({ k: 1 }); markFrame(.5, 0, '#ffcc33'); }],
+    ['CHOSEN HIT, OR WHERE YOU LANDED', () => { sampleCell({ k: 1 }); markFrame(.5, 0, '#fff6dc'); }],
+  ]],
+];
+// Draws one sample in the box at (x, y) and puts back everything it changed
+function drawSample(x, y, fn) {
+  const keep = { cs, panX, panY, actsAt, V, tint, walked, vision, pitStyle, show: { ...SHOW } };
+  cs = LEG_CS; panX = x - RUL; panY = y - RUL; vision = 2; tint = false; walked = false; pitStyle = 1; Object.keys(SHOW).forEach(k => SHOW[k] = true);
+  g.save(); g.beginPath(); g.rect(x, y - 3, 2 * LEG_CS, LEG_CS + 6); g.clip();
+  try { fn(); } finally { g.restore(); ({ cs, panX, panY, actsAt, V, tint, walked, vision, pitStyle } = keep); Object.assign(SHOW, keep.show); }
+}
+function legendLayout(w) {
+  const p = 2, labelW = Math.max(...LEGEND.flatMap(s => s[1].map(e => textW(e[0], p)))), colW = 2 * LEG_CS + 10 + labelW + 18;
+  const cols = Math.max(1, Math.min(3, Math.floor((w - 20) / colW)));
+  let y = 0; const parts = [];
+  for (const [head, rows] of LEGEND) { parts.push({ head, y }); y += LEG_HEAD; const per = Math.ceil(rows.length / cols); rows.forEach((e, i) => parts.push({ e, col: Math.floor(i / per), y: y + (i % per) * LEG_ROW })); y += per * LEG_ROW + 6; }
+  return { colW, cols, height: y, parts };
+}
+function drawHelp() {
+  panelRects.help = null; helpTabRects = []; if (!helpOpen) return;
+  const p = 2, x0 = 2, y = 6, tabH = 18;
+  let w, h, x;
+  if (helpTab === 0) {
+    const widest = i => Math.max(...HELP.map(r => textW(r[i], p))), c1 = widest(0) + 20; w = Math.min(Math.max(c1 + widest(1) + 20, 260), cv.width - 4); h = HELP.length * 16 + tabH + 18;
+    x = Math.max(x0, Math.round((cv.width - w) / 2)); plate(x, y, w, h);
+    HELP.forEach((r, i) => { text(g, x + 10, y + tabH + 12 + i * 16, r[0], '#ffcc33', p); text(g, x + 10 + c1, y + tabH + 12 + i * 16, r[1], '#fff', p); });
+  } else {
+    const L = legendLayout(cv.width - 4); w = Math.min(L.cols * L.colW + 20, cv.width - 4); const view = Math.max(LEG_ROW, cv.height - y - 4 - tabH - 16); h = Math.min(L.height, view) + tabH + 16;
+    x = Math.max(x0, Math.round((cv.width - w) / 2)); plate(x, y, w, h);
+    legendMost = Math.max(0, L.height - (h - tabH - 16)); legendTop = Math.max(0, Math.min(legendTop, legendMost));
+    const top = y + tabH + 10; g.save(); g.beginPath(); g.rect(x + 1, top, w - 2, h - tabH - 12); g.clip();
+    for (const part of L.parts) {
+      const yy = top + part.y - legendTop; if (yy > y + h || yy + LEG_ROW < top) continue;
+      if (part.head) { text(g, x + 10, yy + 8, part.head, '#ffcc33', p); rect(x + 10 + textW(part.head, p) + 8, yy + 10, w - 30 - textW(part.head, p) - 8, 1, '#3a362f'); continue; }
+      const sx = x + 10 + part.col * L.colW; drawSample(sx, yy, part.e[1]); text(g, sx + 2 * LEG_CS + 10, yy + (LEG_CS - 10) / 2, part.e[0], '#fff', p);
+    }
+    g.restore();
+    if (legendMost) { const track = h - tabH - 16, th = Math.max(16, track * track / L.height), ty = top + (track - th) * legendTop / legendMost; rect(x + w - 7, top, 4, track, '#2c2822'); rect(x + w - 7, ty, 4, th, '#8f8676'); }
+  }
+  // the tabs on the panel's top edge
+  let tx = x + 8; HELP_TABS.forEach((t, i) => { const tw = textW(t, p) + 16, on = i === helpTab; rect(tx, y + 4, tw, tabH, on ? '#ffcc33' : '#1d1a16'); frame(tx, y + 4, tw, tabH, on ? '#ffcc33' : '#4a443a'); text(g, tx + 8, y + 4 + (tabH - 10) / 2, t, on ? '#1a160f' : '#d8cfbd', p); helpTabRects.push([tx, y + 4, tw, tabH, i]); tx += tw + 6; });
+  panelRects.help = [x, y, w, h];
+}
+function helpClick(mx, my) { for (const [x, y, w, h, i] of helpTabRects) if (inRect(mx, my, [x, y, w, h])) { helpTab = i; return; } if (!inRect(mx, my, panelRects.help)) helpOpen = false; }
+function scrollLegend(d) { legendTop = Math.max(0, Math.min(legendMost, legendTop + d)); }
 
 // ---------------- level list ----------------
 let levelScroll = 0, typed = '', levelRows = [], levelHover = -1; const ROWS_SHOWN = 12;
@@ -992,8 +1171,10 @@ function drawSearchMarks() {
   if (!searchOpen || !query) return; const sel = sRows[sSel] && sRows[sSel].hit; const mine = sRows.filter(r => r.hit && r.hit.l === lvl).map(r => r.hit);
   if (sel && mine.length) spotlight(mine.map(h => h.x + ',' + h.y));
   // Several hits can share a cell; the selected one is drawn last so its light frame stays on top
-  for (const h of [...mine.filter(h => h !== sel), ...mine.filter(h => h === sel)]) { const x = px(h.x), y = py(h.y), t = Math.max(2, Math.round(cs / 14)); frame(x + 1, y + 1, cs - 2, cs - 2, '#0b0a08', t + 2); frame(x + 2, y + 2, cs - 4, cs - 4, h === sel ? '#fff6dc' : '#ffcc33', t); }
+  for (const h of [...mine.filter(h => h !== sel), ...mine.filter(h => h === sel)]) markFrame(h.x, h.y, h === sel ? '#fff6dc' : '#ffcc33');
 }
+// A search hit's frame (gold; the chosen one light), and the landing mark's
+function markFrame(cx, cy, col) { const x = px(cx), y = py(cy), t = Math.max(2, Math.round(cs / 14)); frame(x + 1, y + 1, cs - 2, cs - 2, '#0b0a08', t + 2); frame(x + 2, y + 2, cs - 4, cs - 4, col, t); }
 function searchClick(mx, my) { const P = panelRects.search; if (!P || !inRect(mx, my, P)) return false; for (const [rx, ry, rw, rh, i] of sRects) if (inRect(mx, my, [rx, ry, rw, rh])) { const r = sRows[i]; if (r.head) { folded.has(r.l) ? folded.delete(r.l) : folded.add(r.l); rebuild(true); keepVisible(); } else goTo(i); } return true; }
 
 // ---------------- ascend / descend: one depth up or down, the way the game moves the party ----------------
@@ -1023,7 +1204,7 @@ function stepByDepth(cx, cy, up) { const t = depthTarget(up, cx + OX, cy + OY); 
 // Drawn only on a tile the page shows, as a stair for a stair's landing: it gives nothing away
 function drawLandingMark() {
   if (!landingMark || landingMark.l !== lvl) return; const x = landingMark.x - OX, y = landingMark.y - OY, c = C(x, y); if (!c || (landingMark.stair && c.k !== 3)) return;
-  spotlight([x + ',' + y]); const t = Math.max(2, Math.round(cs / 14)); frame(px(x) + 1, py(y) + 1, cs - 2, cs - 2, '#0b0a08', t + 2); frame(px(x) + 2, py(y) + 2, cs - 4, cs - 4, '#fff6dc', t);
+  spotlight([x + ',' + y]); markFrame(x, y, '#fff6dc');
 }
 // ---------------- right-click menu: your notes, and with map_debug the testing aids ----------------
 const NESW = 'NESW';
@@ -1172,7 +1353,7 @@ cv.addEventListener('mousedown', e => {
   if (e.button === 2) { if (linkMode) { linkMode = null; draw(); return; } const c = cellAt(mx, my); closePanels(); if (c && (debugOn || V.cells.some(o => o.x === c.x && o.y === c.y))) openMenu(mx, my, c.x, c.y); draw(); return; }
   if (e.button !== 0) return;
   if (menu) { menuClick(mx, my); draw(); return; }
-  if (helpOpen) { helpOpen = false; draw(); return; }
+  if (helpOpen) { helpClick(mx, my); draw(); return; }
   if (levelOpen) { const P = panelRects.levels; if (inRect(mx, my, P)) { for (const [x, y, w, h, l] of levelRows) if (inRect(mx, my, [x, y, w, h])) pickLevel(l); } else levelOpen = false; draw(); return; }
   if (showOpen && showClick(mx, my)) { draw(); return; }
   if (debugOpen && debugClick(mx, my)) { draw(); return; }
@@ -1190,7 +1371,7 @@ function touchPoints(e) { const r = cv.getBoundingClientRect(); return [...e.tou
 function mouseAt(type, x, y) { const r = cv.getBoundingClientRect(); cv.dispatchEvent(new MouseEvent(type, { clientX: r.left + x, clientY: r.top + y, button: 0, bubbles: true, cancelable: true })); }
 cv.addEventListener('touchstart', e => {
   e.preventDefault(); const p = touchPoints(e); landingMark = null;
-  if (p.length === 1) { touch = { x: p[0].x, y: p[0].y, px: panX, py: panY, moved: false }; return; }
+  if (p.length === 1) { touch = { x: p[0].x, y: p[0].y, px: panX, py: panY, moved: false, legend: helpOpen && helpTab === 1 && inRect(p[0].x, p[0].y, panelRects.help), top: legendTop }; return; }
   if (p.length === 2) { touch = { pinch: true, d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) || 1, cs, moved: true }; hover = null; }
 }, { passive: false });
 cv.addEventListener('touchmove', e => {
@@ -1202,6 +1383,7 @@ cv.addEventListener('touchmove', e => {
     const ax = mx - RUL, ay = my - RUL, rw = cv.width - 2 * RUL, rh = cv.height - 2 * RUL; zoomFree = true; black.x = zoomBlack(panX, rw, W * old, W * cs, cs < old); black.y = zoomBlack(panY, rh, H * old, H * cs, cs < old); follow = false; panX = Math.round(ax - (ax - panX) * cs / old); panY = Math.round(ay - (ay - panY) * cs / old); draw(); return;
   }
   if (p.length !== 1 || touch.pinch) return;
+  if (touch.legend) { if (Math.abs(p[0].y - touch.y) > 8) touch.moved = true; if (touch.moved) { legendTop = touch.top; scrollLegend(touch.y - p[0].y); draw(); } return; }
   if (Math.abs(p[0].x - touch.x) + Math.abs(p[0].y - touch.y) > 8) { touch.moved = true; follow = false; hover = null; }
   if (touch.moved) { panX = touch.px + p[0].x - touch.x; panY = touch.py + p[0].y - touch.y; clampPan(); touch.px = panX; touch.py = panY; touch.x = p[0].x; touch.y = p[0].y; draw(); }
 }, { passive: false });
@@ -1222,7 +1404,7 @@ cv.addEventListener('mousemove', e => {
   levelHover = -1; for (const [x, y, w, h, l] of levelRows) if (inRect(mx, my, [x, y, w, h])) levelHover = l;
   sHover = -1; for (const [rx, ry, rw, rh, i] of sRects) if (inRect(mx, my, [rx, ry, rw, rh]) && sRows[i].hit) sHover = i;
   if (panelRects.menu) for (const [x, y, w, h, r] of panelRects.menu[4]) r.hov = inRect(mx, my, [x, y, w, h]);
-  const overPanel = ['search', 'show', 'levels', 'debug', 'menu'].some(k => inRect(mx, my, panelRects[k]));
+  const overPanel = ['search', 'show', 'levels', 'debug', 'menu', 'help'].some(k => inRect(mx, my, panelRects[k]));
   const c = overPanel || (drag && drag.moved) ? null : cellAt(mx, my); if (!c || !hover || c.x !== hover.x || c.y !== hover.y) tipScroll = 0; hover = c && V.cells.some(o => o.x === c.x && o.y === c.y) ? c : null; draw();
 });
 cv.addEventListener('mouseleave', () => { hover = null; draw(); });
@@ -1231,6 +1413,7 @@ cv.addEventListener('mouseleave', () => { hover = null; draw(); });
 function wheelStep(e) { const raw = e.shiftKey ? (e.deltaY || e.deltaX) : e.deltaY; return raw > 0 ? 1 : raw < 0 ? -1 : 0; }
 cv.addEventListener('wheel', e => {
   e.preventDefault(); const mx = e.offsetX, my = e.offsetY, d = wheelStep(e); if (!d) return; landingMark = null;
+  if (helpOpen && helpTab === 1 && inRect(mx, my, panelRects.help)) { scrollLegend(d * LEG_ROW * 2); draw(); return; }
   if (levelOpen && inRect(mx, my, panelRects.levels)) { levelScroll = Math.max(0, Math.min(DATA.index.levels.length - ROWS_SHOWN, levelScroll + d * 3)); draw(); return; }
   if (searchOpen && inRect(mx, my, panelRects.search)) { sTop = Math.max(0, Math.min(Math.max(0, sRows.length - S_ROWS), sTop + d * 3)); draw(); return; }
   if (e.ctrlKey) { tipScale = Math.max(1, Math.min(TIP_SCALE_MOST, tipScale - d)); try { localStorage.setItem('csb-map-tip-scale', String(tipScale)); } catch (err) { } draw(); return; }
@@ -1245,6 +1428,7 @@ window.addEventListener('keydown', e => {
   if (e.key === 'Backspace') e.preventDefault();
   if (e.key === 'Shift') { shiftHeld = true; draw(); }
   if (levelOpen) { if (e.key >= '0' && e.key <= '9') { typed = (typed + e.key).slice(-2); const l = Math.min(DATA.index.levels.length - 1, +typed); levelScroll = Math.max(0, Math.min(DATA.index.levels.length - ROWS_SHOWN, l - 4)); levelHover = l; } else if (e.key === 'Enter' && typed) pickLevel(Math.min(DATA.index.levels.length - 1, +typed)); else if (e.key === 'Escape') { levelOpen = false; typed = ''; } else if (e.key === 'Backspace') { e.preventDefault(); typed = typed.slice(0, -1); } draw(); return; }
+  if (helpOpen && helpTab === 1 && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); scrollLegend((e.key === 'ArrowDown' ? 1 : -1) * LEG_ROW); draw(); return; }
   if (e.key === 'Escape') { if (linkMode) linkMode = null; else if (menu) menu = null; else if (searchOpen) closeSearch(); else closePanels(); draw(); return; }
   if (e.key === 'PageDown' || e.key === 'PageUp') { e.preventDefault(); stepLevel(e.key === 'PageDown' ? 1 : -1); draw(); return; }
   // Ctrl+F is the page's search, open or not: never the browser's find

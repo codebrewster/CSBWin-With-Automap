@@ -484,6 +484,12 @@ nothing beyond the explored cells is found, and a scroll's words only once the p
 Click **?** on the bar for one page of the mouse buttons and keys. Any click or **Escape** closes it.
 Everything else the map draws is explained by hovering it: the tooltip names it.
 
+On the exported page, **?** has two tabs: **CONTROLS**, the keys and buttons, and **SYMBOLS**, every
+mark the map draws with a word on what it means: the cells, wall faces, pads and the badge of who
+sets them off, generators, items and monsters, the lines and goal badges of a hover, and your own
+marks. The samples are drawn by the page's own map code, with pictures from the file itself. The
+wheel, the arrow keys or a finger scroll the list; a click outside it or **Escape** closes it.
+
 ## Your own notes
 
 Right-click a cell the map shows to add your own guesses:

@@ -394,15 +394,18 @@ function drawMonsters() {
     else m.m.forEach(mb => { const [dx, dy] = [[0, -1], [1, 0], [0, 1], [-1, 0]][mb[2] & 3]; const tx = x + cs / 2 + dx * cs / 2, ty = y + cs / 2 + dy * cs / 2, qx = -dy, qy = dx; tri([[tx, ty], [tx - dx * cs * .18 + qx * cs * .14, ty - dy * cs * .18 + qy * cs * .14], [tx - dx * cs * .18 - qx * cs * .14, ty - dy * cs * .18 - qy * cs * .14]], '#e9e2d2'); });
   }
 }
-function drawParty() { const p = party(); if (!p) return; partyArrow(px(p.x) + cs / 2, py(p.y) + cs / 2, cs * .38, p.f, '#ff4d4d', '#fff'); }
+function drawParty(p = party()) { if (!p) return; partyArrow(px(p.x) + cs / 2, py(p.y) + cs / 2, cs * .38, p.f, '#ff4d4d', '#fff'); }
 function drawNotes() {
   const N = noteOf();
   for (const c of V.cells) {
     const key = c.x + ',' + c.y; const pit = key in N.pits ? N.pits[key] : c.ppit; if (pit === undefined || pit < 0) continue;
-    const x = px(c.x), y = py(c.y); dashed(x + cs * .06, y + cs * .06, cs * .88, cs * .88, COL.note); if (pit === 1) { const d = Math.max(2, Math.round(cs / 12)); rect(x + cs / 2 - d / 2, y + cs / 2 - d / 2, d, d, COL.note); }
+    pitNote(c.x, c.y, pit);
   }
-  for (const l of allPlayerLinks()) { const s = Math.max(3, Math.round(cs / 6)); rect(px(l[2]) + 2, py(l[3]) + cs - s - 2, s, s, COL.note); }
+  for (const l of allPlayerLinks()) linkNote(l);
 }
+// Your pit mark (open: with a dot) and the corner square on a cell your link goes to
+function pitNote(cx, cy, open) { const x = px(cx), y = py(cy); dashed(x + cs * .06, y + cs * .06, cs * .88, cs * .88, COL.note); if (open === 1) { const d = Math.max(2, Math.round(cs / 12)); rect(x + cs / 2 - d / 2, y + cs / 2 - d / 2, d, d, COL.note); } }
+function linkNote(l) { const s = Math.max(3, Math.round(cs / 6)); rect(px(l[2]) + 2, py(l[3]) + cs - s - 2, s, s, COL.note); }
 function allPlayerLinks() { return [...V.plinks, ...noteOf().links]; }
 
 // ============================================================================================
@@ -503,9 +506,8 @@ function drawHover() {
   if (!all.length && !L.goals.length) return L; L.lit = true;
   const keep = new Set(); all.forEach(l => { keep.add(l[0] + ',' + l[1]); keep.add(l[2] + ',' + l[3]); }); L.goals.forEach(gl => keep.add(gl[0] + ',' + gl[1])); keep.add(hover.x + ',' + hover.y);
   spotlight([...keep]);
-  const w = Math.max(2, Math.round(cs / 12)), hs = Math.max(7, cs * .26);
-  for (const [sx0, sy0, dx0, dy0] of L.cyan) { const sx = px(sx0) + cs / 2, sy = py(sy0) + cs / 2; const [tx, ty] = clipToCell(sx, sy, dx0, dy0); const a = Math.atan2(ty - sy, tx - sx); chunkyLine(sx, sy, tx - Math.cos(a) * hs * .8, ty - Math.sin(a) * hs * .8, COL.cyan, w, false); head(tx, ty, a, hs, COL.cyan, 'fill'); frame(px(dx0) + 2, py(dy0) + 2, cs - 4, cs - 4, COL.cyan, Math.max(2, Math.round(cs / 14))); }
-  for (const [sx0, sy0, dx0, dy0] of L.dormant) { const sx = px(sx0) + cs / 2, sy = py(sy0) + cs / 2; const [tx, ty] = clipToCell(sx, sy, dx0, dy0); const a = Math.atan2(ty - sy, tx - sx); chunkyLine(sx, sy, tx - Math.cos(a) * hs * .8, ty - Math.sin(a) * hs * .8, '#5a8a94', w, true); head(tx, ty, a, hs, '#5a8a94', 'hollow'); dashed(px(dx0) + 2, py(dy0) + 2, cs - 4, cs - 4, '#5a8a94'); }
+  for (const l of L.cyan) teleportLine(l, false);
+  for (const l of L.dormant) teleportLine(l, true);
   // A link drawn in gold is not drawn again in blue (a relay that feeds itself is in both lists)
   const gold = dedupe(L.gold), same = (a, b) => a.slice(0, 6).join() === b.slice(0, 6).join();
   const feed = dedupe(L.feed).filter(l => !gold.some(g => same(g, l)));
@@ -520,6 +522,13 @@ function drawHover() {
   // As the game: every source gets its square, the hovered one and those of incoming gold lines
   const sent = new Set(); for (const l of gold) { const k = l.slice(0, 2).join() + ',' + l[4] + ',' + l[5]; if (!sent.has(k)) { sent.add(k); sourceNode(l, COL.link); } }
   return L;
+}
+// Where a teleporter sends you: cyan into a framed cell; a dormant one's, dashed and dim
+function teleportLine([sx0, sy0, dx0, dy0], dormant) {
+  const w = Math.max(2, Math.round(cs / 12)), hs = Math.max(7, cs * .26), col = dormant ? '#5a8a94' : COL.cyan;
+  const sx = px(sx0) + cs / 2, sy = py(sy0) + cs / 2; const [tx, ty] = clipToCell(sx, sy, dx0, dy0); const a = Math.atan2(ty - sy, tx - sx);
+  chunkyLine(sx, sy, tx - Math.cos(a) * hs * .8, ty - Math.sin(a) * hs * .8, col, w, dormant); head(tx, ty, a, hs, col, dormant ? 'hollow' : 'fill');
+  if (dormant) dashed(px(dx0) + 2, py(dy0) + 2, cs - 4, cs - 4, col); else frame(px(dx0) + 2, py(dy0) + 2, cs - 4, cs - 4, col, Math.max(2, Math.round(cs / 14)));
 }
 function dedupe(ls) { const s = new Set(); return ls.filter(l => { const k = l.slice(0, 4).join(); if (s.has(k)) return false; s.add(k); return true; }); }
 

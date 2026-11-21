@@ -85,6 +85,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 - Records over all replays: `scripts/export-all-html.sh` writes `records.html` beside the pages, with the Records tab over every replay of each game (Chaos Strikes Back, Dungeon Master): one row per record, for the party or a champion, with the lowest value above 0, the average and the highest, and the replay, hero, weapon or spell and monster behind each.
 
 **Map**
+- The exported page's **?** has a SYMBOLS tab: every mark the map draws, with what it means (cells, walls, pads and who sets them off, generators, items, monsters, the lines and badges of a hover, your own marks), drawn by the page's own map code. A page shared with someone who has no manual now explains itself.
 - The exported page draws a sleeping generator as the game does, its monster faint in an empty diamond, no longer as a cog, and the search finds sleeping generators too.
 - Zoomed out (cells under 20 pixels) a monster group has one facing triangle, the way most of it faces, instead of one per member: in a small cell they piled up at its edges into white blobs. The HTML export too.
 - The exported map file is about 6% smaller (Dungeon Master: 985 KB down to 929 KB): the rock added around a level no longer stores its tooltip in every view. The page writes it itself, so hovering that rock still says `ADDED ROCK: OUTSIDE THE LEVEL`.
