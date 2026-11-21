@@ -1103,9 +1103,15 @@ static void VisibleRangeCoversTheCellsTouchingTheMap(void)
 
 static void DigitsAreThreeByFive(void)
 {
-  CHECK(AutoMapScene_DigitPixel(0, 0, 0));
+  // The zero leans like a slashed one, its top left and bottom right cut, so L0 never reads LO
+  CHECK(!AutoMapScene_DigitPixel(0, 0, 0));
   CHECK(AutoMapScene_DigitPixel(0, 0, 1));
   CHECK(AutoMapScene_DigitPixel(0, 0, 2));
+  CHECK(AutoMapScene_DigitPixel(0, 4, 0));
+  CHECK(AutoMapScene_DigitPixel(0, 4, 1));
+  CHECK(!AutoMapScene_DigitPixel(0, 4, 2));
+  CHECK(!AutoMapScene_DigitPixel(0, 2, 1));
+  CHECK(AutoMapScene_DigitPixel(0, 0, 2) != AutoMapScene_FontPixel('O', 0, 2));
   CHECK(!AutoMapScene_DigitPixel(1, 0, 0));
   CHECK(AutoMapScene_DigitPixel(1, 0, 1));
   CHECK(!AutoMapScene_DigitPixel(1, 0, 2));
