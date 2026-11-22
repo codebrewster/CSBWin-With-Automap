@@ -7,6 +7,8 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 ## Unreleased
 
+## 1.6.2 (2026-11-22)
+
 **Automap**
 - Hovering a cell with a replay pause (the red frame) says so at the end of its tooltip: `REPLAY PAUSES HERE`.
 
