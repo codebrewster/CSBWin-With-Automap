@@ -66,27 +66,30 @@ static ImU32 ChampionRgb(size_t column)
   return CHAMPION_RGB[column % 4];
 }
 
-// The record star and the arrows. Neither ImGui's own font nor Vera Mono has glyphs for them,
-// so text holding one is drawn in pieces with the symbol painted between them.
+// The record star, the arrows and the dash. Neither ImGui's own font nor Vera Mono has glyphs for
+// them (the window loads Latin-1 only), so text holding one is drawn in pieces with the symbol
+// painted between them.
 static const char *const STAR = "\xe2\x98\x85";
 static const char *const ARROW = "\xe2\x86\x92";
 static const char *const BOTH_WAYS_ARROW = "\xe2\x86\x94";
+static const char *const EM_DASH = "\xe2\x80\x94";
 static const size_t SYMBOL_BYTES = 3; // all are three bytes in UTF-8
 
 // The next painted symbol in the text from a position, or npos
 static size_t NextSymbol(const std::string &text, size_t from)
 {
-  return std::min(text.find(STAR, from), std::min(text.find(ARROW, from), text.find(BOTH_WAYS_ARROW, from)));
+  return std::min(std::min(text.find(STAR, from), text.find(EM_DASH, from)),
+                  std::min(text.find(ARROW, from), text.find(BOTH_WAYS_ARROW, from)));
+}
+
+static bool IsSymbol(const std::string &text, size_t at, const char *symbol)
+{
+  return text.compare(at, SYMBOL_BYTES, symbol) == 0;
 }
 
 static bool IsStar(const std::string &text, size_t at)
 {
-  return text.compare(at, SYMBOL_BYTES, STAR) == 0;
-}
-
-static bool IsBothWays(const std::string &text, size_t at)
-{
-  return text.compare(at, SYMBOL_BYTES, BOTH_WAYS_ARROW) == 0;
+  return IsSymbol(text, at, STAR);
 }
 
 static float SymbolWidth(float fontSize, bool star)
@@ -165,7 +168,10 @@ static void TextWithSymbols(ImDrawList *drawList, float fontSize, ImVec2 at, ImU
     bool star = IsStar(text, symbol);
     float width = SymbolWidth(fontSize, star);
     if (star) DrawStar(drawList, ImVec2(at.x + width / 2, at.y + fontSize * 0.5f), width * 0.5f, colour);
-    else DrawArrow(drawList, at, width, fontSize, colour, IsBothWays(text, symbol));
+    else if (IsSymbol(text, symbol, EM_DASH))
+      drawList->AddLine(ImVec2(at.x, at.y + fontSize * 0.5f), ImVec2(at.x + width, at.y + fontSize * 0.5f), colour,
+                        std::max(1.0f, fontSize / 12.0f));
+    else DrawArrow(drawList, at, width, fontSize, colour, IsSymbol(text, symbol, BOTH_WAYS_ARROW));
     at.x += width;
     from = symbol + SYMBOL_BYTES;
   }
@@ -2387,7 +2393,8 @@ static void DrawXpSources(HeroStatsDrawState *state, const std::vector<HeroStats
       HelpTooltip(line.help.c_str());
       if (!line.note.empty())
       {
-        ImGui::SameLine();
+        // Two spaces apart, as NoteWidth counts it: closer, "Fireball Fire" read as one name
+        ImGui::SameLine(0.0f, ImGui::CalcTextSize("  ").x);
         ImGui::TextColored(Colour(DIM_RGB), "%s", line.note.c_str());
       }
       if (line.depth > 0) ImGui::Unindent(14.0f * line.depth);

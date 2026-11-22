@@ -145,6 +145,7 @@ static void SpellNames(void)
   CHECK(HeroStatsView_SpellName(Runes(OH, VEN, 0)) == "Oh Ven Poison cloud");
   CHECK(HeroStatsView_SpellName(Runes(FUL, YA, KU)) == "Ful Ya Ku");
   CHECK(HeroStatsView_SpellName(Runes(FUL, YA, KU) | HERO_SPELL_NO_SUCH_SPELL) == "Ful Ya Ku (no spell)");
+  CHECK(HeroStatsView_SpellName(HERO_SPELL_NO_SUCH_SPELL) == "Power rune only (no spell)");
   CHECK(HeroStatsView_SpellName(HERO_SPELL_RUNES_CLEARED) == "Runes cleared");
   CHECK(HeroStatsView_SpellName(HERO_SPELL_SHIELD_ACTION) == "Shield action");
   CHECK(HeroStatsView_SpellName(HERO_SPELL_HEAL_ACTION) == "Heal action");

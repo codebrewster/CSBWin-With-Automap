@@ -170,7 +170,8 @@ std::string HeroStatsView_SpellName(uint32_t spell)
   bool noSuch = (spell & HERO_SPELL_NO_SUCH_SPELL) != 0;
   uint32_t key = spell & 0x00ffffff;
   std::string runes = RuneText(key);
-  if (noSuch) return runes + " (no spell)";
+  // Cast with the power rune alone: no rune names the spell
+  if (noSuch) return (runes.empty() ? std::string("Power rune only") : runes) + " (no spell)";
   std::string name = KnownName(key);
   return name.empty() ? runes : runes + " " + name;
 }

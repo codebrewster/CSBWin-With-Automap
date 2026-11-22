@@ -200,7 +200,8 @@ shield and heal actions are successful mana but no casts, which pull it up.
 "Fireball"). Its columns come in two groups that split the same way. **CASTS**: **All** (every
 attempt), **Successful** (the casts that worked), **Rate** (Successful ÷ All) and **Wasted** (the
 casts that bought nothing: on a spell's row the failed ones, needing more practice, fizzled, no
-flask for a potion ...; on a "(no spell)" row all of them). **MANA**: **All** (the runes of every
+flask for a potion ...; on a "(no spell)" row all of them; **Power rune only (no spell)** is
+the casts with nothing but the power rune). **MANA**: **All** (the runes of every
 cast, the wasted ones included), **Successful** (the mana of the casts that worked), **Rate**
 (Successful ÷ All) and **Wasted** (the wasted casts' part of it). Then the **Damage** and **Kills**
 of the spell, including the cloud or explosion it made. A table too narrow for all of it leaves
@@ -610,10 +611,11 @@ triangle shows the column and the direction. Numbers sort largest first on the f
 alphabetically. The total row always stays at the bottom, and a weapon's actions stay below it,
 sorted the same way.
 
-All tables sort except **Numbers**, **Key numbers**, Skills, Experience by source and Records,
-which keep their order so that the parts stay under their row: Skills by class, Experience by
-source most first, Records in their groups. Each table that sorts starts sorted by one of its
-columns, so clicking that column brings the first order back.
+All tables sort except **Numbers**, **Key numbers**, Skills and Experience by source, which keep
+their order so that the parts stay under their row: Skills by class, Experience by source most
+first. **Records** sorts within each group (Dealt, Taken ...); a click on **Record** puts them back
+in their order. Each table that sorts starts sorted by one of its columns, so clicking that column
+brings the first order back.
 
 ## Sharing: export as HTML
 

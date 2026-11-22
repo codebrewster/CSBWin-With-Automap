@@ -18,6 +18,8 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 - Records: hovering a value in a replay shows both lines of its tooltip, the tick and the click hint; the second was cut off.
 - Combat: a weapon's spell that hurts a monster only through its cloud (DISPELL of a staff, some INVOKEs) counts as a hit; it had damage and kills but 0 hits.
 - Survival: Damage reduced and its lines add up everywhere: Protection is its parts, the Total column the champions, Whole run the levels. Each was rounded on its own and could be 1 off.
+- Magic: casts of the power rune alone are named **Power rune only (no spell)**, not a blank "(no spell)".
+- Experience: a first rank shows `— → Neophyte` instead of `? → Neophyte`, and Experience by source sets the skill apart from the action or spell (`CLEAVE  Fighter · Swing`).
 
 ## 1.6.1 (2026-11-22)
 
