@@ -226,11 +226,21 @@ static void AddSpells(HeroStatsHeroPage *page, const HeroStats &stats, HeroStats
   for (size_t i = 0; i < spells.size(); i++)
   {
     const HeroStatsSpellRow &row = spells[i];
-    // Cleared runes cast nothing: they are a part of Mana spent, not a spell
+    // Old files' cleared runes were turned into rune outcomes when read; they come below
     if (row.spell == HERO_SPELL_RUNES_CLEARED) continue;
     // Mana: every cast's runes, the failed ones too; Wasted is the failed casts' part of it
     HeroStatsSpellLine line = {HeroStatsView_SpellName(row.spell), row.casts + row.failed, row.casts, row.failed,
-                               row.mana + row.wasted, row.wasted, row.damage, row.kills};
+                               row.mana + row.wasted, row.wasted, row.damage, row.kills,
+                               std::vector<HeroStatsSpellCounts>(), false};
+    page->spells.push_back(line);
+  }
+  // Cleared runes are no cast, but their mana is wasted: a line of its own makes the table's All
+  // the mana of every rune that came to an end, and its Wasted Mana wasted. It has no mana rate.
+  int cleared = stats.RunesCleared(who, level);
+  if (cleared > 0)
+  {
+    HeroStatsSpellLine line = {HeroStatsView_SpellName(HERO_SPELL_RUNES_CLEARED), 0, 0, 0, cleared, cleared, 0, 0,
+                               std::vector<HeroStatsSpellCounts>(), true};
     page->spells.push_back(line);
   }
 }

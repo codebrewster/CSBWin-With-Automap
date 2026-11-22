@@ -188,7 +188,8 @@ static std::string PageJson(const HeroStatsHeroPage &page)
       out += std::string(c > 0 ? "," : "") + "[" + Number(mine.casts) + "," + Number(mine.successful) + "," + Number(mine.failed) + "," + Number(mine.mana) +
              "," + Number(mine.wasted) + "," + Number(mine.damage) + "," + Number(mine.kills) + "]";
     }
-    out += "]]";
+    // and whether its mana has no rate (Runes cleared)
+    out += std::string("],") + (spell.noManaRate ? "1" : "0") + "]";
   }
   out += "],\"taken\":" + AmountLinesJson(page.taken, true);
   out += ",\"reduced\":" + AmountLinesJson(page.reduced, false);
@@ -953,14 +954,16 @@ function spells(p) {
   // [casts, successful, failed, mana, wasted, damage, kills] as the table's columns: the rates and
   // the successful mana between (a rate is -1 with nothing to divide)
   const rate = (part, whole) => whole ? part / whole : -1;
-  const values = v => [v[0], v[1], rate(v[1], v[0]), v[2], v[3], v[3] - v[4], rate(v[3] - v[4], v[3]), v[4], v[5], v[6]];
-  const cellsOf = v => values(v).map((x, k) => k === 2 || k === 6
+  // noManaRate: Runes cleared, no cast, has no mana rate
+  const values = (v, noManaRate) => [v[0], v[1], rate(v[1], v[0]), v[2], v[3], v[3] - v[4], noManaRate ? -1 : rate(v[3] - v[4], v[3]),
+                                     v[4], v[5], v[6]];
+  const cellsOf = (v, noManaRate) => values(v, noManaRate).map((x, k) => k === 2 || k === 6
     ? td(x, x < 0 ? '<td class="z">-</td>' : `<td>${Math.round(x * 100)}%</td>`)
     : td(x, plain(x, k === 3 || k === 7)));
   // Each champion's counts: table column k is values(...)[k - 1]
-  const rows = p.spells.map(s => ({cells: [nameTd(s[0])].concat(cellsOf(s.slice(1, 8)),
-    withWho() ? [whoBy(s[4], k => s[8].map(c => values(c)[k - 1]),
-      col => col === 3 ? s[8].map(c => pctOf(c[1], c[0])) : col === 7 ? s[8].map(c => pctOf(c[3] - c[4], c[3])) : null)] : [])}));
+  const rows = p.spells.map(s => ({cells: [nameTd(s[0])].concat(cellsOf(s.slice(1, 8), s[9]),
+    withWho() ? [whoBy(s[4], k => s[8].map(c => values(c, s[9])[k - 1]),
+      col => col === 3 ? s[8].map(c => pctOf(c[1], c[0])) : col === 7 ? s[8].map(c => s[9] ? '-' : pctOf(c[3] - c[4], c[3])) : null)] : [])}));
   const foot = {cls: 'all', cells: [nameTd('All spells')].concat(cellsOf(all), withWho() ? [td(0, '<td></td>')] : [])};
   return section(DETAIL.SPELLS, 'Spells', summary, sortTable('spells', cols, rows, foot, 5, [{label: 'CASTS', first: 1, last: 4}, {label: 'MANA', first: 5, last: 8}]));
 }

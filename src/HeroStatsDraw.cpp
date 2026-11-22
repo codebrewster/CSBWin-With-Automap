@@ -1763,18 +1763,19 @@ static int SpellValue(const Line &line, int column)
   }
 }
 
-// The Spells table's Rate columns: 3 the casts', 7 the mana's; -1 with nothing to divide
-template <typename Line>
-static double SpellRate(const Line &line, int column)
+// The Spells table's Rate columns: 3 the casts', 7 the mana's; -1 with nothing to divide (and
+// for the mana of Runes cleared, which is no cast)
+static double SpellRate(const HeroStatsSpellLine &line, int column)
 {
-  return column == 3 ? Ratio(line.successful, line.casts) : Ratio(line.mana - line.wasted, line.mana);
+  if (column == 3) return Ratio(line.successful, line.casts);
+  return line.noManaRate ? -1 : Ratio(line.mana - line.wasted, line.mana);
 }
 
 static void DrawSpells(HeroStatsDrawState *state, const HeroStatsHeroPage &page, const std::vector<HeroStatsColumn> &columns)
 {
   // The Who column only with champions to tell apart: one champion is all of the party
   bool withWho = state->who == HERO_STATS_PARTY && columns.size() != 1;
-  HeroStatsSpellLine all = {"All spells", 0, 0, 0, 0, 0, 0, 0, std::vector<HeroStatsSpellCounts>()};
+  HeroStatsSpellLine all = {"All spells", 0, 0, 0, 0, 0, 0, 0, std::vector<HeroStatsSpellCounts>(), false};
   for (size_t i = 0; i < page.spells.size(); i++)
   {
     all.casts += page.spells[i].casts;
@@ -1858,7 +1859,7 @@ static void DrawSpells(HeroStatsDrawState *state, const HeroStatsHeroPage &page,
           const HeroStatsSpellCounts &mine = line.byColumn[c];
           split.push_back(SpellValue(mine, measure));
           if (sort.column == 3) notes.push_back(HeroStatsView_Percent(mine.successful, mine.casts));
-          if (sort.column == 7) notes.push_back(HeroStatsView_Percent(mine.mana - mine.wasted, mine.mana));
+          if (sort.column == 7) notes.push_back(line.noManaRate ? "-" : HeroStatsView_Percent(mine.mana - mine.wasted, mine.mana));
         }
         WhoCell(split, columns, notes);
       }

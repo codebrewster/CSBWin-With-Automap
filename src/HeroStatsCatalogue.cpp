@@ -22,13 +22,12 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Mana potions", "", false, false, false, false, false},
     {"Regeneration lost (mana full)", "Mana regeneration would have given had the champion's mana not been full: all of it at or above the maximum, the part over the maximum when nearly full. Spend mana before it fills up to use it. Full mana also spends no stamina on regenerating. Not part of Mana generated.", false, false, true, false, false},
     {"Mana spent", "Spent as each rune is entered, on the level it is entered on, whatever becomes of the spell; staffs, wands and the shield and heal actions as they are used. The lines below add up to it, Success rate aside.", false, false, false, false, false},
-    {"Mana on spells", "Runes of the spells cast, successful, failed or meaningless, staffs, wands and the shield and heal actions: the MANA All of All spells in the Spells table. On one level the two can differ: here runes count where they were entered, the table counts a spell where it was cast.", false, false, false, false, false},
     {"Mana on successful casts", "Runes of spells that worked, staffs and wands, the shield and heal actions.", false, false, false, false, false},
-    {"Mana success rate", "On successful casts \xc3\xb7 On spells: the part of the mana on spells that bought a spell that worked. Not one of the lines that add up to Mana spent. It can differ from the casts' Success rate both ways: a failed cast at a high power wastes more mana than a weak one; a potion spell cast with no empty flask fails but keeps its runes for the next try, a wasted cast but no wasted mana; and staffs, wands and the shield and heal actions are successful mana but no casts. The MANA Rate of All spells in the Spells table; on one level the two can differ, as Mana on spells does.", false, false, false, true, false},
-    {"Mana wasted", "Runes of spells that failed or formed no spell: the Wasted mana of All spells in the Spells table. On one level the two can differ: here runes count where they were entered, the table counts a spell where it was cast. Runes cleared are not in it, as they never became a cast: they are wasted too, on their own line below.", false, false, true, false, false},
+    {"Mana success rate", "On successful casts \xc3\xb7 (On successful casts + Wasted): the part of the mana that bought a spell that worked, of all the mana whose runes came to an end. Not cast yet is left out: those runes may still work. Not one of the lines that add up to Mana spent. It can differ from the casts' Success rate both ways: a failed cast at a high power wastes more mana than a weak one; cleared runes waste mana but are no cast; a potion spell cast with no empty flask fails but keeps its runes for the next try, a wasted cast but no wasted mana; and staffs, wands and the shield and heal actions are successful mana but no casts. The MANA Rate of All spells in the Spells table. On one level the two can differ: here runes count where they were entered, the table counts a spell where it was cast.", false, false, false, true, false},
+    {"Mana wasted", "Mana that bought nothing: runes of spells that failed or formed no spell, and runes cleared. The Wasted mana of All spells in the Spells table. On one level the two can differ: here runes count where they were entered, the table counts a spell where it was cast.", false, false, true, false, false},
     {"Mana on failed casts", "Runes of spells the champion needed more practice for.", false, false, true, false, false},
     {"Mana on meaningless spells", "Runes that form no spell: the champion mumbles a meaningless spell.", false, false, true, false, false},
-    {"Runes cleared", "Runes entered and never cast: cleared, replaced by a new incantation, or lost when the caster died.", false, false, true, false, false},
+    {"Runes cleared", "Runes entered and never cast: cleared, replaced by a new incantation, or lost when the caster died. The game gives no mana back. A line of its own in the Spells table.", false, false, true, false, false},
     {"Not cast yet", "Runes entered and waiting in an incantation, on the level they were entered on.", false, false, false, false, false},
     {"Spells cast", "Every cast: successful, failed and meaningless. Spells from staffs and wands are not among them.", false, false, false, false, false},
     {"Successful", "Casts that worked.", false, false, false, false, false},
@@ -163,7 +162,7 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
 static const char *const KEYS[] = {
     "damage", "melee", "ranged", "magic", "kills", "attacks", "hits", "hit_rate", "damage_per_hit", "other_actions",
     "friendly_fire",
-    "mana_generated", "mana_regeneration", "mana_potions", "mana_regen_lost", "mana_spent", "mana_on_spells", "mana_successful",
+    "mana_generated", "mana_regeneration", "mana_potions", "mana_regen_lost", "mana_spent", "mana_successful",
     "mana_success_rate", "mana_wasted", "mana_failed", "mana_meaningless",
     "runes_cleared", "runes_not_cast",
     "casts", "casts_successful", "casts_success_rate", "casts_wasted", "casts_failed", "casts_meaningless",
@@ -214,13 +213,14 @@ const char *const HERO_STATS_SPELL_HELPS[HERO_STATS_SPELL_COLUMNS] = {
     "Successful \xc3\xb7 All: the part of the casts that worked. A rate cannot be shared out: sorted by it, the Who bar splits All, and its hovertext has each champion's rate.",
     "Casts that bought nothing. On a spell's line they failed: the champion needed more practice. On a (no spell) line the "
     "runes formed no spell. The Wasted casts of All spells is Wasted under Spells cast in Numbers.",
-    "The mana of the runes, the wasted casts' included.",
+    "The mana of the runes, the wasted casts' included. For the whole run, the MANA All of All spells is Mana spent without Not cast yet.",
     "The mana of the casts that worked.",
     "Successful \xc3\xb7 All: the part of the mana that bought a spell that worked. It can differ from the casts' Rate "
     "both ways: a failed cast at a high power wastes more mana than a weak one, and a potion spell cast with no empty "
-    "flask fails but keeps its runes for the next try (a wasted cast, no wasted mana). A rate cannot be shared out: "
+    "flask fails but keeps its runes for the next try (a wasted cast, no wasted mana). The Runes cleared line has no "
+    "rate: it is no cast. The MANA Rate of All spells is Success rate under Mana spent in Numbers. A rate cannot be shared out: "
     "sorted by it, the Who bar splits All, and its hovertext has each champion's rate.",
-    "The mana of the wasted casts. The Wasted mana of All spells is Mana wasted in Numbers.",
+    "The mana of the wasted casts, and on the Runes cleared line the mana of runes never cast. The Wasted mana of All spells is Mana wasted in Numbers.",
     HERO_STATS_SPELL_DAMAGE_HELP,
     ""};
 
@@ -266,9 +266,10 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
             {{"Mana in", false,
               {{HeroNumManaGenerated, 0}, {HeroNumManaRegeneration, 1}, {HeroNumManaPotions, 1}, {HeroNumManaRegenLost, 0}}},
              {"Mana out", false,
-              {{HeroNumManaSpent, 0}, {HeroNumManaOnSpells, 1, "On spells"}, {HeroNumManaSuccessful, 2, "On successful casts"},
-               {HeroNumManaSuccessRate, 2, "Success rate"}, {HeroNumManaWasted, 2, "Wasted"}, {HeroNumManaFailed, 3, "On failed casts"},
-               {HeroNumManaMeaningless, 3, "On meaningless spells"}, {HeroNumRunesCleared, 1}, {HeroNumRunesNotCast, 1}}},
+              {{HeroNumManaSpent, 0}, {HeroNumManaSuccessful, 1, "On successful casts"}, {HeroNumManaSuccessRate, 1, "Success rate"},
+               {HeroNumManaWasted, 1, "Wasted"}, {HeroNumManaFailed, 2, "On failed casts"},
+               {HeroNumManaMeaningless, 2, "On meaningless spells"}, {HeroNumRunesCleared, 2, "On cleared runes"},
+               {HeroNumRunesNotCast, 1}}},
              {"Casts", false,
               {{HeroNumCasts, 0}, {HeroNumCastsSuccessful, 1}, {HeroNumCastsSuccessRate, 1, "Success rate"}, {HeroNumCastsWasted, 1},
                {HeroNumCastsFailed, 2}, {HeroNumCastsMeaningless, 2}}}});
@@ -536,9 +537,10 @@ static void FillMana(const HeroStats &stats, HeroStatsChampion who, int level, i
   v[HeroNumRunesCleared] = stats.RunesCleared(who, level);
   v[HeroNumManaSuccessful] = stats.ManaOnSuccessfulCasts(who, level);
   v[HeroNumRunesNotCast] = stats.RunesNotCastYet(who, level);
-  v[HeroNumManaWasted] = v[HeroNumManaFailed] + v[HeroNumManaMeaningless];
-  v[HeroNumManaOnSpells] = v[HeroNumManaSuccessful] + v[HeroNumManaWasted];
-  v[HeroNumManaSuccessRate] = RoundedRatio((long long)v[HeroNumManaSuccessful] * 100, v[HeroNumManaOnSpells]);
+  // Wasted: all the mana that bought nothing; the success rate is of the mana whose runes came to
+  // an end, so runes not cast yet leave it alone
+  v[HeroNumManaWasted] = v[HeroNumManaFailed] + v[HeroNumManaMeaningless] + v[HeroNumRunesCleared];
+  v[HeroNumManaSuccessRate] = RoundedRatio((long long)v[HeroNumManaSuccessful] * 100, v[HeroNumManaSuccessful] + v[HeroNumManaWasted]);
 }
 
 static void FillCasts(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
@@ -787,7 +789,7 @@ static FillGroup GroupOf(HeroStatsNumber number)
   case HeroNumFriendlyFire: return FillFriendlyFire;
   case HeroNumManaGenerated: case HeroNumManaRegeneration: case HeroNumManaPotions: case HeroNumManaSpent:
   case HeroNumManaFailed: case HeroNumRunesCleared: case HeroNumManaSuccessful: case HeroNumRunesNotCast:
-  case HeroNumManaOnSpells: case HeroNumManaSuccessRate: case HeroNumManaRegenLost: case HeroNumManaMeaningless: case HeroNumManaWasted:
+  case HeroNumManaSuccessRate: case HeroNumManaRegenLost: case HeroNumManaMeaningless: case HeroNumManaWasted:
     return FillMana;
   case HeroNumCasts: case HeroNumCastsSuccessful: case HeroNumCastsSuccessRate: case HeroNumCastsWasted: case HeroNumCastsFailed: case HeroNumCastsMeaningless: return FillCasts;
   case HeroNumTaken: return FillTaken;

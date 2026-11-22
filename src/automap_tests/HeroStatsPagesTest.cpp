@@ -123,14 +123,22 @@ static void SpellLinesCountEveryCast(void)
     // Mana: every cast's, the failed one too; Wasted is its part
     CHECK(page.spells[0].mana == 47 && page.spells[0].wasted == 7);
   }
-  // Cleared runes cast nothing: they are no spell line
+  // Cleared runes cast nothing, but their mana is wasted: a line of their own, all mana wasted,
+  // no casts and no mana rate
   stats.CreditManaSpent(9, 1, HERO_SPELL_RUNES_CLEARED, 3);
   page = HeroStatsPages_Hero(stats, Columns(stats), 9, HERO_STATS_WHOLE_RUN, NAMES);
-  CHECK(page.spells.size() == 1);
+  CHECK(page.spells.size() == 2);
+  if (page.spells.size() == 2)
+  {
+    const HeroStatsSpellLine &cleared = page.spells[1];
+    CHECK(cleared.name == "Runes cleared" && cleared.casts == 0 && cleared.mana == 3 && cleared.wasted == 3);
+    CHECK(cleared.noManaRate && !page.spells[0].noManaRate);
+  }
 }
 
-// Wasted under Mana spent, with the failed and the meaningless casts below it, is the Wasted of
-// All spells in the Spells table
+// Wasted under Mana spent, with the failed and the meaningless casts and the cleared runes below
+// it, is the Wasted of All spells in the Spells table; Mana spent without Not cast yet is its All,
+// and the Success rate its MANA Rate
 static void WastedManaMatchesTheSpellsTable(void)
 {
   HeroStats stats;
@@ -142,23 +150,36 @@ static void WastedManaMatchesTheSpellsTable(void)
   stats.EnterRune(9, 1, 4);
   stats.ResolveRunes(9, HeroRuneMeaningless);
   stats.CountFailedCast(9, 1, 0x00006f6b, 4);
+  stats.EnterRune(9, 1, 5);
+  stats.ResolveRunes(9, HeroRuneCleared);
+  stats.EnterRune(9, 1, 6);
+  stats.ResolveRunes(9, HeroRuneCast);
+  stats.CountCast(9, 1, fireball, 6);
+  stats.EnterRune(9, 1, 2);  // not cast yet
   HeroStatsHeroPage hero = HeroStatsPages_Hero(stats, Columns(stats), 9, HERO_STATS_WHOLE_RUN, NAMES);
-  int wasted = 0;
-  for (size_t i = 0; i < hero.spells.size(); i++) wasted += hero.spells[i].wasted;
-  CHECK(wasted == 11);
+  int wasted = 0, mana = 0;
+  for (size_t i = 0; i < hero.spells.size(); i++) wasted += hero.spells[i].wasted, mana += hero.spells[i].mana;
+  CHECK(wasted == 16 && mana == 22);
   HeroStatsTopicPage magic = HeroStatsPages_Topic(stats, Columns(stats), 9, HERO_STATS_WHOLE_RUN, HeroTopicMagic, NAMES);
-  const HeroStatsNumbersRow *sum = NULL, *failed = NULL, *meaningless = NULL;
+  const HeroStatsNumbersRow *sum = NULL, *failed = NULL, *meaningless = NULL, *cleared = NULL, *spent = NULL, *notCast = NULL, *rate = NULL;
   for (size_t i = 0; i < magic.numbers.size(); i++)
   {
     if (magic.numbers[i].number == HeroNumManaWasted) sum = &magic.numbers[i];
     if (magic.numbers[i].number == HeroNumManaFailed) failed = &magic.numbers[i];
     if (magic.numbers[i].number == HeroNumManaMeaningless) meaningless = &magic.numbers[i];
+    if (magic.numbers[i].number == HeroNumRunesCleared) cleared = &magic.numbers[i];
+    if (magic.numbers[i].number == HeroNumManaSpent) spent = &magic.numbers[i];
+    if (magic.numbers[i].number == HeroNumRunesNotCast) notCast = &magic.numbers[i];
+    if (magic.numbers[i].number == HeroNumManaSuccessRate) rate = &magic.numbers[i];
   }
-  CHECK(sum != NULL && failed != NULL && meaningless != NULL);
-  if (sum == NULL || failed == NULL || meaningless == NULL) return;
-  CHECK(sum->party == wasted && sum->depth == 2 && sum->label == "Wasted");
-  CHECK(failed->party == 7 && failed->depth == 3 && failed->label == "On failed casts");
-  CHECK(meaningless->party == 4 && meaningless->depth == 3 && meaningless->label == "On meaningless spells");
+  CHECK(sum != NULL && failed != NULL && meaningless != NULL && cleared != NULL && spent != NULL && notCast != NULL && rate != NULL);
+  if (sum == NULL || failed == NULL || meaningless == NULL || cleared == NULL || spent == NULL || notCast == NULL || rate == NULL) return;
+  CHECK(sum->party == wasted && sum->depth == 1 && sum->label == "Wasted");
+  CHECK(failed->party == 7 && failed->depth == 2 && failed->label == "On failed casts");
+  CHECK(meaningless->party == 4 && meaningless->depth == 2 && meaningless->label == "On meaningless spells");
+  CHECK(cleared->party == 5 && cleared->depth == 2 && cleared->label == "On cleared runes");
+  CHECK(notCast->party == 2 && spent->party - notCast->party == mana);
+  CHECK(rate->party == (6 * 100 + mana / 2) / mana);
 }
 
 static void PartySpellsAreSplitByChampion(void)
@@ -1096,6 +1117,8 @@ static void ExportHasTheSpellHelps(void)
   stats.CountCast(9, 1, FUL_IR, 10);
   stats.CountFailedCast(9, 1, FUL_IR, 4);
   stats.CountFailedCast(7, 1, 0x0607 | HERO_SPELL_NO_SUCH_SPELL, 5);
+  stats.EnterRune(9, 1, 3);
+  stats.ResolveRunes(9, HeroRuneCleared);
   HeroStatsExportInfo info = {"dungeon.dat", "2026-11-22 12:00"};
   std::string json = HeroStatsExport_Json(stats, Columns(stats), NAMES, info);
   std::string helps = "\"spellHelps\":[";
@@ -1103,6 +1126,9 @@ static void ExportHasTheSpellHelps(void)
   CHECK(json.find(helps + "]") != std::string::npos);
   std::string html = HeroStatsExport_Html(stats, Columns(stats), NAMES, info);
   CHECK(html.find("{label: 'CASTS', first: 1, last: 4}") != std::string::npos);
+  // The Runes cleared line travels with its mark of no mana rate; the spells' lines have none
+  CHECK(json.find("[\"Runes cleared\",0,0,0,3,3,0,0,[") != std::string::npos);
+  CHECK(json.find("]],1]") != std::string::npos && json.find("]],0]") != std::string::npos);
   const char *out = getenv("CSB_TEST_SPELLS_HTML");
   if (out != NULL) { FILE *f = fopen(out, "w"); if (f) { fputs(html.c_str(), f); fclose(f); } }
 }
