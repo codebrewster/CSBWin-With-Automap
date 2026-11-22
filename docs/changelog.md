@@ -7,6 +7,8 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 ## Unreleased
 
+## 1.5.0 (2026-11-22)
+
 **Statistics**
 - Exploration counts Formation changes: champions you moved to another place in the party by dragging their portrait, split into Swapped places and To an empty place. Put back in place counts the portraits dropped where they were picked up, and Swapped aside the champions a dragged portrait was dropped on. Kept per champion and for the party, in a Formation table after the doors. Turning the party, recruiting and resurrection don't count.
 - Records can be sorted by any column, within each group; a click on Record puts them back in their order. The Value header no longer looks sorted while nothing is.
