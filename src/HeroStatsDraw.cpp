@@ -66,21 +66,27 @@ static ImU32 ChampionRgb(size_t column)
   return CHAMPION_RGB[column % 4];
 }
 
-// The record star and the arrow. Neither ImGui's own font nor Vera Mono has glyphs for them,
+// The record star and the arrows. Neither ImGui's own font nor Vera Mono has glyphs for them,
 // so text holding one is drawn in pieces with the symbol painted between them.
 static const char *const STAR = "\xe2\x98\x85";
 static const char *const ARROW = "\xe2\x86\x92";
-static const size_t SYMBOL_BYTES = 3; // both are three bytes in UTF-8
+static const char *const BOTH_WAYS_ARROW = "\xe2\x86\x94";
+static const size_t SYMBOL_BYTES = 3; // all are three bytes in UTF-8
 
 // The next painted symbol in the text from a position, or npos
 static size_t NextSymbol(const std::string &text, size_t from)
 {
-  return std::min(text.find(STAR, from), text.find(ARROW, from));
+  return std::min(text.find(STAR, from), std::min(text.find(ARROW, from), text.find(BOTH_WAYS_ARROW, from)));
 }
 
 static bool IsStar(const std::string &text, size_t at)
 {
   return text.compare(at, SYMBOL_BYTES, STAR) == 0;
+}
+
+static bool IsBothWays(const std::string &text, size_t at)
+{
+  return text.compare(at, SYMBOL_BYTES, BOTH_WAYS_ARROW) == 0;
 }
 
 static float SymbolWidth(float fontSize, bool star)
@@ -134,15 +140,16 @@ static void DrawStar(ImDrawList *drawList, ImVec2 centre, float radius, ImU32 co
   for (int i = 0; i < 10; i++) drawList->AddTriangleFilled(centre, points[i], points[(i + 1) % 10], colour);
 }
 
-// A right arrow across the box, a little in from both ends
-static void DrawArrow(ImDrawList *drawList, ImVec2 min, float width, float fontSize, ImU32 colour)
+// A right arrow across the box, a little in from both ends; both ways, a head at the left too
+static void DrawArrow(ImDrawList *drawList, ImVec2 min, float width, float fontSize, ImU32 colour, bool bothWays)
 {
   float y = min.y + fontSize * 0.5f;
   float left = min.x + width * 0.15f, right = min.x + width * 0.85f;
   float head = fontSize * 0.25f;
   float thickness = std::max(1.0f, fontSize / 12.0f);
-  drawList->AddLine(ImVec2(left, y), ImVec2(right - head * 0.5f, y), colour, thickness);
+  drawList->AddLine(ImVec2(bothWays ? left + head * 0.5f : left, y), ImVec2(right - head * 0.5f, y), colour, thickness);
   drawList->AddTriangleFilled(ImVec2(right - head, y - head), ImVec2(right, y), ImVec2(right - head, y + head), colour);
+  if (bothWays) drawList->AddTriangleFilled(ImVec2(left + head, y + head), ImVec2(left, y), ImVec2(left + head, y - head), colour);
 }
 
 static void TextWithSymbols(ImDrawList *drawList, float fontSize, ImVec2 at, ImU32 colour, const std::string &text)
@@ -158,19 +165,28 @@ static void TextWithSymbols(ImDrawList *drawList, float fontSize, ImVec2 at, ImU
     bool star = IsStar(text, symbol);
     float width = SymbolWidth(fontSize, star);
     if (star) DrawStar(drawList, ImVec2(at.x + width / 2, at.y + fontSize * 0.5f), width * 0.5f, colour);
-    else DrawArrow(drawList, at, width, fontSize, colour);
+    else DrawArrow(drawList, at, width, fontSize, colour, IsBothWays(text, symbol));
     at.x += width;
     from = symbol + SYMBOL_BYTES;
   }
 }
 
-// TextColored for text that may hold a symbol: an item of its own, so hovering it still works
+// TextColored for text that may hold a symbol: an item of its own per line, so hovering it still
+// works and every line gets its room
 static void TextPackedWithSymbols(ImU32 colour, const std::string &text)
 {
   float fontSize = ImGui::GetFontSize();
-  ImVec2 at = ImGui::GetCursorScreenPos();
-  ImGui::Dummy(ImVec2(TextWidthWithSymbols(fontSize, text), ImGui::GetTextLineHeight()));
-  TextWithSymbols(ImGui::GetWindowDrawList(), fontSize, at, colour, text);
+  size_t from = 0;
+  for (;;)
+  {
+    size_t newline = text.find('\n', from);
+    std::string line = text.substr(from, newline == std::string::npos ? std::string::npos : newline - from);
+    ImVec2 at = ImGui::GetCursorScreenPos();
+    ImGui::Dummy(ImVec2(TextWidthWithSymbols(fontSize, line), ImGui::GetTextLineHeight()));
+    TextWithSymbols(ImGui::GetWindowDrawList(), fontSize, at, colour, line);
+    if (newline == std::string::npos) return;
+    from = newline + 1;
+  }
 }
 
 static void TextColoredWithSymbols(ImU32 rgb, const std::string &text)
