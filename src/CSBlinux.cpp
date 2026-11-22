@@ -2688,9 +2688,13 @@ static void DrawReplayControls(bool &was_active)
     ImGui::EndMenu();
   }
   if (ImGui::SmallButton(PlaybackControl_IsPaused() ? _("Resume") : _("Pause"))) PlaybackControl_TogglePause();
+  if (ImGui::IsItemHovered())
+    ImGui::SetTooltip("%s", PlaybackControl_IsPaused() ? _("Resume the replay (Space)") : _("Pause the replay (Space)"));
   if (ImGui::SmallButton("-")) SetReplaySpeed(ReplaySpeedIndex() - 1);
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", _("Slower (-)"));
   ImGui::Text("%4s", ReplaySpeedLabel());
   if (ImGui::SmallButton("+")) SetReplaySpeed(ReplaySpeedIndex() + 1);
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", _("Faster (+)"));
   if (ImGui::SmallButton("<<<")) ReplayBack(PLAYBACK_SKIP_LARGE);
   if (ImGui::IsItemHovered()) ImGui::SetTooltip(_("Back %d ticks (Page Down)"), PLAYBACK_SKIP_LARGE);
   if (ImGui::SmallButton("<<")) ReplayBack(PLAYBACK_SKIP_SMALL);

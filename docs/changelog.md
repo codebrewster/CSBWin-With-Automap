@@ -10,6 +10,9 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 **Automap**
 - Hovering a cell with a replay pause (the red frame) says so at the end of its tooltip: `REPLAY PAUSES HERE`.
 
+**Replay**
+- The Pause/Resume, - and + buttons on the replay bar have tooltips, with their keys.
+
 ## 1.6.1 (2026-11-22)
 
 **Statistics**
