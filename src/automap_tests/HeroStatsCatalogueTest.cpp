@@ -52,7 +52,7 @@ static HeroStats TwoChampions(void)
 static void BadNewsIsWasteAndMistakes(void)
 {
   const HeroStatsNumber bad[] = {HeroNumManaWasted, HeroNumManaFailed, HeroNumManaMeaningless, HeroNumRunesCleared,
-                                 HeroNumManaRegenLost, HeroNumCastsFailed, HeroNumFoodWasted, HeroNumWaterWasted,
+                                 HeroNumManaRegenLost, HeroNumCastsWasted, HeroNumCastsFailed, HeroNumFoodWasted, HeroNumWaterWasted,
                                  HeroNumFriendlyFire, HeroNumDeaths, HeroNumWipes, HeroNumReloads};
   for (size_t i = 0; i < sizeof bad / sizeof bad[0]; i++) CHECK(HeroStatsCatalogue_Info(bad[i]).isBad);
   const HeroStatsNumber harm[] = {HeroNumTaken, HeroNumPoisonings, HeroNumWounds, HeroNumHitsTaken, HeroNumAttacksReceived,
@@ -73,6 +73,8 @@ static void MeaninglessCastsAreNotFailed(void)
   CHECK(syra.value[HeroNumCasts] == 3);
   CHECK(syra.value[HeroNumCastsSuccessful] == 1 && syra.value[HeroNumCastsFailed] == 1 && syra.value[HeroNumCastsMeaningless] == 1);
   CHECK(HeroStatsCatalogue_Info(HeroNumCastsMeaningless).isBad);
+  // Wasted: the failed and the meaningless ones together, as the Spells table's Wasted casts
+  CHECK(syra.value[HeroNumCastsWasted] == 2);
 }
 
 static void EveryNumberHasOneTopic(void)
@@ -452,6 +454,17 @@ static void TopicsHaveGroups(void)
     CHECK(out[5].number == HeroNumManaMeaningless && out[5].depth == 3);
     CHECK(out[6].number == HeroNumRunesCleared && out[6].depth == 1);
   }
+  // Casts split as Mana out does: Wasted is a part of Spells cast, failed and meaningless its parts
+  const std::vector<HeroStatsTopicRow> &casts = HeroStatsCatalogue_Topic(HeroTopicMagic).groups[2].rows;
+  CHECK(casts.size() == 5);
+  if (casts.size() == 5)
+  {
+    CHECK(casts[1].number == HeroNumCastsSuccessful && casts[1].depth == 1);
+    CHECK(casts[2].number == HeroNumCastsWasted && casts[2].depth == 1 && std::string(HeroStatsCatalogue_RowLabel(casts[2])) == "Wasted");
+    CHECK(casts[3].number == HeroNumCastsFailed && casts[3].depth == 2);
+    CHECK(casts[4].number == HeroNumCastsMeaningless && casts[4].depth == 2);
+  }
+  CHECK(HeroStatsCatalogue_ParseNumbers("casts_wasted", 4) == std::vector<HeroStatsNumber>({HeroNumCastsWasted}));
   // mana_wasted in a csb.cfg is all of it, as it was before the meaningless spells had a line
   CHECK(HeroStatsCatalogue_ParseNumbers("mana_wasted mana_failed", 4) ==
         std::vector<HeroStatsNumber>({HeroNumManaWasted, HeroNumManaFailed}));

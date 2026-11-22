@@ -184,14 +184,17 @@ hit), Damage, Kills.
 |---|---|
 | **Mana generated** | with **Regeneration** and **Mana potions** below it |
 | **Regeneration lost (mana full)** | the mana regeneration would have given had the champion's mana not been full: all of a regeneration at or above the maximum, and the part over the maximum when the champion was nearly full (at 48 of 50, a gain of 3 gives 2 and loses 1). Spend mana before it fills up and this mana is not lost. Full mana spends no stamina on regenerating either. Not part of Mana generated. Counted from this version on; older saves show 0 |
-| **Mana spent** | counted as each rune is entered, as the game takes it, whatever becomes of the spell; below it what became of that mana, which adds up to it: **Spells** (split into **Successful casts** and **Wasted**, which is split again into **Failed casts** and **Meaningless spells**, runes that form no spell: "mumbles a meaningless spell"), **Runes cleared** and **Not cast yet**. Wasted is the Wasted of All spells in the Spells table. In saves from before this version the meaningless spells are among the failed casts |
-| **Spells cast** | every attempt; with **Successful** and **Failed** below it, which add up to it |
+| **Mana spent** | counted as each rune is entered, as the game takes it, whatever becomes of the spell; below it what became of that mana, which adds up to it: **Spells** (split into **Successful casts** and **Wasted**, which is split again into **Failed casts** and **Meaningless spells**, runes that form no spell: "mumbles a meaningless spell"), **Runes cleared** and **Not cast yet**. Wasted is the Wasted mana of All spells in the Spells table. In saves from before this version the meaningless spells are among the failed casts |
+| **Spells cast** | every attempt; with **Successful** and **Wasted** below it, which add up to it; Wasted is split again into **Failed** (the champion needed more practice) and **Meaningless** (runes that form no spell), as the mana is. Wasted is the Wasted casts of All spells in the Spells table |
 
 **Spells** has one row per spell, all power levels together (Lo Ful Ir and Mon Ful Ir are both
-"Fireball"). Columns: **Casts** (every attempt), **Successful** (the casts that worked), **Failed** (needs more practice, fizzled, no flask
-for a potion ...), **Mana** (the runes of every cast, the failed ones included), **Wasted** (the
-failed casts' part of it), and the **Damage** and **Kills** of the spell, including the cloud or
-explosion it made. Extra rows: runes that form no spell ("Ful Bro Ku (no spell)"), **Shield
+"Fireball"). Its columns come in two groups that split the same way. **CASTS**: **All** (every
+attempt), **Successful** (the casts that worked) and **Wasted** (the casts that bought nothing:
+on a spell's row the failed ones, needing more practice, fizzled, no flask for a potion ...; on a
+"(no spell)" row all of them). **MANA**: **All** (the runes of every cast, the wasted ones
+included), **Successful** (the mana of the casts that worked) and **Wasted** (the wasted casts'
+part of it). Then the **Damage** and **Kills** of the spell, including the cloud or explosion it
+made. Each column sorts the table; for the party, the Who bar splits the column the table is sorted by. Extra rows: runes that form no spell ("Ful Bro Ku (no spell)"), **Shield
 action**, **Heal action** and **Spells from items** (staffs and wands).
 
 **Runes cleared** is no spell, so it is not in this table: it is the mana of runes entered and
@@ -202,9 +205,9 @@ in an incantation, whose mana is spent already.
 **Which level.** Mana counts on the level where the runes were entered, and so does what became
 of it (the lines under Mana spent); a spell in the Spells table counts on the level where it
 was cast. Enter a fireball's runes, sleep, take the stairs and cast it below: the mana is spent on
-the level above, the fireball is cast on the level below. For the whole run the Mana of **All
+the level above, the fireball is cast on the level below. For the whole run the MANA All of **All
 spells** is the **Spells** line under Mana spent: Successful casts (staffs, wands and actions
-included) plus Wasted, and Wasted is the Wasted of All spells.
+included) plus Wasted, which are the Successful and the Wasted mana of All spells.
 
 ## Survival
 
@@ -717,7 +720,7 @@ closed: the game writes `csb.cfg` again when you leave it.
 | Topic | Names |
 |---|---|
 | Combat | `damage`, `melee`, `ranged`, `magic`, `kills`, `attacks`, `hits`, `hit_rate`, `damage_per_hit`, `other_actions`, `friendly_fire` |
-| Magic | `mana_generated`, `mana_regeneration`, `mana_potions`, `mana_regen_lost`, `mana_spent`, `mana_on_spells`, `mana_successful`, `mana_wasted`, `mana_failed`, `mana_meaningless`, `runes_cleared`, `runes_not_cast`, `casts`, `casts_successful`, `casts_failed` |
+| Magic | `mana_generated`, `mana_regeneration`, `mana_potions`, `mana_regen_lost`, `mana_spent`, `mana_on_spells`, `mana_successful`, `mana_wasted`, `mana_failed`, `mana_meaningless`, `runes_cleared`, `runes_not_cast`, `casts`, `casts_successful`, `casts_wasted`, `casts_failed`, `casts_meaningless` |
 | Survival | `taken`, `attacks_received`, `hits_taken`, `dodged`, `lucky`, `too_weak`, `blocked`, `damage_reduced`, `reduced_resistance`, `reduced_shield_spells`, `reduced_protection`, `reduced_armour`, `reduced_hand_shields`, `reduced_vitality`, `reduced_shield_potion`, `reduced_party_shield`, `reduced_stance`, `reduced_wounds`, `reduced_asleep`, `reduced_wisdom`, `healed`, `heal_regeneration`, `heal_potions`, `heal_potions_own`, `heal_potions_others`, `heal_potions_found`, `heal_action`, `healing_given`, `deaths`, `resurrected`, `wipes`, `reloads` |
 | Food & items | `eaten`, `drunk`, `potions_drunk`, `potions_brewed`, `food_gained`, `food_wasted`, `water_gained`, `water_wasted`, `picked_up`, `used_in_walls` |
 | Exploration | `steps`, `tiles_walked`, `tiles_explored`, `turns`, `wall_bumps`, `monster_bumps`, `teleports`, `telefrags`, `pit_falls`, `landings`, `pit_climbs`, `climb_landings`, `ticks`, `sleep_ticks`, `doors_bashed`, `doors_smashed`, `doors_shot`, `doors_by_spell`, `doors_by_zo`, `doors_button_opened`, `doors_button_closed`, `chests`, `scrolls`, `wall_texts`, `champions_seen`, `champions_viewed` |
@@ -727,5 +730,5 @@ closed: the game writes `csb.cfg` again when you leave it.
 
 Each name is the number of the same label in that topic's Numbers: `heal_potions` is Potions under
 Healed, `mana_on_spells` is Spells under Mana spent, `mana_wasted` is Wasted under it (the failed and the
-meaningless casts; `mana_failed` is the failed ones alone), `ticks` is Time (ticks). `biggest_hit`, from before the
+meaningless casts; `mana_failed` is the failed ones alone), `casts_wasted` is Wasted under Spells cast, `ticks` is Time (ticks). `biggest_hit`, from before the
 biggest hit was split into melee and ranged, now means `biggest_melee_hit`.

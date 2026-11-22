@@ -21,7 +21,7 @@ enum HeroStatsNumber {
   HeroNumManaGenerated, HeroNumManaRegeneration, HeroNumManaPotions, HeroNumManaRegenLost, HeroNumManaSpent, HeroNumManaOnSpells,
   HeroNumManaSuccessful, HeroNumManaWasted, HeroNumManaFailed, HeroNumManaMeaningless,
   HeroNumRunesCleared, HeroNumRunesNotCast,
-  HeroNumCasts, HeroNumCastsSuccessful, HeroNumCastsFailed, HeroNumCastsMeaningless,
+  HeroNumCasts, HeroNumCastsSuccessful, HeroNumCastsWasted, HeroNumCastsFailed, HeroNumCastsMeaningless,
   HeroNumTaken, HeroNumHealed, HeroNumHealRegeneration, HeroNumHealPotions, HeroNumHealPotionsOwn,
   HeroNumHealPotionsOthers, HeroNumHealPotionsFound, HeroNumHealAction, HeroNumHealingGiven, HeroNumPoisonings, HeroNumWounds,
   HeroNumAttacksReceived, HeroNumHitsTaken, HeroNumDodged, HeroNumLucky, HeroNumTooWeak, HeroNumBlocked,
@@ -73,6 +73,9 @@ extern const char *const HERO_STATS_BEST_RANK_HELP;
 extern const char *const HERO_STATS_AVG_HELP;
 extern const char *const HERO_STATS_WEAPON_DAMAGE_HELP;  // the Damage columns of Weapons and Spells
 extern const char *const HERO_STATS_SPELL_DAMAGE_HELP;
+// The Spells table's header tooltips, one per column (0: Spell; CASTS 1-3; MANA 4-6; Damage; Kills)
+const int HERO_STATS_SPELL_COLUMNS = 9;
+extern const char *const HERO_STATS_SPELL_HELPS[HERO_STATS_SPELL_COLUMNS];
 extern const char *const HERO_STATS_RECORDS_SORT_HELP;   // the Records table's Record header
 // The unit a record's value is written with ("ticks", "levels"), "" for none
 const char *HeroStatsCatalogue_Unit(HeroStatsNumber number, bool plural);

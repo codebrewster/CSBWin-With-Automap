@@ -7,6 +7,9 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 ## Unreleased
 
+**Statistics**
+- Magic: Spells cast splits as Mana spent does: Successful and Wasted, with Wasted split into Failed and Meaningless (`casts_wasted` in csb.cfg). The Spells table's columns come in two groups, CASTS (All, Successful, Wasted) and MANA (All, Successful, Wasted): its Failed column is now Wasted, as on a "(no spell)" row those casts are meaningless, not failed, and the mana of the casts that worked has a column of its own, to sort by and to split among the champions.
+
 ## 1.5.0 (2026-11-22)
 
 **Statistics**

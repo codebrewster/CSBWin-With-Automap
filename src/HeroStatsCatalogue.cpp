@@ -22,15 +22,16 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Mana potions", "", false, false, false, false, false},
     {"Regeneration lost (mana full)", "Mana regeneration would have given had the champion's mana not been full: all of it at or above the maximum, the part over the maximum when nearly full. Spend mana before it fills up to use it. Full mana also spends no stamina on regenerating. Not part of Mana generated.", false, false, true, false, false},
     {"Mana spent", "Spent as each rune is entered, on the level it is entered on, whatever becomes of the spell; staffs, wands and the shield and heal actions as they are used. The lines below add up to it.", false, false, false, false, false},
-    {"Mana on spells", "Runes of the spells cast, successful, failed or meaningless, staffs, wands and the shield and heal actions: the Mana of All spells in the Spells table. On one level the two can differ: here runes count where they were entered, the table counts a spell where it was cast.", false, false, false, false, false},
+    {"Mana on spells", "Runes of the spells cast, successful, failed or meaningless, staffs, wands and the shield and heal actions: the MANA All of All spells in the Spells table. On one level the two can differ: here runes count where they were entered, the table counts a spell where it was cast.", false, false, false, false, false},
     {"Mana on successful casts", "Runes of spells that worked, staffs and wands, the shield and heal actions.", false, false, false, false, false},
-    {"Mana wasted", "Runes of spells that failed or formed no spell: the Wasted of All spells in the Spells table. On one level the two can differ: here runes count where they were entered, the table counts a spell where it was cast. Runes cleared are not in it, as they never became a cast: they are wasted too, on their own line below.", false, false, true, false, false},
+    {"Mana wasted", "Runes of spells that failed or formed no spell: the Wasted mana of All spells in the Spells table. On one level the two can differ: here runes count where they were entered, the table counts a spell where it was cast. Runes cleared are not in it, as they never became a cast: they are wasted too, on their own line below.", false, false, true, false, false},
     {"Mana on failed casts", "Runes of spells the champion needed more practice for.", false, false, true, false, false},
     {"Mana on meaningless spells", "Runes that form no spell: the champion mumbles a meaningless spell.", false, false, true, false, false},
     {"Runes cleared", "Runes entered and never cast: cleared, replaced by a new incantation, or lost when the caster died.", false, false, true, false, false},
     {"Not cast yet", "Runes entered and waiting in an incantation, on the level they were entered on.", false, false, false, false, false},
     {"Spells cast", "Every cast: successful, failed and meaningless. Spells from staffs and wands are not among them.", false, false, false, false, false},
     {"Successful", "Casts that worked.", false, false, false, false, false},
+    {"Wasted", "Casts that bought nothing: failed or meaningless. The Wasted casts of All spells in the Spells table.", false, false, true, false, false},
     {"Failed", "Casts of a real spell that failed: the champion needed more practice.", false, false, true, false, false},
     {"Meaningless", "Casts whose runes form no spell: the champion mumbles a meaningless spell.", false, false, true, false, false},
     {"Damage taken", "All hit points lost, whatever took them: monster attacks, their missiles and spells, friendly fire, poison and poison clouds, traps, pits, walls run into, closing doors, starvation, exhaustion and harmful potions. Survival lists each cause.", false, false, false, false, false},
@@ -163,7 +164,7 @@ static const char *const KEYS[] = {
     "mana_generated", "mana_regeneration", "mana_potions", "mana_regen_lost", "mana_spent", "mana_on_spells", "mana_successful",
     "mana_wasted", "mana_failed", "mana_meaningless",
     "runes_cleared", "runes_not_cast",
-    "casts", "casts_successful", "casts_failed", "casts_meaningless",
+    "casts", "casts_successful", "casts_wasted", "casts_failed", "casts_meaningless",
     "taken", "healed", "heal_regeneration", "heal_potions", "heal_potions_own",
     "heal_potions_others", "heal_potions_found", "heal_action", "healing_given", "poisoned", "wounds",
     "attacks_received", "hits_taken", "dodged", "lucky", "too_weak", "blocked",
@@ -204,6 +205,17 @@ const char *const HERO_STATS_WEAPON_DAMAGE_HELP =
 const char *const HERO_STATS_SPELL_DAMAGE_HELP =
     "Damage of the spells entered as runes. The spells of staffs, wands and weapons count with their item in the Weapons table, "
     "so Spells from items has mana but no damage. With the Damage of the Weapons table it adds up to Damage dealt.";
+const char *const HERO_STATS_SPELL_HELPS[HERO_STATS_SPELL_COLUMNS] = {
+    "",
+    "Casts of the spell, the wasted ones included.",
+    "The casts that worked.",
+    "Casts that bought nothing. On a spell's line they failed: the champion needed more practice. On a (no spell) line the "
+    "runes formed no spell. The Wasted casts of All spells is Wasted under Spells cast in Numbers.",
+    "The mana of the runes, the wasted casts' included.",
+    "The mana of the casts that worked.",
+    "The mana of the wasted casts. The Wasted mana of All spells is Mana wasted in Numbers.",
+    HERO_STATS_SPELL_DAMAGE_HELP,
+    ""};
 
 const HeroStatsNumberInfo &HeroStatsCatalogue_Info(HeroStatsNumber number)
 {
@@ -251,7 +263,8 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
                {HeroNumManaWasted, 2, "Wasted"}, {HeroNumManaFailed, 3, "On failed casts"},
                {HeroNumManaMeaningless, 3, "On meaningless spells"}, {HeroNumRunesCleared, 1}, {HeroNumRunesNotCast, 1}}},
              {"Casts", false,
-              {{HeroNumCasts, 0}, {HeroNumCastsSuccessful, 1}, {HeroNumCastsFailed, 1}, {HeroNumCastsMeaningless, 1}}}});
+              {{HeroNumCasts, 0}, {HeroNumCastsSuccessful, 1}, {HeroNumCastsWasted, 1},
+               {HeroNumCastsFailed, 2}, {HeroNumCastsMeaningless, 2}}}});
   topics[HeroTopicSurvival] = {"Survival", {}, {HeroNumTaken, HeroNumHealed, HeroNumDeaths, HeroNumResurrected}, {}};
   SetGroups(&topics[HeroTopicSurvival],
             {{"Harm", false, {{HeroNumTaken, 0}, {HeroNumPoisonings, 0}, {HeroNumWounds, 0}}},
@@ -522,12 +535,13 @@ static void FillMana(const HeroStats &stats, HeroStatsChampion who, int level, i
 
 static void FillCasts(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
 {
-  v[HeroNumCasts] = v[HeroNumCastsSuccessful] = v[HeroNumCastsFailed] = v[HeroNumCastsMeaningless] = 0;
+  v[HeroNumCasts] = v[HeroNumCastsSuccessful] = v[HeroNumCastsWasted] = v[HeroNumCastsFailed] = v[HeroNumCastsMeaningless] = 0;
   std::vector<HeroStatsSpellRow> spells = stats.Spells(who, level);
   for (size_t i = 0; i < spells.size(); i++)
   {
     v[HeroNumCasts] += spells[i].casts + spells[i].failed;
     v[HeroNumCastsSuccessful] += spells[i].casts;
+    v[HeroNumCastsWasted] += spells[i].failed;
     // Runes that form no spell fail as a meaningless spell, apart from the real spells that failed
     v[(spells[i].spell & HERO_SPELL_NO_SUCH_SPELL) != 0 ? HeroNumCastsMeaningless : HeroNumCastsFailed] += spells[i].failed;
   }
@@ -766,7 +780,7 @@ static FillGroup GroupOf(HeroStatsNumber number)
   case HeroNumManaFailed: case HeroNumRunesCleared: case HeroNumManaSuccessful: case HeroNumRunesNotCast:
   case HeroNumManaOnSpells: case HeroNumManaRegenLost: case HeroNumManaMeaningless: case HeroNumManaWasted:
     return FillMana;
-  case HeroNumCasts: case HeroNumCastsSuccessful: case HeroNumCastsFailed: case HeroNumCastsMeaningless: return FillCasts;
+  case HeroNumCasts: case HeroNumCastsSuccessful: case HeroNumCastsWasted: case HeroNumCastsFailed: case HeroNumCastsMeaningless: return FillCasts;
   case HeroNumTaken: return FillTaken;
   case HeroNumHealed: case HeroNumHealRegeneration: case HeroNumHealPotions: case HeroNumHealAction:
   case HeroNumHealPotionsOwn: case HeroNumHealPotionsOthers: case HeroNumHealPotionsFound:

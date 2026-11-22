@@ -1053,6 +1053,41 @@ static void HeaderRow(const std::vector<int> &columnOfHeader, const std::vector<
   }
 }
 
+// A row of headings over groups of columns (CASTS over Casts, Successful and Wasted), before
+// HeaderRow: each heading centred over its columns, with a line under it as wide as they are
+struct ColumnGroup
+{
+  const char *label;
+  int first, last;
+};
+static void GroupRow(const std::vector<ColumnGroup> &groups)
+{
+  ImGui::TableNextRow();
+  ImGui::TableSetColumnIndex(0);
+  ImGui::Dummy(ImVec2(0, ImGui::GetTextLineHeight()));
+  ImGuiTable *table = ImGui::GetCurrentTable();
+  ImDrawList *drawList = ImGui::GetWindowDrawList();
+  // A table scrolled sideways keeps its label column in place: nothing is drawn under it
+  float left = table->InnerClipRect.Min.x, right = table->InnerClipRect.Max.x;
+  if (table->FreezeColumnsCount > 0) left = std::max(left, table->Columns[0].ClipRect.Max.x);
+  float pad = ImGui::GetStyle().CellPadding.x;
+  for (size_t g = 0; g < groups.size(); g++)
+  {
+    int first = groups[g].first, last = groups[g].last;
+    while (first <= last && !table->Columns[first].IsEnabled) first++;
+    while (last >= first && !table->Columns[last].IsEnabled) last--;
+    if (first > last) continue;
+    ImRect from = ImGui::TableGetCellBgRect(table, first), to = ImGui::TableGetCellBgRect(table, last);
+    ImVec2 min(from.Min.x + pad, from.Min.y), max(to.Max.x - pad, from.Max.y);
+    drawList->PushClipRect(ImVec2(std::max(min.x, left), min.y), ImVec2(std::min(max.x, right), max.y), false);
+    ImVec2 size = ImGui::CalcTextSize(groups[g].label);
+    float y = min.y + ImGui::GetStyle().CellPadding.y;
+    drawList->AddText(ImVec2((min.x + max.x - size.x) / 2, y), Packed(DIM_RGB), groups[g].label);
+    drawList->AddLine(ImVec2(min.x, max.y - 1), ImVec2(max.x, max.y - 1), Packed(FAINT_RGB));
+    drawList->PopClipRect();
+  }
+}
+
 static void TotalRow(void)
 {
   NextGuidedRow();
@@ -1687,9 +1722,10 @@ static int SpellValue(const Line &line, int column)
   case 2: return line.successful;
   case 3: return line.failed;
   case 4: return line.mana;
-  case 5: return line.wasted;
-  case 6: return line.damage;
-  case 7: return line.kills;
+  case 5: return line.mana - line.wasted;
+  case 6: return line.wasted;
+  case 7: return line.damage;
+  case 8: return line.kills;
   default: return line.mana;
   }
 }
@@ -1718,25 +1754,26 @@ static void DrawSpells(HeroStatsDrawState *state, const HeroStatsHeroPage &page,
     SectionGap();
     return;
   }
-  int count = withWho ? 9 : 8;
+  int count = withWho ? 10 : 9;
   if (BeginPageTable("##spells", count, true))
   {
     LabelColumn("Spell", true);
-    NumberColumn("Casts");
+    NumberColumn("All");
     NumberColumn("Successful");
-    NumberColumn("Failed");
-    NumberColumn("Mana", true);
+    NumberColumn("Wasted");
+    NumberColumn("All", true);
+    NumberColumn("Successful");
     NumberColumn("Wasted");
     NumberColumn("Damage");
     NumberColumn("Kills");
     if (withWho) BarColumn("Who");
     TableSort sort = CurrentSort();
-    static const char *const LABELS[8] = {"Spell", "Casts", "Successful", "Failed", "Mana", "Wasted", "Damage", "Kills"};
-    int measure = WhoMeasure(sort, {1, 2, 3, 4, 5, 6, 7}, 4);
-    static const HeaderHelps HELPS = {
-        "", "Casts of the spell, the failed ones included.", "The casts that worked.",
-        "Casts that failed. On a (no spell) line, the runes formed no spell: the Meaningless casts of Numbers.",
-        "The mana of the runes, the mana wasted on failed casts included.", "", HERO_STATS_SPELL_DAMAGE_HELP};
+    // Under the group headings each column says only its part ("All"); the Who bar's heading names the group too: "Who: Wasted mana"
+    static const char *const LABELS[9] = {"Spell", "Casts", "Successful casts", "Wasted casts", "Mana",
+                                          "Successful mana", "Wasted mana", "Damage", "Kills"};
+    int measure = WhoMeasure(sort, {1, 2, 3, 4, 5, 6, 7, 8}, 4);
+    static const HeaderHelps HELPS(HERO_STATS_SPELL_HELPS, HERO_STATS_SPELL_HELPS + HERO_STATS_SPELL_COLUMNS);
+    GroupRow({{"CASTS", 1, 3}, {"MANA", 4, 6}});
     HeaderRow(std::vector<int>(), columns, withWho ? MeasureLabel(LABELS, measure) : "", HELPS);
     std::vector<HeroStatsSpellLine> spells = page.spells;
     SortRows(&spells, sort, [](const HeroStatsSpellLine &a, const HeroStatsSpellLine &b, int column) {
@@ -1751,14 +1788,14 @@ static void DrawSpells(HeroStatsDrawState *state, const HeroStatsHeroPage &page,
       if (isAll) TotalRow();
       else NextGuidedRow();
       LabelCell(line.name, 0, rgb);
-      for (int column = 1; column <= 7; column++)
+      for (int column = 1; column <= 8; column++)
       {
         ImGui::TableSetColumnIndex(column);
-        PlainCell(SpellValue(line, column), rgb, column == 3 || column == 5);
+        PlainCell(SpellValue(line, column), rgb, column == 3 || column == 6);
       }
       if (withWho && !isAll)
       {
-        ImGui::TableSetColumnIndex(8);
+        ImGui::TableSetColumnIndex(9);
         std::vector<int> split;
         for (size_t c = 0; c < line.byColumn.size(); c++) split.push_back(SpellValue(line.byColumn[c], measure));
         WhoCell(split, columns);

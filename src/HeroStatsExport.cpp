@@ -14,7 +14,7 @@
 //             "heroDetails": [...] (a champion's)}],
 //   "heroTiles": [number, ...] (a champion's Overview), "xpFirst", "recFirst": the numbers of Fighter and of
 //   the first record, "time": the number of Time (ticks), whose share of the run a level shows,
-//   "byChampionsHelp", "avgHelp", "weaponDamageHelp", "spellDamageHelp", "recordsSortHelp",
+//   "byChampionsHelp", "avgHelp", "weaponDamageHelp", "spellHelps" (one per Spells column), "recordsSortHelp",
 //   "bestRankHelp": tooltips, "doorKills" ... "otherKills": the numbers of the kill causes,
 //   "views": { "-1" for the whole run and one per visited level: {
 //     "records": per hero then the party, a value per number, null where it does not apply,
@@ -434,7 +434,10 @@ std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroS
   out += ",\"byChampionsHelp\":" + HeroStatsExport_JsonString(HERO_STATS_BY_CHAMPIONS_HELP);
   out += ",\"avgHelp\":" + HeroStatsExport_JsonString(HERO_STATS_AVG_HELP);
   out += ",\"weaponDamageHelp\":" + HeroStatsExport_JsonString(HERO_STATS_WEAPON_DAMAGE_HELP);
-  out += ",\"spellDamageHelp\":" + HeroStatsExport_JsonString(HERO_STATS_SPELL_DAMAGE_HELP);
+  out += ",\"spellHelps\":[";
+  for (int i = 0; i < HERO_STATS_SPELL_COLUMNS; i++)
+    out += std::string(i > 0 ? "," : "") + HeroStatsExport_JsonString(HERO_STATS_SPELL_HELPS[i]);
+  out += "]";
   out += ",\"recordsSortHelp\":" + HeroStatsExport_JsonString(HERO_STATS_RECORDS_SORT_HELP);
   out += ",\"bestRankHelp\":" + HeroStatsExport_JsonString(HERO_STATS_BEST_RANK_HELP);
   // The kill causes, for the Monsters table's columns
@@ -529,6 +532,9 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   .scrolls tr:hover td:first-child { background:#2b3140 }
   th.hc { color:#fff; box-shadow:inset 0 -2px #5b8fd9 } td.hc { background:rgba(91,143,217,.05) } tr:hover td.hc { background:#36405a }
   .secs.two { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:0 22px; align-items:start }
+  /* Headings over groups of columns (CASTS, MANA), each with a line as wide as its columns */
+  tr.groups th { position:static; border-bottom:none; padding-bottom:0 }
+  th.grp { text-align:center; letter-spacing:.06em } th.grp span { display:block; border-bottom:1px solid var(--line); padding-bottom:2px }
   th.sort { cursor:pointer; user-select:none } th.sort:hover { color:#fff } th .arrow { color:var(--dim) }
   td:first-child, th:first-child { text-align:left }
   tr.d1 td, tr.d2 td { color:var(--part) } tr.d1 td:first-child { padding-left:22px; color:var(--dim) }
@@ -693,7 +699,8 @@ function fold(id) { st.closed[id] = !st.closed[id]; draw(); }
 
 // A table whose columns sort when their header is clicked; the foot row stays last.
 // cols: [{label, num}], rows: [{cells: [{v, html}], cls, act, sub: [rows kept under it]}]
-function sortTable(id, cols, rows, foot, defaultCol) {
+// groups: headings over runs of columns, [{label, first, last}, ...] in order, drawn in a row above the header
+function sortTable(id, cols, rows, foot, defaultCol, groups) {
   const s = st.sort[id] || {col: defaultCol, desc: defaultCol !== null && defaultCol > 0};
   if (s.col !== null && s.col !== undefined) rows = rows.slice().sort((a, b) => {
     const x = a.cells[s.col].v, y = b.cells[s.col].v;
@@ -704,7 +711,7 @@ function sortTable(id, cols, rows, foot, defaultCol) {
   // the champions, else its table's own; its cells ({by: column => values}) draw that
   const whoCol = cols.find(c => c.who);
   const measure = whoCol ? (whoCol.who.split.includes(s.col) ? s.col : whoCol.who.fallback) : null;
-  const label = c => c.who ? 'Who: ' + cols[measure].label : c.label;
+  const label = c => c.who ? 'Who: ' + (cols[measure].whoLabel || cols[measure].label) : c.label;
   const head = cols.map((c, i) => `<th class="sort${c.cls ? ' ' + c.cls : ''}"${c.help ? tipOf(esc(c.help)) : ''}${c.hero !== undefined ? ` data-name="${esc(H[c.hero].name)}"` : ''} onclick="sortBy('${id}',${i},${c.num ? 1 : 0})">` +
     tipLabel(c.html || esc(label(c)), c.help) + (s.col === i ? ` <span class="arrow">${s.desc ? '&#9660;' : '&#9650;'}</span>` : '') + '</th>').join('');
   const html = c => c.by ? whoBar(c.by(measure)) : c.html;
@@ -712,7 +719,14 @@ function sortTable(id, cols, rows, foot, defaultCol) {
   let body = '';
   for (const r of rows) { body += line(r); for (const sub of r.sub || []) body += line(sub); }
   if (foot) body += line(foot);
-  return `<div class="wide"><table><tr>${head}</tr>${body}</table></div>`;
+  let over = '';
+  if (groups) {
+    const gap = n => n > 0 ? `<th class="gap" colspan="${n}"></th>` : '';
+    let at = 0;
+    for (const g of groups) { over += gap(g.first - at) + `<th class="grp" colspan="${g.last - g.first + 1}"><span>${esc(g.label)}</span></th>`; at = g.last + 1; }
+    over = `<tr class="groups">${over + gap(cols.length - at)}</tr>`;
+  }
+  return `<div class="wide"><table>${over}<tr>${head}</tr>${body}</table></div>`;
 }
 function sortBy(id, col, num) {
   const s = st.sort[id];
@@ -911,16 +925,20 @@ function spells(p) {
   for (const s of p.spells) for (let k = 0; k < 7; k++) all[k] += s[k + 1];
   const summary = p.spells.length ? `${fmt(all[0])} casts · ${fmt(all[3])} mana` : 'none';
   if (!p.spells.length) return section(DETAIL.SPELLS, 'Spells', summary, '<div class="note">No spells cast.</div>');
-  const spellHelp = {Casts: 'Casts of the spell, the failed ones included.', Successful: 'The casts that worked.', Failed: 'Casts that failed. On a (no spell) line, the runes formed no spell: the Meaningless casts of Numbers.', Mana: 'The mana of the runes, the mana wasted on failed casts included.', Damage: D.spellDamageHelp};
-  const cols = ['Casts', 'Successful', 'Failed', 'Mana', 'Wasted', 'Damage', 'Kills'].map(l => numCol(l, spellHelp[l]));
+  // CASTS: All, Successful, Wasted; MANA: All, Successful, Wasted; the Who bar names the group
+  const labels = [['All', 'Casts'], ['Successful', 'Successful casts'], ['Wasted', 'Wasted casts'], ['All', 'Mana'],
+                  ['Successful', 'Successful mana'], ['Wasted', 'Wasted mana'], ['Damage'], ['Kills']];
+  const cols = labels.map(([l, whoLabel], k) => Object.assign(numCol(l, D.spellHelps[k + 1]), whoLabel ? {whoLabel} : {}));
   cols.unshift(nameCol('Spell'));
-  if (withWho()) cols.push(whoColumn([1, 2, 3, 4, 5, 6, 7], 4));
-  const cellsOf = v => v.map((x, k) => td(x, plain(x, k === 2 || k === 4)));
-  // Each champion's [casts, successful, failed, mana, wasted, damage, kills]: table column k is k - 1
+  if (withWho()) cols.push(whoColumn([1, 2, 3, 4, 5, 6, 7, 8], 4));
+  // [casts, successful, failed, mana, wasted, damage, kills] as the table's columns: the successful mana between
+  const values = v => [v[0], v[1], v[2], v[3], v[3] - v[4], v[4], v[5], v[6]];
+  const cellsOf = v => values(v).map((x, k) => td(x, plain(x, k === 2 || k === 5)));
+  // Each champion's counts: table column k is values(...)[k - 1]
   const rows = p.spells.map(s => ({cells: [nameTd(s[0])].concat(cellsOf(s.slice(1, 8)),
-    withWho() ? [whoBy(s[4], k => s[8].map(c => c[k - 1]))] : [])}));
+    withWho() ? [whoBy(s[4], k => s[8].map(c => values(c)[k - 1]))] : [])}));
   const foot = {cls: 'all', cells: [nameTd('All spells')].concat(cellsOf(all), withWho() ? [td(0, '<td></td>')] : [])};
-  return section(DETAIL.SPELLS, 'Spells', summary, sortTable('spells', cols, rows, foot, 4));
+  return section(DETAIL.SPELLS, 'Spells', summary, sortTable('spells', cols, rows, foot, 4, [{label: 'CASTS', first: 1, last: 3}, {label: 'MANA', first: 4, last: 6}]));
 }
 
 function amounts(id, title, column, what, lines, withBad) {
@@ -1426,7 +1444,7 @@ function across(count, available, smallest, gap) {
 // The bar cells and the cells worked out from others (Rate, Avg) get a class by column, their
 // headers too, so a narrow table can leave the whole column out
 function tagColumns(table) {
-  const rows = [...table.rows], head = rows[0];
+  const rows = [...table.rows], head = rows.find(r => !r.classList.contains('groups'));
   if (!head) return;
   const bars = new Set(), derived = new Set();
   rows.forEach(r => [...r.cells].forEach(c => { if (c.classList.contains('bar') || c.classList.contains('whobar')) bars.add(c.cellIndex); }));

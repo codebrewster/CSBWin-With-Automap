@@ -1089,6 +1089,24 @@ static void ExportHasExperienceAndRecords(void)
   CHECK(html.find("function records(") != std::string::npos && html.find("function xpSources(") != std::string::npos);
 }
 
+// The Spells table's tooltips travel with the page, one per column, the same as the window's
+static void ExportHasTheSpellHelps(void)
+{
+  HeroStats stats = ExperiencedParty();
+  stats.CountCast(9, 1, FUL_IR, 10);
+  stats.CountFailedCast(9, 1, FUL_IR, 4);
+  stats.CountFailedCast(7, 1, 0x0607 | HERO_SPELL_NO_SUCH_SPELL, 5);
+  HeroStatsExportInfo info = {"dungeon.dat", "2026-11-22 12:00"};
+  std::string json = HeroStatsExport_Json(stats, Columns(stats), NAMES, info);
+  std::string helps = "\"spellHelps\":[";
+  for (int i = 0; i < HERO_STATS_SPELL_COLUMNS; i++) helps += std::string(i > 0 ? "," : "") + HeroStatsExport_JsonString(HERO_STATS_SPELL_HELPS[i]);
+  CHECK(json.find(helps + "]") != std::string::npos);
+  std::string html = HeroStatsExport_Html(stats, Columns(stats), NAMES, info);
+  CHECK(html.find("{label: 'CASTS', first: 1, last: 3}") != std::string::npos);
+  const char *out = getenv("CSB_TEST_SPELLS_HTML");
+  if (out != NULL) { FILE *f = fopen(out, "w"); if (f) { fputs(html.c_str(), f); fclose(f); } }
+}
+
 // Telefrags and landings have their own columns of the Monsters table and are no "other" kills
 static void MonstersKnowTelefragsAndLandings(void)
 {
@@ -1271,6 +1289,7 @@ void TestHeroStatsPages(void)
   MonstersKnowTelefragsAndLandings();
   PagesCarryTheGroups();
   ExportHasExperienceAndRecords();
+  ExportHasTheSpellHelps();
   SourcesAddUpToTheClasses();
   ChampionSourcesLeaveOutZeros();
   ClassesOpenToTheirSkills();
