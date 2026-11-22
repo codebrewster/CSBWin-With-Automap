@@ -16,6 +16,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 **Statistics**
 - Records: the stair dances show the arrow between their levels (`Lv 3 ↔ 2`) instead of a question mark.
 - Records: hovering a value in a replay shows both lines of its tooltip, the tick and the click hint; the second was cut off.
+- Combat: a weapon's spell that hurts a monster only through its cloud (DISPELL of a staff, some INVOKEs) counts as a hit; it had damage and kills but 0 hits.
 
 ## 1.6.1 (2026-11-22)
 

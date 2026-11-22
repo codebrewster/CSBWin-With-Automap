@@ -51,11 +51,15 @@ static HeroStatsBlow damageBlow = HeroStatsBlow_Nobody(HeroBlowByCloud);
 static bool damageBlowMagic = false;  // records as a spell's: Biggest spell hit and total
 // Missiles that have damaged a monster: only the first damage is a hit
 static std::set<int> missilesThatHit;
+// Clouds left by a missile that had not hit when it exploded (a Dispell does its damage only
+// through its cloud): the cloud's first damage is that missile's hit
+static std::set<int> cloudsAwaitingHit;
 // Between HeroStats_BeginCloud and HeroStats_EndCloud: the exploding missile and its blow; the
 // first cloud made takes the blow
 static bool explosionActive = false;
 static bool explosionCloudPending = false;
 static int explosionMissile = -1;
+static int explosionCloud = -1;  // the cloud this explosion made, -1 while none
 static HeroStatsBlow explosionBlow = HeroStatsBlow_Nobody(HeroBlowByOther);
 // Between HeroStats_BeginHarm* and HeroStats_EndHarm: the source of the harm, set by the
 // outermost Begin
@@ -361,9 +365,11 @@ static void ForgetEngineState(void)
   lastBlowSet = false;
   damageBlowActive = false;
   missilesThatHit.clear();
+  cloudsAwaitingHit.clear();
   explosionActive = false;
   explosionCloudPending = false;
   explosionMissile = -1;
+  explosionCloud = -1;
   harmDepth = 0;
   pending.ClearAll();
   runeCastSlot = -1;
@@ -855,6 +861,7 @@ static int firstKillType = -1;  // the monster the blow killed first, for Most k
 // the monster type for its records, the missile whose hit it is once it did damage (-1: none)
 static int blowTotal = 0, blowBiggest = 0, blowMembersHurt = 0, blowMonsterType = -1;
 static int blowHitMissile = -1;
+static int blowHitCloud = -1;  // the cloud whose first damage is its missile's hit (-1: none)
 
 // How a champion's (or a monster's) blow was made, as a record keeps it
 static HeroXpSource HowOf(const HeroStatsBlow &blow)
@@ -907,6 +914,7 @@ static void BeginDamageBlow(const HeroStatsBlow &blow, bool magic, int monsterTy
   blowMembersHurt = 0;
   blowMonsterType = monsterType;
   blowHitMissile = hitMissile;
+  blowHitCloud = -1;
 }
 
 static int MonsterTypeOfGroup(int monsterGroup)
@@ -1085,8 +1093,12 @@ void HeroStats_BeginCloud(int missileIndex)
 void HeroStats_OnCloudMade(int cloudIndex)
 {
   // Records are reused: a cloud nobody is known to have made must not keep an old cloud's origin
+  cloudsAwaitingHit.erase(cloudIndex);
   if (explosionCloudPending)
+  {
     origins.SetCloudOrigin(cloudIndex, explosionBlow);
+    explosionCloud = cloudIndex;
+  }
   else
     origins.ForgetCloud(cloudIndex);
   // Only the explosion's own cloud: the death clouds of the monsters it kills are nobody's
@@ -1095,9 +1107,13 @@ void HeroStats_OnCloudMade(int cloudIndex)
 
 void HeroStats_EndCloud(void)
 {
+  // A missile that hurt nothing on its way or in its explosion still hits once its cloud does
+  if (explosionCloud >= 0 && explosionMissile >= 0 && missilesThatHit.count(explosionMissile) == 0)
+    cloudsAwaitingHit.insert(explosionCloud);
   explosionActive = false;
   explosionCloudPending = false;
   explosionMissile = -1;
+  explosionCloud = -1;
   lastBlowSet = false;
 }
 
@@ -1113,6 +1129,7 @@ void HeroStats_OnCloudDamage(int cloudIndex, int monsterType)
   HeroStatsBlow blow;
   if (!origins.CloudOrigin(cloudIndex, &blow)) blow = HeroStatsBlow_Nobody(HeroBlowByCloud);
   BeginDamageBlow(blow, true, monsterType, -1);
+  if (cloudsAwaitingHit.count(cloudIndex) != 0) blowHitCloud = cloudIndex;
 }
 
 void HeroStats_OnMonsterDamaged(int hitPointsLost)
@@ -1120,6 +1137,8 @@ void HeroStats_OnMonsterDamaged(int hitPointsLost)
   if (!damageBlowActive || hitPointsLost <= 0) return;
   int level = PartyLevel();
   if (blowTotal == 0 && blowHitMissile >= 0) CountMissileHit(level, blowHitMissile, damageBlow);
+  if (blowTotal == 0 && blowHitCloud >= 0 && cloudsAwaitingHit.erase(blowHitCloud) != 0)
+    store.CountAttackHit(level, damageBlow);
   store.CreditMonsterDamage(level, damageBlow, hitPointsLost);
   blowTotal += hitPointsLost;
   if (hitPointsLost > blowBiggest) blowBiggest = hitPointsLost;
@@ -1128,6 +1147,7 @@ void HeroStats_OnMonsterDamaged(int hitPointsLost)
 
 void HeroStats_OnCloudFreed(int cloudIndex)
 {
+  cloudsAwaitingHit.erase(cloudIndex);
   origins.ForgetCloud(cloudIndex);
 }
 
@@ -1160,6 +1180,7 @@ void HeroStats_EndMonsterBlow(void)
   blowBiggest = 0;
   blowMembersHurt = 0;
   blowHitMissile = -1;
+  blowHitCloud = -1;
   damageBlowActive = false;
   lastBlowSet = false;
 }
@@ -1692,9 +1713,11 @@ struct HeroStatsTransient : public SnapshotKept
   HeroStatsBlow damageBlow;
   bool damageBlowMagic;
   std::set<int> missilesThatHit;
+  std::set<int> cloudsAwaitingHit;
   bool explosionActive;
   bool explosionCloudPending;
   int explosionMissile;
+  int explosionCloud;
   HeroStatsBlow explosionBlow;
   int harmDepth;
   HeroHarmSource harmSource;
@@ -1711,6 +1734,7 @@ struct HeroStatsTransient : public SnapshotKept
   int blowMembersHurt;
   int blowMonsterType;
   int blowHitMissile;
+  int blowHitCloud;
   bool experienceSourceSet;
   HeroXpSource experienceSource;
   HeroXpSource lastExperienceSource;
@@ -1726,9 +1750,11 @@ SnapshotKeptRef HeroStats_KeepTransient(void)
   k->damageBlow = damageBlow;
   k->damageBlowMagic = damageBlowMagic;
   k->missilesThatHit = missilesThatHit;
+  k->cloudsAwaitingHit = cloudsAwaitingHit;
   k->explosionActive = explosionActive;
   k->explosionCloudPending = explosionCloudPending;
   k->explosionMissile = explosionMissile;
+  k->explosionCloud = explosionCloud;
   k->explosionBlow = explosionBlow;
   k->harmDepth = harmDepth;
   k->harmSource = harmSource;
@@ -1745,6 +1771,7 @@ SnapshotKeptRef HeroStats_KeepTransient(void)
   k->blowMembersHurt = blowMembersHurt;
   k->blowMonsterType = blowMonsterType;
   k->blowHitMissile = blowHitMissile;
+  k->blowHitCloud = blowHitCloud;
   k->experienceSourceSet = experienceSourceSet;
   k->experienceSource = experienceSource;
   k->lastExperienceSource = lastExperienceSource;
@@ -1760,9 +1787,11 @@ void HeroStats_RestoreTransient(const SnapshotKept &kept)
   damageBlow = k.damageBlow;
   damageBlowMagic = k.damageBlowMagic;
   missilesThatHit = k.missilesThatHit;
+  cloudsAwaitingHit = k.cloudsAwaitingHit;
   explosionActive = k.explosionActive;
   explosionCloudPending = k.explosionCloudPending;
   explosionMissile = k.explosionMissile;
+  explosionCloud = k.explosionCloud;
   explosionBlow = k.explosionBlow;
   harmDepth = k.harmDepth;
   harmSource = k.harmSource;
@@ -1779,6 +1808,7 @@ void HeroStats_RestoreTransient(const SnapshotKept &kept)
   blowMembersHurt = k.blowMembersHurt;
   blowMonsterType = k.blowMonsterType;
   blowHitMissile = k.blowHitMissile;
+  blowHitCloud = k.blowHitCloud;
   experienceSourceSet = k.experienceSourceSet;
   experienceSource = k.experienceSource;
   lastExperienceSource = k.lastExperienceSource;
