@@ -206,7 +206,7 @@ A door that closed behind your back still shows open until you look again.
   seen the effect.
 - **Damage** the game showed for each monster you fought.
 
-![Fog of war on level 0: the explored cells, with the items and doors the party has seen](images/automap-level.png)
+![Fog of war on level 0, the Hall of Champions: the explored cells, with the mirrors, doors and items the party has seen](images/automap-level.png)
 
 ![Fog of war on level 1: only the corner the party has explored](images/automap-fog.png)
 
@@ -307,7 +307,7 @@ shows the party's red arrow turned that way in a gold frame, followed by `PARTY 
 
 ![Hovering a mummy: its hit points, the items it carries and the words of its scroll](images/automap-items.png)
 
-![Hovering a monster generator at spoiler level All: what it creates, its hit points, and lines from the pads that trigger it](images/automap-incoming-links.png)
+![Hovering a monster generator at spoiler level All: what it generates, the hit points of what it makes, and lines from the three pads that trigger it](images/automap-incoming-links.png)
 
 ## Tracing switches and pads
 

@@ -531,7 +531,7 @@ champion's page: point at one for the item. The cards always show the picture, n
 
 Above the cards is the item on the cursor, or "nothing" when the cursor is empty. Click a card to see that champion.
 
-![A champion on the Champions tab: the bars, attributes and ranks, and the inventory as in the game with a chest's contents under the pointer](images/statistics-champions.png)
+![A champion on the Champions tab: the bars, attributes and ranks, and the inventory as in the game](images/statistics-champions.png)
 
 **A champion** shows the same bars, then **Attributes** (current and max; drained in red, raised
 above the max in violet), **Ranks** and the **Inventory**.
