@@ -693,7 +693,8 @@ static void NumberCell(const std::string &text, int value, bool isBad, ImU32 rgb
 static void CatalogueCell(HeroStatsNumber number, int value, ImU32 rgb)
 {
   const HeroStatsNumberInfo &info = HeroStatsCatalogue_Info(number);
-  NumberCell(HeroStatsCatalogue_Format(number, value), info.isRatio && value < 0 ? 1 : value, info.isBad, rgb);
+  // A rate's or an average's 0 is worked out from something (0%: none of the casts worked): written, not a dot
+  NumberCell(HeroStatsCatalogue_Format(number, value), info.isRatio && value <= 0 ? 1 : value, info.isBad, rgb);
 }
 
 static void PlainCell(int value, ImU32 rgb = TEXT_RGB, bool isBad = false)
@@ -989,9 +990,12 @@ static void NextGuidedRow(void)
 // (columnOfHeader[i]: the champion column of table column i, or -1), dimmed when they left.
 // lastLabel, when given, names the last column instead of its setup name ("Who: Damage").
 // helps: a tooltip per table column (empty or missing: none), for what a header does not say.
+// lastRoom: the widest the last header can be ("Who: Successful casts"), so that the table is as
+// wide whatever it is sorted by and does not move below another section for one column.
 typedef std::vector<const char *> HeaderHelps;
 static void HeaderRow(const std::vector<int> &columnOfHeader, const std::vector<HeroStatsColumn> &columns,
-                      const std::string &lastLabel = "", const HeaderHelps &helps = HeaderHelps())
+                      const std::string &lastLabel = "", const HeaderHelps &helps = HeaderHelps(),
+                      const std::string &lastRoom = "")
 {
   ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
   int count = ImGui::TableGetColumnCount();
@@ -1013,8 +1017,10 @@ static void HeaderRow(const std::vector<int> &columnOfHeader, const std::vector<
     // A table that gave up the champions' names shows their dots alone
     bool namesOff = champion >= 0 && InMeasuredTable() && !measuring->fit.names;
     float dotHead = spaceWidth * 2 + arrow + 12;
-    if (!isText) NoteHead(ImGui::CalcTextSize(name).x + (champion >= 0 ? spaceWidth * 2 : 0) + arrow + 12,
-                          champion >= 0 ? dotHead : ImGui::CalcTextSize(name).x + arrow + 12);
+    float nameWidth = ImGui::CalcTextSize(name).x;
+    if (i == count - 1 && !lastRoom.empty()) nameWidth = std::max(nameWidth, ImGui::CalcTextSize(lastRoom.c_str()).x);
+    if (!isText) NoteHead(nameWidth + (champion >= 0 ? spaceWidth * 2 : 0) + arrow + 12,
+                          champion >= 0 ? dotHead : nameWidth + arrow + 12);
     const char *fullName = name;
     if (namesOff) name = "";
     if (!inSight) continue;
@@ -1274,8 +1280,8 @@ static TileText TileTextOf(const HeroStatsTopicPage &page, HeroStatsNumber numbe
           tile.sub = "party: " + record.partyValue + " " + WhoLabel(columns, record.partyHolder);
       }
     }
-  // Zero is written as the tables write it; a rank or a record in its place is no zero
-  if (value == 0 && !HeroStatsCatalogue_IsRecord(number) && tile.big == HeroStatsCatalogue_Format(number, 0))
+  // Zero is written as the tables write it; a rank or a record in its place is no zero, nor is a rate's 0%
+  if (value == 0 && !HeroStatsCatalogue_IsRecord(number) && HeroStatsCatalogue_Summable(number) && tile.big == HeroStatsCatalogue_Format(number, 0))
   {
     tile.big = MIDDLE_DOT;
     tile.zero = true;
@@ -1422,10 +1428,11 @@ static void DrawPanels(HeroStatsDrawState *state, const HeroStatsTopicPage &page
         float labelWidth = ImGui::CalcTextSize(row.label.c_str()).x;
         if (row.depth > 0) drawList->AddLine(ImVec2(x - 9, rowY - 1), ImVec2(x - 9, rowY + ImGui::GetTextLineHeight() + 1), Packed(FAINT_RGB));
         drawList->AddText(ImVec2(x, rowY), Packed(row.depth > 0 ? PART_RGB : TEXT_RGB), row.label.c_str());
-        std::string value = row.party == 0 ? MIDDLE_DOT : HeroStatsCatalogue_Format(row.number, row.party);
+        bool dot = row.party == 0 && !info.isRatio;  // a rate's 0% is written
+        std::string value = dot ? MIDDLE_DOT : HeroStatsCatalogue_Format(row.number, row.party);
         if (!row.runShare.empty()) value += " (" + row.runShare + ")";  // the time's share of the run
         float valueWidth = ImGui::CalcTextSize(value.c_str()).x;
-        drawList->AddText(ImVec2(min.x + panelWidth - inset - valueWidth, rowY), Packed(row.party == 0 ? FAINT_RGB : TEXT_RGB), value.c_str());
+        drawList->AddText(ImVec2(min.x + panelWidth - inset - valueWidth, rowY), Packed(dot ? FAINT_RGB : TEXT_RGB), value.c_str());
         if (info.help[0] != 0)
         {
           DottedUnderline(x, x + labelWidth, rowY + ImGui::GetTextLineHeight());
@@ -1542,14 +1549,19 @@ static std::string Joined(const std::string &a, const std::string &b)
   return a + " \xc2\xb7 " + b;
 }
 
-// The Who bar: each champion's part of the line in the column it splits; hovered, the numbers
-static void WhoCell(const std::vector<int> &byColumn, const std::vector<HeroStatsColumn> &columns)
+// The Who bar: each champion's part of the line in the column it splits; hovered, the numbers.
+// notes: a champion's own value of what the table is sorted by when the bar cannot split it (a
+// rate: "HALK  30 · 88%"), one per column, or none
+static void WhoCell(const std::vector<int> &byColumn, const std::vector<HeroStatsColumn> &columns,
+                    const std::vector<std::string> &notes = std::vector<std::string>())
 {
   ShareBar(byColumn);
   if (!ImGui::IsItemHovered()) return;
   std::string text;
   for (size_t c = 0; c < byColumn.size() && c < columns.size(); c++)
-    if (byColumn[c] != 0) text += (text.empty() ? "" : "\n") + columns[c].name + "  " + HeroStatsView_Number(byColumn[c]);
+    if (byColumn[c] != 0)
+      text += (text.empty() ? "" : "\n") + columns[c].name + "  " + HeroStatsView_Number(byColumn[c]) +
+              (c < notes.size() && !notes[c].empty() ? " " + std::string(MIDDLE_DOT) + " " + notes[c] : "");
   if (!text.empty()) WrappedTooltip(text.c_str());
 }
 
@@ -1565,6 +1577,18 @@ static int WhoMeasure(const TableSort &sort, const std::vector<int> &splittable,
 static std::string MeasureLabel(const char *const *columnLabels, int measure)
 {
   return std::string("Who: ") + columnLabels[measure];
+}
+
+// The widest Who header of those the sorts can give: HeaderRow's lastRoom
+static std::string WidestMeasureLabel(const char *const *columnLabels, const std::vector<int> &splittable)
+{
+  std::string widest;
+  for (size_t i = 0; i < splittable.size(); i++)
+  {
+    std::string label = MeasureLabel(columnLabels, splittable[i]);
+    if (ImGui::CalcTextSize(label.c_str()).x > ImGui::CalcTextSize(widest.c_str()).x) widest = label;
+  }
+  return widest;
 }
 
 // One champion's numbers with a weapon in a column of the Weapons table
@@ -1665,12 +1689,16 @@ static void DrawWeapons(HeroStatsDrawState *state, const HeroStatsHeroPage &page
     if (withWho) BarColumn("Who");
     TableSort sort = CurrentSort();
     static const char *const LABELS[7] = {"Weapon", "Tries", "Hits", "Rate", "Avg", "Damage", "Kills"};
-    int measure = WhoMeasure(sort, {1, 2, 5, 6}, 5);
+    static const std::vector<int> SPLITTABLE = {1, 2, 5, 6};
+    // Sorted by Rate, which cannot be shared out, the bar splits the Tries it divides, each
+    // champion's rate in its hovertext
+    int measure = sort.column == 3 ? 1 : WhoMeasure(sort, SPLITTABLE, 5);
     static const HeaderHelps HELPS = {
         "", "Blows and missiles, and the actions that cannot hit (War Cry, Calm...). The Combat page's Attacks leaves those out; its Other actions counts them.",
-        "", "Hits out of the tries that can hit; actions that cannot hit are left out.", HERO_STATS_AVG_HELP,
+        "", "Hits out of the tries that can hit; actions that cannot hit are left out. A rate cannot be shared out: sorted by it, the Who bar splits Tries, and its hovertext has each champion's rate.", HERO_STATS_AVG_HELP,
         HERO_STATS_WEAPON_DAMAGE_HELP};
-    HeaderRow(std::vector<int>(), columns, withWho ? MeasureLabel(LABELS, measure) : "", HELPS);
+    HeaderRow(std::vector<int>(), columns, withWho ? MeasureLabel(LABELS, measure) : "", HELPS,
+              withWho ? WidestMeasureLabel(LABELS, SPLITTABLE) : "");
     std::vector<HeroStatsWeaponLine> weapons = page.weapons;
     SortRows(&weapons, sort, CompareAttacks<HeroStatsWeaponLine>);
     for (size_t w = 0; w < weapons.size(); w++)
@@ -1689,8 +1717,13 @@ static void DrawWeapons(HeroStatsDrawState *state, const HeroStatsHeroPage &page
       {
         ImGui::TableSetColumnIndex(7);
         std::vector<int> split;
-        for (size_t c = 0; c < weapon.byColumn.size(); c++) split.push_back(AttackValue(weapon.byColumn[c], measure));
-        WhoCell(split, columns);
+        std::vector<std::string> notes;
+        for (size_t c = 0; c < weapon.byColumn.size(); c++)
+        {
+          split.push_back(AttackValue(weapon.byColumn[c], measure));
+          if (sort.column == 3) notes.push_back(HeroStatsView_Percent(weapon.byColumn[c].hits, weapon.byColumn[c].tries));
+        }
+        WhoCell(split, columns, notes);
       }
       if (open)
       {
@@ -1720,14 +1753,21 @@ static int SpellValue(const Line &line, int column)
   {
   case 1: return line.casts;
   case 2: return line.successful;
-  case 3: return line.failed;
-  case 4: return line.mana;
-  case 5: return line.mana - line.wasted;
-  case 6: return line.wasted;
-  case 7: return line.damage;
-  case 8: return line.kills;
+  case 4: return line.failed;
+  case 5: return line.mana;
+  case 6: return line.mana - line.wasted;
+  case 8: return line.wasted;
+  case 9: return line.damage;
+  case 10: return line.kills;
   default: return line.mana;
   }
+}
+
+// The Spells table's Rate columns: 3 the casts', 7 the mana's; -1 with nothing to divide
+template <typename Line>
+static double SpellRate(const Line &line, int column)
+{
+  return column == 3 ? Ratio(line.successful, line.casts) : Ratio(line.mana - line.wasted, line.mana);
 }
 
 static void DrawSpells(HeroStatsDrawState *state, const HeroStatsHeroPage &page, const std::vector<HeroStatsColumn> &columns)
@@ -1754,30 +1794,38 @@ static void DrawSpells(HeroStatsDrawState *state, const HeroStatsHeroPage &page,
     SectionGap();
     return;
   }
-  int count = withWho ? 10 : 9;
+  int count = withWho ? 12 : 11;
   if (BeginPageTable("##spells", count, true))
   {
+    // CASTS and MANA: All, Successful, Rate (worked out, left out first when narrow), Wasted
     LabelColumn("Spell", true);
     NumberColumn("All");
     NumberColumn("Successful");
+    NumberColumn("Rate", false, true);
     NumberColumn("Wasted");
     NumberColumn("All", true);
     NumberColumn("Successful");
+    NumberColumn("Rate", false, true);
     NumberColumn("Wasted");
     NumberColumn("Damage");
     NumberColumn("Kills");
     if (withWho) BarColumn("Who");
     TableSort sort = CurrentSort();
-    // Under the group headings each column says only its part ("All"); the Who bar's heading names the group too: "Who: Wasted mana"
-    static const char *const LABELS[9] = {"Spell", "Casts", "Successful casts", "Wasted casts", "Mana",
-                                          "Successful mana", "Wasted mana", "Damage", "Kills"};
-    int measure = WhoMeasure(sort, {1, 2, 3, 4, 5, 6, 7, 8}, 4);
+    // Under the group headings each column says only its part ("All"); the Who bar's heading
+    // names the group too ("Who: Wasted mana"). A rate cannot be shared out: sorted by one, the
+    // bar splits its group's All.
+    static const char *const LABELS[11] = {"Spell", "Casts", "Successful casts", "Cast rate", "Wasted casts", "Mana",
+                                           "Successful mana", "Mana rate", "Wasted mana", "Damage", "Kills"};
+    static const std::vector<int> SPLITTABLE = {1, 2, 4, 5, 6, 8, 9, 10};
+    int measure = sort.column == 3 ? 1 : sort.column == 7 ? 5 : WhoMeasure(sort, SPLITTABLE, 5);
     static const HeaderHelps HELPS(HERO_STATS_SPELL_HELPS, HERO_STATS_SPELL_HELPS + HERO_STATS_SPELL_COLUMNS);
-    GroupRow({{"CASTS", 1, 3}, {"MANA", 4, 6}});
-    HeaderRow(std::vector<int>(), columns, withWho ? MeasureLabel(LABELS, measure) : "", HELPS);
+    GroupRow({{"CASTS", 1, 4}, {"MANA", 5, 8}});
+    HeaderRow(std::vector<int>(), columns, withWho ? MeasureLabel(LABELS, measure) : "", HELPS,
+              withWho ? WidestMeasureLabel(LABELS, SPLITTABLE) : "");
     std::vector<HeroStatsSpellLine> spells = page.spells;
     SortRows(&spells, sort, [](const HeroStatsSpellLine &a, const HeroStatsSpellLine &b, int column) {
       if (column == 0) return a.name.compare(b.name);
+      if (column == 3 || column == 7) return Compare(SpellRate(a, column), SpellRate(b, column));
       return Compare(SpellValue(a, column), SpellValue(b, column));
     });
     for (size_t i = 0; i <= spells.size(); i++)
@@ -1788,17 +1836,31 @@ static void DrawSpells(HeroStatsDrawState *state, const HeroStatsHeroPage &page,
       if (isAll) TotalRow();
       else NextGuidedRow();
       LabelCell(line.name, 0, rgb);
-      for (int column = 1; column <= 8; column++)
+      for (int column = 1; column <= 10; column++)
       {
         ImGui::TableSetColumnIndex(column);
-        PlainCell(SpellValue(line, column), rgb, column == 3 || column == 6);
+        if (column == 3 || column == 7)
+        {
+          double rate = SpellRate(line, column);
+          RightText(rate < 0 ? "-" : HeroStatsView_Percent(column == 3 ? line.successful : line.mana - line.wasted,
+                                                           column == 3 ? line.casts : line.mana),
+                    rate < 0 ? FAINT_RGB : rgb);
+        }
+        else PlainCell(SpellValue(line, column), rgb, column == 4 || column == 8);
       }
       if (withWho && !isAll)
       {
-        ImGui::TableSetColumnIndex(9);
+        ImGui::TableSetColumnIndex(11);
         std::vector<int> split;
-        for (size_t c = 0; c < line.byColumn.size(); c++) split.push_back(SpellValue(line.byColumn[c], measure));
-        WhoCell(split, columns);
+        std::vector<std::string> notes;
+        for (size_t c = 0; c < line.byColumn.size(); c++)
+        {
+          const HeroStatsSpellCounts &mine = line.byColumn[c];
+          split.push_back(SpellValue(mine, measure));
+          if (sort.column == 3) notes.push_back(HeroStatsView_Percent(mine.successful, mine.casts));
+          if (sort.column == 7) notes.push_back(HeroStatsView_Percent(mine.mana - mine.wasted, mine.mana));
+        }
+        WhoCell(split, columns, notes);
       }
     }
     EndPageTable();
@@ -1971,9 +2033,11 @@ static void DrawConsumed(HeroStatsDrawState *state, const HeroStatsHeroPage &pag
     if (withWho) BarColumn("Who");
     TableSort sort = CurrentSort();
     static const char *const LABELS[3] = {"Item", "Eaten", "Drunk"};
-    int measure = WhoMeasure(sort, {1, 2}, 1);
+    static const std::vector<int> SPLITTABLE = {1, 2};
+    int measure = WhoMeasure(sort, SPLITTABLE, 1);
     static const HeaderHelps HELPS = {"", "", "Times the item was drunk; the fountain counts as a drink."};
-    HeaderRow(std::vector<int>(), columns, withWho ? MeasureLabel(LABELS, measure) : "", HELPS);
+    HeaderRow(std::vector<int>(), columns, withWho ? MeasureLabel(LABELS, measure) : "", HELPS,
+              withWho ? WidestMeasureLabel(LABELS, SPLITTABLE) : "");
     SortRows(&lines, sort, [](const ConsumedLine &a, const ConsumedLine &b, int c) {
       if (c == 0) return a.name.compare(b.name);
       if (c == 1) return Compare(a.eaten, b.eaten);

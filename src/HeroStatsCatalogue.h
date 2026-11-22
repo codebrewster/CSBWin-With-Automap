@@ -19,9 +19,9 @@ enum HeroStatsNumber {
   HeroNumDamage, HeroNumMelee, HeroNumRanged, HeroNumMagic, HeroNumKills, HeroNumAttacks, HeroNumHits,
   HeroNumHitRate, HeroNumDamagePerHit, HeroNumOtherActions, HeroNumFriendlyFire,
   HeroNumManaGenerated, HeroNumManaRegeneration, HeroNumManaPotions, HeroNumManaRegenLost, HeroNumManaSpent, HeroNumManaOnSpells,
-  HeroNumManaSuccessful, HeroNumManaWasted, HeroNumManaFailed, HeroNumManaMeaningless,
+  HeroNumManaSuccessful, HeroNumManaSuccessRate, HeroNumManaWasted, HeroNumManaFailed, HeroNumManaMeaningless,
   HeroNumRunesCleared, HeroNumRunesNotCast,
-  HeroNumCasts, HeroNumCastsSuccessful, HeroNumCastsWasted, HeroNumCastsFailed, HeroNumCastsMeaningless,
+  HeroNumCasts, HeroNumCastsSuccessful, HeroNumCastsSuccessRate, HeroNumCastsWasted, HeroNumCastsFailed, HeroNumCastsMeaningless,
   HeroNumTaken, HeroNumHealed, HeroNumHealRegeneration, HeroNumHealPotions, HeroNumHealPotionsOwn,
   HeroNumHealPotionsOthers, HeroNumHealPotionsFound, HeroNumHealAction, HeroNumHealingGiven, HeroNumPoisonings, HeroNumWounds,
   HeroNumAttacksReceived, HeroNumHitsTaken, HeroNumDodged, HeroNumLucky, HeroNumTooWeak, HeroNumBlocked,
@@ -73,8 +73,9 @@ extern const char *const HERO_STATS_BEST_RANK_HELP;
 extern const char *const HERO_STATS_AVG_HELP;
 extern const char *const HERO_STATS_WEAPON_DAMAGE_HELP;  // the Damage columns of Weapons and Spells
 extern const char *const HERO_STATS_SPELL_DAMAGE_HELP;
-// The Spells table's header tooltips, one per column (0: Spell; CASTS 1-3; MANA 4-6; Damage; Kills)
-const int HERO_STATS_SPELL_COLUMNS = 9;
+// The Spells table's header tooltips, one per column (0: Spell; CASTS 1-4 and MANA 5-8: All,
+// Successful, Rate, Wasted; Damage; Kills)
+const int HERO_STATS_SPELL_COLUMNS = 11;
 extern const char *const HERO_STATS_SPELL_HELPS[HERO_STATS_SPELL_COLUMNS];
 extern const char *const HERO_STATS_RECORDS_SORT_HELP;   // the Records table's Record header
 // The unit a record's value is written with ("ticks", "levels"), "" for none
@@ -139,6 +140,8 @@ bool HeroStatsCatalogue_Applies(HeroStatsNumber number, HeroStatsChampion who, i
 bool HeroStatsCatalogue_Summable(HeroStatsNumber number);
 // "4,412", "63%", "-" for an undefined ratio
 std::string HeroStatsCatalogue_Format(HeroStatsNumber number, int value);
+// A percentage (Hit rate, the success rates): written with a %
+bool HeroStatsCatalogue_IsPercent(HeroStatsNumber number);
 // A level's time as a share of the whole run's: "12%", "<1%" for a little time. "" for any
 // number but the time (Time (ticks)), for the whole run itself, for no time on the level and for
 // a run with no ticks. Only shown, never counted.

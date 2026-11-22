@@ -397,7 +397,7 @@ std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroS
     out += std::string(n > 0 ? "," : "") + "{\"label\":" + HeroStatsExport_JsonString(number.label) +
            ",\"help\":" + HeroStatsExport_JsonString(number.help) + ",\"party\":" + Bool(number.partyOnly) +
            ",\"run\":" + Bool(number.wholeRunOnly) + ",\"bad\":" + Bool(number.isBad) + ",\"ratio\":" +
-           Bool(number.isRatio) + ",\"pct\":" + Bool(n == HeroNumHitRate) + ",\"ticks\":" + Bool(number.isTicks) +
+           Bool(number.isRatio) + ",\"pct\":" + Bool(HeroStatsCatalogue_IsPercent((HeroStatsNumber)n)) + ",\"ticks\":" + Bool(number.isTicks) +
            ",\"rec\":" + Bool(number.isRecord) +
            ",\"off\":" + Bool(n == HeroNumReducedResistance && info.resistanceIgnored) +
            ",\"unit\":[" + HeroStatsExport_JsonString(HeroStatsCatalogue_Unit((HeroStatsNumber)n, false)) + "," +
@@ -535,6 +535,10 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   /* Headings over groups of columns (CASTS, MANA), each with a line as wide as its columns */
   tr.groups th { position:static; border-bottom:none; padding-bottom:0 }
   th.grp { text-align:center; letter-spacing:.06em } th.grp span { display:block; border-bottom:1px solid var(--line); padding-bottom:2px }
+  /* A header the width of the widest of its labels, the others hidden in the same place */
+  .stack { display:inline-grid } .stack > * { grid-area:1/1; justify-self:end } .stack .ghost { visibility:hidden }
+  /* Measured without the sort arrow: fit() leaves room for one, wherever it is */
+  .measure th .arrow { display:none }
   th.sort { cursor:pointer; user-select:none } th.sort:hover { color:#fff } th .arrow { color:var(--dim) }
   td:first-child, th:first-child { text-align:left }
   tr.d1 td, tr.d2 td { color:var(--part) } tr.d1 td:first-child { padding-left:22px; color:var(--dim) }
@@ -665,11 +669,12 @@ const dotOf = i => `<span class="dot" style="background:${COLOUR(i)}"></span>`;
 
 function set(changes) { Object.assign(st, changes); draw(); }
 
-// A number in a cell: a dim dot for zero, bad news on a red pill, nothing where it does not apply
+// A number in a cell: a dim dot for zero, bad news on a red pill, nothing where it does not apply.
+// A rate's or an average's 0 is worked out from something (0%: none of the casts worked), so it is written
 function cell(v, bad, ratio, label, cls) {
   const c = cls ? ` class="${cls}"` : '';
   if (v === null || v === undefined) return `<td${c}></td>`;
-  if (v === 0) return `<td class="z">·</td>`;
+  if (v === 0 && !ratio) return `<td class="z">·</td>`;
   if (ratio && v < 0) return `<td class="z">-</td>`;
   // A plain number from 10,000 on has a short form, for a table that fits no other way
   if (typeof v === 'number' && v >= 10000 && label === fmt(v)) label = `<span class="fu">${label}</span><span class="sh"${tipOf(label)}>${shortNum(v)}</span>`;
@@ -710,21 +715,29 @@ function sortTable(id, cols, rows, foot, defaultCol, groups) {
   // A Who column ({who: {split, fallback}}) splits the sorted column when it can be split among
   // the champions, else its table's own; its cells ({by: column => values}) draw that
   const whoCol = cols.find(c => c.who);
-  const measure = whoCol ? (whoCol.who.split.includes(s.col) ? s.col : whoCol.who.fallback) : null;
-  const label = c => c.who ? 'Who: ' + (cols[measure].whoLabel || cols[measure].label) : c.label;
+  // (who.instead: what a column that cannot be split hands the bar instead, as a rate its group's All)
+  const measure = whoCol ? (whoCol.who.split.includes(s.col) ? s.col : (whoCol.who.instead || {})[s.col] ?? whoCol.who.fallback) : null;
+  const whoOf = i => 'Who: ' + (cols[i].whoLabel || cols[i].label);
+  const label = c => c.who ? whoOf(measure) : c.label;
+  // The Who header holds the room of the widest it can be, so the table is as wide whatever it is
+  // sorted by (one column's sort must not move it below another section)
+  const whoHead = c => `<span class="stack"><span>${esc(label(c))}</span>` +
+    [...new Set(c.who.split.filter(i => i !== measure).map(whoOf))].filter(l => l !== label(c)).map(l => `<span class="ghost" aria-hidden="true">${esc(l)}</span>`).join('') + '</span>';
   const head = cols.map((c, i) => `<th class="sort${c.cls ? ' ' + c.cls : ''}"${c.help ? tipOf(esc(c.help)) : ''}${c.hero !== undefined ? ` data-name="${esc(H[c.hero].name)}"` : ''} onclick="sortBy('${id}',${i},${c.num ? 1 : 0})">` +
-    tipLabel(c.html || esc(label(c)), c.help) + (s.col === i ? ` <span class="arrow">${s.desc ? '&#9660;' : '&#9650;'}</span>` : '') + '</th>').join('');
-  const html = c => c.by ? whoBar(c.by(measure)) : c.html;
+    tipLabel(c.html || (c.who ? whoHead(c) : esc(label(c))), c.help) + (s.col === i ? ` <span class="arrow">${s.desc ? '&#9660;' : '&#9650;'}</span>` : '') + '</th>').join('');
+  const html = c => c.by ? whoBar(c.by(measure), c.note ? c.note(s.col) : null) : c.html;
   const line = r => `<tr${r.cls ? ` class="${r.cls}"` : ''}${r.act ? ` onclick="${r.act}"` : ''}>` + r.cells.map(html).join('') + '</tr>';
   let body = '';
   for (const r of rows) { body += line(r); for (const sub of r.sub || []) body += line(sub); }
   if (foot) body += line(foot);
   let over = '';
   if (groups) {
-    const gap = n => n > 0 ? `<th class="gap" colspan="${n}"></th>` : '';
+    // Each cell knows its columns, so spanGroups can fit it to those a narrow table still shows
+    const cell = (cls, from, to, html) => `<th class="${cls}" colspan="${to - from + 1}" data-from="${from}" data-to="${to}">${html}</th>`;
+    const gap = (from, to) => to >= from ? cell('gap', from, to, '') : '';
     let at = 0;
-    for (const g of groups) { over += gap(g.first - at) + `<th class="grp" colspan="${g.last - g.first + 1}"><span>${esc(g.label)}</span></th>`; at = g.last + 1; }
-    over = `<tr class="groups">${over + gap(cols.length - at)}</tr>`;
+    for (const g of groups) { over += gap(at, g.first - 1) + cell('grp', g.first, g.last, `<span>${esc(g.label)}</span>`); at = g.last + 1; }
+    over = `<tr class="groups">${over + gap(at, cols.length - 1)}</tr>`;
   }
   return `<div class="wide"><table>${over}<tr>${head}</tr>${body}</table></div>`;
 }
@@ -736,10 +749,12 @@ function sortBy(id, col, num) {
 const nameCol = (label, help) => ({label, help});
 // A column of text after the first: left-aligned like the first
 const textCol = (label, help) => ({label, help, cls: 'l'});
-const whoColumn = (split, fallback) => ({label: 'Who', num: true, who: {split, fallback}});
+const whoColumn = (split, fallback, instead) => ({label: 'Who', num: true, who: {split, fallback, instead}});
 // Each champion's part as a bar; hovered, their numbers
-const whoBar = by => {
-  const parts = by.map((v, i) => v ? esc(H[i].name) + ' ' + fmt(v) : '').filter(x => x);
+// notes: each champion's own value of what the table is sorted by when the bar cannot split it
+// (a rate: "HALK 30 · 88%"), or none
+const whoBar = (by, notes) => {
+  const parts = by.map((v, i) => v ? esc(H[i].name) + ' ' + fmt(v) + (notes && notes[i] ? ' · ' + notes[i] : '') : '').filter(x => x);
   return `<td class="whobar"${parts.length ? tipOf(parts.join('<br>')) : ''}>${shareBar(by)}</td>`;
 };
 const numCol = (label, help) => ({label, num: true, help});
@@ -818,7 +833,7 @@ function tiles(numbers, rows) {
       else if (record[11]) sub = `<div class="sub f">party: ${esc(record[11])} ${record[12] >= 0 ? esc(whoName(record[12])) : ''}</div>`;
     }
     // Zero is written as the tables write it; a rank or a record in its place is no zero
-    if (r[n] === 0 && !NUM[n].rec && v === text(n, 0)) { v = '·'; cls += ' zv'; }
+    if (r[n] === 0 && !NUM[n].rec && !NUM[n].ratio && v === text(n, 0)) { v = '·'; cls += ' zv'; }
     return `<div class="tile${cls}"><div class="v${cls.includes('goldv') ? ' gold' : cls.includes(' zv') ? ' z' : ''}">${cls.includes(' badv') ? `<span class="pill">${v}</span>` : v}</div><div class="l">${tipText ? `<span class="tip"${tipOf(esc(tipText))}>${l}</span>` : l}</div>${sub}</div>`;
   }).join('') + '</div>';
 }
@@ -897,21 +912,24 @@ const attackCells = (l, cls) => {
 };
 const whoTd = by => td(sum(by), whoBar(by));
 // A Who cell that splits whichever column the table is sorted by: valueOf(column) is each champion's
-const whoBy = (v, valueOf) => ({v, by: valueOf});
+// noteOf(sorted column): the champions' notes for the bar's hovertext, or nothing
+const whoBy = (v, valueOf, noteOf) => ({v, by: valueOf, note: noteOf});
+const pctOf = (part, whole) => whole ? Math.round(part * 100 / whole) + '%' : '-';
 
 function weapons(p) {
   const all = [0, 0, 0, 0, 0];
   for (const w of p.weapons) for (let k = 0; k < 5; k++) all[k] += w[k + 1];
   const summary = p.weapons.length ? `${fmt(all[2])} damage · ${fmt(all[3])} kills` : 'none';
   if (!p.weapons.length) return section(DETAIL.WEAPONS, 'Weapons', summary, '<div class="note">No attacks.</div>');
-  const cols = [nameCol('Weapon'), numCol('Tries', 'Blows and missiles, and the actions that cannot hit (War Cry, Calm...). The Combat page\'s Attacks leaves those out; its Other actions counts them.'), numCol('Hits'), numCol('Rate', 'Hits out of the tries that can hit; actions that cannot hit are left out.'), numCol('Avg', D.avgHelp), numCol('Damage', D.weaponDamageHelp), numCol('Kills')];
-  if (withWho()) cols.push(whoColumn([1, 2, 5, 6], 5));
+  const cols = [nameCol('Weapon'), numCol('Tries', 'Blows and missiles, and the actions that cannot hit (War Cry, Calm...). The Combat page\'s Attacks leaves those out; its Other actions counts them.'), numCol('Hits'), numCol('Rate', 'Hits out of the tries that can hit; actions that cannot hit are left out. A rate cannot be shared out: sorted by it, the Who bar splits Tries, and its hovertext has each champion\'s rate.'), numCol('Avg', D.avgHelp), numCol('Damage', D.weaponDamageHelp), numCol('Kills')];
+  // Sorted by Rate, which cannot be shared out, the bar splits the Tries it divides
+  if (withWho()) cols.push(whoColumn([1, 2, 5, 6], 5, {3: 1}));
   // A champion's [tries, hits, damage, kills, uses] in a column of the table
   const attack = (c, k) => k === 1 ? c[0] + c[4] : k === 2 ? c[1] : k === 6 ? c[3] : c[2];
   const rows = p.weapons.map(w => {
     const key = st.who + ':' + w[0], open = !!st.open[key];
     const cells = [td(w[0], `<td>${open ? '&#9662;' : '&#9656;'} ${esc(w[0])}</td>`)].concat(attackCells(w.slice(1, 6)));
-    if (withWho()) cells.push(whoBy(w[3], k => w[7].map(c => attack(c, k))));
+    if (withWho()) cells.push(whoBy(w[3], k => w[7].map(c => attack(c, k)), col => col === 3 ? w[7].map(c => pctOf(c[1], c[0])) : null));
     const sub = open ? w[6].map(o => ({cls: 'opt', cells: [nameTd(o[0])].concat(attackCells(o.slice(1, 6)), withWho() ? [td(0, '<td></td>')] : [])})) : [];
     return {cls: 'wrow', act: `toggleWeapon(${JSON.stringify(key).replace(/"/g, '&quot;')})`, cells, sub};
   });
@@ -925,20 +943,26 @@ function spells(p) {
   for (const s of p.spells) for (let k = 0; k < 7; k++) all[k] += s[k + 1];
   const summary = p.spells.length ? `${fmt(all[0])} casts · ${fmt(all[3])} mana` : 'none';
   if (!p.spells.length) return section(DETAIL.SPELLS, 'Spells', summary, '<div class="note">No spells cast.</div>');
-  // CASTS: All, Successful, Wasted; MANA: All, Successful, Wasted; the Who bar names the group
-  const labels = [['All', 'Casts'], ['Successful', 'Successful casts'], ['Wasted', 'Wasted casts'], ['All', 'Mana'],
-                  ['Successful', 'Successful mana'], ['Wasted', 'Wasted mana'], ['Damage'], ['Kills']];
+  // CASTS and MANA: All, Successful, Rate, Wasted. The Who bar's heading names the group too
+  // ("Who: Wasted mana"); a rate cannot be shared out, so sorted by one the bar splits its group's All.
+  const labels = [['All', 'Casts'], ['Successful', 'Successful casts'], ['Rate'], ['Wasted', 'Wasted casts'], ['All', 'Mana'],
+                  ['Successful', 'Successful mana'], ['Rate'], ['Wasted', 'Wasted mana'], ['Damage'], ['Kills']];
   const cols = labels.map(([l, whoLabel], k) => Object.assign(numCol(l, D.spellHelps[k + 1]), whoLabel ? {whoLabel} : {}));
   cols.unshift(nameCol('Spell'));
-  if (withWho()) cols.push(whoColumn([1, 2, 3, 4, 5, 6, 7, 8], 4));
-  // [casts, successful, failed, mana, wasted, damage, kills] as the table's columns: the successful mana between
-  const values = v => [v[0], v[1], v[2], v[3], v[3] - v[4], v[4], v[5], v[6]];
-  const cellsOf = v => values(v).map((x, k) => td(x, plain(x, k === 2 || k === 5)));
+  if (withWho()) cols.push(whoColumn([1, 2, 4, 5, 6, 8, 9, 10], 5, {3: 1, 7: 5}));
+  // [casts, successful, failed, mana, wasted, damage, kills] as the table's columns: the rates and
+  // the successful mana between (a rate is -1 with nothing to divide)
+  const rate = (part, whole) => whole ? part / whole : -1;
+  const values = v => [v[0], v[1], rate(v[1], v[0]), v[2], v[3], v[3] - v[4], rate(v[3] - v[4], v[3]), v[4], v[5], v[6]];
+  const cellsOf = v => values(v).map((x, k) => k === 2 || k === 6
+    ? td(x, x < 0 ? '<td class="z">-</td>' : `<td>${Math.round(x * 100)}%</td>`)
+    : td(x, plain(x, k === 3 || k === 7)));
   // Each champion's counts: table column k is values(...)[k - 1]
   const rows = p.spells.map(s => ({cells: [nameTd(s[0])].concat(cellsOf(s.slice(1, 8)),
-    withWho() ? [whoBy(s[4], k => s[8].map(c => values(c)[k - 1]))] : [])}));
+    withWho() ? [whoBy(s[4], k => s[8].map(c => values(c)[k - 1]),
+      col => col === 3 ? s[8].map(c => pctOf(c[1], c[0])) : col === 7 ? s[8].map(c => pctOf(c[3] - c[4], c[3])) : null)] : [])}));
   const foot = {cls: 'all', cells: [nameTd('All spells')].concat(cellsOf(all), withWho() ? [td(0, '<td></td>')] : [])};
-  return section(DETAIL.SPELLS, 'Spells', summary, sortTable('spells', cols, rows, foot, 4, [{label: 'CASTS', first: 1, last: 3}, {label: 'MANA', first: 4, last: 6}]));
+  return section(DETAIL.SPELLS, 'Spells', summary, sortTable('spells', cols, rows, foot, 5, [{label: 'CASTS', first: 1, last: 4}, {label: 'MANA', first: 5, last: 8}]));
 }
 
 function amounts(id, title, column, what, lines, withBad) {
@@ -1452,6 +1476,19 @@ function tagColumns(table) {
   rows.forEach(r => { if (r.cells.length !== head.cells.length) return;
     bars.forEach(i => r.cells[i].classList.add('c-bar')); derived.forEach(i => r.cells[i].classList.add('c-der')); });
 }
+// A heading over a group of columns spans those of them the table still shows (a narrow one
+// leaves out its bar and its Rate columns)
+function spanGroups(table) {
+  const groups = table.querySelector('tr.groups'), head = groups && groups.nextElementSibling;
+  if (!groups) return;
+  const shown = [...head.cells].map(c => getComputedStyle(c).display !== 'none');
+  for (const th of groups.cells) {
+    let n = 0;
+    for (let i = +th.dataset.from; i <= +th.dataset.to; i++) if (shown[i]) n++;
+    th.colSpan = Math.max(n, 1);
+    th.style.display = n ? '' : 'none';
+  }
+}
 function fitTables(view) {
   view.querySelectorAll('.wide').forEach(w => {
     const table = w.querySelector('table');
@@ -1464,9 +1501,11 @@ function fitTables(view) {
     w.classList.remove('nokin');
     w.classList.remove(...steps);
     for (const step of steps) {
+      spanGroups(table);
       if (table.offsetWidth <= w.clientWidth + 1) break;
       w.classList.add(step);
     }
+    spanGroups(table);
     // A header that shows the dot alone names its champion when hovered
     table.querySelectorAll('th[data-name]').forEach(th => { if (w.classList.contains('dots')) th.title = th.dataset.name; else th.removeAttribute('title'); });
   });
@@ -1489,7 +1528,9 @@ function fit() {
   if (secs) {
     const all = [...secs.children];
     view.classList.add('measure');
-    const needs = all.map(s => Math.max(0, ...[...s.querySelectorAll('table')].map(x => x.offsetWidth)));
+    // A sortable table has the arrow in one header, whichever: its room is added once
+    const arrow = 16;
+    const needs = all.map(s => Math.max(0, ...[...s.querySelectorAll('table')].map(x => x.offsetWidth + (x.querySelector('th.sort') ? arrow : 0))));
     view.classList.remove('measure');
     if (all.length >= 2 && needs.every(n => n <= (width - 22) / 2)) {
       const heights = all.map(s => s.offsetHeight);

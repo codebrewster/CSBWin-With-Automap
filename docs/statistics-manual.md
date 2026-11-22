@@ -91,8 +91,10 @@ Every topic is built the same way:
    Party they have a **Who** bar: how the line splits among the champions. Its header says what it
    splits: the column the table is sorted by, when that can be split (Weapons and Spells by Damage,
    Kills, Casts ...; Eaten and drunk by Eaten or Drunk), otherwise the table's main number
-   (Damage for Weapons, Mana for Spells). Click a column's header to sort by it and split by it.
-   Hover a bar for each champion's number.
+   (Damage for Weapons, Mana for Spells). A rate cannot be split: sorted by one, the bar splits
+   what the rate divides (Tries, or the group's All in Spells) and its hovertext adds each
+   champion's rate. Click a column's header to sort by it and split by it. Hover a bar for each
+   champion's number.
 
 Click a section's title to fold or open it; the window remembers which sections are folded.
 
@@ -104,7 +106,7 @@ is cut off. When the window is too narrow for a table, the table gives up room i
 2. then the champions' names in the header: their coloured dots stay (hover a dot for the name;
    the buttons at the top show which colour is whose);
 3. then half of the space between the columns;
-4. then the columns worked out from others (Rate and Avg in Weapons);
+4. then the columns worked out from others (Rate and Avg in Weapons, the Rates in Spells);
 5. then long names go on under themselves on a second line;
 6. then numbers from 10,000 on are written short, 86k or 1.2M (hover one for the whole number);
 7. and at last the table scrolls sideways on its own, its names staying in place. The page
@@ -184,17 +186,27 @@ hit), Damage, Kills.
 |---|---|
 | **Mana generated** | with **Regeneration** and **Mana potions** below it |
 | **Regeneration lost (mana full)** | the mana regeneration would have given had the champion's mana not been full: all of a regeneration at or above the maximum, and the part over the maximum when the champion was nearly full (at 48 of 50, a gain of 3 gives 2 and loses 1). Spend mana before it fills up and this mana is not lost. Full mana spends no stamina on regenerating either. Not part of Mana generated. Counted from this version on; older saves show 0 |
-| **Mana spent** | counted as each rune is entered, as the game takes it, whatever becomes of the spell; below it what became of that mana, which adds up to it: **Spells** (split into **Successful casts** and **Wasted**, which is split again into **Failed casts** and **Meaningless spells**, runes that form no spell: "mumbles a meaningless spell"), **Runes cleared** and **Not cast yet**. Wasted is the Wasted mana of All spells in the Spells table. In saves from before this version the meaningless spells are among the failed casts |
-| **Spells cast** | every attempt; with **Successful** and **Wasted** below it, which add up to it; Wasted is split again into **Failed** (the champion needed more practice) and **Meaningless** (runes that form no spell), as the mana is. Wasted is the Wasted casts of All spells in the Spells table |
+| **Mana spent** | counted as each rune is entered, as the game takes it, whatever becomes of the spell; below it what became of that mana, which adds up to it: **Spells** (split into **Successful casts** and **Wasted**, which is split again into **Failed casts** and **Meaningless spells**, runes that form no spell: "mumbles a meaningless spell"), **Runes cleared** and **Not cast yet**. Wasted is the Wasted mana of All spells in the Spells table. **Success rate**, after Successful casts, is the part of Spells that went to successful casts; it is a percentage, not one of the lines that add up. In saves from before this version the meaningless spells are among the failed casts |
+| **Spells cast** | every attempt; with **Successful** and **Wasted** below it, which add up to it; Wasted is split again into **Failed** (the champion needed more practice) and **Meaningless** (runes that form no spell), as the mana is. Wasted is the Wasted casts of All spells in the Spells table. **Success rate**, after Successful, is the part of the casts that worked |
+
+The two success rates can differ either way. A failed cast at a high power wastes more mana than a
+weak one, which pulls the mana's rate down; a potion spell cast with no empty flask in hand fails
+but keeps its runes for the next try, a wasted cast with no wasted mana, and staffs, wands and the
+shield and heal actions are successful mana but no casts, which pull it up.
 
 **Spells** has one row per spell, all power levels together (Lo Ful Ir and Mon Ful Ir are both
 "Fireball"). Its columns come in two groups that split the same way. **CASTS**: **All** (every
-attempt), **Successful** (the casts that worked) and **Wasted** (the casts that bought nothing:
-on a spell's row the failed ones, needing more practice, fizzled, no flask for a potion ...; on a
-"(no spell)" row all of them). **MANA**: **All** (the runes of every cast, the wasted ones
-included), **Successful** (the mana of the casts that worked) and **Wasted** (the wasted casts'
-part of it). Then the **Damage** and **Kills** of the spell, including the cloud or explosion it
-made. Each column sorts the table; for the party, the Who bar splits the column the table is sorted by. Extra rows: runes that form no spell ("Ful Bro Ku (no spell)"), **Shield
+attempt), **Successful** (the casts that worked), **Rate** (Successful ÷ All) and **Wasted** (the
+casts that bought nothing: on a spell's row the failed ones, needing more practice, fizzled, no
+flask for a potion ...; on a "(no spell)" row all of them). **MANA**: **All** (the runes of every
+cast, the wasted ones included), **Successful** (the mana of the casts that worked), **Rate**
+(Successful ÷ All) and **Wasted** (the wasted casts' part of it). Then the **Damage** and **Kills**
+of the spell, including the cloud or explosion it made. A table too narrow for all of it leaves
+out the Rate columns first. Each column sorts the table; for the party, the Who bar splits the
+column the table is sorted by, and its heading says which ("Who: Wasted mana"). A rate cannot be
+split among the champions: sorted by one, the bar splits its group's All, and hovered it gives
+each champion's rate beside their part ("HALK 30 · 88%"). The Weapons table does the same with
+its Rate: the bar splits Tries. Extra rows: runes that form no spell ("Ful Bro Ku (no spell)"), **Shield
 action**, **Heal action** and **Spells from items** (staffs and wands).
 
 **Runes cleared** is no spell, so it is not in this table: it is the mana of runes entered and
@@ -720,7 +732,7 @@ closed: the game writes `csb.cfg` again when you leave it.
 | Topic | Names |
 |---|---|
 | Combat | `damage`, `melee`, `ranged`, `magic`, `kills`, `attacks`, `hits`, `hit_rate`, `damage_per_hit`, `other_actions`, `friendly_fire` |
-| Magic | `mana_generated`, `mana_regeneration`, `mana_potions`, `mana_regen_lost`, `mana_spent`, `mana_on_spells`, `mana_successful`, `mana_wasted`, `mana_failed`, `mana_meaningless`, `runes_cleared`, `runes_not_cast`, `casts`, `casts_successful`, `casts_wasted`, `casts_failed`, `casts_meaningless` |
+| Magic | `mana_generated`, `mana_regeneration`, `mana_potions`, `mana_regen_lost`, `mana_spent`, `mana_on_spells`, `mana_successful`, `mana_success_rate`, `mana_wasted`, `mana_failed`, `mana_meaningless`, `runes_cleared`, `runes_not_cast`, `casts`, `casts_successful`, `casts_success_rate`, `casts_wasted`, `casts_failed`, `casts_meaningless` |
 | Survival | `taken`, `attacks_received`, `hits_taken`, `dodged`, `lucky`, `too_weak`, `blocked`, `damage_reduced`, `reduced_resistance`, `reduced_shield_spells`, `reduced_protection`, `reduced_armour`, `reduced_hand_shields`, `reduced_vitality`, `reduced_shield_potion`, `reduced_party_shield`, `reduced_stance`, `reduced_wounds`, `reduced_asleep`, `reduced_wisdom`, `healed`, `heal_regeneration`, `heal_potions`, `heal_potions_own`, `heal_potions_others`, `heal_potions_found`, `heal_action`, `healing_given`, `deaths`, `resurrected`, `wipes`, `reloads` |
 | Food & items | `eaten`, `drunk`, `potions_drunk`, `potions_brewed`, `food_gained`, `food_wasted`, `water_gained`, `water_wasted`, `picked_up`, `used_in_walls` |
 | Exploration | `steps`, `tiles_walked`, `tiles_explored`, `turns`, `wall_bumps`, `monster_bumps`, `teleports`, `telefrags`, `pit_falls`, `landings`, `pit_climbs`, `climb_landings`, `ticks`, `sleep_ticks`, `doors_bashed`, `doors_smashed`, `doors_shot`, `doors_by_spell`, `doors_by_zo`, `doors_button_opened`, `doors_button_closed`, `chests`, `scrolls`, `wall_texts`, `champions_seen`, `champions_viewed` |

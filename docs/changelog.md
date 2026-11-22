@@ -8,7 +8,11 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 ## Unreleased
 
 **Statistics**
-- Magic: Spells cast splits as Mana spent does: Successful and Wasted, with Wasted split into Failed and Meaningless (`casts_wasted` in csb.cfg). The Spells table's columns come in two groups, CASTS (All, Successful, Wasted) and MANA (All, Successful, Wasted): its Failed column is now Wasted, as on a "(no spell)" row those casts are meaningless, not failed, and the mana of the casts that worked has a column of its own, to sort by and to split among the champions.
+- Magic: Spells cast splits as Mana spent does: Successful and Wasted, with Wasted split into Failed and Meaningless (`casts_wasted` in csb.cfg). The Spells table's columns come in two groups, CASTS (All, Successful, Rate, Wasted) and MANA (All, Successful, Rate, Wasted): its Failed column is now Wasted, as on a "(no spell)" row those casts are meaningless, not failed; the mana of the casts that worked has a column of its own, to sort by and to split among the champions; and each group has its success rate, left out first when the table is narrow.
+- Magic: Numbers has a Success rate for the casts and one for the mana on spells (`casts_success_rate`, `mana_success_rate` in csb.cfg).
+- Sorted by a Rate column (Spells, Weapons), the Who bar splits the column the rate divides (All, Tries), and its hovertext gives each champion's rate: "HALK 30 · 88%". Weapons used to split Damage then.
+- A rate of 0% (Hit rate, the success rates) is written as 0%, not as the dot that stands for nothing.
+- A table with a Who bar is as wide whatever column it is sorted by, so sorting no longer moves it below the section beside it (in the window and the HTML export).
 
 ## 1.5.0 (2026-11-22)
 

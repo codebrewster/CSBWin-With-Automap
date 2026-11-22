@@ -1102,7 +1102,7 @@ static void ExportHasTheSpellHelps(void)
   for (int i = 0; i < HERO_STATS_SPELL_COLUMNS; i++) helps += std::string(i > 0 ? "," : "") + HeroStatsExport_JsonString(HERO_STATS_SPELL_HELPS[i]);
   CHECK(json.find(helps + "]") != std::string::npos);
   std::string html = HeroStatsExport_Html(stats, Columns(stats), NAMES, info);
-  CHECK(html.find("{label: 'CASTS', first: 1, last: 3}") != std::string::npos);
+  CHECK(html.find("{label: 'CASTS', first: 1, last: 4}") != std::string::npos);
   const char *out = getenv("CSB_TEST_SPELLS_HTML");
   if (out != NULL) { FILE *f = fopen(out, "w"); if (f) { fputs(html.c_str(), f); fclose(f); } }
 }
