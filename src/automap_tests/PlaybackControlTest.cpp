@@ -445,21 +445,20 @@ static void TheLengthIsTheTimeOfTheLastRecord(void)
   CHECK(std::strcmp(buf, "1:02:05") == 0);
 }
 
-// After the last input nothing asks for any (Dungeon Master's ending): a fast replay goes back to
-// 1x; 0.5x and 1x stay, and a skip running there ends at 1x at most
-static void AFastReplayGoesTo1xAfterItsLastInput(void)
+// Dungeon Master's end texts wait between lines whatever the speed: a fast replay goes back to 1x; 0.5x and 1x stay, and a skip running there ends at 1x at most
+static void AFastReplayGoesTo1xForTheEndTexts(void)
 {
   PlaybackControl_Reset();
   PlaybackControl_SetSpeedIndex(PLAYBACK_SPEED_MAX);
   PlaybackControl_TakeSpeedSync();
-  CHECK(PlaybackControl_LastInputPlayed());
+  CHECK(PlaybackControl_EndTextsBegin());
   CHECK(PlaybackControl_SpeedIndex() == PLAYBACK_SPEED_NORMAL && PlaybackControl_TakeSpeedSync());
-  CHECK(!PlaybackControl_LastInputPlayed());
+  CHECK(!PlaybackControl_EndTextsBegin());
   PlaybackControl_SetSpeedIndex(0);
-  CHECK(!PlaybackControl_LastInputPlayed() && PlaybackControl_SpeedIndex() == 0);
+  CHECK(!PlaybackControl_EndTextsBegin() && PlaybackControl_SpeedIndex() == 0);
   PlaybackControl_SetSpeedIndex(4);
   PlaybackControl_SkipAhead(100, 250, 4);
-  CHECK(!PlaybackControl_LastInputPlayed() && PlaybackControl_IsMax());
+  CHECK(!PlaybackControl_EndTextsBegin() && PlaybackControl_IsMax());
   PlaybackControl_AtTick(350);
   CHECK(PlaybackControl_SpeedIndex() == PLAYBACK_SPEED_NORMAL);
   PlaybackControl_Reset();
@@ -467,7 +466,7 @@ static void AFastReplayGoesTo1xAfterItsLastInput(void)
 
 void TestPlaybackControl(void)
 {
-  AFastReplayGoesTo1xAfterItsLastInput();
+  AFastReplayGoesTo1xForTheEndTexts();
   ASkipRunsAtMaxAndGoesBack();
   ARewindRunsFromTheSnapshotToTheTick();
   ARewindDuringASkipCountsFromItsTarget();

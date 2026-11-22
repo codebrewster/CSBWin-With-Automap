@@ -9,6 +9,7 @@
 #include "Dispatch.h"
 #include "CSB.h"
 #include "Data.h"
+void ReplaySlowForTheEndTexts(void); // Recording.cpp
 extern bool legacyAttackAfterDamage;
 extern bool legacyFluxcageCheck;
 extern bool legacyEarlyMonsterActivation;
@@ -2563,6 +2564,7 @@ RESTARTABLE _FusionSequence(void)
   };
   ProcessTimersViewportAndSound(_16_);//TAG01fed6(_16_);
   if (testdelay) VBLDelay(_28_, MS2VBL(testdelay));
+  ReplaySlowForTheEndTexts(); // the fusion ran at the replay's speed; the texts wait anyway
   objD4 = FindFirstObject(0,0);
   for (D7w=0; objD4!=RNeof; objD4 = GetDBRecordLink(objD4))
   {

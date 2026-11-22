@@ -304,7 +304,7 @@ void PlaybackControl_AtTick(int tickAfter)
   }
 }
 
-bool PlaybackControl_LastInputPlayed(void)
+bool PlaybackControl_EndTextsBegin(void)
 {
   if (skipTarget >= 0)
   {

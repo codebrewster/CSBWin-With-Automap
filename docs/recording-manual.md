@@ -112,9 +112,9 @@ While the replay runs, the menu bar has a **Replay** menu and its controls besid
 - If the computer cannot keep up at a high speed, the replay simply runs as fast as it can; it
   never skips anything. How fast a replay runs never changes what happens in it.
 - A new replay starts at 1x.
-- Once the recording's last input has played, a replay faster than 1x goes back to 1x: what
-  follows asks for no input and cannot be sped up (Dungeon Master's ending runs about half a
-  minute), so max would only keep the processor busy. Press **+** to go faster again.
+- When Dungeon Master's end texts begin, a replay faster than 1x goes back to 1x: the texts wait
+  between lines whatever the speed, so max would only keep the processor busy. The fusion before
+  them still runs at the replay's speed. Press **+** to go faster again.
 
 The Map and Statistics windows work as always during a replay, paused or not: look around,
 switch topics, and use **EXPORT** and **Export as HTML** whenever you like.

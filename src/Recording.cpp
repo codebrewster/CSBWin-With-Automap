@@ -524,12 +524,13 @@ void PLAYFILE::ReadEOF(void)
 }
 
 
-// The replay's last input is in: a fast replay goes back to 1x for what follows (PlaybackControl.h).
-// Not the runs that want the end as fast as can be: --export-html, the rewind checks, --repeat.
-static void LastInputPlayed(void)
+// Dungeon Master's end texts begin: a fast replay goes back to 1x (PlaybackControl.h). Not the runs
+// that want the end as fast as can be: --export-html, the rewind checks, --repeat.
+bool PlayfileIsOpen(void);
+void ReplaySlowForTheEndTexts(void)
 {
-  if (ExportHtml_IsOn() || ReplaySnapshot_TestIsRunning() || RepeatGame) return;
-  if (!PlaybackControl_LastInputPlayed()) return;
+  if (!PlayfileIsOpen() || ExportHtml_IsOn() || ReplaySnapshot_TestIsRunning() || RepeatGame) return;
+  if (!PlaybackControl_EndTextsBegin()) return;
   NoSpeedLimit = 0;
   VBLMultiplier = 1;
 }
@@ -971,7 +972,6 @@ bool PLAYFILE::Play(MouseQueueEnt *ent)
   m_oldTime = m_time;
   m_oldCallCount = numRandomCalls;
   m_time = -1;
-  if (m_oldTime >= (ui32)PlaybackControl_TotalTicks() && PlaybackControl_TotalTicks() > 0) LastInputPlayed();
   if (m_num == 0x3333)
   {
     d.RandomNumber = (m_x << 16) | (m_y & 0xffff);
