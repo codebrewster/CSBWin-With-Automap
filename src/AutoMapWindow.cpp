@@ -246,7 +246,8 @@ static AutoMapPendingCentre pendingCentre = AutoMapScene_NoPendingCentre();
 static bool pendingCentreIsSearchHit = false;
 // The tile a Ctrl+click, a side button or ASCEND / DESCEND came out on, in dungeon coordinates.
 // It is framed (the rest of the level dims) once its level is on screen and the map shows the
-// cell (as stairs, when it came from a stair: AutoMapScene_LandingMarkShows); a click, the wheel,
+// cell (as stairs, when it came from a stair: AutoMapScene_LandingMarkShows). The last zoom-out step
+// frames the tile the pointer was on the same way. A click, the wheel,
 // another way of changing the level or leaving the level ends it.
 static bool landingMarkOn = false;
 static bool landingMarkArrived = false;
@@ -1085,6 +1086,7 @@ static void FreezeExactViewCenter(const AutoMapView &view)
 
 static void UpdateHoverFromPixel(int pixelX, int pixelY);
 static bool CellAtPixel(int pixelX, int pixelY, int *cellX, int *cellY);
+static void SetLandingMark(int level, int globalX, int globalY, bool fromStairs);
 
 static void StepLevelCenteredOn(int delta, int cellX, int cellY);
 
@@ -1141,7 +1143,15 @@ static void ZoomTowardsPointer(int notches)
 {
   int newSteps = AutoMapScene_ClampZoomSteps(zoomSteps + (notches > 0 ? 1 : -1), RequestOfShownLevel());
   if (newSteps == zoomSteps) return;
+  int mapWidth = 0, mapHeight = 0;
+  MapAreaSize(&mapWidth, &mapHeight);
+  bool pointerOnMap = pointerPixelKnown && pointerPixelX >= RULER &&
+                      pointerPixelY >= RULER && pointerPixelX < RULER + mapWidth &&
+                      pointerPixelY < RULER + mapHeight;
   AutoMapView before = ViewOfShownLevel();
+  bool wasWholeLevel = AutoMapScene_ShowsWholeLevel(RequestOfShownLevel());
+  int pointerCellX = -1, pointerCellY = -1;
+  bool pointerOnCell = pointerOnMap && CellAtPixel(pointerPixelX, pointerPixelY, &pointerCellX, &pointerCellY);
   zoomSteps = newSteps;
   isDirty = true;
   if (AutoMapScene_ShowsWholeLevel(RequestOfShownLevel()))
@@ -1152,13 +1162,19 @@ static void ZoomTowardsPointer(int notches)
       RecenterViewOnParty();
       if (shownDrawList.partyIsOnShownLevel) AutoMap_FollowParty();
     }
+    // The last step out jumps the level to the centre: the tile the pointer was on is framed,
+    // as after a stair, so the eye finds the spot again (the next click or wheel turn ends it)
+    int afterX = -1, afterY = -1;
+    bool sameCell = CellAtPixel(pointerPixelX, pointerPixelY, &afterX, &afterY) &&
+                    afterX == pointerCellX && afterY == pointerCellY;
+    if (notches < 0 && !wasWholeLevel && pointerOnCell && !sameCell)
+    {
+      int globalX = 0, globalY = 0;
+      AutoMapScene_GlobalPosition(shownDrawList, pointerCellX, pointerCellY, &globalX, &globalY);
+      SetLandingMark(shownDrawList.level, globalX, globalY, false);
+    }
     return;
   }
-  int mapWidth = 0, mapHeight = 0;
-  MapAreaSize(&mapWidth, &mapHeight);
-  bool pointerOnMap = pointerPixelKnown && pointerPixelX >= RULER &&
-                      pointerPixelY >= RULER && pointerPixelX < RULER + mapWidth &&
-                      pointerPixelY < RULER + mapHeight;
   // Off the map (rulers, unknown position) the zoom stays on the centre, as before
   if (!pointerOnMap) return;
   AutoMapView after = ViewOfShownLevel();
@@ -1310,8 +1326,13 @@ static bool LevelPanelHandlePointerEvent(const SDL_Event &event);
 static bool HandleMapPointerEvent(const SDL_Event &event)
 {
   if (!IsPointerEventOfMapWindow(event)) return false;
-  // Any press or turn of the wheel ends the frame on a stair; the gestures below may set it again
-  if ((event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEWHEEL) && landingMarkOn)
+  // Any press or turn of the wheel ends the frame on a stair; the gestures below may set it again.
+  // A notch out past the whole level changes nothing and keeps it: a fast spin out sends more
+  // notches after the last step, which would end the frame that step just set.
+  bool wheelOutDoesNothing = event.type == SDL_MOUSEWHEEL && event.wheel.y < 0 &&
+                             (SDL_GetModState() & (KMOD_CTRL | KMOD_SHIFT)) == 0 &&
+                             AutoMapScene_ClampZoomSteps(zoomSteps - 1, RequestOfShownLevel()) == zoomSteps;
+  if ((event.type == SDL_MOUSEBUTTONDOWN || (event.type == SDL_MOUSEWHEEL && !wheelOutDoesNothing)) && landingMarkOn)
   {
     landingMarkOn = false;
     isDirty = true;

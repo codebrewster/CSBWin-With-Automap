@@ -85,6 +85,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 - Records over all replays: `scripts/export-all-html.sh` writes `records.html` beside the pages, with the Records tab over every replay of each game (Chaos Strikes Back, Dungeon Master): one row per record, for the party or a champion, with the lowest value above 0, the average and the highest, and the replay, hero, weapon or spell and monster behind each.
 
 **Map**
+- The last wheel step out, where the level jumps to fill the window, frames the tile the pointer was on (the rest dims, as after a stair), so you find the spot again. The next click or wheel turn ends it; more notches out from a fast spin do not.
 - The level list says how much of each visited level is explored (64%): the share of the cells one can stand on that the party has seen. Map window and exported page.
 - A level with nothing explored on it says NOTHING EXPLORED ON L10 in the middle, instead of staying black. Map window and exported page.
 - The exported page keeps the place in its address: once zoomed in, the zoom and the cell in the middle, so a copied address opens where you were. **LINK TO THIS CELL** in the right-click menu copies a link that opens on that cell with a frame round it.
