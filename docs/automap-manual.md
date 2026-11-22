@@ -4,7 +4,7 @@ How to use the automap while you play. For how it is built, see
 [automap.md](automap.md); for the exact rules of what counts as seen, see
 [automap-visibility.md](automap-visibility.md).
 
-![The automap beside the game](images/automap-hero.png)
+![The automap: the whole of level 1](images/automap-hero.png)
 
 ## Contents
 
@@ -305,7 +305,7 @@ Small pictures stand in for words, as on the map: the party's red arrow is **PAR
 (`CARRY` the Firestaff, `OBJECT` a green gem). A pad that needs the party to face a direction
 shows the party's red arrow turned that way in a gold frame, followed by `PARTY FACING N`.
 
-![Hovering a pile: item names and the contents the map remembers](images/automap-items.png)
+![Hovering a mummy: its hit points, the items it carries and the words of its scroll](images/automap-items.png)
 
 ![Hovering a monster generator at spoiler level All: what it creates, its hit points, and lines from the pads that trigger it](images/automap-incoming-links.png)
 
@@ -483,7 +483,7 @@ the other side of the window, so they never cover the hit.
 The search follows the same spoiler and fog rules as the map: nothing in an unopened chest and
 nothing beyond the explored cells is found, and a scroll's words only once the party has read it.
 
-![Searching for KEY OF B: hits on two levels, including the locks that need it](images/automap-search.png)
+![Searching for FOOD: the hits by level, with chests and alcoves named, framed on the map](images/automap-search.png)
 
 ## Controls help
 

@@ -13,6 +13,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 - Magic: Mana wasted counts the cleared runes too, all the mana that bought nothing. Under Mana spent, On successful casts, Success rate and Wasted come straight below it, as under Spells cast, with On failed casts, On meaningless spells and On cleared runes below Wasted; On spells is gone (and `mana_on_spells` from csb.cfg). The Spells table has a Runes cleared row, all its mana wasted, so its All spells still matches: Wasted is Mana wasted, MANA All is Mana spent without Not cast yet, and the MANA Rate is the mana's Success rate, which now leaves out only the runes not cast yet.
 - Sorted by a Rate column (Spells, Weapons), the Who bar splits the column the rate divides (All, Tries), and its hovertext gives each champion's rate: "HALK 30 · 88%". Weapons used to split Damage then.
 - A rate of 0% (Hit rate, the success rates) is written as 0%, not as the dot that stands for nothing.
+- The dotted line under a column header with a hovertext (Total, Tries, Rate ...) sits under the word again; it was drawn too far left and too high, so it looked like "…Total".
 - A table with a Who bar is as wide whatever column it is sorted by, so sorting no longer moves it below the section beside it (in the window and the HTML export).
 
 ## 1.5.0 (2026-11-22)

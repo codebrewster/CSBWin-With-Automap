@@ -1034,6 +1034,8 @@ static void HeaderRow(const std::vector<int> &columnOfHeader, const std::vector<
     std::string label = prefix + (champion >= 0 ? "  " : "") + name;
     ImGui::PushStyleColor(ImGuiCol_Text, Colour(guided ? WHITE_RGB : dimmed ? FAINT_RGB : DIM_RGB));
     ImGui::PushID(i);
+    // Where TableHeader draws the text: inside the cell's padding, while its item rect is the whole cell
+    ImVec2 textPos = ImGui::GetCursorScreenPos();
     ImGui::TableHeader(label.c_str());
     ImGui::PopID();
     ImGui::PopStyleColor();
@@ -1041,8 +1043,8 @@ static void HeaderRow(const std::vector<int> &columnOfHeader, const std::vector<
     {
       HelpTooltip(helps[i]);
       // Dotted under the name, as any label with a hovertext
-      float x = ImGui::GetItemRectMin().x + ImGui::CalcTextSize((prefix + (champion >= 0 ? "  " : "")).c_str()).x;
-      DottedUnderline(x, x + ImGui::CalcTextSize(name).x, ImGui::GetItemRectMin().y + ImGui::GetTextLineHeight());
+      float x = textPos.x + ImGui::CalcTextSize((prefix + (champion >= 0 ? "  " : "")).c_str()).x;
+      DottedUnderline(x, x + ImGui::CalcTextSize(name).x, textPos.y + ImGui::GetTextLineHeight());
     }
     if (namesOff && ImGui::IsItemHovered()) WrappedTooltip(fullName);
     if (guided)
