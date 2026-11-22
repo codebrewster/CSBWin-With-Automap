@@ -1073,6 +1073,9 @@ static void GroupRow(const std::vector<ColumnGroup> &groups)
   ImGui::TableNextRow();
   ImGui::TableSetColumnIndex(0);
   ImGui::Dummy(ImVec2(0, ImGui::GetTextLineHeight()));
+  // ImGui learns the row's height only once the row is done; until then its cell rects are only
+  // the padding tall, which would clip the headings away. The row ends a padding under the Dummy.
+  float rowBottom = ImGui::GetItemRectMax().y + ImGui::GetStyle().CellPadding.y;
   ImGuiTable *table = ImGui::GetCurrentTable();
   ImDrawList *drawList = ImGui::GetWindowDrawList();
   // A table scrolled sideways keeps its label column in place: nothing is drawn under it
@@ -1086,7 +1089,7 @@ static void GroupRow(const std::vector<ColumnGroup> &groups)
     while (last >= first && !table->Columns[last].IsEnabled) last--;
     if (first > last) continue;
     ImRect from = ImGui::TableGetCellBgRect(table, first), to = ImGui::TableGetCellBgRect(table, last);
-    ImVec2 min(from.Min.x + pad, from.Min.y), max(to.Max.x - pad, from.Max.y);
+    ImVec2 min(from.Min.x + pad, from.Min.y), max(to.Max.x - pad, rowBottom);
     drawList->PushClipRect(ImVec2(std::max(min.x, left), min.y), ImVec2(std::min(max.x, right), max.y), false);
     ImVec2 size = ImGui::CalcTextSize(groups[g].label);
     float y = min.y + ImGui::GetStyle().CellPadding.y;

@@ -182,6 +182,8 @@ hit), Damage, Kills.
 
 ## Magic
 
+![The Party's Magic topic: mana in and out, the casts with their success rates, and the Spells table with its CASTS and MANA columns](images/statistics-magic.png)
+
 | Number | What it counts |
 |---|---|
 | **Mana generated** | with **Regeneration** and **Mana potions** below it |
