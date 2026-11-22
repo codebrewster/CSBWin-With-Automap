@@ -521,6 +521,8 @@ the replay's Resume button. **REMOVE REPLAY PAUSE** takes one off again. A pause
 set on the cell the party stands on waits until it leaves and comes back. The
 pauses are forgotten when the replay ends.
 
+![A replay pause on level 3: the cell's red frame, and REPLAY PAUSES HERE in its tooltip](images/automap-replay-pause.png)
+
 ## Fast forward, going back, time and a pause at a tick
 
 The replay bar shows the elapsed and the total time of the replay (at the game's speed

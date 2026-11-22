@@ -86,6 +86,8 @@ also start the game with `--play file.log` on the command line.
 
 While the replay runs, the menu bar has a **Replay** menu and its controls beside it:
 
+![The replay bar, paused at 16x: Resume, the speed, the buttons for going back and ahead, the time and tick, and the box for a pause at a tick](images/replay-controls.png)
+
 | Control | What it does |
 |---|---|
 | **Pause** / **Resume**, or **Space** | Stops the replay where it is, and goes on |

@@ -450,6 +450,8 @@ The best moments of the run. Each record keeps the champion, how (the weapon and
 spell), on or from whom, the level, and the game time (hover the value). When two are equally good,
 the earlier one stays.
 
+![The Party's Records: the tiles, and the records dealt, each with who, how, on whom and the level](images/statistics-records.png)
+
 | Record | What counts |
 |---|---|
 | **Biggest melee hit** | the most damage a blow at close range (a weapon or an empty hand) did to one monster, as the game shows it |
