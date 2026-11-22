@@ -1152,6 +1152,21 @@ long long HeroStats::Defence(HeroStatsChampion who, int level, int part, int sou
   return sum;
 }
 
+std::map<std::pair<HeroStatsChampion, int>, std::vector<long long> > HeroStats::DefenceCells(HeroStatsChampion who,
+                                                                                            int level) const
+{
+  std::map<std::pair<HeroStatsChampion, int>, std::vector<long long> > cells;
+  for (std::map<DefenceKey, long long>::const_iterator at = m_defences.begin(); at != m_defences.end(); ++at)
+  {
+    if (!Matches(who, std::get<0>(at->first)) || !LevelMatches(level, std::get<1>(at->first))) continue;
+    std::vector<long long> &parts = cells[std::make_pair(std::get<0>(at->first), std::get<1>(at->first))];
+    if (parts.empty()) parts.assign(HERO_DEFENCE_PART_COUNT, 0);
+    int part = std::get<3>(at->first);
+    if (part >= 0 && part < HERO_DEFENCE_PART_COUNT) parts[part] += at->second;
+  }
+  return cells;
+}
+
 std::vector<HeroStatsDefenceRow> HeroStats::DefenceRows(HeroStatsChampion who, int level) const
 {
   std::vector<HeroStatsDefenceRow> rows;

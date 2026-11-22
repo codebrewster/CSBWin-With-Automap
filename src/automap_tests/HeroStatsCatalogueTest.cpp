@@ -661,8 +661,53 @@ static void FormationIsPerChampion(void)
   CHECK(HeroStatsCatalogue_Key(HeroNumFormationSwappedAside) == "formation_swapped_aside");
 }
 
+// Damage reduced in 64ths, each rounded alone, would not add up: ELIJAB's 356 + 28 - 12 showed as
+// 373 Protection. The parts add up to their line, the lines to Damage reduced, the champions to
+// the party.
+static void ReducedNumbersAddUp(void)
+{
+  std::vector<int> three = HeroStatsCatalogue_Apportion({86, 86, 90}, 4);
+  CHECK(three.size() == 3 && three[0] + three[1] + three[2] == 4 && three[2] == 2);
+  std::vector<int> negative = HeroStatsCatalogue_Apportion({-40, 100}, 1);
+  CHECK(negative[0] == -1 && negative[1] == 2);
+  std::vector<int> fewer = HeroStatsCatalogue_Apportion({100, 100}, 2);
+  CHECK(fewer[0] + fewer[1] == 2);
+
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  stats.MeetChampion(9, "SYRA");
+  int parts[HERO_DEFENCE_PART_COUNT] = {};
+  parts[HeroDefenceArmour] = 100;   // 1.56
+  parts[HeroDefenceVitality] = 100; // 1.56
+  parts[HeroDefenceStance] = -40;   // -0.63
+  parts[HeroDefenceWisdom] = 50;    // 0.78
+  stats.CreditDefence(7, 1, HeroHarmMonster, parts);
+  stats.CreditDefence(9, 1, HeroHarmMonster, parts);
+  for (HeroStatsChampion who : {(HeroStatsChampion)7, (HeroStatsChampion)9, HERO_STATS_PARTY})
+  {
+    HeroStatsRecord r = HeroStatsCatalogue_Record(stats, who, HERO_STATS_WHOLE_RUN);
+    const int *v = r.value;
+    CHECK(v[HeroNumReducedProtection] == v[HeroNumReducedArmour] + v[HeroNumReducedHandShields] + v[HeroNumReducedVitality] +
+                                             v[HeroNumReducedChampionShield] + v[HeroNumReducedPartyShield] +
+                                             v[HeroNumReducedStance] + v[HeroNumReducedWounds] + v[HeroNumReducedAsleep]);
+    CHECK(v[HeroNumReduced] == v[HeroNumReducedResistance] + v[HeroNumReducedShieldSpells] + v[HeroNumReducedWisdom] +
+                                   v[HeroNumReducedProtection]);
+  }
+  // 3.28 each, 3 each; the party 6, not 6.56 rounded to 7
+  CHECK(HeroStatsCatalogue_Value(stats, 7, HERO_STATS_WHOLE_RUN, HeroNumReduced) == 3);
+  CHECK(HeroStatsCatalogue_Value(stats, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroNumReduced) == 6);
+  CHECK(HeroStatsCatalogue_Value(stats, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroNumReducedProtection) ==
+        2 * HeroStatsCatalogue_Value(stats, 9, HERO_STATS_WHOLE_RUN, HeroNumReducedProtection));
+  // The levels add up to the whole run: 3 on level 1 and 3 on level 2 are 6, not 6.56 rounded to 7
+  stats.CreditDefence(7, 2, HeroHarmMonster, parts);
+  CHECK(HeroStatsCatalogue_Value(stats, 7, 2, HeroNumReduced) == 3);
+  CHECK(HeroStatsCatalogue_Value(stats, 7, HERO_STATS_WHOLE_RUN, HeroNumReduced) == 6);
+  CHECK(HeroStatsCatalogue_Value(stats, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroNumReduced) == 9);
+}
+
 void TestHeroStatsCatalogue(void)
 {
+  ReducedNumbersAddUp();
   FormationIsPerChampion();
   TopicsHaveGroups();
   PartyNumbersStandInPanels();

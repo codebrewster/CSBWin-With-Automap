@@ -744,25 +744,69 @@ static int WholePoints(long long sixtyFourths)
   return (int)(sixtyFourths < 0 ? -whole : whole);
 }
 
-static void FillDefences(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
+std::vector<int> HeroStatsCatalogue_Apportion(const std::vector<long long> &sixtyFourths, long long total)
+{
+  size_t n = sixtyFourths.size();
+  std::vector<int> whole(n);
+  std::vector<long long> fraction(n);
+  std::vector<size_t> order(n);
+  long long given = 0;
+  for (size_t i = 0; i < n; i++)
+  {
+    long long down = sixtyFourths[i] >= 0 ? sixtyFourths[i] / 64 : -((-sixtyFourths[i] + 63) / 64);
+    whole[i] = (int)down;
+    fraction[i] = sixtyFourths[i] - 64 * down;
+    given += down;
+    order[i] = i;
+  }
+  std::stable_sort(order.begin(), order.end(), [&fraction](size_t a, size_t b) { return fraction[a] > fraction[b]; });
+  for (size_t k = 0; given < total && k < n; k++, given++) whole[order[k]]++;
+  for (size_t k = n; given > total && k > 0; k--, given--) whole[order[k - 1]]--;
+  return whole;
+}
+
+static const HeroStatsNumber REDUCED_NUMBERS[] = {
+    HeroNumReduced, HeroNumReducedResistance, HeroNumReducedShieldSpells, HeroNumReducedWisdom,
+    HeroNumReducedProtection, HeroNumReducedArmour, HeroNumReducedHandShields, HeroNumReducedVitality,
+    HeroNumReducedChampionShield, HeroNumReducedPartyShield, HeroNumReducedStance, HeroNumReducedWounds,
+    HeroNumReducedAsleep};
+
+// One champion on one level, from its parts in 64ths: the protection's parts add up to Protection;
+// Resistance, the shields, Wisdom and Protection to Damage reduced, rounded once
+static void RoundDefences(const std::vector<long long> &parts, int *v)
 {
   static const HeroStatsNumber PROTECTION[HERO_DEFENCE_PROTECTION_PARTS] = {
       HeroNumReducedArmour, HeroNumReducedHandShields, HeroNumReducedVitality, HeroNumReducedChampionShield,
       HeroNumReducedPartyShield, HeroNumReducedStance, HeroNumReducedWounds, HeroNumReducedAsleep};
-  long long parts[HERO_DEFENCE_PART_COUNT], all = 0, protection = 0;
+  long long all = 0, protection = 0;
   for (int k = 0; k < HERO_DEFENCE_PART_COUNT; k++)
   {
-    parts[k] = stats.Defence(who, level, k);
     all += parts[k];
     if (k >= HERO_DEFENCE_FIRST_PROTECTION) protection += parts[k];
   }
   v[HeroNumReduced] = WholePoints(all);
-  v[HeroNumReducedResistance] = WholePoints(parts[HeroDefenceResistance]);
-  v[HeroNumReducedShieldSpells] = WholePoints(parts[HeroDefenceShieldSpell]);
-  v[HeroNumReducedWisdom] = WholePoints(parts[HeroDefenceWisdom]);
-  v[HeroNumReducedProtection] = WholePoints(protection);
-  for (int k = 0; k < HERO_DEFENCE_PROTECTION_PARTS; k++)
-    v[PROTECTION[k]] = WholePoints(parts[HERO_DEFENCE_FIRST_PROTECTION + k]);
+  std::vector<int> groups = HeroStatsCatalogue_Apportion(
+      {parts[HeroDefenceResistance], parts[HeroDefenceShieldSpell], parts[HeroDefenceWisdom], protection}, v[HeroNumReduced]);
+  v[HeroNumReducedResistance] = groups[0];
+  v[HeroNumReducedShieldSpells] = groups[1];
+  v[HeroNumReducedWisdom] = groups[2];
+  v[HeroNumReducedProtection] = groups[3];
+  std::vector<int> pieces = HeroStatsCatalogue_Apportion(
+      std::vector<long long>(parts.begin() + HERO_DEFENCE_FIRST_PROTECTION, parts.end()), groups[3]);
+  for (int k = 0; k < HERO_DEFENCE_PROTECTION_PARTS; k++) v[PROTECTION[k]] = pieces[k];
+}
+
+// Rounded for each champion on each level, then added up: the Total column is the sum of the
+// champions', Whole run the sum of the levels
+static void FillDefences(const HeroStats &stats, HeroStatsChampion who, int level, int *v)
+{
+  for (HeroStatsNumber number : REDUCED_NUMBERS) v[number] = 0;
+  for (const auto &cell : stats.DefenceCells(who, level))
+  {
+    HeroStatsRecord one = {};
+    RoundDefences(cell.second, one.value);
+    for (HeroStatsNumber number : REDUCED_NUMBERS) v[number] += one.value[number];
+  }
 }
 
 static void FillRecords(const HeroStats &stats, HeroStatsChampion who, int level, int *v)

@@ -275,25 +275,15 @@ static void AddHarm(HeroStatsHeroPage *page, const HeroStats &stats, const std::
   std::stable_sort(page->taken.begin(), page->taken.end(), LineBefore);
 }
 
-// One line per harm source, in whole hit points (the store keeps 64ths). Largest remainder: each
-// line is rounded down, and the points the rounding lost go to the lines with the biggest
-// fractions, so the lines add up to their total rounded once, the Damage reduced of Numbers.
+// One line per harm source, in whole hit points (the store keeps 64ths), apportioned so the lines
+// add up to the Damage reduced of Numbers
 static void AddReduced(HeroStatsHeroPage *page, const HeroStats &stats, HeroStatsChampion who, int level)
 {
   std::vector<HeroStatsDefenceRow> rows = stats.DefenceRows(who, level);  // all above 0
-  std::vector<long long> whole(rows.size());
-  std::vector<size_t> byFraction(rows.size());
-  long long all = 0, given = 0;
-  for (size_t i = 0; i < rows.size(); i++)
-  {
-    all += rows[i].amount;
-    whole[i] = rows[i].amount / 64;
-    given += whole[i];
-    byFraction[i] = i;
-  }
-  std::stable_sort(byFraction.begin(), byFraction.end(),
-                   [&rows](size_t a, size_t b) { return rows[a].amount % 64 > rows[b].amount % 64; });
-  for (long long k = 0; k < (all + 32) / 64 - given && k < (long long)rows.size(); k++) whole[byFraction[k]]++;
+  std::vector<long long> amounts(rows.size());
+  for (size_t i = 0; i < rows.size(); i++) amounts[i] = rows[i].amount;
+  std::vector<int> whole =
+      HeroStatsCatalogue_Apportion(amounts, HeroStatsCatalogue_Value(stats, who, level, HeroNumReduced));
   for (size_t i = 0; i < rows.size(); i++)
   {
     int amount = (int)whole[i];

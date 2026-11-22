@@ -134,6 +134,9 @@ const std::vector<HeroStatsNumber> &HeroStatsCatalogue_ChampionTiles(void);  // 
 // ratio is -1 when it is undefined (no attacks, no hits); a number that does not apply is 0.
 struct HeroStatsRecord { int value[HERO_NUMBER_COUNT]; };
 HeroStatsRecord HeroStatsCatalogue_Record(const HeroStats &stats, HeroStatsChampion who, int level);
+// 64ths of a hit point in whole points that add up to a given total: each rounded down, then the
+// points missing go to the biggest fractions (or the points too many come off the smallest)
+std::vector<int> HeroStatsCatalogue_Apportion(const std::vector<long long> &sixtyFourths, long long total);
 // One number of the record, without the rest
 int HeroStatsCatalogue_Value(const HeroStats &stats, HeroStatsChampion who, int level, HeroStatsNumber number);
 bool HeroStatsCatalogue_Applies(HeroStatsNumber number, HeroStatsChampion who, int level);

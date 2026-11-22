@@ -345,6 +345,8 @@ public:
   void CreditDefence(HeroStatsChampion who, int level, HeroHarmSource source, const int parts[HERO_DEFENCE_PART_COUNT]);
   // One part's 64ths, or (part -1) all of them; source -1: every source
   long long Defence(HeroStatsChampion who, int level, int part, int source = -1) const;
+  // Every part's 64ths for each champion on each level that matches, all sources together
+  std::map<std::pair<HeroStatsChampion, int>, std::vector<long long> > DefenceCells(HeroStatsChampion who, int level) const;
   // All parts by source, most first; sources that took nothing off are left out
   std::vector<HeroStatsDefenceRow> DefenceRows(HeroStatsChampion who, int level) const;
   void CountReload(void);
