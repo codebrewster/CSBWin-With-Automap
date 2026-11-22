@@ -103,7 +103,7 @@ with a plain Windows MinGW install, so `build.ps1` drives the compiler directly
 instead. It keeps the same defines (`-D_LINUX -D RGB655 -D SDL20 -DMINGW`), the
 same include paths and the same object list.
 
-Three source fixes were needed for GCC on Windows, because glibc's headers and
+Some source fixes were needed for GCC on Windows, because glibc's headers and
 functions are not fully available in MinGW:
 
 - `src/Recording.cpp` — added `#include <ctype.h>` for `toupper`.
@@ -111,8 +111,10 @@ functions are not fully available in MinGW:
 - `src/LinCSBUI.cpp` — MinGW has no `setenv()`, which the `--visibility-test`
   option uses to force SDL's dummy video driver. A `#ifdef MINGW` block maps it
   to `_putenv_s`, which always overwrites.
+- `src/ExportHtml.cpp` — `--export-html` needs the same `setenv` mapping, and
+  MinGW's `mkdir()` takes no mode, so a `#ifdef MINGW` calls `_mkdir` instead.
 
-All three are harmless on Linux and macOS.
+All of them are harmless on Linux and macOS.
 
 ## The visibility test
 

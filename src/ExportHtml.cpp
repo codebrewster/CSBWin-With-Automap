@@ -8,6 +8,11 @@
 #include <string>
 #include <vector>
 #include <sys/stat.h>
+#ifdef MINGW
+// MinGW has no setenv(); _putenv_s does the same job and always overwrites.
+#include <direct.h>
+#define setenv(name, value, overwrite) _putenv_s((name), (value))
+#endif
 #include "AutoMapHooks.h"
 #include "AutoMapBar.h"
 #include "ExportHtml.h"
@@ -42,6 +47,16 @@ void ExportHtml_WaitForEnding(void)
   waitForEnding = true;
 }
 
+// MinGW's mkdir() takes no mode.
+static void MakeDir(const std::string &path)
+{
+#ifdef MINGW
+  _mkdir(path.c_str());
+#else
+  mkdir(path.c_str(), 0777);
+#endif
+}
+
 void ExportHtml_Enable(const char *dir)
 {
   on = true;
@@ -49,7 +64,7 @@ void ExportHtml_Enable(const char *dir)
   while (outDir.size() > 1 && outDir[outDir.size() - 1] == '/') outDir.erase(outDir.size() - 1);
   // mkdir -p
   for (size_t i = 1; i <= outDir.size(); i++)
-    if (i == outDir.size() || outDir[i] == '/') mkdir(outDir.substr(0, i).c_str(), 0777);
+    if (i == outDir.size() || outDir[i] == '/') MakeDir(outDir.substr(0, i));
   setenv("SDL_VIDEODRIVER", "dummy", 1);
 }
 

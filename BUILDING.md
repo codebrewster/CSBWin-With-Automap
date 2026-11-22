@@ -38,10 +38,10 @@ The result is the executable `src/csb`. Add `-j8` (or your number of cores) to b
 | `make`           | The debug build with the address sanitizer: slower, catches memory errors |
 | `make test`      | Builds and runs the tests of the units that need neither engine nor SDL  |
 | `make visibility-test` | Runs the map's visibility cases with the engine, without a window; needs the game data and the save in `Dungeons/Dungeonmaster` |
-| `make clean`     | Removes `src/obj` and `src/csb`                                          |
+| `make clean`     | Removes the object folders and `src/csb`                                 |
 
-The debug and the optimized build share `src/obj`. Run `make clean` when you switch from one to
-the other.
+The optimized build keeps its objects in `src/obj-release`, the debug build and the tests in
+`src/obj`, so you can switch between them without `make clean`.
 
 ## Run
 
