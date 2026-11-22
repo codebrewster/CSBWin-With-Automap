@@ -5,7 +5,7 @@ A live, spoiler-aware map for **CSBwin**, the reverse-engineered port of FTL's
 beside the game and is drawn with the game's own wall, door and item pictures.
 The game builds on Linux, macOS and Windows.
 
-![The automap beside the game: the whole of level 1, explored cells tinted green, with creatures and items](docs/images/automap-hero.png)
+![The automap: the whole of level 1, with the monsters in their formations, the items and the switches](docs/images/automap-hero.png)
 
 The map draws what the party has seen and worked out: the cells it explored,
 the walls and items it noticed, the doors and pits, and which switch opened
@@ -183,10 +183,10 @@ A legend behind the **?** button explains every mark on the map.
 
 | | |
 |---|---|
-| ![Tracing a pad](docs/images/automap-press.png) | ![Searching for a key](docs/images/automap-search.png) |
-| Hovering a pad at spoiler level all: two more presses open the false wall | Searching for KEY OF B across levels, including the locks that need it |
-| ![Fog of war](docs/images/automap-fog.png) | ![Item tooltip](docs/images/automap-items.png) |
-| Fog of war: only the corner the party has explored | Hovering a pile: item names and the contents the map remembers |
+| ![Tracing a pad](docs/images/automap-press.png) | ![Searching for food](docs/images/automap-search.png) |
+| Hovering a pad at spoiler level all: two more presses open the false wall | Searching for FOOD: 107 hits on 12 levels, framed on the map, chests and alcoves named |
+| ![Fog of war](docs/images/automap-fog.png) | ![Monster tooltip](docs/images/automap-items.png) |
+| Fog of war: only the corner the party has explored | Hovering a mummy: its hit points, what it carries and the scroll's words |
 | ![Statistics: Combat](docs/images/statistics-combat.png) | ![Statistics: per level](docs/images/statistics-per-level.png) |
 | Statistics, Combat: each champion's numbers and the attacks by weapon | Per level: one number, the champions side by side |
 
