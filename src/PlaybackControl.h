@@ -88,6 +88,11 @@ int PlaybackControl_PauseTarget(void); // -1 when none
 // Every tick of a replay with the counter's value after the tick: a skip that has arrived goes
 // back to its speed, a pause target that has arrived makes a pause due
 void PlaybackControl_AtTick(int tickAfter);
+// The replay has played its last input (the record at PlaybackControl_TotalTicks). What follows
+// asks for none and cannot be sped up (Dungeon Master's ending runs half a minute), so a replay
+// faster than 1x goes back to 1x rather than keep the processor busy; 0.5x stays. True when it
+// slowed down: the engine's quick play goes off at once (the ending does not reach the speed sync).
+bool PlaybackControl_LastInputPlayed(void);
 // True once after the speed changed by itself (the end of a skip): the platform layer sets
 // the engine's quick play (NoSpeedLimit) to match PlaybackControl_IsMax()
 bool PlaybackControl_TakeSpeedSync(void);

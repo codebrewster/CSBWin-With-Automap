@@ -524,6 +524,16 @@ void PLAYFILE::ReadEOF(void)
 }
 
 
+// The replay's last input is in: a fast replay goes back to 1x for what follows (PlaybackControl.h).
+// Not the runs that want the end as fast as can be: --export-html, the rewind checks, --repeat.
+static void LastInputPlayed(void)
+{
+  if (ExportHtml_IsOn() || ReplaySnapshot_TestIsRunning() || RepeatGame) return;
+  if (!PlaybackControl_LastInputPlayed()) return;
+  NoSpeedLimit = 0;
+  VBLMultiplier = 1;
+}
+
 //These are placed outside of PLAYFILE::Play because the debugger
 // cannot see static variables within a function.
 static char line[80];
@@ -961,6 +971,7 @@ bool PLAYFILE::Play(MouseQueueEnt *ent)
   m_oldTime = m_time;
   m_oldCallCount = numRandomCalls;
   m_time = -1;
+  if (m_oldTime >= (ui32)PlaybackControl_TotalTicks() && PlaybackControl_TotalTicks() > 0) LastInputPlayed();
   if (m_num == 0x3333)
   {
     d.RandomNumber = (m_x << 16) | (m_y & 0xffff);

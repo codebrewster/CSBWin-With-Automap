@@ -445,8 +445,29 @@ static void TheLengthIsTheTimeOfTheLastRecord(void)
   CHECK(std::strcmp(buf, "1:02:05") == 0);
 }
 
+// After the last input nothing asks for any (Dungeon Master's ending): a fast replay goes back to
+// 1x; 0.5x and 1x stay, and a skip running there ends at 1x at most
+static void AFastReplayGoesTo1xAfterItsLastInput(void)
+{
+  PlaybackControl_Reset();
+  PlaybackControl_SetSpeedIndex(PLAYBACK_SPEED_MAX);
+  PlaybackControl_TakeSpeedSync();
+  CHECK(PlaybackControl_LastInputPlayed());
+  CHECK(PlaybackControl_SpeedIndex() == PLAYBACK_SPEED_NORMAL && PlaybackControl_TakeSpeedSync());
+  CHECK(!PlaybackControl_LastInputPlayed());
+  PlaybackControl_SetSpeedIndex(0);
+  CHECK(!PlaybackControl_LastInputPlayed() && PlaybackControl_SpeedIndex() == 0);
+  PlaybackControl_SetSpeedIndex(4);
+  PlaybackControl_SkipAhead(100, 250, 4);
+  CHECK(!PlaybackControl_LastInputPlayed() && PlaybackControl_IsMax());
+  PlaybackControl_AtTick(350);
+  CHECK(PlaybackControl_SpeedIndex() == PLAYBACK_SPEED_NORMAL);
+  PlaybackControl_Reset();
+}
+
 void TestPlaybackControl(void)
 {
+  AFastReplayGoesTo1xAfterItsLastInput();
   ASkipRunsAtMaxAndGoesBack();
   ARewindRunsFromTheSnapshotToTheTick();
   ARewindDuringASkipCountsFromItsTarget();

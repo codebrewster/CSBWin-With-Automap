@@ -12,6 +12,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 **Replay**
 - The Pause/Resume, - and + buttons on the replay bar have tooltips, with their keys.
+- A fast replay goes back to 1x once the recording's last input has played, instead of running Dungeon Master's half-minute ending at max with the processor at full load.
 
 **Statistics**
 - Records: the stair dances show the arrow between their levels (`Lv 3 ↔ 2`) instead of a question mark.

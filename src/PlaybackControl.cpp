@@ -304,6 +304,20 @@ void PlaybackControl_AtTick(int tickAfter)
   }
 }
 
+bool PlaybackControl_LastInputPlayed(void)
+{
+  if (skipTarget >= 0)
+  {
+    // A skip still running there goes back to 1x at most when it ends
+    if (skipSpeed > PLAYBACK_SPEED_NORMAL) skipSpeed = PLAYBACK_SPEED_NORMAL;
+    return false;
+  }
+  if (speedIndex <= PLAYBACK_SPEED_NORMAL) return false;
+  speedIndex = PLAYBACK_SPEED_NORMAL;
+  speedSyncDue = true;
+  return true;
+}
+
 bool PlaybackControl_TakeSpeedSync(void)
 {
   bool due = speedSyncDue;
