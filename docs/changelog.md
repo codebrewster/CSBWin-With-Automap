@@ -7,6 +7,8 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 ## Unreleased
 
+## 1.6.1 (2026-11-22)
+
 **Statistics**
 - The Spells table shows its CASTS and MANA headings over the two column groups again, each with its line under it; in the window they were cut off, leaving only the lines.
 
