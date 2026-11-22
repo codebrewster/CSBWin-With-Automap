@@ -4387,6 +4387,12 @@ static void DrawTileTooltip(const AutoMapView &view)
   std::vector<AutoMapTipLine> machinery = AutoMapTooltip_Machinery(
       shownDrawList, hoverX, hoverY, fullChain, AutoMapLevelReader_ItemName, &hint);
   std::vector<std::string> notes = AutoMapScene_PlayerNoteLines(shownDrawList, hoverX, hoverY);
+  // The red frame of a replay pause says what it is; only the live map has these, not the export
+  if (AutoMap_HasReplayBreakpoint(shownDrawList.level, hoverX - shownDrawList.boundaryMarginX,
+                                  hoverY - shownDrawList.boundaryMarginY))
+  {
+    notes.push_back("REPLAY PAUSES HERE");
+  }
   if (cells.empty() && hpLines.empty() && scrolls.empty() && walls.empty() && machinery.empty()
       && notes.empty())
   {

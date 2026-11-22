@@ -514,8 +514,9 @@ example `YOUR MARK: HIDDEN PIT OPEN`.
 ## Pausing a replay on a cell
 
 While a replay runs, the right-click menu starts with **PAUSE REPLAY HERE** on any
-cell but a wall. The cell gets a red frame. When the party steps onto it, the
-replay pauses and the frame goes; the other ones stay. Resume with **Space** or
+cell but a wall. The cell gets a red frame, and its tooltip ends with
+`REPLAY PAUSES HERE`. When the party steps onto it, the replay pauses and the
+frame goes; the other ones stay. Resume with **Space** or
 the replay's Resume button. **REMOVE REPLAY PAUSE** takes one off again. A pause
 set on the cell the party stands on waits until it leaves and comes back. The
 pauses are forgotten when the replay ends.
