@@ -10,6 +10,9 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 **General**
 - The project is now called **CSBwin Plus**, and the repository moved to <https://github.com/codebrewster/CSBwin-Plus>; the old links lead there.
 
+**Replay**
+- A replay paused by a map mark (or any other pause) shows the party's tile in the 3D view as well; the view still showed the tile it came from, or an older one at a fast speed.
+
 ## 1.6.2 (2026-11-22)
 
 **Automap**

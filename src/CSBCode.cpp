@@ -634,9 +634,28 @@ static i32 *mainLoopState = NULL;
 // Where StartCSB waits is not among the registered restart states of Dispatch.h: the replay
 // snapshots put it back with the call stack
 static i32 *startCSBState = NULL;
+// The main loop held its ticks for a replay's pause the last time it came between two ticks
+static bool replayHeldTicks = false;
 i32 StartCSB_State(void) { return startCSBState != NULL ? *startCSBState : 0; }
 void StartCSB_SetState(i32 state) { if (startCSBState != NULL) *startCSBState = state; }
 void MainLoop_WaitForMessage(void) { if (mainLoopState != NULL) *mainLoopState = _8_; }
+
+extern ui32 viewportRandom;
+// A replay's pause starts between ticks, after the replayed input has moved the party, while the
+// 3D view is drawn only at the start of a tick (and at a fast speed only one tick in 16): the
+// paused view would show where the party stood before. It is drawn once more as the pause begins,
+// in full, and with the view's own random numbers kept, so the tick after the pause draws what it
+// would have drawn without the pause.
+static void DrawViewportAsPauseBegins(void)
+{
+  if (d.SelectedCharacterOrdinal != 0 || d.PartySleeping != 0 || d.newPartyLevel != -1) return;
+  ui32 keptRandom = viewportRandom;
+  i32 keptMultiplier = VBLMultiplier;
+  VBLMultiplier = 1;
+  DrawViewport(d.partyFacing, d.partyX, d.partyY);
+  VBLMultiplier = keptMultiplier;
+  viewportRandom = keptRandom;
+}
 
 //   TAG00068e
 RESTARTABLE _MainLoop(const CSB_UI_MESSAGE * /*msg*/)
@@ -821,7 +840,13 @@ tag0007c8:
     mainLoopState = &mystate;
     ReplaySnapshot_AtTickBoundary();
     if (IsPlayFileOpen()) AutoMap_CheckBreakpoint();
-    if (IsPlayFileOpen() && PlaybackControl_HoldsTicks()) goto tag0007b4; // A replay's pause is due
+    if (IsPlayFileOpen() && PlaybackControl_HoldsTicks()) // A replay's pause is due
+    {
+      if (!replayHeldTicks) DrawViewportAsPauseBegins();
+      replayHeldTicks = true;
+      goto tag0007b4;
+    }
+    replayHeldTicks = false;
     if (d.ClockRunning == 0) goto tag0007b4; // Usually 1
     if ((d.Time&63)    == 0) // about every 10 seconds
     {
