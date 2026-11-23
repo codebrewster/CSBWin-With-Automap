@@ -1,35 +1,52 @@
-# CSBwin Automap
+# CSBwin Plus
 
-A live, spoiler-aware map for **CSBwin**, the reverse-engineered port of FTL's
-*Dungeon Master* and *Chaos Strikes Back*. The map opens in its own window
-beside the game and is drawn with the game's own wall, door and item pictures.
-The game builds on Linux, macOS and Windows.
+**Dungeon Master** and **Chaos Strikes Back** on Linux, macOS and Windows. CSBwin Plus is based
+on Paul Stevens' CSBwin, the faithful reverse-engineered port of FTL's game engine, so it plays
+the original games and every custom dungeon made for CSBwin. On top of that it adds an automap,
+statistics, and a record and replay that ties into both.
 
-![The automap: the whole of level 1, with the monsters in their formations, the items and the switches](docs/images/automap-hero.png)
+![CSBwin Plus during a replay: the map of level 3 on the left, the Statistics window at the top right, and the game below it, paused at tick 59931 with the replay bar on the menu bar](docs/images/hero.png)
 
-The map draws what the party has seen and worked out: the cells it explored,
-the walls and items it noticed, the doors and pits, and which switch opened
-which door. You decide how much it gives away, from strictly what your party
-saw to the whole dungeon laid open.
+**Play.** Beside the game, a map draws exactly what your party has seen, in the game's own
+pictures, and nothing more. A **Statistics** window counts what each champion did: damage,
+kills, spells, healing, deaths, food, experience, records and exploration.
 
-**[Read the user manual](docs/automap-manual.md)** for every control and
-setting.
+<table>
+<tr><th></th><th>The view</th><th>The map</th></tr>
+<tr><td>Before</td>
+<td><img src="docs/images/see-through-walls-before-3d.png" width="400" alt="A wall ahead, a skeleton to its right"></td>
+<td><img src="docs/images/see-through-walls-before-map.png" width="200" alt="The map: the wall cell blank, one skeleton"></td></tr>
+<tr><td>See Through Walls</td>
+<td><img src="docs/images/see-through-walls-after-3d.png" width="400" alt="The spell shows a second skeleton and a chest behind the wall"></td>
+<td><img src="docs/images/see-through-walls-after-map.png" width="200" alt="The map now shows the second skeleton and the chest"></td></tr>
+</table>
 
-The **Statistics** window beside it shows what each champion did, for the whole run and per
-level: damage, kills, attacks, spells, healing, deaths, food, experience, records and the
-party's exploration. It can be exported as one HTML file to share. See the
-**[Statistics manual](docs/statistics-manual.md)**.
+*The map knows what the party saw: the skeleton and the chest behind the wall appear on it
+only once the See Through Walls spell has shown them.*
 
-**Record a game and replay it.** Every input goes into a small `.log` file, and the replay
-runs the same game again, tick by tick. Pause it with Space and run it at any speed from
-0.5x to 64x, or at max, as fast as the computer can. Recordings made with Paul Stevens' CSBwin 17.6 play too, so a classic run
-from the forum can be watched again. The map and the statistics fill up while the replay
-runs. See the **[recording manual](docs/recording-manual.md)**.
+**Record.** Every input of a game goes into a small `.log` file. Recordings made with CSBwin 17.6
+play too, so classic runs from the forum can be watched again.
+
+**Replay.** A replay runs the same game again, tick by tick, and is far more than a playback:
+
+- **Fast**: 0.5x up to 64x, or max, as fast as the computer can. Nothing is skipped.
+- **Rewind**: jump back 25, 250 or 2500 ticks, even after the end or from the death screen.
+  In 2010, going back in a CSBwin replay was still believed impossible.
+- **Jump to a tick**: type a tick and the replay runs or rewinds to it and pauses.
+- **Pause on a map tile**: right-click a cell on the map, and the replay pauses when the party
+  steps onto it.
+- **Jump from the statistics**: click a record (the biggest hit, the closest call) or a death,
+  and the replay goes to that moment.
+- The map and the statistics fill up as the replay runs, so any recorded run becomes a map and a
+  statistics page to share.
+
+Manuals: **[map](docs/automap-manual.md)** · **[statistics](docs/statistics-manual.md)** ·
+**[record and replay](docs/recording-manual.md)**.
 
 ## Download
 
 Ready-to-run builds for Windows and Linux are on the
-**[Releases page](https://github.com/codebrewster/CSBWin-With-Automap/releases/latest)**.
+**[Releases page](https://github.com/codebrewster/CSBwin-Plus/releases/latest)**.
 They hold the game engine with the map. The game itself, its sounds and its
 fonts come from other packages; put them all into the folder you unpacked,
 next to the program:
@@ -62,6 +79,8 @@ Fedora 39); on older systems, build from source.
 ## Features
 
 ### A map that follows the party
+
+![The automap: the whole of level 1, with the monsters in their formations, the items and the switches](docs/images/automap-hero.png)
 
 - A second, resizable window that updates while you play, drawn with the
   original game artwork.
@@ -152,7 +171,7 @@ A legend behind the **?** button explains every mark on the map.
 - Kept in the save's `.map` file (a zip archive, about a sixth of the size it had before);
   saves from before the statistics load with empty statistics.
 
-### Record a game, replay it at up to 64x or as fast as it goes
+### Record a game, replay it fast, rewind it, jump around in it
 
 - **File → Record** writes every input of a game into a `RecordNNNNN.log` (in the `logs` folder
   when the game folder has one); a red **REC** on the menu bar shows it is on. The files are small.
@@ -167,10 +186,19 @@ A legend behind the **?** button explains every mark on the map.
 - **Old recordings play too**: playfiles made with Paul Stevens' CSBwin 17.6, such as
   Antman's Dungeon Master run, replay to their end, so runs shared on the forum can be watched
   again with the `dungeon.dat` they were recorded with.
+- **Pause on a map tile**: while a replay runs, right-click a cell and pick **PAUSE REPLAY HERE**;
+  the cell gets a red frame, and the replay pauses when the party steps onto it.
+- **Jump from the statistics**: in a replay, click a record or a death's tick in the Statistics
+  window, and the replay goes to that moment.
 - **Stop the replay and play on** from that point, or let it run out: the game is then yours.
 - The map and the statistics fill up as the replay runs, and both exports work during and after
   it: a replay turns any recorded run into a map and a statistics page. See the
   [manual](docs/recording-manual.md).
+
+| | |
+|---|---|
+| ![The replay bar](docs/images/replay-controls.png) | ![A replay pause on the map](docs/images/automap-replay-pause.png) |
+| The replay bar: Resume, the speed, back and ahead, the time and tick, and a pause at a tick | A replay pause on level 3: the red frame, and REPLAY PAUSES HERE in the tooltip |
 
 ### Testing aids
 
