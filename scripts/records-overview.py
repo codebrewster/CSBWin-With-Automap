@@ -1,219 +1,162 @@
 #!/usr/bin/env python3
-# Writes records.html beside the statistics pages of export-all-html.sh: the Records tab over all
-# the replays of each game. One row per record kind, for the party and for each champion: the
-# lowest value above 0, the average and the highest, each with the replay it came from and the
-# hero, the weapon or spell and the monster behind it. Reads the statistics.html files under
-# OUTDIR (their embedded JSON, the whole run only); stdlib only.
+# Writes records.html beside the statistics pages of export-all-html.sh: every number of the
+# statistics pages ranked over the replays, one tab per category (the top folder), with the top
+# three runs at each end, the average, and a link to each run's statistics.html. Reads the
+# statistics.html files under OUTDIR (their embedded JSON, the whole run only) and puts their numbers
+# into scripts/records-page.html, whose script ranks them (per run, per hour, one champion).
+# Stdlib only.
 #
 #   scripts/records-overview.py OUTDIR
 #
-# The games are told by the top folder of a replay, as export-all-html.sh does:
-#   Chaos Strikes Back minimum item picking, Race to Fulya Pit -> Chaos Strikes Back
-#   Dungeon Master minimum item picking, Race to fusion        -> Dungeon Master
-# Other folders are left out. Values: a record that does not apply (null, or below 0) is not
-# counted; the lowest counts only values above 0; the average and the highest count every value.
-import html
-import json
-import os
-import re
-import sys
+# The categories are the top folders below; other folders are left out. A replay that is in a
+# folder twice (the same numbers) counts once, and the runs in EXCLUDED or with "cheat" in their
+# folder name hold no record (the page names them and why).
+import json, os, re, sys
 
-GAME_OF_FOLDER = {
-    "Chaos Strikes Back minimum item picking": "Chaos Strikes Back",
-    "Race to Fulya Pit": "Chaos Strikes Back",
-    "Dungeon Master minimum item picking": "Dungeon Master",
-    "Race to fusion": "Dungeon Master",
+CATEGORIES = ["Race to Fulya Pit", "Race to fusion",
+              "Chaos Strikes Back minimum item picking", "Dungeon Master minimum item picking"]
+GAME = {"Race to Fulya Pit": "Chaos Strikes Back", "Chaos Strikes Back minimum item picking": "Chaos Strikes Back",
+        "Race to fusion": "Dungeon Master", "Dungeon Master minimum item picking": "Dungeon Master"}
+
+
+# Runs that hold no record: the movie (the folder name up to " - ") and why. A folder whose name
+# says "cheating" is left out as well.
+EXCLUDED = {
+    "CSBMovie0640": "used about 10 saves, says its readme.txt",
 }
-GAME_ORDER = ["Chaos Strikes Back", "Dungeon Master"]
-PARTY = "Party"
+
+
+def excluded(name):
+    movie = name.split(" - ")[0]
+    if movie in EXCLUDED:
+        return EXCLUDED[movie]
+    return "by cheating" if "cheat" in name.lower() else ""
 
 
 def read_stats(path):
     with open(path, encoding="utf-8") as f:
-        text = f.read()
-    m = re.search(r'<script type="application/json" id="stats">(.*?)</script>', text, re.S)
+        m = re.search(r'<script type="application/json" id="stats">(.*?)</script>', f.read(), re.S)
     return json.loads(m.group(1)) if m else None
 
 
-def collect(out_dir, style):
-    """Returns {game: {subject: {label: [entry, ...]}}} and the replay count per game.
-    An entry: value, replay (folder name), holder, how, whom, when, level, order (the number's place)."""
-    data = {}
-    replays = {}
+def player_of(name):
+    parts = name.split(" - ")
+    if len(parts) < 2:
+        return "Unknown player"
+    return parts[1].split(" (")[0].strip()
+
+
+def num(v):
+    if v is None:
+        return None
+    return round(v, 2) if isinstance(v, float) and v != int(v) else int(v)
+
+
+def extras(view, pages, heroes):
+    """The best entry of the detail tables in one run: {key: [value, what, who]}."""
+    e = {}
+    def best(key, value, what, who=""):
+        if value and (key not in e or value > e[key][0]):
+            e[key] = [value, what, who]
+    weapons, spells = {}, {}
+    for hi, p in enumerate(pages[:len(heroes)]):
+        for w in p.get("weapons", []):
+            d = weapons.setdefault(w[0], [0, 0, 0])
+            d[0] += w[3]; d[1] += w[4]; d[2] += w[1]
+            best("heroWeapon", w[3], w[0], heroes[hi])
+        for sp in p.get("spells", []):
+            spells[sp[0]] = spells.get(sp[0], 0) + sp[1]
+    for name, (dmg, kills, tries) in weapons.items():
+        best("weaponDamage", dmg, name)
+        best("weaponKills", kills, name)
+        best("weaponTries", tries, name)
+    for name, casts in spells.items():
+        best("spellCasts", casts, name)
+    if spells:
+        e["spellKinds"] = [len([c for c in spells.values() if c]), "", ""]
+    kinds = 0
+    for m in view.get("monsters", []):
+        best("monsterKind", m[7], m[0])
+        kinds += 1 if m[7] else 0
+    e["monsterKinds"] = [kinds, "", ""]
+    items = view.get("items", [])
+    e["itemKinds"] = [len([i for i in items if i[1]]), "", ""]
+    for i in items:
+        best("itemMost", i[1], i[0])
+    party = pages[-1]
+    for f in party.get("eaten", []):
+        best("food", f[1], f[0])
+    for d in party.get("drunk", []):
+        best("drink", d[1], d[0])
+    return e
+
+
+def collect(out_dir):
+    runs = {c: [] for c in CATEGORIES}
+    meta = None
     for root, _, files in os.walk(out_dir):
         if "statistics.html" not in files:
             continue
         rel = os.path.relpath(root, out_dir).split(os.sep)
-        game = GAME_OF_FOLDER.get(rel[0])
-        if game is None:
+        if rel[0] not in runs:
             continue
-        stats = read_stats(os.path.join(root, "statistics.html"))
-        if not stats or "-1" not in stats.get("views", {}):
+        s = read_stats(os.path.join(root, "statistics.html"))
+        if not s or "-1" not in s.get("views", {}):
             continue
-        if style[0] is None:
-            with open(os.path.join(root, "statistics.html"), encoding="utf-8") as f:
-                m = re.search(r"<style>(.*?)</style>", f.read(), re.S)
-                style[0] = m.group(1) if m else None
-        replays[game] = replays.get(game, 0) + 1
-        replay = rel[-1]
-        numbers = stats["numbers"]
-        heroes = [h["name"] for h in stats["heroes"]]
-        view = stats["views"]["-1"]
-        records = view["records"]
+        if meta is None:
+            meta = {"numbers": [{k: n[k] for k in ("label", "help", "party", "run", "bad", "ratio", "pct", "ticks", "rec", "unit")}
+                                for n in s["numbers"]],
+                    "groups": [{"tab": t["label"], "title": g["title"], "rows": g["rows"]}
+                               for t in s["topics"] if t["label"] != "Overview" for g in t["groups"]],
+                    "recFirst": s["recFirst"]}
+        view = s["views"]["-1"]
+        heroes = [h["name"] for h in s["heroes"]]
         pages = view["pages"]
-        rec_first = stats["recFirst"]
-        for i in range(len(records)):
-            subject = heroes[i] if i < len(heroes) else PARTY
-            lines = {}
-            for line in pages[i]["records"]:
-                lines[line[0]] = line
-            for n, info in enumerate(numbers):
-                if not info.get("rec") or n >= len(records[i]):
-                    continue
-                v = records[i][n]
-                if v is None or v < 0:
-                    continue
-                line = lines.get(n - rec_first)
-                entry = {
-                    "value": v,
-                    "replay": replay,
-                    "holder": line[4] if line else subject,
-                    "how": line[5] if line else "",
-                    "whom": line[6] if line else "",
-                    "when": line[7] if line else "",
-                    "level": line[8] if line else None,
-                    "order": n,
-                }
-                by_subject = data.setdefault(game, {}).setdefault(subject, {})
-                by_subject.setdefault(info["label"], []).append(entry)
-    return data, replays
-
-
-def summarize(entries):
-    """(lowest above 0, average, highest) entries; None where there is no value."""
-    above = [e for e in entries if e["value"] > 0]
-    low = min(above, key=lambda e: e["value"]) if above else None
-    high = max(entries, key=lambda e: e["value"]) if entries else None
-    avg = sum(e["value"] for e in entries) / len(entries) if entries else None
-    return low, avg, high
-
-
-def plural(n):
-    return f"{n} replay" if n == 1 else f"{n} replays"
-
-
-def fmt(v):
-    if v is None:
-        return "-"
-    return f"{v:,.0f}" if v == int(v) else f"{v:,.1f}"
-
-
-def cell(entry):
-    """One value of a record: the number, then who and how, the target (the column On / from),
-    the level, the tick, and the replay it came from."""
-    if entry is None:
-        return "<td class='z'>-</td>"
-    who_how = " · ".join(x for x in (entry.get("holder"), entry.get("how")) if x)
-    target = " · ".join(x for x in (entry.get("whom"), f"Lv {entry['level']}" if entry.get("level") is not None else "",
-                                    entry.get("when")) if x)
-    return ("<td class='l'>"
-            f"<div class='gold'>{fmt(entry['value'])}</div>"
-            f"<div>{html.escape(who_how)}</div>"
-            f"<div class='nt'>{html.escape(target)}</div>"
-            f"<div class='nt'>{html.escape(entry['replay'])}</div>"
-            "</td>")
-
-
-def subject_table(rows):
-    body = []
-    for label, entries in rows:
-        low, avg, high = summarize(entries)
-        avg_cell = (f"<td class='l'><div class='gold'>{fmt(avg)}</div>"
-                    f"<div class='nt'>over {plural(len(entries))}</div></td>"
-                    if avg is not None else "<td class='z'>-</td>")
-        body.append(f"<tr><td class='l'>{html.escape(label)}</td>{cell(low)}{avg_cell}{cell(high)}</tr>")
-    return ("<div class='wide'><table><tr><th class='l'>Record</th><th class='l'>Lowest above 0</th>"
-            "<th class='l'>Average</th><th class='l'>Highest</th></tr>"
-            f"{''.join(body)}</table></div>")
-
-
-def page(data, replays, style):
-    games = [g for g in GAME_ORDER if g in data]
-    game_tabs, panels = [], []
-    for gi, game in enumerate(games):
-        subjects = data[game]
-        names = sorted(x for x in subjects if x != PARTY)
-        order = [PARTY] + names
-        who_tabs = "".join(
-            f"<button type='button' class='who' data-who='{si}' aria-pressed='{str(si == 0).lower()}'>{html.escape(x)}</button>"
-            for si, x in enumerate(order))
-        sections = []
-        for si, subject in enumerate(order):
-            rows = sorted(subjects[subject].items(), key=lambda kv: min(e["order"] for e in kv[1]))
-            sections.append(f"<div class='who-view' data-who='{si}' hidden>{subject_table(rows)}</div>")
-        game_tabs.append(f"<button type='button' class='game-tab' data-game='{gi}' aria-pressed='{str(gi == 0).lower()}'>"
-                         f"{html.escape(game)} <span class='nt'>{plural(replays[game])}</span></button>")
-        panels.append(f"<div class='game-view' data-game='{gi}' hidden>"
-                      f"<div class='whos'>{who_tabs}</div>"
-                      f"<div class='sec'><div class='sech'><span class='t'>{html.escape(game)}</span>"
-                      f"<span class='s'>the record tabs of {plural(replays[game])}, whole run</span></div>"
-                      f"<div class='secb'>{''.join(sections)}</div></div></div>")
-    # the bar stays put; #view (the statistics page's scrolling area) holds the tables
-    body = ("<div class='bar1'><div class='seg'>" + "".join(game_tabs) + "</div></div>"
-            + "<div id='view'>" + "".join(panels) + "</div>"
-            if panels else "<p class='about'>No statistics.html files found.</p>")
-    css = style or ""
-    return f"""<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CSB records over all replays</title>
-<style>{css}
-  .wide {{ overflow-x:auto }}
-  .game-tab[aria-pressed="true"], .who[aria-pressed="true"] {{ background:#2a3a57; border-color:#5b8fd9; color:#fff }}
-  [hidden] {{ display:none !important }}
-</style></head>
-<body>
-<h1>Records</h1>
-<div class="about">The record tabs over every replay of each game, whole run. The lowest counts only values above 0;
-the average and the highest count every value. Records that did not apply are not counted.
-A closest call is best when lowest.</div>
-<div class="im">
-{body}
-</div>
-<script>
-(function () {{
-  const games = [...document.querySelectorAll('.game-tab')];
-  const views = [...document.querySelectorAll('.game-view')];
-  function selectGame(i) {{
-    games.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.game === i)));
-    views.forEach(v => v.hidden = v.dataset.game !== i);
-    const panel = views.find(v => v.dataset.game === i);
-    if (panel) selectWho(panel, panel.querySelector('.who').dataset.who);
-  }}
-  function selectWho(panel, w) {{
-    panel.querySelectorAll('.who').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.who === w)));
-    panel.querySelectorAll('.who-view').forEach(v => v.hidden = v.dataset.who !== w);
-  }}
-  games.forEach(b => b.addEventListener('click', () => selectGame(b.dataset.game)));
-  views.forEach(panel => panel.querySelectorAll('.who').forEach(b =>
-    b.addEventListener('click', () => selectWho(panel, b.dataset.who))));
-  if (games.length) selectGame(games[0].dataset.game);
-}})();
-</script>
-</body></html>
-"""
+        def rec_lines(page):
+            return {str(l[0] + s["recFirst"]): [l[4], l[5], l[6], l[7]] for l in page.get("records", [])}
+        name = rel[-1]
+        runs[rel[0]].append({
+            "n": name, "p": player_of(name), "h": heroes,
+            "x": excluded(name),
+            "u": "/".join(rel) + "/statistics.html",
+            "v": [num(x) for x in view["records"][-1]],
+            "hv": [[num(x) for x in view["records"][i]] for i in range(len(heroes))],
+            "r": rec_lines(pages[-1]),
+            "hr": [rec_lines(pages[i]) for i in range(len(heroes))],
+            "e": extras(view, pages, heroes),
+            "ch": sum(i[3] for i in view.get("items", []) if len(i) > 3),
+        })
+    # one copy of a replay that is in a folder twice (the same numbers): the shorter name stays
+    for c in runs:
+        keep = {}
+        for r in sorted(runs[c], key=lambda r: ("annotated" in r["n"].lower(), len(r["n"]))):
+            key = json.dumps(r["v"])
+            if key in keep:
+                keep[key].setdefault("also", []).append(r["n"])
+            else:
+                keep[key] = r
+        runs[c] = sorted(keep.values(), key=lambda r: r["n"])
+    return meta, [{"name": c, "game": GAME[c], "race": c.startswith("Race"), "runs": runs[c]} for c in CATEGORIES if runs[c]]
 
 
 def main():
     if len(sys.argv) != 2:
         sys.exit("usage: records-overview.py OUTDIR")
     out_dir = sys.argv[1]
-    style = [None]
-    data, replays = collect(out_dir, style)
-    with open(os.path.join(out_dir, "records.html"), "w", encoding="utf-8") as f:
-        f.write(page(data, replays, style[0]))
-    print(f"records.html written to {os.path.join(out_dir, 'records.html')} "
-          + ", ".join(f"{g}: {replays[g]} replays" for g in GAME_ORDER if g in replays))
+    template = os.path.join(os.path.dirname(os.path.abspath(__file__)), "records-page.html")
+    dest = os.path.join(out_dir, "records.html")
+    meta, cats = collect(out_dir)
+    if meta is None:
+        sys.exit(f"no statistics.html files of the known categories under {out_dir}")
+    data = json.dumps({"meta": meta, "cats": cats}, separators=(",", ":")).replace("</", "<\\/")
+    with open(template, encoding="utf-8") as f:
+        page = f.read().replace("/*DATA*/null", data)
+    with open(dest, "w", encoding="utf-8") as f:
+        f.write(page)
+    left = sum(1 for c in cats for r in c["runs"] if r["x"])
+    print(f"records.html written to {dest} "
+          + ", ".join(f"{c['name']}: {len(c['runs'])} replays" for c in cats)
+          + (f" ({left} left out)" if left else ""))
 
 
 if __name__ == "__main__":

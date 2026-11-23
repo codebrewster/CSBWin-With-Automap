@@ -1,0 +1,372 @@
+<!doctype html>
+<!-- The template of records.html: scripts/records-overview.py puts the replays' numbers in place of
+     the DATA comment below; the script at the end ranks them. -->
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CSB Replay Records</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&display=swap">
+<style>
+  /* Layout: a category at a time; a trophy shelf of four headline records, then folded sections
+     (the statistics page's tabs), each row a record with its medals and a strip of every run.
+     The dungeon screen's dark stone, the champion colours, an angular display face for headings and big numbers. */
+  :root { color-scheme: dark;
+    --ground:#101115; --panel:#1b1c22; --raise:#24262d; --line:#30333c; --hover:#2c2f37;
+    --text:#dcdcdc; --dim:#8d909b; --faint:#5c5f6a; --gold:#e3c84a; --silver:#b8bdc8; --bronze:#c4875a;
+    --blue:#5b8fd9; --sel:#2a3a57; --bad:#e5735f;
+    --p0:#5fbf5f; --p1:#d8c447; --p2:#d9604f; --p3:#5b8fd9; --p4:#b07cd8; --p5:#4fb8b0;
+    --display:"Chakra Petch",system-ui,sans-serif;
+    --mono:"DejaVu Sans Mono","Bitstream Vera Sans Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,"Segoe UI",sans-serif; }
+  * { box-sizing:border-box }
+  body { background:var(--ground); color:var(--text); font:14px/1.45 var(--sans); margin:0;
+    padding-block:28px 56px; padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px));
+    background-image:radial-gradient(ellipse 900px 380px at 50% -120px, #2a2416 0%, transparent 70%) }
+  .page { max-width:1180px; margin:0 auto; display:flex; flex-direction:column; gap:20px }
+  h1 { font:700 40px/1 var(--display); color:var(--gold); margin:0; letter-spacing:.01em; text-shadow:0 2px 0 #5a4a12 }
+  h2 { font:700 19px/1.1 var(--display); color:#fff; margin:0; letter-spacing:.02em }
+  h3 { font:600 11px var(--sans); text-transform:uppercase; letter-spacing:.09em; color:var(--dim); margin:18px 0 2px }
+  .about { color:var(--dim); max-width:78ch; margin:8px 0 0 }
+  button { font:inherit; cursor:pointer; color:inherit }
+  :focus-visible { outline:2px solid var(--blue); outline-offset:2px }
+  a { color:var(--text); text-decoration:none; border-bottom:1px solid var(--faint) }
+  a:hover { color:#fff; border-color:var(--gold) }
+
+  .bar { display:flex; flex-wrap:wrap; gap:12px 16px; align-items:flex-end; justify-content:space-between }
+  .cats { display:flex; flex-wrap:wrap; gap:6px }
+  .cat { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:7px 12px; text-align:left; display:flex; flex-direction:column; gap:1px }
+  .cat b { font:700 15px var(--display); letter-spacing:.02em }
+  .cat small { color:var(--dim); font-size:11.5px }
+  .cat:hover { background:var(--hover) }
+  .cat[aria-pressed="true"] { border-color:var(--gold); background:#2a2618; color:#fff }
+  .modes { display:flex; gap:1px; background:var(--line); border-radius:5px; overflow:hidden }
+  .mode { background:var(--raise); border:0; padding:6px 11px; color:var(--dim); font:12.5px var(--mono) }
+  .mode:hover { background:var(--hover) }
+  .mode[aria-pressed="true"] { background:#4272b8; color:#fff }
+
+  .shelf { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px }
+  .trophy { position:relative; background:linear-gradient(180deg, #23211a, var(--panel) 60%); border:1px solid #3b3626; border-radius:8px; padding:14px 16px 12px; display:flex; flex-direction:column; gap:6px; min-width:0; overflow:hidden }
+  .trophy .k { font:600 11px var(--sans); text-transform:uppercase; letter-spacing:.09em; color:var(--dim); display:flex; gap:8px; align-items:center }
+  .trophy .k svg { color:var(--gold) }
+  .trophy .big { font:700 40px/1 var(--display); color:var(--gold); font-variant-numeric:tabular-nums; text-shadow:0 2px 0 #4a3d0e }
+  .trophy .big small { font:12px var(--mono); color:var(--dim); text-shadow:none; margin-left:6px }
+  .trophy .s { font:12px var(--mono); color:var(--dim); overflow-wrap:anywhere }
+  .trophy .s.who { color:var(--text) }
+  .trophy svg.strip { margin-top:4px }
+
+  details.sec { background:var(--panel); border:1px solid var(--line); border-radius:8px; overflow:hidden }
+  details.sec > summary { list-style:none; cursor:pointer; display:grid; grid-template-columns:auto 1fr auto; gap:6px 14px; align-items:center; padding:12px 16px }
+  details.sec > summary::-webkit-details-marker { display:none }
+  details.sec > summary:hover { background:var(--hover) }
+  details.sec[open] > summary { border-bottom:1px solid var(--line); background:var(--raise) }
+  .ico { width:34px; height:34px; border-radius:7px; display:grid; place-items:center; background:var(--raise); color:var(--gold); border:1px solid var(--line) }
+  .sumt { display:flex; flex-direction:column; gap:5px; min-width:0 }
+  .hl { display:flex; flex-wrap:wrap; gap:6px }
+  .hl span { font:12px var(--mono); background:var(--ground); border:1px solid var(--line); border-radius:999px; padding:1px 9px; color:var(--dim); white-space:nowrap }
+  .hl b { color:var(--gold); font-weight:600 }
+  .chev { color:var(--dim); font:12px var(--mono); white-space:nowrap }
+  .chev::after { content:" ▸"; display:inline-block; transition:transform .15s }
+  details[open] .chev::after { transform:rotate(90deg) }
+  .secb { padding:0 16px 14px }
+
+  .head, .row { display:grid; grid-template-columns:minmax(190px, 1.15fr) 2fr 2fr minmax(84px, .5fr); gap:14px; align-items:start }
+  .head { font:600 11px var(--sans); text-transform:uppercase; letter-spacing:.09em; color:var(--faint); padding:10px 0 4px; border-bottom:1px solid var(--line) }
+  .row { padding:9px 0; border-bottom:1px solid #25272e; font:12.5px/1.45 var(--mono) }
+  .row:last-child { border-bottom:0 }
+  .row:hover { background:linear-gradient(90deg, transparent, #1f2027 10%, #1f2027 90%, transparent) }
+  .row > * { min-width:0 }
+  .lab { display:flex; flex-direction:column; gap:5px }
+  .lab .name { color:var(--text); font:13px/1.3 var(--sans) }
+  .lab .tag { font:11px var(--mono); color:var(--faint); margin-left:6px }
+  svg.strip { display:block; width:100%; max-width:220px; height:16px; overflow:visible }
+  svg.strip line { stroke:var(--line); stroke-width:2 }
+  svg.strip circle { fill:var(--faint); fill-opacity:.75 }
+  svg.strip circle.best { fill:var(--gold); fill-opacity:1 }
+  svg.strip circle.cheat { fill:none; stroke:var(--bad); stroke-width:1.5 }
+  .places { display:flex; flex-direction:column; gap:4px }
+  .pl { display:grid; grid-template-columns:18px auto 1fr; gap:0 8px; align-items:baseline }
+  .medal { width:16px; height:16px; border-radius:50%; display:inline-grid; place-items:center; font:700 9.5px var(--sans); color:#16171b; background:var(--faint); transform:translateY(2px) }
+  .good .p1 .medal { background:var(--gold) } .good .p2 .medal { background:var(--silver) } .good .p3 .medal { background:var(--bronze) }
+  .pl .v { color:var(--text); font-variant-numeric:tabular-nums; white-space:nowrap }
+  .good .p1 .v { color:var(--gold); font-weight:700 }
+  .pl .v small { color:var(--dim); font-weight:400 }
+  .pl .w { overflow-wrap:anywhere }
+  .pl .d { grid-column:3; color:var(--dim); font-size:11.5px; overflow-wrap:anywhere }
+  .dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:6px; transform:translateY(-1px) }
+  .chip { font:10.5px var(--sans); border:1px solid var(--bad); color:var(--bad); border-radius:3px; padding:0 4px; margin-left:5px; white-space:nowrap }
+  .more { color:var(--dim); font-size:11.5px; cursor:help; border-bottom:1px dotted var(--faint); margin-left:6px }
+  .avg { color:var(--text); font-variant-numeric:tabular-nums } .avg .nt { display:block; font-size:11px; color:var(--dim) }
+  .none { color:var(--faint) }
+  .never { color:var(--faint); font-size:12px; padding-top:10px }
+  .mlab { display:none; font:600 10.5px var(--sans); text-transform:uppercase; letter-spacing:.08em; color:var(--faint); margin-bottom:2px }
+
+  .players { display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:10px; padding-top:14px }
+  .player { background:var(--ground); border:1px solid var(--line); border-left:4px solid var(--pc); border-radius:6px; padding:10px 12px; display:flex; flex-direction:column; gap:6px; font:12.5px var(--mono); min-width:0 }
+  .player .pn { font:700 16px var(--display); color:#fff; letter-spacing:.02em }
+  .player .st { display:grid; grid-template-columns:auto 1fr; gap:2px 10px; color:var(--dim) }
+  .player .st b { color:var(--text); font-weight:400; text-align:right; font-variant-numeric:tabular-nums }
+  .player .firsts { height:6px; border-radius:3px; background:var(--raise); overflow:hidden }
+  .player .firsts i { display:block; height:100%; background:var(--pc) }
+
+  @media (max-width:760px) {
+    h1 { font-size:32px }
+    .head { display:none }
+    .row { grid-template-columns:1fr 1fr; gap:8px 12px }
+    .row .lab, .row .avgc { grid-column:1 / -1 }
+    .mlab { display:block }
+    details.sec > summary { grid-template-columns:auto 1fr }
+    .chev { display:none }
+  }
+  @media (prefers-reduced-motion:reduce) { .chev::after { transition:none } }
+</style>
+</head><body>
+
+<div class="page">
+  <header>
+    <h1>Records</h1>
+    <p class="about" id="about"></p>
+  </header>
+  <div class="bar">
+    <div class="cats" id="cats" role="group" aria-label="Category"></div>
+    <div class="modes" role="group" aria-label="Count">
+      <button type="button" class="mode" data-mode="run" aria-pressed="true">Per run</button>
+      <button type="button" class="mode" data-mode="hour" aria-pressed="false">Per hour</button>
+      <button type="button" class="mode" data-mode="hero" aria-pressed="false">One champion</button>
+    </div>
+  </div>
+  <div class="shelf" id="shelf"></div>
+  <div id="sections" style="display:flex; flex-direction:column; gap:10px"></div>
+</div>
+
+<script id="data" type="application/json">/*DATA*/null</script>
+<script>
+(function () {
+  const D = JSON.parse(document.getElementById('data').textContent);
+  const N = D.meta.numbers, TIME = 97, ITEMS = 71, KILLS = 4, DAMAGE = 0;
+  const HASH = { 'Race to Fulya Pit': 'fulya', 'Race to fusion': 'fusion', 'Chaos Strikes Back minimum item picking': 'csb-items', 'Dungeon Master minimum item picking': 'dm-items' };
+  const SHORT = { 'Race to Fulya Pit': 'Race to Fulya Pit', 'Race to fusion': 'Race to fusion', 'Chaos Strikes Back minimum item picking': 'CSB fewest items', 'Dungeon Master minimum item picking': 'DM fewest items' };
+  const TICKS_PER_HOUR = 6 * 3600;
+  const svg = (d, s = 18) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const ICON = {
+    Combat: '<path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/><path d="m19 21 2-2"/>',
+    Magic: '<path d="M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8L12 14.6 7 18.2l1.9-5.8L4 8.8h6.1z"/>',
+    Survival: '<path d="M12 21s-8-5.2-8-11.2A4.6 4.6 0 0 1 12 7a4.6 4.6 0 0 1 8 2.8C20 15.8 12 21 12 21z"/>',
+    'Food & items': '<path d="M12 7c-3-3-8-1-8 4 0 5 4 10 6 10 1 0 1.3-.5 2-.5s1 .5 2 .5c2 0 6-5 6-10 0-5-5-7-8-4z"/><path d="M12 7c0-2 1-4 3-4"/>',
+    Exploration: '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>',
+    Monsters: '<path d="M12 3a7 7 0 0 0-7 7v3l2 2v4h10v-4l2-2v-3a7 7 0 0 0-7-7z"/><circle cx="9" cy="11" r="1.5"/><circle cx="15" cy="11" r="1.5"/><path d="M10 19v-2M14 19v-2"/>',
+    Experience: '<path d="m6 15 6-6 6 6"/><path d="m6 20 6-6 6 6"/><path d="m6 10 6-6 6 6"/>',
+    Records: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/>',
+    Tables: '<path d="M6 8h12l-1 12H7z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',
+    Players: '<circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.5A5 5 0 0 1 21 19"/>',
+    Clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  };
+  const EXTRAS = [
+    ['weaponDamage', 'Most damage with one weapon'], ['heroWeapon', 'Most damage with one weapon, one champion'],
+    ['weaponKills', 'Most kills with one weapon'], ['weaponTries', 'Most attacks with one weapon'],
+    ['spellCasts', 'Most casts of one spell'], ['spellKinds', 'Most different spells cast'],
+    ['monsterKind', 'Most kills of one monster kind'], ['monsterKinds', 'Most monster kinds killed'],
+    ['itemKinds', 'Most different items picked up'], ['itemMost', 'Most pickups of one item'],
+    ['food', 'Most of one food eaten'], ['drink', 'Most of one drink drunk'],
+  ];
+  // one colour per player, the same on every tab
+  const PCOL = {};
+  for (const c of D.cats) for (const r of c.runs) if (!(r.p in PCOL)) PCOL[r.p] = `var(--p${Object.keys(PCOL).length % 6})`;
+  let cat = 0, mode = 'run';
+  const open = new Set();
+
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const movie = r => r.n.split(' - ')[0];
+  const hours = r => (r.v[TIME] || 0) / TICKS_PER_HOUR;
+  const clock = t => { const s = Math.round(t / 6); return `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
+  const int = v => Math.round(v).toLocaleString('en-US');
+  const dungeonItems = r => r.v[ITEMS] == null ? null : r.v[ITEMS] - (r.ch || 0);
+  function fmt(n, v, perHour) {
+    if (v == null) return '–';
+    if (perHour) return (v >= 100 ? int(v) : v.toFixed(1)) + '/h';
+    const m = N[n];
+    if (!m) return int(v);
+    if (n === TIME || n === 98) return clock(v);
+    if (m.pct) return int(v) + '%';
+    if (m.ratio) return v.toFixed(1);
+    const u = m.unit && m.unit[0] ? ' ' + (v === 1 ? m.unit[0] : m.unit[1]) : '';
+    return int(v) + u;
+  }
+  // "10 (+3 from chests)" for the items picked up
+  const suffix = (n, e, perHour) => n === ITEMS && !perHour && e.run.ch ? ` <small>(+${int(e.run.ch)} from chests)</small>` : '';
+  const hourFits = n => !(N[n].ratio || N[n].ticks || N[n].rec || n === TIME);
+  const runLink = r => `<span class="dot" style="background:${PCOL[r.p]}"></span><a href="${encodeURI(r.u)}" title="${esc(r.n)}">${esc(movie(r))}</a>${r.x ? '<span class="chip">cheated</span>' : ''}`;
+
+  function entries(n, runs) {
+    const out = [];
+    const perHour = mode === 'hour' && hourFits(n);
+    for (const r of runs) {
+      if (n === TIME && r.x) continue;  // a cheated run holds no time record
+      if (mode === 'hero' && !N[n].party && r.h.length > 1) {
+        r.h.forEach((h, i) => out.push({ val: r.hv[i][n], run: r, who: h, info: r.hr[i][n] }));
+      } else {
+        let val = n === ITEMS ? dungeonItems(r) : r.v[n];
+        if (perHour && val != null) val = hours(r) ? val / hours(r) : null;
+        out.push({ val, run: r, who: r.h.length === 1 ? r.h[0] : '', info: r.r[n] });
+      }
+    }
+    return { list: out.filter(e => e.val != null && e.val >= 0), perHour };
+  }
+  const extraEntries = (key, runs) => ({ list: runs.filter(r => r.e[key]).map(r => ({ val: r.e[key][0], run: r, who: r.e[key][2] || '', info: [r.e[key][2], r.e[key][1]] })), perHour: false });
+  function places(list, dir) {
+    const sorted = [...list].sort((a, b) => dir * (a.val - b.val));
+    const out = [];
+    for (const e of sorted) {
+      const last = out[out.length - 1];
+      if (last && last.val === e.val) last.all.push(e);
+      else if (out.length < 3) out.push({ val: e.val, all: [e] });
+      else break;
+    }
+    return out;
+  }
+  function detail(e) {
+    const i = e.info || [];
+    const who = i[0] || e.who;
+    return [e.run.p, who && who !== e.run.p ? who : '', i[1], i[2] ? 'on ' + i[2] : '', i[3]].filter(Boolean).join(' · ');
+  }
+  // every run as a dot on one line, the best one gold
+  function strip(list, bestDir, n, perHour) {
+    const vals = list.map(e => e.val);
+    const lo = Math.min(...vals), hi = Math.max(...vals);
+    if (hi === lo || list.length < 2) return '';
+    const best = bestDir > 0 ? lo : hi;
+    const x = v => (4 + 212 * (v - lo) / (hi - lo)).toFixed(1);
+    const dots = [...list].sort((a, b) => (a.val === best) - (b.val === best)).map(e =>
+      `<circle cx="${x(e.val)}" cy="8" r="${e.val === best ? 4.5 : 3}" class="${e.val === best ? 'best' : ''}${e.run.x ? ' cheat' : ''}"><title>${esc(movie(e.run) + (e.who && e.run.h.length > 1 ? ' ' + e.who : '') + ': ' + fmt(n, e.val, perHour))}</title></circle>`).join('');
+    return `<svg class="strip" viewBox="0 0 220 16" preserveAspectRatio="none" role="img" aria-label="every run, lowest left"><line x1="4" y1="8" x2="216" y2="8"/>${dots}</svg>`;
+  }
+  function place(p, k, n, perHour) {
+    const e = p.all[0];
+    const more = p.all.length > 1 ? `<span class="more" title="${esc(p.all.map(x => movie(x.run) + (x.who && x.run.h.length > 1 ? ' ' + x.who : '')).join(', '))}">+${p.all.length - 1} more</span>` : '';
+    return `<div class="pl p${k + 1}"><span class="medal">${k + 1}</span><span class="v">${esc(fmt(n, p.val, perHour))}${suffix(n, e, perHour)}</span>`
+      + `<span class="w">${runLink(e.run)}${more}</span><span class="d">${esc(detail(e))}</span></div>`;
+  }
+  // a row; returns null when nothing happened in any run
+  function row(label, n, got, bad, tag) {
+    const { list, perHour } = got;
+    if (!list.length || list.every(e => e.val === 0)) return null;
+    const high = places(list, -1);
+    const low = places(n == null || N[n].rec ? list.filter(e => e.val > 0) : list, 1);
+    const avg = list.reduce((s, e) => s + e.val, 0) / list.length;
+    const col = (ps, good, name) => `<div class="places ${good ? 'good' : ''}"><span class="mlab">${name}</span>${ps.length ? ps.map((p, k) => place(p, k, n, perHour)).join('') : '<span class="none">–</span>'}</div>`;
+    const t = tag || (mode === 'hour' && n != null && !perHour ? 'per run' : mode === 'hero' && n != null && N[n].party ? 'party' : '');
+    const best = (bad ? low : high)[0];
+    return {
+      html: `<div class="row"><div class="lab"><span class="name">${esc(label)}${t ? `<span class="tag">${t}</span>` : ''}</span>${strip(list, bad ? 1 : -1, n, perHour)}</div>`
+        + col(high, !bad, 'Highest') + col(low, bad, 'Lowest')
+        + `<div class="avgc"><span class="mlab">Average</span><span class="avg">${esc(fmt(n, avg, perHour))}<span class="nt">over ${list.length}</span></span></div></div>`,
+      best: best ? [label, fmt(n, best.val, perHour)] : null,
+      first: best,
+    };
+  }
+  const HEAD = '<div class="head"><span>Record</span><span>Highest</span><span>Lowest</span><span>Average</span></div>';
+  function section(key, title, sub, body, highlights) {
+    const hl = highlights.slice(0, 3).map(([l, v]) => `<span><b>${esc(v)}</b> ${esc(l.toLowerCase())}</span>`).join('');
+    return `<details class="sec" data-key="${esc(key)}"${open.has(key) ? ' open' : ''}><summary><span class="ico">${svg(ICON[key] || ICON.Records)}</span>`
+      + `<span class="sumt"><h2>${esc(title)}</h2><span class="hl">${hl}</span></span><span class="chev">${esc(sub)}</span></summary><div class="secb">${body}</div></details>`;
+  }
+
+  function trophy(label, n, dir, runs, icon) {
+    const list = runs.filter(r => !(n === TIME && r.x)).map(r => ({ val: n === ITEMS ? dungeonItems(r) : r.v[n], run: r, who: '', info: null }))
+      .filter(e => e.val != null && (e.val > 0 || n === ITEMS));
+    const ps = places(list, dir);
+    if (!ps.length) return '';
+    const e = ps[0].all[0];
+    const shared = ps[0].all.length > 1 ? ` · shared by ${ps[0].all.length} runs` : '';
+    const second = ps[1] ? `<span class="s">next: ${esc(fmt(n, ps[1].val))} · ${esc(movie(ps[1].all[0].run))} · ${esc(ps[1].all[0].run.p)}</span>` : '';
+    return `<div class="trophy"><span class="k">${svg(ICON[icon], 15)}${esc(label)}</span>`
+      + `<span class="big">${esc(fmt(n, e.val))}${n === ITEMS && e.run.ch ? `<small>+${int(e.run.ch)} from chests</small>` : ''}</span>`
+      + `<span class="s who">${runLink(e.run)} · ${esc(e.run.p)}${e.run.h.length ? ' · ' + esc(e.run.h.join(', ')) : ''}${shared}</span>${second}`
+      + strip(list, dir, n, false) + '</div>';
+  }
+
+  function render() {
+    const c = D.cats[cat], runs = c.runs.filter(r => !r.x), cheated = c.runs.filter(r => r.x);
+    document.querySelectorAll('.cat').forEach((b, i) => b.setAttribute('aria-pressed', String(i === cat)));
+    document.querySelectorAll('.mode').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
+    const order = c.race
+      ? [['Fastest run', TIME, 1, 'Clock'], ['Fewest items picked up', ITEMS, 1, 'Tables'], ['Most kills', KILLS, -1, 'Monsters'], ['Most damage dealt', DAMAGE, -1, 'Combat']]
+      : [['Fewest items picked up', ITEMS, 1, 'Tables'], ['Fastest run', TIME, 1, 'Clock'], ['Most kills', KILLS, -1, 'Monsters'], ['Most damage dealt', DAMAGE, -1, 'Combat']];
+    document.getElementById('shelf').innerHTML = order.map(([l, n, d, i]) => trophy(l, n, d, runs, i)).join('');
+
+    const tabs = [];
+    for (const g of D.meta.groups) {
+      let t = tabs.find(x => x.tab === g.tab);
+      if (!t) tabs.push(t = { tab: g.tab, groups: [] });
+      t.groups.push({ ...g, rows: [...g.rows] });  // a copy: Records gets rows added below
+    }
+    const rec = tabs.find(t => t.tab === 'Records');
+    if (rec) rec.groups[0].rows = [[122, 0, null], ...rec.groups[0].rows, [142, 0, null], [143, 0, null]];
+    const firsts = {};
+    const countFirst = r => { if (r.first) for (const e of r.first.all) firsts[e.run.p] = (firsts[e.run.p] || 0) + 1; };
+    let html = '';
+    for (const t of tabs) {
+      let body = '', never = [], hl = [], count = 0;
+      for (const g of t.groups) {
+        let rows = '';
+        for (const [n, , alt] of g.rows) {
+          const r = row(alt || N[n].label, n, entries(n, runs), N[n].bad);
+          if (r) { rows += r.html; count++; countFirst(r); if (r.best && !N[n].bad) hl.push(r.best); } else never.push(alt || N[n].label);
+        }
+        if (rows) body += (g.title ? `<h3>${esc(g.title)}</h3>` : '') + HEAD + rows;
+      }
+      if (never.length) body += `<div class="never">Never happened in these runs: ${esc(never.join(', '))}</div>`;
+      html += section(t.tab, t.tab, `${count} records`, body, hl);
+      if (t.tab === 'Experience') {
+        let rows = '', ehl = [], ec = 0;
+        for (const [key, label] of EXTRAS) {
+          const r = row(label, null, extraEntries(key, runs), false, mode !== 'run' ? 'per run' : '');
+          if (r) { rows += r.html; ec++; countFirst(r); ehl.push(r.best); }
+        }
+        html += section('Tables', 'Weapons, spells, monsters and items', `${ec} records`, HEAD + rows, ehl);
+      }
+    }
+
+    // the players, as cards
+    const players = {};
+    for (const r of runs) {
+      const p = players[r.p] || (players[r.p] = { runs: 0, best: null, kills: 0, few: null });
+      p.runs++;
+      if (!r.x && r.v[TIME] && (!p.best || r.v[TIME] < p.best.v[TIME])) p.best = r;
+      if (!p.few || dungeonItems(r) < dungeonItems(p.few)) p.few = r;
+      p.kills += r.v[KILLS] || 0;
+    }
+    const maxFirst = Math.max(1, ...Object.values(firsts));
+    const cards = Object.entries(players).sort((a, b) => (firsts[b[0]] || 0) - (firsts[a[0]] || 0) || b[1].runs - a[1].runs)
+      .map(([name, p]) => `<div class="player" style="--pc:${PCOL[name]}"><span class="pn">${esc(name)}</span>`
+        + `<div class="firsts" title="${firsts[name] || 0} first places"><i style="width:${100 * (firsts[name] || 0) / maxFirst}%"></i></div>`
+        + `<div class="st"><span>First places</span><b>${firsts[name] || 0}</b><span>Runs</span><b>${p.runs}</b>`
+        + `<span>Fastest</span><b>${p.best ? `${esc(clock(p.best.v[TIME]))} · ${esc(movie(p.best))}` : '–'}</b>`
+        + `<span>Fewest items</span><b>${esc(int(dungeonItems(p.few)))} · ${esc(movie(p.few))}</b>`
+        + `<span>Kills, all runs</span><b>${int(p.kills)}</b></div></div>`).join('');
+    const top = Object.entries(firsts).sort((a, b) => b[1] - a[1])[0];
+    html += section('Players', 'Players', `${Object.keys(players).length} players`, `<div class="players">${cards}</div>`,
+      top ? [[`first places for ${top[0]}`, String(top[1])]] : []);
+    document.getElementById('sections').innerHTML = html;
+    document.querySelectorAll('details.sec').forEach(d => d.addEventListener('toggle', () => d.open ? open.add(d.dataset.key) : open.delete(d.dataset.key)));
+
+    const dup = runs.filter(r => r.also).map(r => `${movie(r)} is in the folder twice and counts once`);
+    const cheat = cheated.length ? `Left out: ${cheated.map(r => `${movie(r)} by ${r.p} (${r.x})`).join(', ')}. ` : '';
+    document.getElementById('about').textContent = `${c.name}, ${c.game}: ${runs.length} runs, each counted over the whole run. `
+      + 'The medals are the top three; gold is the better end. Items picked up count the dungeon floor; the ones from chests are added in brackets. '
+      + cheat + (dup.length ? dup.join('. ') + '.' : '');
+  }
+
+  document.getElementById('cats').innerHTML = D.cats.map((c, i) =>
+    `<button type="button" class="cat" data-i="${i}" aria-pressed="false"><b>${esc(SHORT[c.name] || c.name)}</b><small>${esc(c.game)} · ${c.runs.filter(r => !r.x).length} runs</small></button>`).join('');
+  document.querySelectorAll('.cat').forEach(b => b.addEventListener('click', () => { cat = +b.dataset.i; location.hash = HASH[D.cats[cat].name]; render(); }));
+  document.querySelectorAll('.mode').forEach(b => b.addEventListener('click', () => { mode = b.dataset.mode; render(); }));
+  function fromHash() {
+    const i = D.cats.findIndex(c => HASH[c.name] === location.hash.slice(1));
+    cat = i >= 0 ? i : 0;
+    render();
+  }
+  window.addEventListener('hashchange', fromHash);
+  fromHash();
+})();
+</script>
+</body></html>

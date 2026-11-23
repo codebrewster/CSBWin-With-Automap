@@ -1,7 +1,7 @@
 #!/bin/bash
 # Writes map.html and statistics.html for every playfile.log below a folder, as fast as the
 # machine allows: each replay runs headless at top speed (csb --export-html), several at once.
-# At the end, records.html in the same folder: the records over all the replays, per game.
+# At the end, records.html in the same folder: every number ranked over the replays, per category.
 #
 #   tools/export-all-html.sh [-j JOBS] [-o OUTDIR] [-c CSB] [-t SECONDS] [GAMES_DIR [NAME-FILTER]]
 #
