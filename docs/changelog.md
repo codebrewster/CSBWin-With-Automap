@@ -7,6 +7,8 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 ## Unreleased
 
+## 1.6.3 (2026-11-23)
+
 **General**
 - The project is now called **CSBwin Plus**, and the repository moved to <https://github.com/codebrewster/CSBwin-Plus>; the old links lead there.
 
