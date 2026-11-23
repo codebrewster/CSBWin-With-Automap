@@ -5,6 +5,9 @@ on Paul Stevens' CSBwin, the faithful reverse-engineered port of FTL's game engi
 the original games and every custom dungeon made for CSBwin. On top of that it adds an automap,
 statistics, and a record and replay that ties into both.
 
+It is the best way to play the game: everything CSBwin has, plus the map and the statistics. And
+it is by far the best way to watch someone else play.
+
 ![CSBwin Plus during a replay: the map of level 3 on the left, the Statistics window at the top right, and the game below it, paused at tick 59931 with the replay bar on the menu bar](docs/images/hero.png)
 
 **Play.** Beside the game, a map draws exactly what your party has seen, in the game's own
@@ -39,6 +42,16 @@ play too, so classic runs from the forum can be watched again.
   and the replay goes to that moment.
 - The map and the statistics fill up as the replay runs, so any recorded run becomes a map and a
   statistics page to share.
+
+**Watch, not just look.** In a plain replay you see what the player chose to show: the inventory
+only while they had it open, the map not at all. Here the map follows the party, so even in a
+dungeon you don't know by heart it is easy to tell where they are and where they are heading. And
+at any moment, paused or not, the **Champions** tab shows every champion as if you were playing:
+health, stamina, mana, food and water, load, skill ranks, wounds, poison and every item they
+carry. Do they still have a healing potion? Do they already hold the key for the next door? How
+many Corbums have they picked up? Look whenever you like.
+
+![A paused replay: the party faces two purple worms on level 3; the map shows where it stands, and the Champions tab shows each champion's bars, ranks and inventory, Elijab poisoned](docs/images/replay-champions.png)
 
 Manuals: **[map](docs/automap-manual.md)** · **[statistics](docs/statistics-manual.md)** ·
 **[record and replay](docs/recording-manual.md)**.
