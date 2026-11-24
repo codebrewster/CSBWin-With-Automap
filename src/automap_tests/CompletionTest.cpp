@@ -59,8 +59,19 @@ static void ASeedInEachRoomReachesBoth(void)
   CHECK(CountReached(AutoMapCompletion_Reachable(TwoRooms(false), seeds)) == 12);
 }
 
+// A teleporter's target as a seed of the level read: a target on another level names that level's
+// own cell, so the read level's margins move it; one on the same level the snapshot already moved
+static void TeleporterTargetsMoveWithTheMarginsOnce(void)
+{
+  std::pair<int, int> fromElsewhere = AutoMapCompletion_TargetSeed(3, 5, 7, 2, 3, 1, 1);
+  CHECK(fromElsewhere.first == 6 && fromElsewhere.second == 8);
+  std::pair<int, int> fromHere = AutoMapCompletion_TargetSeed(3, 5, 7, 3, 3, 1, 1);
+  CHECK(fromHere.first == 5 && fromHere.second == 7);
+}
+
 void TestAutoMapCompletion(void)
 {
+  TeleporterTargetsMoveWithTheMarginsOnce();
   ASeedReachesItsOwnRoomOnly();
   ADoorJoinsTheRooms();
   SeedsOnRockOrOutsideReachNothing();

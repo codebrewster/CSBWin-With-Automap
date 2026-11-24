@@ -393,7 +393,8 @@ void HeroStatsProfileDraw_Page(HeroStatsDrawState *state, const HeroStats &stats
   {
     profile.completion.title = "How much of the dungeon the party found";
   }
-  float available = ImGui::GetWindowWidth() - 2 * GUTTER;
+  // Inside the page's own window: the scroll bar, when there is one, is not ours to draw on
+  float available = ImGui::GetContentRegionMax().x - 2 * GUTTER;
   int across = (int)((available + CARD_GAP) / (NARROWEST_CARD + CARD_GAP));
   across = across < 1 ? 1 : across > 3 ? 3 : across;
   float width = (available - CARD_GAP * (across - 1)) / across;

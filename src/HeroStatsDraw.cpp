@@ -3981,7 +3981,12 @@ void HeroStatsDraw_Frame(HeroStatsDrawState *state, const HeroStats &stats, cons
       ImGui::TextColored(Colour(DIM_RGB), "No statistics yet.");
       return;
     }
-    HeroStatsProfileDraw_Page(state, stats, columns);
+    // A page of its own that scrolls, under the tabs that stay, as the topics' pages do
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    bool visible = ImGui::BeginChild("##profile", ImGui::GetContentRegionAvail());
+    ImGui::PopStyleVar();
+    if (visible) HeroStatsProfileDraw_Page(state, stats, columns);
+    ImGui::EndChild();
     return;
   }
   // Steps and items count before a champion joins: only a game with no level yet has nothing

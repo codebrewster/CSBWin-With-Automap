@@ -485,7 +485,7 @@ struct LevelLayout
   AutoMapReachGrid grid;
   std::vector<bool> counted;                      // cells the explored tiles count: no wall, no closed false wall
   std::vector<std::pair<int, int> > stairs;       // snapshot coordinates
-  std::vector<AutoMapCell> teleporterTargets;     // level coordinates, any level
+  std::vector<AutoMapCell> teleporterTargets;     // the targets of this level's teleporters: snapshot coordinates on this level, the target level's own on another
   std::vector<std::pair<int, int> > doors;        // level coordinates
   std::vector<bool> doorOpenNow;
   std::vector<std::vector<AutoMapRecordId> > switchFaces;  // the actuators of each wall face that fires something (no mirror)
@@ -493,6 +493,9 @@ struct LevelLayout
   Uint32 readAt;
   bool readWithPartyOnIt;
 };
+
+// The levels read so far; another game or another moment of this one forgets them
+std::map<int, LevelLayout> levelLayouts;
 
 LevelLayout ReadLevelLayout(int level)
 {
@@ -544,11 +547,16 @@ LevelLayout ReadLevelLayout(int level)
 }
 }
 
+void AutoMap_ForgetDungeonCounts(void)
+{
+  levelLayouts.clear();
+}
+
 std::map<int, HeroStatsDungeonCounts> AutoMap_DungeonCountsPerLevel(const std::set<AutoMapRecordId> &held,
                                                                     const std::set<std::tuple<int, int, int> > &walked,
                                                                     const std::vector<int> &levels)
 {
-  static std::map<int, LevelLayout> cache;
+  std::map<int, LevelLayout> &cache = levelLayouts;
   std::map<int, HeroStatsDungeonCounts> perLevel;
   if (d.dungeonDatIndex == NULL) return perLevel;
   Uint32 now = SDL_GetTicks();
@@ -579,7 +587,8 @@ std::map<int, HeroStatsDungeonCounts> AutoMap_DungeonCountsPerLevel(const std::s
       for (size_t t = 0; t < other->second.teleporterTargets.size(); t++)
       {
         const AutoMapCell &target = other->second.teleporterTargets[t];
-        if (target.level == level) seeds.push_back(std::make_pair(target.x + layout.marginX, target.y + layout.marginY));
+        if (target.level == level)
+          seeds.push_back(AutoMapCompletion_TargetSeed(target.level, target.x, target.y, other->first, level, layout.marginX, layout.marginY));
       }
     std::vector<bool> reached = AutoMapCompletion_Reachable(layout.grid, seeds);
     for (size_t c = 0; c < reached.size() && c < layout.counted.size(); c++)

@@ -402,6 +402,7 @@ static void GameStartsOrContinues(void)
 
 void HeroStats_OnDungeonLoaded(void)
 {
+  AutoMap_ForgetDungeonCounts();
   gameBeforeLoad = store;
   store.Forget();
   origins.Forget();
@@ -428,6 +429,7 @@ void HeroStats_OnMapFileRead(const HeroStats &fromFile, const HeroStatsOrigins &
     store.TakeFromFile(fromFile);
   }
   origins = originsFromFile;
+  AutoMap_ForgetDungeonCounts();
   HeroStatsWindow_Forget();
   MeetParty();
   GameStartsOrContinues();
@@ -719,6 +721,9 @@ void HeroStats_OnPartyStepped(void)
   store.TrackStepFrom(d.partyLevel, d.partyX, d.partyY);
 }
 
+// HeroStats_PutBack: the refresh leaves what the levels hold as the game put back has it
+static bool dungeonCountsDeferred = false;
+
 void HeroStats_RefreshMapCounts(bool force)
 {
   static Uint32 lastRefresh = 0;
@@ -738,6 +743,7 @@ void HeroStats_RefreshMapCounts(bool force)
   }
   store.SetWallTextsRead(texts);
   store.SetChampionsSeen(seen, viewed);
+  if (dungeonCountsDeferred) return;
   std::set<AutoMapRecordId> held;
   const std::set<int> &heldItems = origins.HeldItems();
   for (std::set<int>::const_iterator at = heldItems.begin(); at != heldItems.end(); ++at)
@@ -1729,8 +1735,12 @@ void HeroStats_PutBack(const HeroStats &stats, const HeroStatsOrigins &originsBa
   store = stats;
   origins = originsBack;
   levelMarked = -1;
-  // The counts the file does not hold come from the automap, put back before this
+  // The counts the file does not hold come from the automap, put back before this. What the
+  // levels hold is read again by the next refresh, not in the middle of putting the game back.
+  AutoMap_ForgetDungeonCounts();
+  dungeonCountsDeferred = true;
   HeroStats_RefreshMapCounts(true);
+  dungeonCountsDeferred = false;
   HeroStatsDraw_Forget();
 }
 

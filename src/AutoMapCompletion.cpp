@@ -32,3 +32,11 @@ std::vector<bool> AutoMapCompletion_Reachable(const AutoMapReachGrid &grid, cons
   }
   return reached;
 }
+
+std::pair<int, int> AutoMapCompletion_TargetSeed(int targetLevel, int targetX, int targetY, int sourceLevel, int level,
+                                                 int marginX, int marginY)
+{
+  (void)targetLevel;
+  if (sourceLevel == level) return std::make_pair(targetX, targetY);
+  return std::make_pair(targetX + marginX, targetY + marginY);
+}
