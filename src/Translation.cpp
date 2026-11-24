@@ -161,7 +161,7 @@ struct AutoFree
 
 static int myfgets(char *buff, int size, FILE *f) {
     *buff = 0;
-    fgets(buff,size,f);
+    if (!fgets(buff,size,f)) *buff = 0;
     int len = strlen(buff);
     while (len > 0 && buff[len-1] < 32 && buff[len-1] > 0)
 	buff[--len] = 0;

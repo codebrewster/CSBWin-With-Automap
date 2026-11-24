@@ -1057,12 +1057,12 @@ void SpellErrorMsg(CHARDESC *pChar,i16 P2,i16 P3)
   {
     if (P2 == 1)
     {
-      snprintf(msg,80,_(" MUMBLES A MEANINGLESS SPELL."));
+      snprintf(msg,80,"%s",_(" MUMBLES A MEANINGLESS SPELL."));
     }
     else
     {
       if (P2 == 10)
-	  snprintf(msg,80, _(" NEEDS AN EMPTY FLASK IN HAND FOR POTION."));
+	  snprintf(msg,80,"%s", _(" NEEDS AN EMPTY FLASK IN HAND FOR POTION."));
     };
   };
   QuePrintLines(4, msg, false);

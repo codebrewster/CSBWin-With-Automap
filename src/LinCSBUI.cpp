@@ -419,7 +419,7 @@ bool UI_ProcessOption(char **argv, int &argc)
     int state=0;
     int c_index=0;
     int _argc = argc;
-    getcwd(pwd,FILENAME_MAX);
+    if (!getcwd(pwd,FILENAME_MAX)) pwd[0] = 0;
     printf("Base path: %s\n",pwd);
 #ifdef SOUND__ESOUND
     doInitializeSounds = SOUND_IS_ESD;

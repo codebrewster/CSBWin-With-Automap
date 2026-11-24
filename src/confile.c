@@ -423,7 +423,7 @@ static void load_config_file(CONFIG **config, char *filename, char *savefile)
       if (f) {
 	 char *tmp = malloc(length+1);
 	 if (tmp) {
-	    fread(tmp, 1, length, f);
+	    length = fread(tmp, 1, length, f);
 	    tmp[length] = 0;
 	    set_config(config, tmp, length, savefile);
 	    free(tmp);

@@ -180,7 +180,7 @@ bool OpenTraceFile(void)
       TraceFile = OPEN(filename,"r");
       if (TraceFile < 0)
       {
-        char  msg[100];;
+        char  msg[140];
         TraceFile = CREATE(filename,"w", false);
         if (TraceFile < 0)
         {

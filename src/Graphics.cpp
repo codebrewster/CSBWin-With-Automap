@@ -1779,7 +1779,8 @@ static void read_local(int graphicNumber, ui8 *buffer, i32 maxSize) {
 	printf("read_local: taille %d, maxSize %d\n",taille,maxSize);
 	exit(1);
     }
-    fread(buffer,1,taille,f);
+    if (fread(buffer,1,taille,f) != (size_t)taille)
+	printf("read_local: short read\n");
     fclose(f);
 }
 

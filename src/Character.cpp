@@ -1069,7 +1069,9 @@ static void PrintLifeForce(char *life,i32 line, i32 current, i32 max)
 {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //
-    snprintf(life,8,"%3d/%3d",current,max);
+    char full[16];
+    snprintf(full,sizeof(full),"%3d/%3d",current,max);
+    memcpy(life,full,7);
     life[7] = 0;
   TextToViewport(55,
             line,

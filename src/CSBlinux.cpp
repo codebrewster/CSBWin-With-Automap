@@ -1932,7 +1932,7 @@ static void handle_skill(int n,int xp) {
     snprintf(buf,80,"%s: %d %s",skills[n],xp,ranks[get_rank(xp)]);
     float progress = get_progress(xp);
     ImGui::TableNextColumn();
-    ImGui::Text(buf);
+    ImGui::TextUnformatted(buf);
     ImGui::TableNextColumn();
     // printf("green %g\n",255-progress*255);
     ImGui::PushStyleColor(ImGuiCol_PlotHistogram,ImVec4(1.0,1.0-progress,0,0.5));
@@ -2096,7 +2096,7 @@ static void select_dungeon(char *dungeonName) {
     char *s = strrchr(path,'/');
     if (s) *s = 0;
     printf("path %s\n",path);
-    chdir(path);
+    if (chdir(path) != 0) perror(path);
 }
 
 static void read_conf() {
@@ -2370,25 +2370,25 @@ static void render_overlay_interface() {
 	       char old = s[strlen(s)-1];
 	       if (old == 10) s[strlen(s)-1] = 0;
 	       switch(MsgList[ta].color) {
-	       case 1: ImGui::TextColored(ImVec4(0.43f, 0.43f, 0.43f, 1.0f), s); break;
-	       case 2: ImGui::TextColored(ImVec4(0.57f, 0.57f, 0.57f, 1.0f), s); break;
-	       case 3: ImGui::TextColored(ImVec4(0.43f, 0.14f, 0.00f, 1.0f), s); break;
-	       case 4: ImGui::TextColored(ImVec4(0.00f, 0.86f, 0.86f, 1.0f), s); break;
-	       case 5: ImGui::TextColored(ImVec4(0.57f, 0.29f, 0.00f, 1.0f), s); break;
-	       case 6: ImGui::TextColored(ImVec4(0.00f, 0.57f, 0.00f, 1.0f), s); break;
-	       case 7: ImGui::TextColored(ImVec4(0.00f, 0.86f, 0.00f, 1.0f), s); break;
-	       case 8: ImGui::TextColored(ImVec4(1.00f, 0.00f, 0.00f, 1.0f), s); break;
-	       case 9: ImGui::TextColored(ImVec4(1.00f, 0.71f, 0.00f, 1.0f), s); break;
-	       case 10: ImGui::TextColored(ImVec4(0.86f, 0.57f, 0.43f, 1.0f), s); break;
-	       case 11: ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), s); break;
-	       case 12: ImGui::TextColored(ImVec4(0.29f, 0.29f, 0.29f, 1.0f), s); break;
-	       case 13: ImGui::TextColored(ImVec4(0.71f, 0.71f, 0.71f, 1.0f), s); break;
-	       case 14: ImGui::TextColored(ImVec4(0.2f, 0.2f, 1.0f, 1.0f), s); break;
-	       case 15: ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), s); break;
+	       case 1: ImGui::TextColored(ImVec4(0.43f, 0.43f, 0.43f, 1.0f), "%s", s); break;
+	       case 2: ImGui::TextColored(ImVec4(0.57f, 0.57f, 0.57f, 1.0f), "%s", s); break;
+	       case 3: ImGui::TextColored(ImVec4(0.43f, 0.14f, 0.00f, 1.0f), "%s", s); break;
+	       case 4: ImGui::TextColored(ImVec4(0.00f, 0.86f, 0.86f, 1.0f), "%s", s); break;
+	       case 5: ImGui::TextColored(ImVec4(0.57f, 0.29f, 0.00f, 1.0f), "%s", s); break;
+	       case 6: ImGui::TextColored(ImVec4(0.00f, 0.57f, 0.00f, 1.0f), "%s", s); break;
+	       case 7: ImGui::TextColored(ImVec4(0.00f, 0.86f, 0.00f, 1.0f), "%s", s); break;
+	       case 8: ImGui::TextColored(ImVec4(1.00f, 0.00f, 0.00f, 1.0f), "%s", s); break;
+	       case 9: ImGui::TextColored(ImVec4(1.00f, 0.71f, 0.00f, 1.0f), "%s", s); break;
+	       case 10: ImGui::TextColored(ImVec4(0.86f, 0.57f, 0.43f, 1.0f), "%s", s); break;
+	       case 11: ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "%s", s); break;
+	       case 12: ImGui::TextColored(ImVec4(0.29f, 0.29f, 0.29f, 1.0f), "%s", s); break;
+	       case 13: ImGui::TextColored(ImVec4(0.71f, 0.71f, 0.71f, 1.0f), "%s", s); break;
+	       case 14: ImGui::TextColored(ImVec4(0.2f, 0.2f, 1.0f, 1.0f), "%s", s); break;
+	       case 15: ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "%s", s); break;
 	       default:
 		       // ImGui::Text(s);
 		       // printf("overlay: %s\n",s);
-		       ImGui::TextWrapped(s);
+		       ImGui::TextWrapped("%s", s);
 		       break;
 	       }
 	       s[strlen(s)-1] = old;
@@ -2431,26 +2431,26 @@ static void render_overlay_interface() {
 		else
 		    ImGui::SetCursorPos(ImVec2((myxy[n].x+dx0)*zx - (myxy[n].centered ? size[0]/2 : 0),(myxy[n].y+dy0-5)*zy));
 		switch(myxy[n].color) {
-		case 0: ImGui::TextColored(ImVec4(0.0f, 0.0f, 0.0f, 1.0f), myxy[n].text); break;
-		case 1: ImGui::TextColored(ImVec4(0.43f, 0.43f, 0.43f, 1.0f), myxy[n].text); break;
-		case 2: ImGui::TextColored(ImVec4(0.57f, 0.57f, 0.57f, 1.0f), myxy[n].text); break;
-		case 3: ImGui::TextColored(ImVec4(0.43f, 0.14f, 0.00f, 1.0f), myxy[n].text); break;
-		case 4: ImGui::TextColored(ImVec4(0.00f, 0.86f, 0.86f, 1.0f), myxy[n].text); break;
-		case 5: ImGui::TextColored(ImVec4(0.57f, 0.29f, 0.00f, 1.0f), myxy[n].text); break;
-		case 6: ImGui::TextColored(ImVec4(0.00f, 0.57f, 0.00f, 1.0f), myxy[n].text); break;
-		case 7: ImGui::TextColored(ImVec4(0.00f, 0.86f, 0.00f, 1.0f), myxy[n].text); break;
-		case 8: ImGui::TextColored(ImVec4(1.00f, 0.00f, 0.00f, 1.0f), myxy[n].text); break;
-		case 9: ImGui::TextColored(ImVec4(1.00f, 0.71f, 0.00f, 1.0f), myxy[n].text); break;
-		case 10: ImGui::TextColored(ImVec4(0.86f, 0.57f, 0.43f, 1.0f), myxy[n].text); break;
-		case 11: ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), myxy[n].text); break;
-		case 12: ImGui::TextColored(ImVec4(0.29f, 0.29f, 0.29f, 1.0f), myxy[n].text); break;
-		case 13: ImGui::TextColored(ImVec4(0.71f, 0.71f, 0.71f, 1.0f), myxy[n].text); break;
-		case 14: ImGui::TextColored(ImVec4(0.2f, 0.2f, 1.0f, 1.0f), myxy[n].text); break;
-		case 15: ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), myxy[n].text); break;
+		case 0: ImGui::TextColored(ImVec4(0.0f, 0.0f, 0.0f, 1.0f), "%s", myxy[n].text); break;
+		case 1: ImGui::TextColored(ImVec4(0.43f, 0.43f, 0.43f, 1.0f), "%s", myxy[n].text); break;
+		case 2: ImGui::TextColored(ImVec4(0.57f, 0.57f, 0.57f, 1.0f), "%s", myxy[n].text); break;
+		case 3: ImGui::TextColored(ImVec4(0.43f, 0.14f, 0.00f, 1.0f), "%s", myxy[n].text); break;
+		case 4: ImGui::TextColored(ImVec4(0.00f, 0.86f, 0.86f, 1.0f), "%s", myxy[n].text); break;
+		case 5: ImGui::TextColored(ImVec4(0.57f, 0.29f, 0.00f, 1.0f), "%s", myxy[n].text); break;
+		case 6: ImGui::TextColored(ImVec4(0.00f, 0.57f, 0.00f, 1.0f), "%s", myxy[n].text); break;
+		case 7: ImGui::TextColored(ImVec4(0.00f, 0.86f, 0.00f, 1.0f), "%s", myxy[n].text); break;
+		case 8: ImGui::TextColored(ImVec4(1.00f, 0.00f, 0.00f, 1.0f), "%s", myxy[n].text); break;
+		case 9: ImGui::TextColored(ImVec4(1.00f, 0.71f, 0.00f, 1.0f), "%s", myxy[n].text); break;
+		case 10: ImGui::TextColored(ImVec4(0.86f, 0.57f, 0.43f, 1.0f), "%s", myxy[n].text); break;
+		case 11: ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "%s", myxy[n].text); break;
+		case 12: ImGui::TextColored(ImVec4(0.29f, 0.29f, 0.29f, 1.0f), "%s", myxy[n].text); break;
+		case 13: ImGui::TextColored(ImVec4(0.71f, 0.71f, 0.71f, 1.0f), "%s", myxy[n].text); break;
+		case 14: ImGui::TextColored(ImVec4(0.2f, 0.2f, 1.0f, 1.0f), "%s", myxy[n].text); break;
+		case 15: ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "%s", myxy[n].text); break;
 		default:
 			 // ImGui::Text(s);
 			 // printf("overlay: %s\n",s);
-			 ImGui::TextWrapped(myxy[n].text);
+			 ImGui::TextWrapped("%s", myxy[n].text);
 			 break;
 		}
 	    }
@@ -2495,9 +2495,9 @@ static void render_overlay_interface() {
 		for (int n=0; n<line; n++) {
 		    wh = ImGui::CalcTextSize(text[n]);
 		    ImGui::SetCursorPos(ImVec2(startx+(maxwidth-wh[0])/2+1,starty+1));
-		    ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f),text[n]);
+		    ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f),"%s",text[n]);
 		    ImGui::SetCursorPos(ImVec2(startx+(maxwidth-wh[0])/2-1,starty-1));
-		    ImGui::TextColored(ImVec4(0.43f, 0.43f, 0.43f, 1.0f),text[n]);
+		    ImGui::TextColored(ImVec4(0.43f, 0.43f, 0.43f, 1.0f),"%s",text[n]);
 		    starty += wh[1];
 		}
 		ImGui::PopFont();
@@ -2539,7 +2539,7 @@ static void render_overlay_interface() {
 		for (int n=0; n<line; n++) {
 		    wh = ImGui::CalcTextSize(text[n]);
 		    ImGui::SetCursorPos(ImVec2(startx+(maxwidth-wh[0])/2,starty));
-		    ImGui::TextColored(ImVec4(0.0f, 0.0f, 0.0f, 1.0f),text[n]);
+		    ImGui::TextColored(ImVec4(0.0f, 0.0f, 0.0f, 1.0f),"%s",text[n]);
 		    starty += wh[1];
 		}
 		ImGui::PopFont();
@@ -3075,7 +3075,7 @@ void post_render() {
 	    else if (!replayBackHidden) DrawReplayBackControls();
 	}
 	if (RecordfileIsOpen())
-	    ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), _("REC"));
+	    ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "%s", _("REC"));
 
 	if (show_coords && d.pLevelDescriptors) {
 	    // Apparently d.pLevelDescriptors becomes unavailable during the loading of a saved game...
@@ -3366,14 +3366,14 @@ void post_render() {
 	    }
 	    char buf[80];
 	    sprintf(buf,"Luck %d",d.hero[selected_item].Attributes[0].Current());
-	    ImGui::Text(buf);
+	    ImGui::TextUnformatted(buf);
 
 	    ImGui::Text("Defense:");
 	    for (int slot=0; slot<=5; slot++) {
 		int def = get_def(selected_item,1<<slot);
 		const char *slots[] = { "ready hand", "action hand", "head", "body", "legs", "feet" };
 		sprintf(buf,"%s: %d",slots[slot],def);
-		ImGui::Text(buf);
+		ImGui::TextUnformatted(buf);
 	    }
 
 	    ImGui::End();

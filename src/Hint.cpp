@@ -406,8 +406,7 @@ struct F {
   i8    Byte15694;
   i16   Word15072;
   i16   numFileDescriptor_15070; //Word15070;
-  i8    Byte15068[1];
-  HINTFILL(15067,15046)
+  i8    Byte15068[22]; // 15068..15047 (was [1] plus fill15067)
   i8    Byte15046[6];
   HINTFILL(15040,15024)
   //pnt   Pointer15024[5];//(use text15024)
