@@ -35,6 +35,7 @@ void TestAutoMapHtml(void);
 void TestAutoMapExportChoice(void);
 void TestAutoMapTickRate(void);
 void TestAutoMapLegend(void);
+void TestAutoMapCompletion(void);
 void TestShotMissiles(void);
 void TestPlaybackControl(void);
 void TestGameRules(void);
