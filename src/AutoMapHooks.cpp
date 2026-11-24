@@ -491,7 +491,7 @@ struct LevelLayout
   std::vector<std::vector<AutoMapRecordId> > switchFaces;  // the actuators of each wall face that fires something (no mirror)
   AutoMapLevelHoldings holdings;
   Uint32 readAt;
-  bool readWithPartyOnIt;
+  long long version;   // the level's version when it was read (AutoMap_DungeonCountsPerLevel)
 };
 
 // The levels read so far; another game or another moment of this one forgets them
@@ -542,7 +542,7 @@ LevelLayout ReadLevelLayout(int level)
   }
   layout.holdings = AutoMapLevelReader_Holdings(level);
   layout.readAt = SDL_GetTicks();
-  layout.readWithPartyOnIt = level == d.partyLevel;
+  layout.version = 0;
   return layout;
 }
 }
@@ -554,7 +554,8 @@ void AutoMap_ForgetDungeonCounts(void)
 
 std::map<int, HeroStatsDungeonCounts> AutoMap_DungeonCountsPerLevel(const std::set<AutoMapRecordId> &held,
                                                                     const std::set<std::tuple<int, int, int> > &walked,
-                                                                    const std::vector<int> &levels)
+                                                                    const std::vector<int> &levels,
+                                                                    const std::map<int, long long> &versions)
 {
   std::map<int, LevelLayout> &cache = levelLayouts;
   std::map<int, HeroStatsDungeonCounts> perLevel;
@@ -565,10 +566,16 @@ std::map<int, HeroStatsDungeonCounts> AutoMap_DungeonCountsPerLevel(const std::s
     int level = levels[i];
     if (level < 0 || level >= d.dungeonDatIndex->NumLevel()) continue;
     std::map<int, LevelLayout>::iterator cached = cache.find(level);
-    bool stale = cached == cache.end()
-                 || (level == d.partyLevel && now - cached->second.readAt >= 2000)
-                 || (level != d.partyLevel && cached->second.readWithPartyOnIt);
-    if (stale) cache[level] = ReadLevelLayout(level);
+    std::map<int, long long>::const_iterator known = versions.find(level);
+    long long version = known != versions.end() ? known->second : 0;
+    bool stale = cached == cache.end() ||
+                 AutoMapCompletion_LevelIsStale(true, cached->second.version, version, level == d.partyLevel,
+                                                now - cached->second.readAt);
+    if (stale)
+    {
+      cache[level] = ReadLevelLayout(level);
+      cache[level].version = version;
+    }
   }
   const AutoMapExplored &explored = recorder.Explored();
   AutoMapKnowledge &knowledge = recorder.Knowledge();

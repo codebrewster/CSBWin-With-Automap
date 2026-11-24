@@ -72,17 +72,20 @@ std::map<int, int> AutoMap_ExploredTilesPerLevel(void);
 // Per level, what the party has read and seen on the walls: wall texts read, champion portraits
 // seen (drawn on the wall straight ahead) and champions viewed (the mirror clicked)
 std::map<int, AutoMapWallCounts> AutoMap_WallCountsPerLevel(void);
-// For the statistics' Profile: what each level in levels holds (HeroStatsDungeonCounts). held: the
-// records of the items the party has held (AutoMapLevelReader_RecordId), left out of what lies
-// about; walked: the cells the party stood on, as (level, x, y), from which the reachable cells
-// are counted (with the stairs and the teleporters' targets). A level is read again when the
-// party is on it (at most every 2 seconds) and once after the party left it.
 // The levels AutoMap_DungeonCountsPerLevel has read are read again: a dungeon was loaded, or a game
 // put back (a replay rewound, a game loaded)
 void AutoMap_ForgetDungeonCounts(void);
+// For the statistics' Profile: what each level in levels holds (HeroStatsDungeonCounts). held: the
+// records of the items the party has held (AutoMapLevelReader_RecordId), left out of what lies
+// about; walked: the cells the party stood on, as (level, x, y), from which the reachable cells
+// are counted (with the stairs and the teleporters' targets). versions: per level, a number that
+// moves whenever the party spends time there (the ticks spent on it); a level is read again when
+// its version moved since it was read (AutoMapCompletion_LevelIsStale), so a level cleared while
+// the window was closed is not remembered as it was.
 std::map<int, HeroStatsDungeonCounts> AutoMap_DungeonCountsPerLevel(const std::set<AutoMapRecordId> &held,
                                                                     const std::set<std::tuple<int, int, int> > &walked,
-                                                                    const std::vector<int> &levels);
+                                                                    const std::vector<int> &levels,
+                                                                    const std::map<int, long long> &versions);
 // The party put the item onto (x, y) of the loaded level: dropped it, or a champion died
 void AutoMap_OnItemDropped(int item, int x, int y);
 // The party put the item into the alcove of the wall (x, y) straight ahead of it

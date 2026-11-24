@@ -40,3 +40,11 @@ std::pair<int, int> AutoMapCompletion_TargetSeed(int targetLevel, int targetX, i
   if (sourceLevel == level) return std::make_pair(targetX, targetY);
   return std::make_pair(targetX + marginX, targetY + marginY);
 }
+
+bool AutoMapCompletion_LevelIsStale(bool cached, long long readVersion, long long version, bool partyOnLevel,
+                                    unsigned msSinceRead)
+{
+  if (!cached) return true;
+  if (version == readVersion) return false;
+  return !partyOnLevel || msSinceRead >= 2000;
+}

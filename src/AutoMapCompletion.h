@@ -23,4 +23,10 @@ std::vector<bool> AutoMapCompletion_Reachable(const AutoMapReachGrid &grid, cons
 std::pair<int, int> AutoMapCompletion_TargetSeed(int targetLevel, int targetX, int targetY, int sourceLevel, int level,
                                                  int marginX, int marginY);
 
+// Whether a level read for the Profile is read again: never read yet, or the party has spent time
+// on it since it was read (version, the game ticks spent there, moved from readVersion), whether
+// anyone was looking or not. The party's own level changes all the time: at most every 2 seconds.
+bool AutoMapCompletion_LevelIsStale(bool cached, long long readVersion, long long version, bool partyOnLevel,
+                                    unsigned msSinceRead);
+
 #endif
