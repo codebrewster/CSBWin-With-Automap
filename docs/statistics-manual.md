@@ -539,9 +539,10 @@ counts, then each champion's value and the numbers behind it.
   healing*, which show a way of playing.
   - *Hit rate*: Hits ÷ Attacks, as on the Combat tab.
   - *Melee share*: Melee ÷ Damage dealt: the part of the damage dealt with blows at close range.
-  - *Casts worked*: Successful ÷ Spells cast, the Cast success rate on the Magic tab. Failed casts
-    (more practice needed, or no empty flask for a potion) and meaningless ones both count against
-    it.
+  - *Casts worked*: Successful ÷ (Successful + Failed), from the Magic tab's Casts: the part of
+    the real spells cast that worked. Failed casts (more practice needed, or no empty flask for a
+    potion) count against it; meaningless ones are left out, as a wrong rune is no failure of
+    skill.
   - *Blows avoided*: the part of the Monster attacks received that did no damage (dodged, lucky,
     too weak or blocked).
   - *Defences*: Damage reduced ÷ (Damage taken + Damage reduced). Damage taken also

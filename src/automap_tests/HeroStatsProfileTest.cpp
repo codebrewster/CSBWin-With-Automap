@@ -215,8 +215,24 @@ static void TheMonstersLineSaysWhatTheChampionsKilled(void)
   CHECK(profile.completion.shapes[0].details[HeroCompletionItems] == "0 of 0");
 }
 
+// Casts worked is of the real spells: a meaningless incantation is a wrong rune, not a failure
+static void MeaninglessSpellsDoNotCountAgainstCastsWorked(void)
+{
+  HeroStats stats = OneChampion();
+  uint32_t fireball = HeroStatsView_SpellKey("Ful Ir");
+  stats.CountCast(ZED, 1, fireball, 10);
+  stats.CountCast(ZED, 1, fireball, 10);
+  stats.CountFailedCast(ZED, 1, fireball, 10);
+  stats.CountFailedCast(ZED, 1, HeroStatsView_SpellKey("Gor Gor") | HERO_SPELL_NO_SUCH_SPELL, 5);
+  HeroStatsProfile profile = HeroStatsProfile_Make(stats, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN);
+  CHECK(Near(profile.played.shapes[0].values[2], 2.0 / 3));
+  CHECK(profile.played.shapes[0].details[2] == "2 of 3");
+  CHECK(profile.played.helps[2].find("Meaningless") != std::string::npos);
+}
+
 void TestHeroStatsProfile(void)
 {
+  MeaninglessSpellsDoNotCountAgainstCastsWorked();
   TheMonstersLineSaysWhatTheChampionsKilled();
   AnAxisTipExplainsThenListsTheShapes();
   EveryAxisIsExplained();

@@ -129,7 +129,7 @@ HeroStatsStarShape PlayedShape(const HeroStats &stats, HeroStatsChampion who, in
   long long used[8][2] = {
     {v[HeroNumHits], v[HeroNumAttacks]},
     {v[HeroNumMelee], v[HeroNumDamage]},
-    {v[HeroNumCastsSuccessful], v[HeroNumCasts]},
+    {v[HeroNumCastsSuccessful], (long long)v[HeroNumCastsSuccessful] + v[HeroNumCastsFailed]},  // meaningless left out
     {(long long)v[HeroNumAttacksReceived] - v[HeroNumHitsTaken], v[HeroNumAttacksReceived]},
     {v[HeroNumReduced], (long long)v[HeroNumTaken] + v[HeroNumReduced]},
     {v[HeroNumHealPotions], v[HeroNumHealed]},
@@ -163,9 +163,10 @@ HeroStatsStar Played(const HeroStats &stats, HeroStatsChampion who, int level)
     "Fuse) that hit it.",
     "Melee \xc3\xb7 Damage dealt: the part of the damage dealt with blows at close range, by weapons or bare hands. "
     "The rest was dealt by throws, shots and spells. A way of playing, not a score.",
-    "Successful \xc3\xb7 Spells cast, the Cast success rate on the Magic tab: the part of the casts that worked. "
-    "Failed casts (the champion needed more practice, or had no empty flask for a potion) and meaningless ones "
-    "(runes that form no spell) both count against it. Spells from staffs and wands are not among them.",
+    "Successful \xc3\xb7 (Successful + Failed), from the Magic tab's Casts: the part of the real spells cast that "
+    "worked. Failed: the champion needed more practice, or had no empty flask for a potion. Meaningless casts "
+    "(runes that form no spell) are left out: a wrong rune is no failure of skill. Spells from staffs and wands "
+    "are not among them.",
     "The part of the Monster attacks received that did no damage: Dodged, Lucky, Too weak and Blocked, as on the "
     "Survival tab. A theft and a monster's missile or spell are not among the attacks.",
     "The part of the harm the defences stopped: Damage reduced \xc3\xb7 (Damage taken + Damage reduced), as on "
