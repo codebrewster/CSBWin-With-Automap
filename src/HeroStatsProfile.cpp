@@ -150,8 +150,9 @@ HeroStatsStar Played(const HeroStats &stats, HeroStatsChampion who, int level)
   HeroStatsStar star = NewStar("How the party played",
                                "Eight rates from 0 to 100%. Bigger is better, apart from Melee share and Potion healing, "
                                "which show a way of playing.");
+  // Short names, so the star keeps its size in a narrow card: the hovertexts say it all
   static const char *const AXES[8] = {"Hit rate", "Melee share", "Casts worked", "Blows avoided",
-                                      "Stopped by defences", "Potion healing", "Regeneration used", "Food & water not wasted"};
+                                      "Defences", "Potion healing", "Mana regen", "Food & water"};
   star.axes.assign(AXES, AXES + 8);
   static const char *const HELPS[8] = {
     "Hits \xc3\xb7 Attacks, as on the Combat tab: the part of the attacks aimed at a monster (blows, missiles and "
@@ -163,16 +164,16 @@ HeroStatsStar Played(const HeroStats &stats, HeroStatsChampion who, int level)
     "(runes that form no spell) both count against it. Spells from staffs and wands are not among them.",
     "The part of the Monster attacks received that did no damage: Dodged, Lucky, Too weak and Blocked, as on the "
     "Survival tab. A theft and a monster's missile or spell are not among the attacks.",
-    "Damage reduced \xc3\xb7 (Damage taken + Damage reduced), as on the Survival tab: the part of the harm the "
-    "defences took off. Damage taken also holds harm no defence touches, such as poison, starvation and falls, "
+    "The part of the harm the defences stopped: Damage reduced \xc3\xb7 (Damage taken + Damage reduced), as on "
+    "the Survival tab. Damage taken also holds harm no defence touches, such as poison, starvation and falls, "
     "which keeps this rate low.",
     "Potions \xc3\xb7 Healed: the part of the hit points won back that came from potions; the rest came from "
     "regeneration and the heal action. A way of playing, not a score.",
-    "Regeneration \xc3\xb7 (Regeneration + Regeneration lost), as on the Magic tab: the part of the mana "
-    "regeneration the champions actually got. Regeneration is lost while a champion's mana is full: spend mana "
+    "The part of the mana regeneration the champions actually got: Regeneration \xc3\xb7 (Regeneration + "
+    "Regeneration lost), as on the Magic tab. Regeneration is lost while a champion's mana is full: spend mana "
     "before it fills up to use it.",
-    "(Food gained + Water gained) \xc3\xb7 all the food and water eaten and drunk, as on the Food & items tab: "
-    "the part that raised the champions' food and water. The rest is the Food and Water wasted (over full): eaten "
+    "The part of the food and water not wasted: (Food gained + Water gained) \xc3\xb7 all the food and water "
+    "eaten and drunk, as on the Food & items tab. The rest is the Food and Water wasted (over full): eaten "
     "or drunk while full, it did not fit."};
   star.helps.assign(HELPS, HELPS + 8);
   if (who != HERO_STATS_PARTY)
@@ -339,7 +340,7 @@ HeroStatsStar Roles(const HeroStats &stats, HeroStatsChampion who, int level, bo
                                "champion did more than their part.");
   static const HeroStatsNumber NUMBERS[6] = {HeroNumDamage, HeroNumKills, HeroNumManaSpent, HeroNumHitsTaken,
                                              HeroNumPotionsBrewed, HeroNumExperience};
-  static const char *const AXES[6] = {"Damage dealt", "Kills", "Mana spent", "Hits taken", "Potions brewed", "Experience gained"};
+  static const char *const AXES[6] = {"Damage", "Kills", "Mana spent", "Hits taken", "Potions", "Experience"};
   star.axes.assign(AXES, AXES + 6);
   static const char *const HELPS[6] = {
     "The champion's Damage dealt \xc3\xb7 the party's: their part of all the damage the champions did to monsters.",

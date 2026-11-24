@@ -191,9 +191,12 @@ static void AnAxisTipExplainsThenListsTheShapes(void)
   CHECK(played.tips[0].find(played.helps[0]) == 0);
   CHECK(played.tips[0].find("\n\nZED  75% \xc2\xb7 3 of 4") != std::string::npos);  // the bright shape first
   CHECK(played.tips[0].find("\nParty  75% \xc2\xb7 3 of 4") != std::string::npos);
-  CHECK(played.axes[6] == "Regeneration used" && played.axes[7] == "Food & water not wasted");
+  // Short names on the star, so it keeps its size in a narrow card; the hovertext says it all
+  for (size_t a = 0; a < played.axes.size(); a++) CHECK(played.axes[a].size() <= 14);
+  CHECK(played.axes[4] == "Defences" && played.axes[6] == "Mana regen" && played.axes[7] == "Food & water");
   const HeroStatsStar &roles = profile.roles;
-  CHECK(roles.axes[0] == "Damage dealt" && roles.axes[3] == "Hits taken" && roles.axes[5] == "Experience gained");
+  for (size_t a = 0; a < roles.axes.size(); a++) CHECK(roles.axes[a].size() <= 14);
+  CHECK(roles.axes[0] == "Damage" && roles.axes[3] == "Hits taken" && roles.axes[4] == "Potions" && roles.axes[5] == "Experience");
   CHECK(roles.tips[0].find("\n\nZED  75% \xc2\xb7 30\nELIJA  25% \xc2\xb7 10") != std::string::npos);
   // The completion's own help says nothing of the level; its tip does
   CHECK(profile.completion.helps[1].find("whole dungeon") == std::string::npos);

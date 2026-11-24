@@ -659,8 +659,8 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   .share { display:flex; height:9px; background:var(--track); border-radius:2px; overflow:hidden; min-width:60px } .share i { display:block; height:100% }
   .choices { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:8px }
   .note { color:var(--dim); padding:4px 0 }
-  .pf-cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(420px, 1fr)); gap:14px; padding:10px 0 }
-  .pf-card { background:#272930; border-radius:6px; padding:14px; display:flex; flex-direction:column; gap:6px }
+  .pf-cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 360px), 1fr)); gap:14px; padding:10px 0 }
+  .pf-card { background:#272930; border-radius:6px; padding:14px; display:flex; flex-direction:column; gap:6px; min-width:0 }
   .pf-card h3 { margin:0; font-size:1em; color:#fff; font-weight:600 }
   .pf-card .pf-cap { color:var(--dim); font-size:.92em }
   .pf-card svg { align-self:center; overflow:visible; width:100%; max-width:420px; height:auto }
@@ -1552,7 +1552,14 @@ document.addEventListener('focusout', () => hideTip(false));
 const PARTY_SHAPE = '#7fa6e6';
 const shapeColour = w => w === N ? PARTY_SHAPE : COLOUR(w);
 function starSvg(s) {
-  const n = s.axes.length, W = 420, H = 330, cx = W / 2, cy = H / 2, R = 110;
+  const n = s.axes.length, W = 420, H = 330, cx = W / 2, cy = H / 2;
+  // The names at the sides stay inside the picture: long names make the star smaller
+  let R = 110;
+  for (let a = 0; a < n; a++) {
+    const slant = Math.abs(Math.cos(-Math.PI / 2 + 2 * Math.PI * a / n));
+    if (slant >= 0.05) R = Math.min(R, (W / 2 - 6 - s.axes[a].length * 6.9) / slant - 14);
+  }
+  R = Math.max(R, 50);
   const reach = v => v === null || s.outer <= s.centre ? 0 : Math.max(0, Math.min(1, (v - s.centre) / (s.outer - s.centre)));
   const pt = (a, r) => { const t = -Math.PI / 2 + 2 * Math.PI * a / n; return [cx + R * r * Math.cos(t), cy + R * r * Math.sin(t)]; };
   const poly = r => Array.from({length: n}, (_, a) => pt(a, r).map(x => x.toFixed(1)).join(',')).join(' ');
@@ -1604,7 +1611,7 @@ function profilePage() {
       }).join('');
       return `<tr${run ? ' style="background:#272930;font-weight:600"' : ''}><td class="l" onclick="set({per:false,level:${r[0]}})">${run ? 'Whole run' : 'Level ' + r[0]}</td>${cells}</tr>`;
     }).join('');
-    return `<h3 style="margin:10px 0 4px">Completion, level by level</h3><div class="note">Each cell: what the party found on that level, of all the level holds. Under half in orange. Click a level to pick it.</div><table class="comp"><tr><th style="text-align:left">Level</th>${head}</tr>${rows}</table>`;
+    return `<h3 style="margin:10px 0 4px">Completion, level by level</h3><div class="note">Each cell: what the party found on that level, of all the level holds. Under half in orange. Click a level to pick it.</div><div style="overflow-x:auto"><table class="comp"><tr><th style="text-align:left">Level</th>${head}</tr>${rows}</table></div>`;
   }
   const stars = p.stars.filter((s, i) => i !== 4 || p.roles);
   let cards = stars.map(s => `<div class="pf-card"><h3>${esc(s.title)}</h3><div class="pf-cap">${esc(s.caption)}</div>${starSvg(s)}${starLegend(s)}</div>`).join('');

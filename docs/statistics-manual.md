@@ -542,12 +542,12 @@ counts, then each champion's value and the numbers behind it.
     it.
   - *Blows avoided*: the part of the Monster attacks received that did no damage (dodged, lucky,
     too weak or blocked).
-  - *Stopped by defences*: Damage reduced ÷ (Damage taken + Damage reduced). Damage taken also
+  - *Defences*: Damage reduced ÷ (Damage taken + Damage reduced). Damage taken also
     holds harm no defence touches (poison, starvation, falls), which keeps this rate low.
   - *Potion healing*: Potions ÷ Healed.
-  - *Regeneration used*: Regeneration ÷ (Regeneration + Regeneration lost (mana full)): the part of
+  - *Mana regen*: Regeneration ÷ (Regeneration + Regeneration lost (mana full)): the part of
     the mana regeneration the champions actually got.
-  - *Food & water not wasted*: (Food gained + Water gained) ÷ all the food and water eaten and
+  - *Food & water*: the part not wasted, (Food gained + Water gained) ÷ all the food and water eaten and
     drunk: the part that raised the champions' food and water instead of being wasted over full.
 - **Ranks per class**: each champion's rank in Fighter, Ninja, Priest and Wizard. The edge is the
   best rank any champion reached, so the shapes fill the star; the rings carry the ranks' names. A
@@ -557,8 +557,8 @@ counts, then each champion's value and the numbers behind it.
   Torch, Light and Darkness, Shield party and Fire shield, everything else, and Mana wasted (runes of
   spells that failed or formed no spell, and runes cleared). A champion's axes add up to 100%, so a
   bigger shape is a different split, not more mana.
-- **Who carried what**: each champion's share of the party's Damage dealt, Kills, Mana spent, Hits
-  taken, Potions brewed and Experience gained. The dashed ring is an even share: outside it, a
+- **Who carried what**: each champion's share of the party's Damage dealt (*Damage*), Kills, Mana
+  spent, Hits taken, Potions brewed (*Potions*) and Experience gained (*Experience*). The dashed ring is an even share: outside it, a
   champion did more than their part. Only with two champions or more who did any of it.
 - **Explored per level**: a bar per visited level, orange under half. Click a level to pick it.
 

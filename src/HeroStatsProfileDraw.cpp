@@ -93,6 +93,15 @@ void DrawStar(const HeroStatsStar &star, ImVec2 origin, float width, const std::
   if (axisCount < 3) return;
   float fontSize = ImGui::GetFontSize();
   float radius = std::fmin(width * 0.28f, STAR_BOX * 0.5f - fontSize * 3);
+  // The names at the sides stay inside the card: a narrow card draws a smaller star
+  for (int a = 0; a < axisCount; a++)
+  {
+    float slant = fabsf(cosf(-PI / 2 + 2 * PI * a / axisCount));
+    if (slant < 0.05f) continue;  // a name above or below the star
+    float room = width / 2 - CARD_PADDING - ImGui::CalcTextSize(star.axes[a].c_str()).x;
+    radius = std::fmin(radius, room / slant - fontSize * 1.2f);
+  }
+  radius = std::fmax(radius, fontSize * 3);
   ImVec2 centre(origin.x + width / 2, origin.y + STAR_BOX / 2);
   for (size_t r = 0; r < star.rings.size(); r++)
     Polygon(drawList, centre, radius, axisCount, Reach(star, star.rings[r].first), Packed(GRID_RGB), 1);
