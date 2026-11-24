@@ -207,6 +207,8 @@ A legend behind the **?** button explains every mark on the map.
 - The map and the statistics fill up as the replay runs, and both exports work during and after
   it: a replay turns any recorded run into a map and a statistics page. See the
   [manual](docs/recording-manual.md).
+- **The forum's record runs, replayed**: the [records page](https://codebrewster.github.io/CSBwin-Plus/records.html)
+  shows the map and the statistics of 43 runs that players shared on the forum, made with these exports.
 
 | | |
 |---|---|
