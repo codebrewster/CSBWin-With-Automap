@@ -30,7 +30,7 @@ AutoMapFact AutoMapFact_OfLink(AutoMapRecordId source, const AutoMapCell &target
 
 bool AutoMapFact_KindIsKnown(int kind)
 {
-  return kind >= AutoMapFactActuator && kind <= AutoMapFactLink;
+  return kind >= AutoMapFactActuator && kind <= AutoMapFactDoorOpen;
 }
 
 bool operator<(const AutoMapFact &left, const AutoMapFact &right)

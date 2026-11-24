@@ -308,7 +308,7 @@ void AutoMapRecorder::SeeDoor(int x, int y)
   if (m_frameLevel != d.partyLevel) return;
   AutoMapCell doorCell = {m_frameLevel, x, y};
   m_explored.Mark(doorCell);
-  m_cells.See(doorCell, VisibleLookAt(doorCell));
+  SeeLook(doorCell, VisibleLookAt(doorCell));
 }
 
 void AutoMapRecorder::SeeFloorPicture(int x, int y)
@@ -385,7 +385,18 @@ void AutoMapRecorder::SeeFallenThroughPit(int level, int x, int y)
 {
   if (level != d.LoadedLevel) return;
   AutoMapCell cell = {level, x, y};
-  m_cells.See(cell, AutoMapLevelReader_CellLookAt(x, y));
+  SeeLook(cell, AutoMapLevelReader_CellLookAt(x, y));
+}
+
+// The party sees the cell: its look is remembered, and a door seen open or broken is a door
+// that has been open (the Statistics window's Profile counts them)
+void AutoMapRecorder::SeeLook(const AutoMapCell &cell, const AutoMapCellLook &look)
+{
+  m_cells.See(cell, look);
+  if (look.kind == AutoMapCellDoor && (look.doorState == AutoMapDoorOpen || look.doorState == AutoMapDoorDestroyed))
+  {
+    m_knowledge.Learn(AutoMapFact_OfCell(AutoMapFactDoorOpen, cell));
+  }
 }
 
 AutoMapCellLook AutoMapRecorder::VisibleLookAt(const AutoMapCell &cell) const
@@ -416,7 +427,7 @@ void AutoMapRecorder::SeeCellLooks(void)
 {
   // Also when the frame is from another level or the view is hidden: the party sees its own cell
   AutoMapCell partyCell = {d.partyLevel, d.partyX, d.partyY};
-  m_cells.See(partyCell, VisibleLookAt(partyCell));
+  SeeLook(partyCell, VisibleLookAt(partyCell));
   // Asleep or with a character sheet open nothing else is on screen, so a pit toggling beside
   // the party keeps the look it had
   if (m_viewIsHidden || m_frameLevel != d.partyLevel) return;
@@ -443,7 +454,7 @@ void AutoMapRecorder::SeeCellLooks(void)
     // A concealed pit the party does not know reads as floor open or closed, so a sighting
     // does not tell its state
     AutoMapCellLook look = VisibleLookAt(cell);
-    m_cells.See(cell, look);
+    SeeLook(cell, look);
     if (!frameCell.isWall || !frameCell.isExplored) continue;
     bool shown[3];
     AutoMapSight_FacesShownOfCell(i, shown);

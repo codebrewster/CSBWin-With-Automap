@@ -66,12 +66,23 @@ static void ForgetClearsEverything(void)
   CHECK(knowledge.Facts().empty());
 }
 
-static void OnlyTheEightKindsAreKnown(void)
+static void OnlyTheNineKindsAreKnown(void)
 {
   CHECK(!AutoMapFact_KindIsKnown(0));
-  for (int kind = 1; kind <= 8; kind++)
+  for (int kind = 1; kind <= 9; kind++)
     CHECK(AutoMapFact_KindIsKnown(kind));
-  CHECK(!AutoMapFact_KindIsKnown(9));
+  CHECK(!AutoMapFact_KindIsKnown(10));
+}
+
+static void ADoorSeenOpenTwiceIsKeptOnce(void)
+{
+  AutoMapKnowledge knowledge;
+  AutoMapFact door = AutoMapFact_OfCell(AutoMapFactDoorOpen, AutoMapCell{2, 5, 7});
+  knowledge.Learn(door);
+  knowledge.Learn(door);
+  CHECK(knowledge.Knows(door));
+  CHECK(!knowledge.Knows(AutoMapFact_OfCell(AutoMapFactDoorOpen, AutoMapCell{2, 5, 8})));
+  CHECK(knowledge.Facts().size() == 1);
 }
 
 void TestAutoMapKnowledge(void)
@@ -83,5 +94,6 @@ void TestAutoMapKnowledge(void)
   LearningTwiceKeepsOne();
   FactsComeOutInOrder();
   ForgetClearsEverything();
-  OnlyTheEightKindsAreKnown();
+  OnlyTheNineKindsAreKnown();
+  ADoorSeenOpenTwiceIsKeptOnce();
 }

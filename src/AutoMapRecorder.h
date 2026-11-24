@@ -123,6 +123,7 @@ private:
   // The look the party sees of (x, y) of its level now: a concealed pit it does not know keeps
   // the open state the map remembers
   AutoMapCellLook VisibleLookAt(const AutoMapCell &cell) const;
+  void SeeLook(const AutoMapCell &cell, const AutoMapCellLook &look);
   AutoMapExplored m_explored;
   AutoMapVisibleCells m_visibleNow;
   AutoMapKnowledge m_knowledge;
