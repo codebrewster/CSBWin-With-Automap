@@ -2849,7 +2849,9 @@ std::vector<AutoMapSearchRow> AutoMapScene_SearchRows(const std::vector<AutoMapS
   for (size_t o = 0; o < order.size(); o++)
   {
     std::vector<int> onLevel = byLevel[order[o]];
-    AutoMapSearchRow heading = {true, order[o], (int)onLevel.size(), -1};
+    int things = 0;
+    for (size_t k = 0; k < onLevel.size(); k++) things += std::max(1, hits[(size_t)onLevel[k]].count);
+    AutoMapSearchRow heading = {true, order[o], (int)onLevel.size(), -1, things};
     rows.push_back(heading);
     if (folded.count(order[o])) continue;
     std::vector<std::pair<std::pair<int, int>, int> > reading;
@@ -2861,11 +2863,24 @@ std::vector<AutoMapSearchRow> AutoMapScene_SearchRows(const std::vector<AutoMapS
     std::stable_sort(reading.begin(), reading.end());
     for (size_t k = 0; k < reading.size(); k++)
     {
-      AutoMapSearchRow row = {false, order[o], 0, reading[k].second};
+      AutoMapSearchRow row = {false, order[o], 0, reading[k].second, 0};
       rows.push_back(row);
     }
   }
   return rows;
+}
+
+std::string AutoMapScene_SearchTotalText(int things, int places, int levels)
+{
+  std::string on = " ON " + std::to_string(levels) + (levels > 1 ? " LEVELS" : " LEVEL");
+  if (things <= places) return std::to_string(places) + on;
+  return std::to_string(things) + " IN " + std::to_string(places) + (places > 1 ? " PLACES" : " PLACE") + on;
+}
+
+std::string AutoMapScene_SearchLevelText(int things, int places)
+{
+  if (things <= places) return std::to_string(places) + (places > 1 ? " HITS" : " HIT");
+  return std::to_string(things) + " IN " + std::to_string(places) + (places > 1 ? " PLACES" : " PLACE");
 }
 
 bool AutoMapScene_DoorIsSealed(const AutoMapCellRecord &cell, bool isLinked)

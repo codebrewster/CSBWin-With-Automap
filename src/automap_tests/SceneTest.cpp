@@ -7155,6 +7155,28 @@ static void SearchRowsGroupByLevel(void)
   CHECK(rows.size() == 4 && rows[3].heading && rows[3].level == 1);
 }
 
+// A heading adds up what its rows hold, so SCREAMER SLICE X15 counts fifteen; the counts say the
+// places too only when the rows hold more than one thing each
+static void SearchCountsAddTheStacks(void)
+{
+  std::vector<AutoMapSearchHit> hits;
+  hits.push_back(HitOn(3, 5, 9));
+  hits.push_back(HitOn(3, 7, 4));
+  hits.push_back(HitOn(1, 2, 2));
+  hits[0].count = 15;
+  std::set<int> folded;
+  folded.insert(3);
+  std::vector<AutoMapSearchRow> rows = AutoMapScene_SearchRows(hits, 3, folded);
+  CHECK(rows.size() == 3 && rows[0].heading && rows[0].hits == 2 && rows[0].things == 16);
+  CHECK(rows.size() == 3 && rows[1].heading && rows[1].hits == 1 && rows[1].things == 1);
+  CHECK(AutoMapScene_SearchTotalText(17, 3, 2) == "17 IN 3 PLACES ON 2 LEVELS");
+  CHECK(AutoMapScene_SearchTotalText(3, 3, 2) == "3 ON 2 LEVELS");
+  CHECK(AutoMapScene_SearchTotalText(8, 1, 1) == "8 IN 1 PLACE ON 1 LEVEL");
+  CHECK(AutoMapScene_SearchLevelText(16, 2) == "16 IN 2 PLACES");
+  CHECK(AutoMapScene_SearchLevelText(1, 1) == "1 HIT");
+  CHECK(AutoMapScene_SearchLevelText(2, 2) == "2 HITS");
+}
+
 // After a new query the selection starts on the first hit the panel lists, not on the best-ranked
 // hit of the lowest level
 static void SearchSelectionStartsOnTheFirstListedHit(void)
@@ -7261,6 +7283,7 @@ void TestAutoMapScene(void)
   SearchFindsMonstersAndGenerators();
   SearchKeepsTheFog();
   SearchRowsGroupByLevel();
+  SearchCountsAddTheStacks();
   FontHasTheBarsMarks();
   StairsLeadToTheMapAtTheNextDepth();
   StackNameLine();

@@ -4983,12 +4983,16 @@ static void DrawSearchPanel(void)
   Outline(plate, LINK_BADGE);
   std::vector<AutoMapSearchRow> rows = SearchRowsNow();
   DrawLegendText(plate.x + 8, plate.y + 6, ("FIND " + searchQuery + "_").c_str(), WHITE);
-  int levels = 0;
-  for (size_t r = 0; r < rows.size(); r++) levels += rows[r].heading ? 1 : 0;
+  int levels = 0, things = 0;
+  for (size_t r = 0; r < rows.size(); r++)
+  {
+    if (!rows[r].heading) continue;
+    levels++;
+    things += rows[r].things;
+  }
   if (!searchHits.empty())
   {
-    std::string info = std::to_string(searchHits.size()) + " ON " + std::to_string(levels)
-                       + (levels > 1 ? " LEVELS" : " LEVEL");
+    std::string info = AutoMapScene_SearchTotalText(things, (int)searchHits.size(), levels);
     DrawLegendText(plate.x + plate.w - 12 - AutoMapPaint_TextWidth(info, DIGIT_SCALE), plate.y + 6, info.c_str(),
                    RULER_TEXT);
   }
@@ -5009,7 +5013,7 @@ static void DrawSearchPanel(void)
       Fill(strip, RULER_BACKGROUND);
       std::string name = (searchFolded.count(row.level) ? "+ L" : "- L") + std::to_string(row.level);
       DrawLegendText(band.x + 6, y + 5, name.c_str(), LINK_BADGE);
-      std::string count = std::to_string(row.hits) + (row.hits > 1 ? " HITS" : " HIT");
+      std::string count = AutoMapScene_SearchLevelText(row.things, row.hits);
       DrawLegendText(band.x + 6 + AutoMapPaint_TextWidth("- L000", DIGIT_SCALE) + 10, y + 5, count.c_str(), RULER_TEXT);
       int right = band.x + band.w - 4;
       if (row.level == shownDrawList.level)

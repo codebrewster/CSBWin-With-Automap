@@ -309,7 +309,7 @@ function drawLevels() {
 function pickLevel(l) { if (!hasLevel(l)) return; setLevel(l); follow = l === DATA.index.partyLevel; levelOpen = false; typed = ''; }
 
 // ---------------- search: over the draw lists of every level, so it keeps the fog ----------------
-let query = '', sRows = [], sSel = -1, sTop = 0, folded = new Set(), hitsByLevel = {}, sRects = [], sHover = -1, INDEX = [];
+let query = '', sRows = [], sSel = -1, sTop = 0, folded = new Set(), hitsByLevel = {}, thingsByLevel = {}, sRects = [], sHover = -1, INDEX = [];
 const S_ROWS = 16, S_RH = 20;
 function buildIndex() {
   INDEX = []; if (!DATA) return;
@@ -363,14 +363,19 @@ const TEXT_KINDS = ['scroll', 'wall'];
 function matches(h, q) { if (!q) return false; if (TEXT_KINDS.includes(h.kind)) return q.length >= 3 && h.name.includes(q); if (h.name.includes(q)) return true; if (h.food && 'FOOD'.includes(q)) return true; if (('GENERATOR'.startsWith(q) || q === 'GEN') && h.kind === 'gen') return true; if ('MONSTER'.startsWith(q) && q.length >= 3 && h.kind === 'monster') return true; return false; }
 function rebuild(keepSel) {
   const q = query.trim().toUpperCase(); const old = sRows[sSel] && sRows[sSel].hit; const hs = INDEX.filter(h => matches(h, q));
-  hitsByLevel = {}; hs.forEach(h => hitsByLevel[h.l] = (hitsByLevel[h.l] || 0) + 1);
+  hitsByLevel = {}; thingsByLevel = {}; hs.forEach(h => { hitsByLevel[h.l] = (hitsByLevel[h.l] || 0) + 1; thingsByLevel[h.l] = (thingsByLevel[h.l] || 0) + Math.max(1, h.n); });
   const order = Object.keys(hitsByLevel).map(Number).sort((a, b) => (a === lvl ? -1 : b === lvl ? 1 : a - b));
-  sRows = []; for (const l of order) { sRows.push({ head: true, l, n: hitsByLevel[l] }); if (folded.has(l)) continue; hs.filter(h => h.l === l).sort((a, b) => a.y - b.y || a.x - b.x).forEach(h => sRows.push({ hit: h })); }
+  sRows = []; for (const l of order) { sRows.push({ head: true, l, n: hitsByLevel[l], things: thingsByLevel[l] }); if (folded.has(l)) continue; hs.filter(h => h.l === l).sort((a, b) => a.y - b.y || a.x - b.x).forEach(h => sRows.push({ hit: h })); }
   if (keepSel && old) { const i = sRows.findIndex(r => r.hit && r.hit.l === old.l && r.hit.x === old.x && r.hit.y === old.y && r.hit.name === old.name); if (i >= 0) { sSel = i; return; } }
   sSel = sRows.findIndex(r => r.hit); sTop = 0;
 }
-function openSearch() { closePanels(); searchOpen = true; query = ''; sRows = []; sSel = -1; sTop = 0; hitsByLevel = {}; }
-function closeSearch() { searchOpen = false; query = ''; sRows = []; hitsByLevel = {}; }
+// As AutoMapScene_SearchTotalText and _SearchLevelText: what the rows hold, their stacks and
+// groups added, before the rows when that is more
+const placesText = n => n + (n > 1 ? ' PLACES' : ' PLACE');
+function searchTotalText(things, places, levels) { const on = ` ON ${levels} ${levels > 1 ? 'LEVELS' : 'LEVEL'}`; return things <= places ? places + on : things + ' IN ' + placesText(places) + on; }
+function searchLevelText(things, places) { return things <= places ? places + (places > 1 ? ' HITS' : ' HIT') : things + ' IN ' + placesText(places); }
+function openSearch() { closePanels(); searchOpen = true; query = ''; sRows = []; sSel = -1; sTop = 0; hitsByLevel = {}; thingsByLevel = {}; }
+function closeSearch() { searchOpen = false; query = ''; sRows = []; hitsByLevel = {}; thingsByLevel = {}; }
 function goTo(i) { const r = sRows[i]; if (!r || !r.hit) return; sSel = i; const h = r.hit; if (h.l !== lvl) { setLevel(h.l); follow = h.l === DATA.index.partyLevel; rebuild(true); } centreOn(h.x, h.y); keepVisible(); }
 function keepVisible() { if (sSel < sTop) sTop = sSel; if (sSel >= sTop + S_ROWS) sTop = sSel - S_ROWS + 1; sTop = Math.max(0, Math.min(sTop, Math.max(0, sRows.length - S_ROWS))); }
 function step(d) { let i = sSel; do { i += d; } while (i >= 0 && i < sRows.length && !sRows[i].hit); if (i >= 0 && i < sRows.length) { sSel = i; keepVisible(); const h = sRows[i].hit; if (h.l === lvl) centreOn(h.x, h.y); } }
@@ -388,14 +393,14 @@ function textExcerpt(words, q, width, p) {
 }
 function drawSearchPanel() {
   sRects = []; panelRects.search = null; if (!searchOpen) return; const p = 2, w = 440; const x = Math.max(4, Math.min(searchBtnX - 220, cv.width - w - 4)), y = 2;
-  const rowsShown = Math.min(S_ROWS, sRows.length), total = sRows.filter(r => r.hit).length, lv = Object.keys(hitsByLevel).length; const h = 30 + Math.max(1, rowsShown) * S_RH + 6;
+  const rowsShown = Math.min(S_ROWS, sRows.length), total = Object.values(hitsByLevel).reduce((a, b) => a + b, 0), lv = Object.keys(hitsByLevel).length; const h = 30 + Math.max(1, rowsShown) * S_RH + 6;
   plate(x, y, w, h); text(g, x + 8, y + 8, 'FIND ' + query + ((Date.now() / 500 | 0) % 2 ? '_' : ' '), '#fff', p);
-  if (query && total) { const info = `${total} ON ${lv} ${lv > 1 ? 'LEVELS' : 'LEVEL'}`; text(g, x + w - 12 - textW(info, p), y + 8, info, '#8f8676', p); }
+  if (query && total) { const things = Object.values(thingsByLevel).reduce((a, b) => a + b, 0), info = searchTotalText(things, total, lv); text(g, x + w - 12 - textW(info, p), y + 8, info, '#8f8676', p); }
   rect(x + 4, y + 24, w - 8, 1, '#3a362f'); let yy = y + 28;
   if (query && !total) text(g, x + 8, yy + 6, 'NOTHING SEEN MATCHES', '#8f8676', p);
   if (!query) text(g, x + 8, yy + 6, 'TYPE A NAME OR WORDS OF A TEXT', '#6f685c', p);
   for (let i = sTop; i < Math.min(sRows.length, sTop + S_ROWS); i++) { const r = sRows[i];
-    if (r.head) { const f = folded.has(r.l); rect(x + 4, yy + 1, w - 16, S_RH - 2, '#1d1a16'); text(g, x + 10, yy + 5, (f ? '+ ' : '- ') + 'L' + r.l, '#ffcc33', p); text(g, x + 10 + textW('- L00', p) + 12, yy + 5, r.n + (r.n > 1 ? ' HITS' : ' HIT'), '#8f8676', p); if (r.l === lvl) text(g, x + w - 16 - textW('SHOWN', p), yy + 5, 'SHOWN', '#8f8676', p); if (r.l === DATA.index.partyLevel) partyArrow(x + w - 16 - textW('SHOWN', p) - 14, yy + S_RH / 2, 5, 1, '#ff4d4d'); }
+    if (r.head) { const f = folded.has(r.l); rect(x + 4, yy + 1, w - 16, S_RH - 2, '#1d1a16'); text(g, x + 10, yy + 5, (f ? '+ ' : '- ') + 'L' + r.l, '#ffcc33', p); text(g, x + 10 + textW('- L00', p) + 12, yy + 5, searchLevelText(r.things, r.n), '#8f8676', p); if (r.l === lvl) text(g, x + w - 16 - textW('SHOWN', p), yy + 5, 'SHOWN', '#8f8676', p); if (r.l === DATA.index.partyLevel) partyArrow(x + w - 16 - textW('SHOWN', p) - 14, yy + S_RH / 2, 5, 1, '#ff4d4d'); }
     else { const hh = r.hit, sel = i === sSel; if (sel) rect(x + 4, yy, w - 16, S_RH, '#ffcc33'); else if (i === sHover) rect(x + 4, yy, w - 16, S_RH, '#2c2822');
       if (hh.kind === 'wall') { rect(x + 23, yy + 4, 14, 12, '#8d877a'); for (let k = 0; k < 3; k++) rect(x + 25, yy + 7 + 4 * k, k === 2 ? 6 : 10, 1, '#121110'); }
       if (hh.kind === 'needs') { rect(x + 21, yy + 1, 18, 18, '#0c0b09'); frame(x + 21, yy + 1, 18, 18, '#e0b64a'); } if (hh.kind.startsWith('stairs')) { const L = hh.kind === 'stairs-up' ? ['#9a9488', '#5e594f'] : ['#6d685f', '#3a3731']; for (let k = 0; k < 4; k++) rect(x + 22, yy + 2 + 4 * k, 16, 4, L[k % 2]); } else spr(hh.icon, x + 22, yy + 2, 16, 16); if (hh.kind === 'gen') { rect(x + 31, yy + 11, 9, 8, '#0d0c0a'); text(g, x + 33, yy + 12, 'G', '#ff8080', 1); }

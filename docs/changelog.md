@@ -7,6 +7,9 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 ## Unreleased
 
+**Automap**
+- The search counts what its rows hold, not only the rows: FOOD shows `225 IN 91 PLACES ON 10 LEVELS` when stacks like `SCREAMER SLICE X15` hold more than one, and each level heading likewise (`36 IN 27 PLACES`). Searches whose rows each hold one thing read as before. The same in the exported map page, whose total also no longer drops the hits of a folded level.
+
 **Statistics**
 - A monster killed by the explosion of a Fuse (the Firestaff's action) is the champion's kill, as with Invoke; it counted under Other causes. Fuse now counts as an attack (a try, and a hit once its explosion hurts) rather than an Other action.
 

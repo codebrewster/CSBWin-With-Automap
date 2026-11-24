@@ -1231,9 +1231,16 @@ struct AutoMapSearchRow
 {
   bool heading;
   int level;
+  // A heading's rows (hits) and what they hold, their stacks and groups added (things)
   int hits;
   int hit;
+  int things;
 };
+// The count after FIND: "29 ON 9 LEVELS", or when stacks or groups make the rows hold more,
+// "87 IN 29 PLACES ON 9 LEVELS"
+std::string AutoMapScene_SearchTotalText(int things, int places, int levels);
+// A level heading's count: "5 HITS", or "12 IN 5 PLACES" when its rows hold more
+std::string AutoMapScene_SearchLevelText(int things, int places);
 std::vector<AutoMapSearchRow> AutoMapScene_SearchRows(const std::vector<AutoMapSearchHit> &hits, int shownLevel,
                                                       const std::set<int> &folded);
 // The hit of the first row that is not a heading, -1 when every level is folded or nothing matched
