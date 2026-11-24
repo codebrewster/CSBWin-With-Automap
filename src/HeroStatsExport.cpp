@@ -379,6 +379,86 @@ static std::string LiveJson(const HeroStatsExportInfo &info, const std::vector<H
          champions + "]}";
 }
 
+// ---------------------------------------------------------------------------------------------
+// The Profile, as data: the page's script draws the stars
+
+static std::string Fraction(double value)
+{
+  if (value < 0) return "null";
+  char text[32];
+  std::snprintf(text, sizeof text, "%.4g", value);
+  return text;
+}
+
+static std::string Strings(const std::vector<std::string> &values)
+{
+  std::string out = "[";
+  for (size_t i = 0; i < values.size(); i++) out += std::string(i > 0 ? "," : "") + HeroStatsExport_JsonString(values[i]);
+  return out + "]";
+}
+
+static std::string Fractions(const std::vector<double> &values)
+{
+  std::string out = "[";
+  for (size_t i = 0; i < values.size(); i++) out += std::string(i > 0 ? "," : "") + Fraction(values[i]);
+  return out + "]";
+}
+
+// A shape's who as the page numbers it: a champion's column, the party after them
+static int ColumnIndex(const std::vector<HeroStatsColumn> &columns, HeroStatsChampion who)
+{
+  for (size_t c = 0; c < columns.size(); c++)
+    if (columns[c].id == who) return (int)c;
+  return (int)columns.size();
+}
+
+static std::string StarJson(const HeroStatsStar &star, const std::vector<HeroStatsColumn> &columns)
+{
+  std::string out = "{\"title\":" + HeroStatsExport_JsonString(star.title) + ",\"caption\":" + HeroStatsExport_JsonString(star.caption) +
+                    ",\"axes\":" + Strings(star.axes) + ",\"outer\":" + Fraction(star.outer) + ",\"centre\":" + Fraction(star.centre) +
+                    ",\"edge\":" + HeroStatsExport_JsonString(star.edgeLabel) + ",\"even\":" + Fraction(star.evenRing) + ",\"rings\":[";
+  for (size_t r = 0; r < star.rings.size(); r++)
+    out += std::string(r > 0 ? "," : "") + "[" + Fraction(star.rings[r].first) + "," + HeroStatsExport_JsonString(star.rings[r].second) + "]";
+  out += "],\"shapes\":[";
+  for (size_t i = 0; i < star.shapes.size(); i++)
+  {
+    const HeroStatsStarShape &shape = star.shapes[i];
+    out += std::string(i > 0 ? "," : "") + "{\"who\":" + Number(ColumnIndex(columns, shape.who)) + ",\"faint\":" + Bool(shape.faint) +
+           ",\"values\":" + Fractions(shape.values) + ",\"texts\":" + Strings(shape.texts) + ",\"details\":" + Strings(shape.details) + "}";
+  }
+  return out + "]}";
+}
+
+std::string HeroStatsExport_ProfileJson(const HeroStatsProfile &profile, const std::vector<HeroStatsColumn> &columns)
+{
+  const HeroStatsStar *stars[5] = {&profile.completion, &profile.played, &profile.trained, &profile.mana, &profile.roles};
+  std::string out = "{\"stars\":[";
+  for (int i = 0; i < 5; i++) out += std::string(i > 0 ? "," : "") + StarJson(*stars[i], columns);
+  out += "],\"roles\":" + Bool(profile.showRoles) + ",\"bars\":[";
+  for (size_t i = 0; i < profile.levelBars.size(); i++)
+    out += std::string(i > 0 ? "," : "") + "[" + Number(profile.levelBars[i].level) + "," + Fraction(profile.levelBars[i].explored) + "]";
+  out += "],\"table\":[";
+  for (size_t i = 0; i < profile.perLevel.size(); i++)
+  {
+    out += std::string(i > 0 ? "," : "") + "[" + Number(profile.perLevel[i].level);
+    for (int a = 0; a < HERO_COMPLETION_AXIS_COUNT; a++) out += "," + Fraction(profile.perLevel[i].values[a]);
+    out += "]";
+  }
+  return out + "]}";
+}
+
+// Every champion's and the party's profile on one level, in column order, the party last
+static std::string ProfilesOfLevel(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns, int level)
+{
+  std::string out = "[";
+  for (size_t c = 0; c <= columns.size(); c++)
+  {
+    HeroStatsChampion who = c < columns.size() ? columns[c].id : HERO_STATS_PARTY;
+    out += std::string(c > 0 ? "," : "") + HeroStatsExport_ProfileJson(HeroStatsProfile_Make(stats, who, level), columns);
+  }
+  return out + "]";
+}
+
 std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
                                  const HeroStatsNames &names, const HeroStatsExportInfo &info)
 {
@@ -448,6 +528,9 @@ std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroS
   out += ",\"views\":{\"-1\":" + ViewJson(stats, columns, names, HERO_STATS_WHOLE_RUN);
   for (size_t i = 0; i < levels.size(); i++)
     out += ",\"" + Number(levels[i]) + "\":" + ViewJson(stats, columns, names, levels[i]);
+  out += "},\"profiles\":{\"-1\":" + ProfilesOfLevel(stats, columns, HERO_STATS_WHOLE_RUN);
+  for (size_t i = 0; i < levels.size(); i++)
+    out += ",\"" + Number(levels[i]) + "\":" + ProfilesOfLevel(stats, columns, levels[i]);
   return out + "},\"live\":" + LiveJson(info, columns) + "}";
 }
 
@@ -574,6 +657,19 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   .share { display:flex; height:9px; background:var(--track); border-radius:2px; overflow:hidden; min-width:60px } .share i { display:block; height:100% }
   .choices { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:8px }
   .note { color:var(--dim); padding:4px 0 }
+  .pf-cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(420px, 1fr)); gap:14px; padding:10px 0 }
+  .pf-card { background:#272930; border-radius:6px; padding:14px; display:flex; flex-direction:column; gap:6px }
+  .pf-card h3 { margin:0; font-size:1em; color:#fff; font-weight:600 }
+  .pf-card .pf-cap { color:var(--dim); font-size:.92em }
+  .pf-card svg { align-self:center; overflow:visible; width:100%; max-width:420px; height:auto }
+  .lvbar { display:grid; grid-template-columns:5.5em 1fr 3.5em; gap:8px; align-items:center; padding:2px 4px; border-radius:3px; cursor:pointer }
+  .lvbar:hover { background:#2e3139 }
+  .lvbar .tr { height:10px; background:#2f323a; border-radius:3px; overflow:hidden }
+  .lvbar .fi { height:10px; border-radius:3px }
+  .low { color:#e0a35c }
+  table.comp td.c { text-align:right; padding:4px 12px; border:2px solid #1e1f24 }
+  table.comp th { color:var(--dim); font-weight:400; text-align:right; padding:4px 12px }
+  table.comp td.l { padding:4px 12px; cursor:pointer }
   /* The Champions tab. A card and the champion's own column stop growing, so no bar gets long. */
   #view { container-type:inline-size }
   .vit { display:grid; grid-template-columns:max-content minmax(40px,1fr) max-content; gap:4px 10px; align-items:center }
@@ -639,7 +735,7 @@ const DETAIL = {WEAPONS: 0, SPELLS: 1, HARM: 2, HEALING: 3, DEATHS: 4, CONSUMED:
                 SKILLS: 8, XP_SOURCES: 9, RANK_UPS: 10, RECORDS: 11, REDUCED: 12};
 const TOPIC_MONSTERS = 6, TOPIC_RECORDS = 8;
 // The tab after the topics: the champions when the page was written
-const CHAMPIONS = TOP.length, LIVE = D.live || {cursor: null, list: false, icons: [], champions: []};
+const CHAMPIONS = TOP.length, PROFILE = TOP.length + 1, LIVE = D.live || {cursor: null, list: false, icons: [], champions: []};
 const NUMBERS_SECTION = 'numbers', KEY_SECTION = 'key';
 const st = {who: N, topic: 0, level: -1, per: false, side: false, grid: {}, closed: {}, sort: {}, open: {}, compact: false, list: !!(D.live && D.live.list)};
 
@@ -788,7 +884,8 @@ function frame() {
     whos += `<button class="who${st.who === i ? ' on' : ''}${H[i].left ? ' left' : ''}" onclick="set({who:${i}})">${dotOf(i)}${esc(H[i].name)}</button>`;
   const onChampions = st.topic === CHAMPIONS;
   document.getElementById('top').innerHTML = `<div class="whos">${whos}</div>${onChampions ? '' : picker()}`;
-  document.getElementById('tabs').innerHTML = TOP.map(t => t.label).concat(['Champions']).map((label, i) =>
+  const tabs = TOP.map((t, i) => [t.label, i]).concat([['Profile', PROFILE], ['Champions', CHAMPIONS]]);
+  document.getElementById('tabs').innerHTML = tabs.map(([label, i]) =>
     `<button class="tab${st.topic === i ? ' on' : ''}" onclick="set({topic:${i}})">${esc(label)}</button>`).join('');
 }
 
@@ -1448,6 +1545,70 @@ document.addEventListener('click', e => {
 document.addEventListener('focusin', e => { const el = e.target.closest ? e.target.closest('[data-tip]') : null; if (el && !pinned) showTip(el); });
 document.addEventListener('focusout', () => hideTip(false));
 
+// The Profile: the run as star plots (HeroStatsProfile in the game), the bars and on Per level the
+// completion table. Its data is made by the game: D.profiles[level][who], who the column, the party last.
+const PARTY_SHAPE = '#7fa6e6';
+const shapeColour = w => w === N ? PARTY_SHAPE : COLOUR(w);
+function starSvg(s) {
+  const n = s.axes.length, W = 420, H = 330, cx = W / 2, cy = H / 2, R = 110;
+  const reach = v => v === null || s.outer <= s.centre ? 0 : Math.max(0, Math.min(1, (v - s.centre) / (s.outer - s.centre)));
+  const pt = (a, r) => { const t = -Math.PI / 2 + 2 * Math.PI * a / n; return [cx + R * r * Math.cos(t), cy + R * r * Math.sin(t)]; };
+  const poly = r => Array.from({length: n}, (_, a) => pt(a, r).map(x => x.toFixed(1)).join(',')).join(' ');
+  let out = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(s.title)}">`;
+  for (const [v] of s.rings) out += `<polygon points="${poly(reach(v))}" fill="none" stroke="#3a3d46"/>`;
+  out += `<polygon points="${poly(1)}" fill="none" stroke="#3a3d46"/>`;
+  if (s.even !== null && s.even > 0) out += `<polygon points="${poly(reach(s.even))}" fill="none" stroke="#9aa0ad" stroke-width="1.2" stroke-dasharray="4 4"/>`;
+  for (let a = 0; a < n; a++) { const [x, y] = pt(a, 1); out += `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#3a3d46"/>`; }
+  for (const [v, label] of s.rings) if (label) { const [x, y] = pt(0, reach(v)); out += `<text x="${x + 4}" y="${y + 11}" font-size="10" fill="#8a8d98">${esc(label)}</text>`; }
+  if (s.edge) { const [x, y] = pt(0, 1); out += `<text x="${x + 4}" y="${y + 11}" font-size="10" fill="#8a8d98">${esc(s.edge)}</text>`; }
+  const bright = s.shapes.filter(h => !h.faint).length;
+  for (const h of s.shapes) {
+    const c = shapeColour(h.who), pts = h.values.map((v, a) => pt(a, reach(v)));
+    out += `<polygon points="${pts.map(p => p.map(x => x.toFixed(1)).join(',')).join(' ')}" fill="${c}" fill-opacity="${h.faint ? 0.06 : bright === 1 ? 0.22 : 0.10}" stroke="${c}" stroke-opacity="${h.faint ? 0.45 : 1}" stroke-width="${h.faint ? 1 : 2}" stroke-linejoin="round"/>`;
+    if (!h.faint) for (const [x, y] of pts) out += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="${c}"/>`;
+  }
+  const single = bright === 1 ? s.shapes.find(h => !h.faint) : null;
+  for (let a = 0; a < n; a++) {
+    const [x, y] = pt(a, 1.17), dx = x - cx;
+    const anchor = Math.abs(dx) < 8 ? 'middle' : dx > 0 ? 'start' : 'end';
+    const yy = y + (Math.abs(dx) >= 8 ? 4 : y < cy ? (single ? -10 : -2) : 10);
+    const tip = s.shapes.slice().reverse().map(h => `${whoName(h.who)}: ${h.texts[a]}  ${h.details[a]}`).join('\n');
+    out += `<g><title>${esc(s.axes[a] + '\n' + tip)}</title><text x="${x.toFixed(1)}" y="${yy.toFixed(1)}" font-size="11.5" fill="#d8d8d8" text-anchor="${anchor}">${esc(s.axes[a])}</text>`;
+    if (single) out += `<text x="${x.toFixed(1)}" y="${(yy + 13).toFixed(1)}" font-size="11.5" fill="#fff" font-weight="600" text-anchor="${anchor}">${esc(single.texts[a])}</text>`;
+    out += '</g>';
+  }
+  return out + '</svg>';
+}
+function starLegend(s) {
+  if (s.shapes.length < 2) return '';
+  const order = s.shapes.slice().sort((a, b) => a.who - b.who);
+  return `<div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center">${order.map(h =>
+    `<span style="display:flex;gap:6px;align-items:center${h.faint ? ';color:var(--dim)' : ''}"><span style="width:10px;height:10px;border-radius:50%;background:${shapeColour(h.who)}${h.faint ? ';opacity:.45' : ''}"></span>${esc(whoName(h.who))}</span>`).join('')}</div>`;
+}
+const pct = v => v === null ? '-' : Math.round(v * 100) + '%';
+function profilePage() {
+  const all = D.profiles && D.profiles[String(st.per ? -1 : st.level)];
+  const p = all && all[st.who];
+  if (!p) return '<div class="note">No profile for this level.</div>';
+  if (st.per) {
+    const head = ['Explored', 'Items', 'Monsters', 'Doors', 'Switches'].map(a => `<th>${a}</th>`).join('');
+    const rows = p.table.map(r => {
+      const run = r[0] === -1;
+      const cells = r.slice(1).map(v => {
+        const t = v === null ? 0 : v, shade = `rgb(${Math.round(0x2f + (0x3f - 0x2f) * t)},${Math.round(0x32 + (0x63 - 0x32) * t)},${Math.round(0x3a + (0xa8 - 0x3a) * t)})`;
+        return `<td class="c${v !== null && v < 0.5 ? ' low' : ''}" style="${run || v === null ? '' : 'background:' + shade}">${pct(v)}</td>`;
+      }).join('');
+      return `<tr${run ? ' style="background:#272930;font-weight:600"' : ''}><td class="l" onclick="set({per:false,level:${r[0]}})">${run ? 'Whole run' : 'Level ' + r[0]}</td>${cells}</tr>`;
+    }).join('');
+    return `<h3 style="margin:10px 0 4px">Completion, level by level</h3><div class="note">Each cell: that level's share of what it holds. Under half in orange. Click a level to pick it.</div><table class="comp"><tr><th style="text-align:left">Level</th>${head}</tr>${rows}</table>`;
+  }
+  const stars = p.stars.filter((s, i) => i !== 4 || p.roles);
+  let cards = stars.map(s => `<div class="pf-card"><h3>${esc(s.title)}</h3><div class="pf-cap">${esc(s.caption)}</div>${starSvg(s)}${starLegend(s)}</div>`).join('');
+  const bars = p.bars.map(([l, v]) => `<div class="lvbar" onclick="set({per:false,level:${l}})"${!st.per && st.level === l ? ' style="background:#2a3a57"' : ''}><span>Level ${l}</span><span class="tr"><span class="fi" style="display:block;width:${v === null ? 0 : Math.round(v * 100)}%;background:${v !== null && v < 0.5 ? '#c98a3c' : PARTY_SHAPE}"></span></span><span class="${v !== null && v < 0.5 ? 'low' : ''}" style="text-align:right">${pct(v)}</span></div>`).join('');
+  cards += `<div class="pf-card"><h3>Explored per level</h3><div class="pf-cap">Floor cells explored, of those the party can reach. Under half in orange; click a level to pick it.</div>${bars}</div>`;
+  return `<div class="pf-cards">${cards}</div>`;
+}
+
 function draw() {
   TIPS = [];
   hideTip(true);
@@ -1455,7 +1616,7 @@ function draw() {
   frame();
   let html;
   if (N === 0 && D.levels.length === 0) html = '<div class="note">No statistics yet.</div>';
-  else html = st.topic === CHAMPIONS ? championsPage() : st.per ? perLevel() : topicPage();
+  else html = st.topic === CHAMPIONS ? championsPage() : st.topic === PROFILE ? profilePage() : st.per ? perLevel() : topicPage();
   document.getElementById('view').innerHTML = html;
   fit();
   writeLink();
@@ -1586,7 +1747,7 @@ function readLink() {
     if (i >= 0) st.who = i; else if (/^\d+$/.test(who) && +who <= N) st.who = +who;
   }
   if (topic !== null) {
-    const i = same(topic, 'champions') ? CHAMPIONS : TOP.findIndex(t => same(t.label, topic));
+    const i = same(topic, 'champions') ? CHAMPIONS : same(topic, 'profile') ? PROFILE : TOP.findIndex(t => same(t.label, topic));
     if (i >= 0) st.topic = i;
   }
   if (level !== null) {
@@ -1599,7 +1760,7 @@ function readLink() {
 function writeLink() {
   const h = new URLSearchParams();
   h.set('who', whoName(st.who));
-  h.set('topic', st.topic === CHAMPIONS ? 'Champions' : TOP[st.topic].label);
+  h.set('topic', st.topic === CHAMPIONS ? 'Champions' : st.topic === PROFILE ? 'Profile' : TOP[st.topic].label);
   if (st.topic !== CHAMPIONS) {
     h.set('level', st.per ? 'per' : st.level === -1 ? 'run' : st.level);
     if (st.per && st.side) h.set('side', '1');

@@ -5,6 +5,7 @@
 #include "../HeroStatsExport.h"
 #include "../HeroStatsPages.h"
 #include "../HeroStatsCatalogue.h"
+#include "../HeroStatsProfile.h"
 
 // Type 6 has two variants the dungeon does not name apart; type 25 is named
 static std::string MonsterName(int monsterType, int variant)
@@ -1307,8 +1308,31 @@ static void WriteASampleExport(void)
   fclose(file);
 }
 
+// The Profile in the export: each star as data, the page's script draws it
+static void ExportHoldsTheProfile(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  stats.MarkLevelVisited(2);
+  stats.CreditMonsterDamage(2, ChampionBlow(7, 13, 1), 40);
+  HeroStatsProfile profile = HeroStatsProfile_Make(stats, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN);
+  std::string json = HeroStatsExport_ProfileJson(profile, Columns(stats));
+  CHECK(json.find("\"axes\":[\"Explored\",\"Items\",\"Monsters\",\"Doors\",\"Switches\"]") != std::string::npos);
+  CHECK(json.find("\"roles\":false") != std::string::npos);
+  CHECK(json.find("{\"who\":1,\"faint\":false") != std::string::npos);   // the party: the column after the champions
+  CHECK(json.find("\"values\":[null,null,null,null,null]") != std::string::npos);  // nothing known of the dungeon
+  CHECK(json.find("\"bars\":[[2,null]]") != std::string::npos);
+  HeroStatsExportInfo info = {"dungeon.dat", "2026-11-24 12:00"};
+  std::string all = HeroStatsExport_Json(stats, Columns(stats), NAMES, info);
+  CHECK(all.find("\"profiles\":{\"-1\":[{\"stars\":") != std::string::npos);
+  CHECK(all.find("\"2\":[{\"stars\":") != std::string::npos);
+  std::string html = HeroStatsExport_Html(stats, Columns(stats), NAMES, info);
+  CHECK(html.find("function profilePage()") != std::string::npos);
+}
+
 void TestHeroStatsPages(void)
 {
+  ExportHoldsTheProfile();
   WriteASampleExport();
   ReducedLinesAddUpToTheirTotal();
   RecordLinesCarryTheirAmounts();

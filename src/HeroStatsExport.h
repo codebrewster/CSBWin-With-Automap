@@ -6,6 +6,7 @@
 #include <vector>
 #include "HeroStatsPages.h"
 #include "HeroStatsLive.h"
+#include "HeroStatsProfile.h"
 
 // The same layout whatever was included before: CSB.h leaves #pragma pack(1) switched on
 #pragma pack(push, 8)
@@ -36,6 +37,10 @@ std::string HeroStatsExport_RecordJson(const HeroStatsRecord &record, HeroStatsC
 // The JSON object the page script reads (see HeroStatsExport.cpp for its fields)
 std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
                                  const HeroStatsNames &names, const HeroStatsExportInfo &info);
+// One profile (HeroStatsProfile.h) as the page's script reads it: its stars, whether Roles shows,
+// the bars and the completion table. A shape's who is its column, the party after the champions;
+// a value with nothing to work it out from is null.
+std::string HeroStatsExport_ProfileJson(const HeroStatsProfile &profile, const std::vector<HeroStatsColumn> &columns);
 std::string HeroStatsExport_Html(const HeroStats &stats, const std::vector<HeroStatsColumn> &columns,
                                  const HeroStatsNames &names, const HeroStatsExportInfo &info);
 
