@@ -151,6 +151,26 @@ enum HeroDoorMethod { HeroDoorSmashed, HeroDoorShot, HeroDoorBySpell, HeroDoorUn
                       HeroDoorButtonOpened, HeroDoorButtonClosed, HERO_DOOR_METHOD_COUNT };
 const int HERO_DOOR_ANY_METHOD = -1;
 
+// What a level holds now, from the automap, for the Profile's completion: not stored, the
+// owner refreshes it like the explored tiles. reachable: floor cells the party can reach,
+// explored: those of them explored; itemsLying: items on the level the party never held (floor,
+// alcoves, chests; no monster's possessions); doorsOpened: seen open or broken, or open now;
+// switches: wall faces with an actuator a click can fire, switchesUsed: one of them fired.
+struct HeroStatsDungeonCounts
+{
+  int reachable, explored;
+  int itemsLying;
+  int monstersAlive;
+  int doors, doorsOpened;
+  int switches, switchesUsed;
+};
+// One axis of the completion: found of total, 0 <= found <= total. Items: picked up the first
+// time of those picked up and those lying about; Monsters: killed (any cause) of those killed and
+// those alive. So an item a monster drops, or a monster a generator spawns, adds to the total.
+struct HeroStatsCompletionAxis { int found, total; };
+enum HeroCompletionAxis { HeroCompletionExplored, HeroCompletionItems, HeroCompletionMonsters,
+                          HeroCompletionDoors, HeroCompletionSwitches, HERO_COMPLETION_AXIS_COUNT };
+
 // Things that happen to a champion and are only counted: poisonings (a new dose of poison, not
 // each tick of it), wounds (a part of the body wounded that was whole before) and potions brewed
 // (each spell that filled an empty flask, on the level of the cast). The formation changes of
@@ -293,6 +313,10 @@ public:
   // the .map file itself, and the owner refreshes this before the numbers are shown.
   void SetExploredTiles(const std::map<int, int> &perLevel);
   HeroStatsMovement Movement(int level) const;
+  // What each level holds now (HeroStatsDungeonCounts); a level not given holds nothing
+  void SetDungeonCounts(const std::map<int, HeroStatsDungeonCounts> &perLevel);
+  HeroStatsDungeonCounts DungeonCounts(int level) const;   // a level or the sum (HERO_STATS_WHOLE_RUN)
+  HeroStatsCompletionAxis Completion(int level, HeroCompletionAxis axis) const;
 
   // The party's items, per level (not per champion)
   void CountItem(int level, int item, HeroItemEvent event);
@@ -462,6 +486,7 @@ private:
   std::map<int, HeroStatsMovement> m_movement;
   std::set<std::tuple<int, int, int> > m_tilesWalked;   // (level, x, y)
   std::map<int, int> m_tilesExplored;                   // per level, not stored
+  std::map<int, HeroStatsDungeonCounts> m_dungeonCounts;  // per level, not stored
   struct ItemCounts { int pickedUp, fromChest, usedInWall; };
   std::map<std::pair<int, int>, ItemCounts> m_items;   // (level, item)
   // (champion, level, item, kind)

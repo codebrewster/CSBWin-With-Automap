@@ -56,6 +56,13 @@ AutoMapLevelSnapshot AutoMapLevelReader_ReadPartyLevel(void);
 // everything. Safe to call on every engine tick.
 AutoMapLevelSnapshot AutoMapLevelReader_ReadLevel(int level);
 
+// What lies on a level now, for the Statistics window's Profile: the record of every item in
+// its cells (floor, alcoves and wall slots, and the contents of a chest lying there; not what a
+// monster carries, which counts once it drops, nor a champion's gear in a mirror), and the monsters alive on it. Loads the level
+// the way ReadLevel does when it is not the loaded one.
+struct AutoMapLevelHoldings { std::vector<AutoMapRecordId> items; int monstersAlive; };
+AutoMapLevelHoldings AutoMapLevelReader_Holdings(int level);
+
 // A monster type the level lists in the dungeon data: only these may live on it
 // (MonsterAllowedOnLevel), and they set the level's palette
 struct AutoMapMonsterChoice

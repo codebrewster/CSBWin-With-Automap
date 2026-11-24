@@ -738,6 +738,11 @@ void HeroStats_RefreshMapCounts(bool force)
   }
   store.SetWallTextsRead(texts);
   store.SetChampionsSeen(seen, viewed);
+  std::set<AutoMapRecordId> held;
+  const std::set<int> &heldItems = origins.HeldItems();
+  for (std::set<int>::const_iterator at = heldItems.begin(); at != heldItems.end(); ++at)
+    held.insert(AutoMapLevelReader_RecordId(*at));
+  store.SetDungeonCounts(AutoMap_DungeonCountsPerLevel(held, store.TilesWalked(), store.VisitedLevels()));
 }
 
 void HeroStats_OnStairwayTaken(int toLevel, int toX, int toY)

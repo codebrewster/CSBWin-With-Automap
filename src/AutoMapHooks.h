@@ -2,7 +2,10 @@
 #define AUTOMAPHOOKS_H
 
 #include <map>
+#include <set>
+#include <tuple>
 #include "AutoMapScene.h"
+#include "HeroStats.h"
 
 // The places where the engine and the platform layer call into the automap. This header
 // declares functions only, so that it can be included after CSB.h, which leaves
@@ -69,6 +72,14 @@ std::map<int, int> AutoMap_ExploredTilesPerLevel(void);
 // Per level, what the party has read and seen on the walls: wall texts read, champion portraits
 // seen (drawn on the wall straight ahead) and champions viewed (the mirror clicked)
 std::map<int, AutoMapWallCounts> AutoMap_WallCountsPerLevel(void);
+// For the statistics' Profile: what each visited level holds (HeroStatsDungeonCounts). held: the
+// records of the items the party has held (AutoMapLevelReader_RecordId), left out of what lies
+// about; walked: the cells the party stood on, as (level, x, y), from which the reachable cells
+// are counted (with the stairs and the teleporters' targets). A level is read again when the
+// party is on it (at most every 2 seconds) and once after the party left it.
+std::map<int, HeroStatsDungeonCounts> AutoMap_DungeonCountsPerLevel(const std::set<AutoMapRecordId> &held,
+                                                                    const std::set<std::tuple<int, int, int> > &walked,
+                                                                    const std::vector<int> &levels);
 // The party put the item onto (x, y) of the loaded level: dropped it, or a champion died
 void AutoMap_OnItemDropped(int item, int x, int y);
 // The party put the item into the alcove of the wall (x, y) straight ahead of it

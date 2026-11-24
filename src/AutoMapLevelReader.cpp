@@ -2111,6 +2111,63 @@ static void BuildTablesForLoadedLevel(void)
   }
 }
 
+AutoMapLevelHoldings AutoMapLevelReader_Holdings(int level)
+{
+  AutoMapLevelHoldings holdings;
+  holdings.monstersAlive = 0;
+  if (d.dungeonDatIndex == NULL || d.pLevelDescriptors == NULL) return holdings;
+  if (level < 0 || level >= d.dungeonDatIndex->NumLevel()) return holdings;
+  bool load = level != d.LoadedLevel;
+  IllegalDecorationWarningSilencer silencer;
+  LevelTables saved;
+  i16 savedLoadedLevel = d.LoadedLevel;
+  if (load)
+  {
+    SaveLevelTables(&saved);
+    LoadLevel(level);
+  }
+  for (int y = 0; y < d.height; y++)
+  {
+    for (int x = 0; x < d.width; x++)
+    {
+      // A champion's mirror holds the champion's own gear: no item lying about to find
+      bool mirrorSide[4] = {false, false, false, false};
+      for (RN object = FindFirstObject(x, y); object != RNeof; object = GetDBRecordLink(object))
+      {
+        if (object.dbType() != dbACTUATOR || object.pos() > 3) continue;
+        DB3 *actuator = GetRecordAddressDB3(object);
+        if (actuator != NULL && actuator->actuatorType() == 127) mirrorSide[object.pos()] = true;
+      }
+      for (RN object = FindFirstObject(x, y); object != RNeof; object = GetDBRecordLink(object))
+      {
+        DBTYPE type = object.dbType();
+        if (type >= dbWEAPON && type <= dbMISC && mirrorSide[object.pos() & 3] && RawRoomType(x, y) == roomSTONE) continue;
+        if (type == dbMONSTER)
+        {
+          holdings.monstersAlive += GetRecordAddressDB4(object)->numMonM1() + 1;
+          continue;
+        }
+        if (type < dbWEAPON || type > dbMISC) continue;
+        holdings.items.push_back(RecordIdOf(object));
+        if (type != dbCHEST) continue;
+        int guard = 0;
+        for (RN held = GetRecordAddressDB9(object)->contents(); held != RNeof && guard < 32;
+             held = GetDBRecordLink(held), guard++)
+        {
+          DBTYPE heldType = held.dbType();
+          if (heldType >= dbWEAPON && heldType <= dbMISC) holdings.items.push_back(RecordIdOf(held));
+        }
+      }
+    }
+  }
+  if (load)
+  {
+    LoadLevel(savedLoadedLevel);
+    RestoreLevelTables(&saved);
+  }
+  return holdings;
+}
+
 AutoMapLevelSnapshot AutoMapLevelReader_ReadLevel(int level)
 {
   if (d.dungeonDatIndex == NULL || d.pLevelDescriptors == NULL) return AutoMapLevelSnapshot();

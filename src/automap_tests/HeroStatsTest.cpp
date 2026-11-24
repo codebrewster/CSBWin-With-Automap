@@ -1235,8 +1235,94 @@ static void RunesOfALoadedGameGetTheEnginesCosts(void)
   CHECK(HeroStatsRunes::Costs(broken, RUNE_COSTS, POWER_FACTORS).empty());
 }
 
+static HeroStatsDungeonCounts NoCounts(void)
+{
+  HeroStatsDungeonCounts counts = {0, 0, 0, 0, 0, 0, 0, 0};
+  return counts;
+}
+
+static void DungeonCountsAddUpOverLevels(void)
+{
+  HeroStats stats;
+  std::map<int, HeroStatsDungeonCounts> perLevel;
+  HeroStatsDungeonCounts one = {100, 40, 7, 58, 10, 4, 6, 2};
+  HeroStatsDungeonCounts two = {50, 50, 3, 2, 5, 5, 4, 4};
+  perLevel[1] = one;
+  perLevel[2] = two;
+  stats.SetDungeonCounts(perLevel);
+  HeroStatsDungeonCounts all = stats.DungeonCounts(HERO_STATS_WHOLE_RUN);
+  CHECK(all.reachable == 150 && all.explored == 90 && all.itemsLying == 10 && all.monstersAlive == 60);
+  CHECK(all.doors == 15 && all.doorsOpened == 9 && all.switches == 10 && all.switchesUsed == 6);
+  CHECK(stats.DungeonCounts(2).reachable == 50);
+  HeroStatsDungeonCounts none = stats.DungeonCounts(5);
+  CHECK(none.reachable == 0 && none.monstersAlive == 0 && none.switches == 0);
+}
+
+static void CompletionCountsWhatAppearedToo(void)
+{
+  HeroStats stats;
+  for (int i = 0; i < 3; i++) stats.CountItem(1, 20 + i, HeroItemPickedUp);
+  stats.CountItem(1, 30, HeroItemUsedInWall);  // no pick-up
+  stats.CountMonsterKill(1, 10, 0, HeroStatsBlow_Nobody(HeroBlowByDoor));
+  stats.CountMonsterKill(1, 10, 0, ChampionBlow(7, AXE, 1));
+  std::map<int, HeroStatsDungeonCounts> perLevel;
+  HeroStatsDungeonCounts level1 = NoCounts();
+  level1.itemsLying = 7;
+  level1.monstersAlive = 58;
+  perLevel[1] = level1;
+  stats.SetDungeonCounts(perLevel);
+  HeroStatsCompletionAxis items = stats.Completion(1, HeroCompletionItems);
+  CHECK(items.found == 3 && items.total == 10);
+  HeroStatsCompletionAxis monsters = stats.Completion(1, HeroCompletionMonsters);
+  CHECK(monsters.found == 2 && monsters.total == 60);
+  // A generator spawns two worms
+  perLevel[1].monstersAlive = 60;
+  stats.SetDungeonCounts(perLevel);
+  CHECK(stats.Completion(1, HeroCompletionMonsters).total == 62);
+  CHECK(stats.Completion(HERO_STATS_WHOLE_RUN, HeroCompletionMonsters).total == 62);
+}
+
+static void CompletionNeverGoesOver100(void)
+{
+  HeroStats stats;
+  for (int i = 0; i < 5; i++) stats.CountMonsterKill(2, 10, 0, HeroStatsBlow_Nobody(HeroBlowByDoor));
+  HeroStatsCompletionAxis monsters = stats.Completion(2, HeroCompletionMonsters);
+  CHECK(monsters.found == 5 && monsters.total == 5);
+  std::map<int, HeroStatsDungeonCounts> perLevel;
+  HeroStatsDungeonCounts level2 = NoCounts();
+  level2.doors = 3;
+  level2.doorsOpened = 4;
+  level2.reachable = 10;
+  level2.explored = 12;
+  perLevel[2] = level2;
+  stats.SetDungeonCounts(perLevel);
+  HeroStatsCompletionAxis doors = stats.Completion(2, HeroCompletionDoors);
+  CHECK(doors.found == 3 && doors.total == 3);
+  HeroStatsCompletionAxis explored = stats.Completion(2, HeroCompletionExplored);
+  CHECK(explored.found == 10 && explored.total == 10);
+}
+
+static void AnEmptyLevelHasNothingToComplete(void)
+{
+  HeroStats stats;
+  std::map<int, HeroStatsDungeonCounts> perLevel;
+  perLevel[0] = NoCounts();
+  stats.SetDungeonCounts(perLevel);
+  for (int axis = 0; axis < HERO_COMPLETION_AXIS_COUNT; axis++)
+  {
+    HeroStatsCompletionAxis value = stats.Completion(0, (HeroCompletionAxis)axis);
+    CHECK(value.found == 0 && value.total == 0);
+  }
+  stats.Forget();
+  CHECK(stats.DungeonCounts(HERO_STATS_WHOLE_RUN).reachable == 0);
+}
+
 void TestHeroStats(void)
 {
+  DungeonCountsAddUpOverLevels();
+  CompletionCountsWhatAppearedToo();
+  CompletionNeverGoesOver100();
+  AnEmptyLevelHasNothingToComplete();
   RunesOfALoadedGameGetTheEnginesCosts();
   ManaGainIsKeptBySource();
   ManaLossesNeedLayout35();

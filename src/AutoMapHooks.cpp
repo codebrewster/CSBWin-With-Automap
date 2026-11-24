@@ -17,6 +17,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #endif
+#include "AutoMapCompletion.h"
 #include "AutoMapExport.h"
 #include "AutoMapTickRate.h"
 #include "AutoMapZip.h"
@@ -471,6 +472,141 @@ std::map<int, int> AutoMap_ExploredTilesPerLevel(void)
     AutoMapCellKind kind = looks[i].second.kind;
     if (kind == AutoMapCellWall || kind == AutoMapCellFalseWall) continue;
     perLevel[cell.level]++;
+  }
+  return perLevel;
+}
+
+namespace
+{
+// What the Profile needs of a level, read from the dungeon and kept until the level is read again
+struct LevelLayout
+{
+  int width, height, marginX, marginY;
+  AutoMapReachGrid grid;
+  std::vector<bool> counted;                      // cells the explored tiles count: no wall, no closed false wall
+  std::vector<std::pair<int, int> > stairs;       // snapshot coordinates
+  std::vector<AutoMapCell> teleporterTargets;     // level coordinates, any level
+  std::vector<std::pair<int, int> > doors;        // level coordinates
+  std::vector<bool> doorOpenNow;
+  std::vector<std::vector<AutoMapRecordId> > switchFaces;  // the actuators of each wall face that fires something (no mirror)
+  AutoMapLevelHoldings holdings;
+  Uint32 readAt;
+  bool readWithPartyOnIt;
+};
+
+LevelLayout ReadLevelLayout(int level)
+{
+  LevelLayout layout;
+  AutoMapLevelSnapshot snapshot = AutoMapLevelReader_ReadLevel(level);
+  layout.width = snapshot.width;
+  layout.height = snapshot.height;
+  layout.marginX = snapshot.boundaryMarginX;
+  layout.marginY = snapshot.boundaryMarginY;
+  layout.grid.width = snapshot.width;
+  layout.grid.height = snapshot.height;
+  std::set<std::tuple<int, int, int> > faces;  // (x, y, side) of the wall faces that fire something
+  for (size_t i = 0; i < snapshot.links.size(); i++)
+  {
+    const AutoMapLink &link = snapshot.links[i];
+    if (link.srcIsWall && link.srcSide >= 0 && link.srcSide < AUTOMAP_SIDE_COUNT)
+      faces.insert(std::make_tuple(link.srcX, link.srcY, link.srcSide));
+  }
+  for (int y = 0; y < snapshot.height; y++)
+  {
+    for (int x = 0; x < snapshot.width; x++)
+    {
+      const AutoMapCellRecord &cell = snapshot.cells[(size_t)y * snapshot.width + x];
+      bool solid = cell.isOutsideLevel || cell.kind == AutoMapCellWall;
+      layout.grid.cells.push_back(solid ? AutoMapReachSolid : AutoMapReachWalkable);
+      layout.counted.push_back(!solid && cell.kind != AutoMapCellFalseWall);
+      if (cell.kind == AutoMapCellStairs) layout.stairs.push_back(std::make_pair(x, y));
+      if (cell.hasTeleporterTarget)
+        layout.teleporterTargets.push_back(AutoMapCell{cell.teleporterDestLevel, cell.teleporterDestX, cell.teleporterDestY});
+      if (cell.kind == AutoMapCellDoor && !cell.isOutsideLevel)
+      {
+        layout.doors.push_back(std::make_pair(x - layout.marginX, y - layout.marginY));
+        layout.doorOpenNow.push_back(cell.doorState == AutoMapDoorOpen || cell.doorState == AutoMapDoorDestroyed);
+      }
+      if (cell.kind != AutoMapCellWall || cell.isOutsideLevel) continue;
+      for (int side = 0; side < AUTOMAP_SIDE_COUNT; side++)
+      {
+        const AutoMapWallSide &face = cell.wallSides[side];
+        if (face.hidden || face.actuators.empty() || face.portrait != AUTOMAP_NO_PICTURE) continue;
+        if (faces.count(std::make_tuple(x, y, side)) == 0) continue;
+        layout.switchFaces.push_back(face.actuators);
+      }
+    }
+  }
+  layout.holdings = AutoMapLevelReader_Holdings(level);
+  layout.readAt = SDL_GetTicks();
+  layout.readWithPartyOnIt = level == d.partyLevel;
+  return layout;
+}
+}
+
+std::map<int, HeroStatsDungeonCounts> AutoMap_DungeonCountsPerLevel(const std::set<AutoMapRecordId> &held,
+                                                                    const std::set<std::tuple<int, int, int> > &walked,
+                                                                    const std::vector<int> &levels)
+{
+  static std::map<int, LevelLayout> cache;
+  std::map<int, HeroStatsDungeonCounts> perLevel;
+  if (d.dungeonDatIndex == NULL) return perLevel;
+  Uint32 now = SDL_GetTicks();
+  for (size_t i = 0; i < levels.size(); i++)
+  {
+    int level = levels[i];
+    if (level < 0 || level >= d.dungeonDatIndex->NumLevel()) continue;
+    std::map<int, LevelLayout>::iterator cached = cache.find(level);
+    bool stale = cached == cache.end()
+                 || (level == d.partyLevel && now - cached->second.readAt >= 2000)
+                 || (level != d.partyLevel && cached->second.readWithPartyOnIt);
+    if (stale) cache[level] = ReadLevelLayout(level);
+  }
+  const AutoMapExplored &explored = recorder.Explored();
+  AutoMapKnowledge &knowledge = recorder.Knowledge();
+  for (size_t i = 0; i < levels.size(); i++)
+  {
+    int level = levels[i];
+    std::map<int, LevelLayout>::const_iterator found = cache.find(level);
+    if (found == cache.end()) continue;
+    const LevelLayout &layout = found->second;
+    HeroStatsDungeonCounts counts = {0, 0, 0, 0, 0, 0, 0, 0};
+    // Where the party can be: the cells it stood on, the stairs, the teleporters' targets
+    std::vector<std::pair<int, int> > seeds = layout.stairs;
+    for (std::set<std::tuple<int, int, int> >::const_iterator at = walked.begin(); at != walked.end(); ++at)
+      if (std::get<0>(*at) == level) seeds.push_back(std::make_pair(std::get<1>(*at) + layout.marginX, std::get<2>(*at) + layout.marginY));
+    for (std::map<int, LevelLayout>::const_iterator other = cache.begin(); other != cache.end(); ++other)
+      for (size_t t = 0; t < other->second.teleporterTargets.size(); t++)
+      {
+        const AutoMapCell &target = other->second.teleporterTargets[t];
+        if (target.level == level) seeds.push_back(std::make_pair(target.x + layout.marginX, target.y + layout.marginY));
+      }
+    std::vector<bool> reached = AutoMapCompletion_Reachable(layout.grid, seeds);
+    for (size_t c = 0; c < reached.size() && c < layout.counted.size(); c++)
+    {
+      if (!reached[c] || !layout.counted[c]) continue;
+      counts.reachable++;
+      AutoMapCell cell = {level, (int)(c % layout.width) - layout.marginX, (int)(c / layout.width) - layout.marginY};
+      if (explored.IsExplored(cell)) counts.explored++;
+    }
+    for (size_t n = 0; n < layout.holdings.items.size(); n++)
+      if (held.count(layout.holdings.items[n]) == 0) counts.itemsLying++;
+    counts.monstersAlive = layout.holdings.monstersAlive;
+    counts.doors = (int)layout.doors.size();
+    for (size_t n = 0; n < layout.doors.size(); n++)
+    {
+      AutoMapCell door = {level, layout.doors[n].first, layout.doors[n].second};
+      if (layout.doorOpenNow[n] || knowledge.Knows(AutoMapFact_OfCell(AutoMapFactDoorOpen, door))) counts.doorsOpened++;
+    }
+    counts.switches = (int)layout.switchFaces.size();
+    for (size_t n = 0; n < layout.switchFaces.size(); n++)
+    {
+      bool used = false;
+      for (size_t a = 0; a < layout.switchFaces[n].size() && !used; a++)
+        used = knowledge.Knows(AutoMapFact_OfRecord(AutoMapFactActuator, layout.switchFaces[n][a]));
+      if (used) counts.switchesUsed++;
+    }
+    perLevel[level] = counts;
   }
   return perLevel;
 }

@@ -122,6 +122,7 @@ void HeroStats::Forget(void)
   m_movement.clear();
   m_tilesWalked.clear();
   m_tilesExplored.clear();
+  m_dungeonCounts.clear();
   m_items.clear();
   m_consumed.clear();
   m_doorsBashed.clear();
@@ -821,6 +822,60 @@ void HeroStats::MarkTileWalked(int level, int x, int y)
 void HeroStats::SetExploredTiles(const std::map<int, int> &perLevel)
 {
   m_tilesExplored = perLevel;
+}
+
+void HeroStats::SetDungeonCounts(const std::map<int, HeroStatsDungeonCounts> &perLevel)
+{
+  m_dungeonCounts = perLevel;
+}
+
+HeroStatsDungeonCounts HeroStats::DungeonCounts(int level) const
+{
+  HeroStatsDungeonCounts sum = {0, 0, 0, 0, 0, 0, 0, 0};
+  for (std::map<int, HeroStatsDungeonCounts>::const_iterator at = m_dungeonCounts.begin(); at != m_dungeonCounts.end(); ++at)
+  {
+    if (!LevelMatches(level, at->first)) continue;
+    const HeroStatsDungeonCounts &counts = at->second;
+    sum.reachable += counts.reachable;
+    sum.explored += counts.explored;
+    sum.itemsLying += counts.itemsLying;
+    sum.monstersAlive += counts.monstersAlive;
+    sum.doors += counts.doors;
+    sum.doorsOpened += counts.doorsOpened;
+    sum.switches += counts.switches;
+    sum.switchesUsed += counts.switchesUsed;
+  }
+  return sum;
+}
+
+HeroStatsCompletionAxis HeroStats::Completion(int level, HeroCompletionAxis axis) const
+{
+  HeroStatsDungeonCounts counts = DungeonCounts(level);
+  HeroStatsCompletionAxis value = {0, 0};
+  switch (axis)
+  {
+  case HeroCompletionExplored: value.found = counts.explored; value.total = counts.reachable; break;
+  case HeroCompletionItems:
+  {
+    std::vector<HeroStatsItemRow> items = Items(level);
+    for (size_t i = 0; i < items.size(); i++) value.found += items[i].pickedUp;
+    value.total = value.found + counts.itemsLying;
+    break;
+  }
+  case HeroCompletionMonsters:
+  {
+    std::vector<HeroStatsMonsterRow> kills = MonsterKills(level);
+    for (size_t i = 0; i < kills.size(); i++) value.found += kills[i].count;
+    value.total = value.found + counts.monstersAlive;
+    break;
+  }
+  case HeroCompletionDoors: value.found = counts.doorsOpened; value.total = counts.doors; break;
+  case HeroCompletionSwitches: value.found = counts.switchesUsed; value.total = counts.switches; break;
+  default: break;
+  }
+  if (value.found > value.total) value.found = value.total;
+  if (value.found < 0) value.found = 0;
+  return value;
 }
 
 HeroStatsMovement HeroStats::Movement(int level) const
