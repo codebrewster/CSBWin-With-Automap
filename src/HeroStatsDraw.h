@@ -18,6 +18,9 @@
 // The tab after the topics: the champions as they are now (HeroStatsLive.h), not a topic of the
 // statistics, so the topics' tables never see it
 const int HERO_STATS_CHAMPIONS_TAB = HERO_TOPIC_COUNT;
+// The Profile (HeroStatsProfile.h): drawn between Records and Champions, numbered after Champions
+// so that csb.cfg's stats_page keeps its values
+const int HERO_STATS_PROFILE_TAB = HERO_STATS_CHAMPIONS_TAB + 1;
 
 struct HeroStatsDrawState
 {

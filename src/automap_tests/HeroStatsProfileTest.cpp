@@ -99,6 +99,7 @@ static void TrainedOuterRingIsTheBestRank(void)
   CHECK(Near(profile.trained.rings[0].first, 5) && profile.trained.rings[0].second == HeroXp_RankName(5));
   CHECK(Near(profile.trained.rings[1].first, 9) && profile.trained.rings[1].second == HeroXp_RankName(9));
   CHECK(Near(profile.trained.rings[2].first, 11));
+  CHECK(profile.trained.edgeLabel == HeroXp_RankName(13));
   CHECK(profile.trained.shapes.size() == 1);
   CHECK(Near(profile.trained.shapes[0].values[0], 13));
   CHECK(Near(profile.trained.shapes[0].values[1], 1));  // Ninja: no rank known

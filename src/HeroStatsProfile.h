@@ -33,6 +33,7 @@ struct HeroStatsStar
   std::vector<std::pair<double, std::string> > rings;   // value and label ("50%", "Expert")
   double evenRing;                                      // Roles: 1 / champions shown; else -1
   double centre;                                        // the value at the centre (Trained: rank 1)
+  std::string edgeLabel;                                // the edge's label when no ring is at the edge (Trained: its rank)
 };
 
 struct HeroStatsLevelBar { int level; double explored; };   // -1: nothing reachable known

@@ -100,7 +100,7 @@ void HeroStatsWindow_ReadSettings(void)
   if (csb_get_config_int(SETTINGS_SECTION, "stats_layout", 0) < SETTINGS_LAYOUT)
     drawState.topic = HeroStatsCatalogue_TopicOfOldPage(page);
   else
-    drawState.topic = page >= 0 && page <= HERO_STATS_CHAMPIONS_TAB ? page : HeroTopicOverview;
+    drawState.topic = page >= 0 && page <= HERO_STATS_PROFILE_TAB ? page : HeroTopicOverview;
   drawState.closedSections = csb_get_config_int(SETTINGS_SECTION, "stats_closed", 0);
   char defaultInventory[] = "picture";
   drawState.inventoryList = std::string(csb_get_config_string(SETTINGS_SECTION, "stats_inventory", defaultInventory)) == "list";

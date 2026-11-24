@@ -113,7 +113,7 @@ SHOT_MISSILES_TESTS += automap_tests/ContinueLogTest.o
 HERO_STATS_TESTED = HeroStats.o HeroStatsDefence.o HeroStatsLive.o HeroStatsLayout.o HeroStatsExperience.o HeroStatsRecords.o HeroStatsCatalogue.o HeroStatsOrigins.o HeroStatsPending.o HeroStatsRunes.o HeroStatsDump.o HeroStatsGame.o HeroStatsView.o HeroStatsPages.o HeroStatsExport.o HeroStatsProfile.o
 HERO_STATS_TESTS = automap_tests/HeroStatsTest.o automap_tests/HeroStatsLiveTest.o automap_tests/HeroStatsLayoutTest.o automap_tests/HeroStatsCatalogueTest.o automap_tests/HeroStatsOriginsTest.o automap_tests/HeroStatsPendingTest.o automap_tests/HeroStatsDumpTest.o automap_tests/HeroStatsGameTest.o automap_tests/HeroStatsViewTest.o automap_tests/HeroStatsPagesTest.o automap_tests/HeroStatsExperienceTest.o automap_tests/HeroStatsRecordsTest.o automap_tests/HeroStatsDefenceTest.o automap_tests/HeroStatsProfileTest.o
 OBJS += $(HERO_STATS_TESTED)
-OBJS += HeroStatsHooks.o HeroStatsWindow.o HeroStatsDraw.o
+OBJS += HeroStatsHooks.o HeroStatsWindow.o HeroStatsDraw.o HeroStatsProfileDraw.o
 
 ifdef MACOS
 	OBJS += MacAppSupport.o

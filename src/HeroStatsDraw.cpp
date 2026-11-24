@@ -13,58 +13,11 @@
 #include "imgui_internal.h"
 #include "HeroStatsLayout.h"
 #include "HeroStatsDraw.h"
+#include "HeroStatsDrawColours.h"
+#include "HeroStatsProfileDraw.h"
 #include "HeroStatsHooks.h"
 #include "HeroStatsPages.h"
 
-// ---------------------------------------------------------------------------------------------
-// Colours
-
-static const ImU32 BACKGROUND_RGB = 0x1e1f24;
-static const ImU32 PANEL_RGB = 0x272930;
-static const ImU32 PANEL_HOVERED_RGB = 0x2e3139;
-static const ImU32 TOOLTIP_BORDER_RGB = 0x7a8294;  // a tooltip is told from the rows by its edge
-static const ImU32 WHITE_RGB = 0xffffff;
-static const ImU32 TEXT_RGB = 0xd8d8d8;
-static const ImU32 PART_RGB = 0xb4b6bf;       // a row that is a part of the row above
-static const ImU32 DIM_RGB = 0x8a8d98;        // labels, summaries, table headers
-static const ImU32 FAINT_RGB = 0x5a5d68;      // the dot of a zero
-static const ImU32 BUTTON_RGB = 0x2c3e5c;
-static const ImU32 BUTTON_HOVERED_RGB = 0x36507a;
-static const ImU32 BUTTON_ON_RGB = 0x4272b8;  // what is picked
-static const ImU32 PICKED_GROUND_RGB = 0x2a3a57;  // the ground of a picked champion's button
-static const ImU32 GUIDE_EDGE_RGB = 0x5b8fd9;  // the edge of what is picked or under the pointer, and the hovered column's line
-static const ImU32 BORDER_RGB = 0x3a3d46;
-static const ImU32 LINE_RGB = 0x31343d;
-static const ImU32 ROW_LINE_RGB = 0x292b32;
-static const ImU32 TRACK_RGB = 0x2f323a;      // the empty part of a bar
-static const ImU32 BAD_RGB = 0xe5735f;
-static const ImU32 YELLOW_RGB = 0xe8d44a;     // food and water below 0
-static const ImU32 FOOD_RGB = 0x9b6a3c;       // the food bar, brown as in the game
-static const ImU32 WATER_RGB = 0x4a8fe0;      // the water bar
-static const ImU32 GOLD_RGB = 0xe0b54a;       // a champion's record that is the party's, always with its star
-static const ImU32 RAISED_RGB = 0xb48ce6;     // an attribute above its max: violet, no champion's colour
-static const ImU32 DAMAGE_RGB = 0xe39a7c;     // a weapon's damage and kinetic energy
-static const ImU32 ARMOR_RGB = 0xa9b8cf;      // a piece of armor's strength
-// The game's own champion colours, by party slot, softened for the dark background
-static const ImU32 CHAMPION_RGB[4] = {0x5fbf5f, 0xd8c447, 0xd9604f, 0x5b8fd9};
-
-static const float GUTTER = 8;
-static const char *const MIDDLE_DOT = "\xc2\xb7";
-
-static ImVec4 Colour(ImU32 rgb, float alpha = 1.0f)
-{
-  return ImVec4(((rgb >> 16) & 0xff) / 255.0f, ((rgb >> 8) & 0xff) / 255.0f, (rgb & 0xff) / 255.0f, alpha);
-}
-
-static ImU32 Packed(ImU32 rgb, float alpha = 1.0f)
-{
-  return ImGui::GetColorU32(Colour(rgb, alpha));
-}
-
-static ImU32 ChampionRgb(size_t column)
-{
-  return CHAMPION_RGB[column % 4];
-}
 
 // The record star, the arrows and the dash. Neither ImGui's own font nor Vera Mono has glyphs for
 // them (the window loads Latin-1 only), so text holding one is drawn in pieces with the symbol
@@ -504,13 +457,19 @@ static void DrawTabs(HeroStatsDrawState *state)
   ImDrawList *drawList = ImGui::GetWindowDrawList();
   ImGui::SetCursorPosX(GUTTER);
   float lineY = 0;
-  for (int t = 0; t <= HERO_STATS_CHAMPIONS_TAB; t++)
+  // The topics, then the Profile and the Champions
+  std::vector<int> tabs;
+  for (int t = 0; t < HERO_TOPIC_COUNT; t++) tabs.push_back(t);
+  tabs.push_back(HERO_STATS_PROFILE_TAB);
+  tabs.push_back(HERO_STATS_CHAMPIONS_TAB);
+  for (size_t i = 0; i < tabs.size(); i++)
   {
-    const char *label = t == HERO_STATS_CHAMPIONS_TAB ? "Champions" : HeroStatsCatalogue_Topic(t).label;
+    int t = tabs[i];
+    const char *label = t == HERO_STATS_CHAMPIONS_TAB ? "Champions" : t == HERO_STATS_PROFILE_TAB ? "Profile" : HeroStatsCatalogue_Topic(t).label;
     ImVec2 size = ImGui::CalcTextSize(label);
     // A tab that would cross the window's edge starts the next line
-    if (t > 0) ImGui::SameLine(0, 2);
-    if (t > 0 && ImGui::GetCursorPosX() + size.x + 20 > ImGui::GetWindowWidth() - GUTTER)
+    if (i > 0) ImGui::SameLine(0, 2);
+    if (i > 0 && ImGui::GetCursorPosX() + size.x + 20 > ImGui::GetWindowWidth() - GUTTER)
     {
       ImGui::NewLine();
       ImGui::SetCursorPos(ImVec2(GUTTER, ImGui::GetCursorPosY() - ImGui::GetStyle().ItemSpacing.y));
@@ -4012,6 +3971,17 @@ void HeroStatsDraw_Frame(HeroStatsDrawState *state, const HeroStats &stats, cons
   if (state->topic == HERO_STATS_CHAMPIONS_TAB)
   {
     DrawChampionsPage(state, live, columns);
+    return;
+  }
+  if (state->topic == HERO_STATS_PROFILE_TAB)
+  {
+    if (stats.Champions().empty() && stats.VisitedLevels().empty())
+    {
+      ImGui::SetCursorPos(ImVec2(GUTTER, ImGui::GetCursorPosY() + 8));
+      ImGui::TextColored(Colour(DIM_RGB), "No statistics yet.");
+      return;
+    }
+    HeroStatsProfileDraw_Page(state, stats, columns);
     return;
   }
   // Steps and items count before a champion joins: only a game with no level yet has nothing

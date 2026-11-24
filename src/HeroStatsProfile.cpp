@@ -194,7 +194,7 @@ HeroStatsStar Trained(const HeroStats &stats, HeroStatsChampion who, int level)
     static const int RINGS[3] = {5, 9, 11};
     for (int i = 0; i < 3; i++)
       if (RINGS[i] < star.outer) star.rings.push_back(std::make_pair((double)RINGS[i], HeroXp_RankName(RINGS[i])));
-    // The edge itself is drawn as the star's outline, labelled with HeroXp_RankName(outer)
+    star.edgeLabel = HeroXp_RankName((int)star.outer);
   }
   else
   {
