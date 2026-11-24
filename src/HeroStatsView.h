@@ -38,6 +38,8 @@ HeroStatsPicker HeroStatsView_Picker(const HeroStats &stats, int shownLevel);
 
 // "Ful Ir Fireball", the special rows, "Ful Ya Ku (no spell)", "(no runes)" for key 0
 std::string HeroStatsView_SpellName(uint32_t spell);
+// The rune key of a spell written as its runes, "Ful Ir" (as the spell rows keep it)
+uint32_t HeroStatsView_SpellKey(const char *runes);
 // The missile of a monster's blow (HERO_SPELL_MONSTER_MISSILE | kind): "Fireball", "Lightning",
 // "Poison blob" ...; "" for anything else
 std::string HeroStatsView_MissileName(uint32_t spell);

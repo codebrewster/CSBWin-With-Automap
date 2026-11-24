@@ -138,6 +138,11 @@ static uint32_t KeyOfRunes(const char *runes)
   return key;
 }
 
+uint32_t HeroStatsView_SpellKey(const char *runes)
+{
+  return KeyOfRunes(runes);
+}
+
 static std::string RuneText(uint32_t key)
 {
   std::string text;
