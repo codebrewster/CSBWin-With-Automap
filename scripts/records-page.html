@@ -135,6 +135,15 @@
   .player .st b { color:var(--text); font-weight:400; text-align:right; font-variant-numeric:tabular-nums }
   .player .firsts { height:5px; border-radius:2px; background:var(--raise); overflow:hidden }
   .player .firsts i { display:block; height:100%; background:var(--pc) }
+  /* every run with its map and statistics pages */
+  .runs .head, .runs .row { grid-template-columns:minmax(150px, 1fr) minmax(130px, .9fr) 1.6fr 72px 60px 150px }
+  .runs .row { padding:9px 0; border-bottom-width:1px; align-items:baseline }
+  .runs .n { text-align:right }
+  .runs .row .c { color:var(--dim) }
+  .go { display:flex; gap:6px; justify-content:flex-end; margin-left:auto }
+  .runs .row .go a { font:12px var(--sans); color:var(--cyan); border:1px solid var(--cyan-dim); border-radius:4px; padding:0 8px; text-decoration:none }
+  .runs .row .go a:hover { background:var(--cyan-bg) }
+  .runs .copy { grid-column:1 / -1; display:flex; justify-content:space-between; gap:12px; color:var(--faint); font-size:12px }
 
   @media (max-width:760px) {
     h1 { font-size:34px }
@@ -144,6 +153,13 @@
     .mlab { display:block }
     details.sec > summary { grid-template-columns:auto 1fr }
     .chev { display:none }
+    .runs .row { grid-template-columns:auto auto 1fr; gap:4px 14px }
+    .runs .row > :first-child { grid-column:1 / 3 }
+    .runs .row > :nth-child(2) { text-align:right }
+    .runs .row .c { grid-column:1 / -1 }
+    .runs .n { text-align:left }
+    .runs .n[data-l]::after { content:attr(data-l); color:var(--dim) }
+    .runs .copy { flex-wrap:wrap }
   }
   @media (prefers-reduced-motion:reduce) { .chev::after, .cat, details.sec { transition:none } }
   /* The theme switch, top right of the header */
@@ -293,6 +309,7 @@
     Tables: '<path d="M6 8h12l-1 12H7z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',
     Players: '<circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.5A5 5 0 0 1 21 19"/>',
     Clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    Runs: '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/>',
   };
   const EXTRAS = [
     ['weaponDamage', 'Most damage with one weapon'], ['heroWeapon', 'Most damage with one weapon, one champion'],
@@ -481,6 +498,17 @@
     const top = Object.entries(firsts).sort((a, b) => b[1] - a[1])[0];
     html += section('Players', 'Players', `${Object.keys(players).length} players`, `<div class="players">${cards}</div>`,
       top ? [[`first places for ${top[0]}`, String(top[1])]] : []);
+
+    // every run of the category, the left-out ones too, with its map and statistics pages
+    const pages = r => `<span class="go">${r.m ? `<a href="${encodeURI(r.m)}">Map</a>` : ''}<a href="${encodeURI(r.u)}">Statistics</a></span>`;
+    const byWhat = c.race ? (r => r.x ? Infinity : r.v[TIME]) : (r => dungeonItems(r) ?? Infinity);
+    const list = [...c.runs].sort((a, b) => byWhat(a) - byWhat(b) || a.n.localeCompare(b.n));
+    const rrows = list.map(r => `<div class="row"><span>${runLink(r)}</span><span>${esc(r.p)}</span><span class="c">${esc(r.h.join(', '))}</span>`
+      + `<span class="n">${r.v[TIME] ? esc(clock(r.v[TIME])) : '–'}</span><span class="n" data-l=" items">${dungeonItems(r) == null ? '–' : int(dungeonItems(r))}</span>${pages(r)}`
+      + (r.also || []).map(a => `<span class="copy"><span>Same run, second copy: ${esc(a.n)}</span>${pages(a)}</span>`).join('') + '</div>').join('');
+    html += section('Runs', 'All runs', `${list.length} runs`,
+      `<div class="runs"><div class="head"><span>Run</span><span>Player</span><span>Champions</span><span class="n">Time</span><span class="n">Items</span><span></span></div>${rrows}</div>`,
+      []);
     document.getElementById('sections').innerHTML = html;
     document.querySelectorAll('details.sec').forEach(d => d.addEventListener('toggle', () => d.open ? open.add(d.dataset.key) : open.delete(d.dataset.key)));
 

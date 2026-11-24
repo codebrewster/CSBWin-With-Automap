@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # Writes records.html beside the statistics pages of export-all-html.sh: every number of the
 # statistics pages ranked over the replays, one tab per category (the top folder), with the top
-# three runs at each end, the average, and a link to each run's statistics.html. Reads the
+# three runs at each end, the average, a link to each run's statistics.html, and a list of all runs
+# with their map.html and statistics.html. Reads the
 # statistics.html files under OUTDIR (their embedded JSON, the whole run only) and puts their numbers
 # into scripts/records-page.html, whose script ranks them (per run, per hour, one champion).
 # Stdlib only.
@@ -119,6 +120,7 @@ def collect(out_dir):
             "n": name, "p": player_of(name), "h": heroes,
             "x": excluded(name),
             "u": "/".join(rel) + "/statistics.html",
+            "m": "/".join(rel) + "/map.html" if "map.html" in files else None,
             "v": [num(x) for x in view["records"][-1]],
             "hv": [[num(x) for x in view["records"][i]] for i in range(len(heroes))],
             "r": rec_lines(pages[-1]),
@@ -132,7 +134,7 @@ def collect(out_dir):
         for r in sorted(runs[c], key=lambda r: ("annotated" in r["n"].lower(), len(r["n"]))):
             key = json.dumps(r["v"])
             if key in keep:
-                keep[key].setdefault("also", []).append(r["n"])
+                keep[key].setdefault("also", []).append({"n": r["n"], "u": r["u"], "m": r["m"]})
             else:
                 keep[key] = r
         runs[c] = sorted(keep.values(), key=lambda r: r["n"])
