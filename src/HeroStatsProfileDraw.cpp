@@ -95,10 +95,37 @@ float DistanceToSegment(ImVec2 p, ImVec2 a, ImVec2 b)
   return sqrtf(x * x + y * y);
 }
 
+const ImU32 TIP_GROUND_RGB = 0x16171b;   // darker than the cards under it
+const ImU32 TIP_EDGE_RGB = 0x9aa3b8;     // and an edge lighter than the other tooltips'
+
 void AxisTooltip(const HeroStatsStar &star, int axis, const std::vector<HeroStatsColumn> &columns)
 {
-  if (!ImGui::BeginTooltip()) return;
+  // The spacing holds for the content; the frame's values are read when the tooltip begins
+  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 5));
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14, 11));
+  ImGui::PushStyleVar(ImGuiStyleVar_PopupBorderSize, 2.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 4.0f);
+  ImGui::PushStyleColor(ImGuiCol_Border, Colour(TIP_EDGE_RGB));
+  ImGui::PushStyleColor(ImGuiCol_PopupBg, Colour(TIP_GROUND_RGB));
+  bool open = ImGui::BeginTooltip();
+  ImGui::PopStyleColor(2);
+  ImGui::PopStyleVar(3);
+  if (!open)
+  {
+    ImGui::PopStyleVar();
+    return;
+  }
   ImGui::TextColored(Colour(WHITE_RGB), "%s", star.axes[axis].c_str());
+  if (axis < (int)star.helps.size())
+  {
+    float wrap = ImGui::CalcTextSize("0").x * 52;
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap);
+    ImGui::TextColored(Colour(DIM_RGB), "%s", star.helps[axis].c_str());
+    ImGui::PopTextWrapPos();
+  }
+  ImGui::Dummy(ImVec2(0, 2));
+  ImGui::Separator();
+  ImGui::Dummy(ImVec2(0, 2));
   // The bright shapes first: they are what the star is about
   for (int pass = 0; pass < 2; pass++)
     for (size_t s = star.shapes.size(); s-- > 0;)
@@ -115,6 +142,7 @@ void AxisTooltip(const HeroStatsStar &star, int axis, const std::vector<HeroStat
                          shape.texts[axis].c_str(), shape.details[axis].c_str());
     }
   ImGui::EndTooltip();
+  ImGui::PopStyleVar();
 }
 
 // The star in a box of width x STAR_BOX at origin

@@ -72,7 +72,7 @@ std::map<int, int> AutoMap_ExploredTilesPerLevel(void);
 // Per level, what the party has read and seen on the walls: wall texts read, champion portraits
 // seen (drawn on the wall straight ahead) and champions viewed (the mirror clicked)
 std::map<int, AutoMapWallCounts> AutoMap_WallCountsPerLevel(void);
-// For the statistics' Profile: what each visited level holds (HeroStatsDungeonCounts). held: the
+// For the statistics' Profile: what each level in levels holds (HeroStatsDungeonCounts). held: the
 // records of the items the party has held (AutoMapLevelReader_RecordId), left out of what lies
 // about; walked: the cells the party stood on, as (level, x, y), from which the reachable cells
 // are counted (with the stairs and the teleporters' targets). A level is read again when the

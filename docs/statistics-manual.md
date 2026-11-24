@@ -515,9 +515,12 @@ dungeon the party left behind.
 
 Every axis of a star is a share from 0 to 100%, never a plain count: a rate (hits of attacks), a
 share of a whole the axes split (the mana by purpose), a rank, or a share of what the dungeon
-holds. Hover an axis's name or spoke for the numbers behind it, for each shape.
+holds. Hover an axis's name or spoke for what it counts and the numbers behind it, for each shape.
 
-- **How much of the dungeon they found**: the party's share of what the dungeon holds.
+- **How much of the dungeon they found**: the party's share of what the dungeon holds. For the
+  whole run that is the whole dungeon, the levels not visited yet included, so the shape only
+  grows as the party finds things (a monster spawning or an item a monster drops adds to a total,
+  and takes a little off). For one level it is that level's own.
   - *Explored*: the floor cells explored, of those the party can reach from where it has been,
     through stairs and teleporters. An area no way leads into does not count.
   - *Items*: picked up the first time, of those and the ones still lying about (on the floor, in

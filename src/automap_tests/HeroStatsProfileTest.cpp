@@ -142,8 +142,44 @@ static void LevelBarsListTheVisitedLevels(void)
   CHECK(profile.completion.axes.size() == HERO_COMPLETION_AXIS_COUNT);
 }
 
+// Every axis says what it counts, for the hover
+static void EveryAxisIsExplained(void)
+{
+  HeroStats stats = OneChampion();
+  stats.MeetChampion(ELIJA, "ELIJA");
+  stats.CreditMonsterDamage(1, BlowOf(ZED), 30);
+  stats.CreditMonsterDamage(1, BlowOf(ELIJA), 10);
+  for (int level = HERO_STATS_WHOLE_RUN; level <= 1; level += 2)
+  {
+    HeroStatsProfile profile = HeroStatsProfile_Make(stats, HERO_STATS_PARTY, level);
+    const HeroStatsStar *stars[5] = {&profile.completion, &profile.played, &profile.trained, &profile.mana, &profile.roles};
+    for (int i = 0; i < 5; i++)
+    {
+      CHECK(stars[i]->helps.size() == stars[i]->axes.size());
+      for (size_t a = 0; a < stars[i]->helps.size(); a++) CHECK(stars[i]->helps[a].size() > 20);
+    }
+    CHECK(profile.played.helps[6].find("full") != std::string::npos);  // Mana used: lost to full mana
+  }
+}
+
+// The whole run is the whole dungeon: a level the party has not been to counts too
+static void TheWholeRunCountsLevelsNotVisited(void)
+{
+  HeroStats stats = OneChampion();
+  std::map<int, HeroStatsDungeonCounts> perLevel;
+  HeroStatsDungeonCounts here = {100, 100, 0, 0, 0, 0, 0, 0}, notYet = {300, 0, 0, 0, 0, 0, 0, 0};
+  perLevel[1] = here;
+  perLevel[2] = notYet;
+  stats.SetDungeonCounts(perLevel);
+  HeroStatsProfile profile = HeroStatsProfile_Make(stats, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN);
+  CHECK(Near(profile.completion.shapes[0].values[HeroCompletionExplored], 0.25));
+  CHECK(profile.levelBars.size() == 1);   // the bars are the visited levels
+}
+
 void TestHeroStatsProfile(void)
 {
+  EveryAxisIsExplained();
+  TheWholeRunCountsLevelsNotVisited();
   PlayedRatesAreRatiosOfCounts();
   ManaPurposesAddUp();
   RolesNeedTwoChampionsWithAnyValue();

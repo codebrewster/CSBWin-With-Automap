@@ -748,7 +748,12 @@ void HeroStats_RefreshMapCounts(bool force)
   const std::set<int> &heldItems = origins.HeldItems();
   for (std::set<int>::const_iterator at = heldItems.begin(); at != heldItems.end(); ++at)
     held.insert(AutoMapLevelReader_RecordId(*at));
-  store.SetDungeonCounts(AutoMap_DungeonCountsPerLevel(held, store.TilesWalked(), store.VisitedLevels()));
+  // Every level, visited or not: the whole run's completion is a share of the whole dungeon, so it
+  // does not drop when the party reaches a new level
+  std::vector<int> levels;
+  int levelCount = d.dungeonDatIndex != NULL ? d.dungeonDatIndex->NumLevel() : 0;
+  for (int level = 0; level < levelCount; level++) levels.push_back(level);
+  store.SetDungeonCounts(AutoMap_DungeonCountsPerLevel(held, store.TilesWalked(), levels));
 }
 
 void HeroStats_OnStairwayTaken(int toLevel, int toX, int toY)

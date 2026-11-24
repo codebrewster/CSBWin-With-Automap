@@ -16,6 +16,7 @@
 #include "imgui_impl_sdlrenderer2.h"
 #include "HeroStatsCatalogue.h"
 #include "HeroStatsDraw.h"
+#include "HeroStatsLayout.h"
 #include "HeroStatsExport.h"
 #include "HeroStatsHooks.h"
 #include "HeroStatsView.h"
@@ -706,13 +707,26 @@ static void ExportStatistics(void)
   if (SDL_ShowMessageBox(&box, &pressed) == 0 && pressed == 1) SDL_OpenURL(FileUrl(path).c_str());
 }
 
+// How long a paint took, kept when it ends: the next paint waits for it (HeroStatsLayout_FrameGap)
+namespace
+{
+struct PaintCost
+{
+  Uint32 *into, start;
+  explicit PaintCost(Uint32 *into_) : into(into_), start(SDL_GetTicks()) {}
+  ~PaintCost() { *into = SDL_GetTicks() - start; }
+};
+}
+
 void HeroStatsWindow_Paint(void)
 {
   if (!isShown) return;
   Uint32 now = SDL_GetTicks();
-  if (hasPainted && now - lastFrame < SMALLEST_FRAME_GAP) return;
+  static Uint32 lastPaintCost = 0;
+  if (hasPainted && now - lastFrame < HeroStatsLayout_FrameGap(SMALLEST_FRAME_GAP, lastPaintCost)) return;
   lastFrame = now;
   hasPainted = true;
+  PaintCost cost(&lastPaintCost);
   StatsContextScope scope;
   // Without capture a release outside the window is never delivered: let go of what SDL sees up
   {

@@ -161,8 +161,17 @@ static void APartyCardShowsTheMostThatFits(void)
   CHECK(HeroStatsLayout_PartyStep(1, 1, 882, 742, 2000, 236, 236) == HeroPartyAttributesAndInventory);
 }
 
+// A paint that takes long waits longer before the next, so the game keeps most of the time
+static void ASlowPaintWaitsThreeTimesItsCost(void)
+{
+  CHECK(HeroStatsLayout_FrameGap(33, 0) == 33);
+  CHECK(HeroStatsLayout_FrameGap(33, 10) == 33);
+  CHECK(HeroStatsLayout_FrameGap(33, 29) == 87);
+}
+
 void TestHeroStatsLayout(void)
 {
+  ASlowPaintWaitsThreeTimesItsCost();
   TheListGivesUpKineticThenDamageAndArmor();
   APartyCardShowsTheMostThatFits();
   ATableGivesUpOneThingAfterTheOther();

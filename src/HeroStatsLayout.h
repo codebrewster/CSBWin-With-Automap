@@ -62,4 +62,9 @@ enum HeroStatsPartyStep { HeroPartyPlain, HeroPartyInventory, HeroPartyAttribute
 HeroStatsPartyStep HeroStatsLayout_PartyStep(int count, int across, float withBoth, float withInventory, float available,
                                              float cardInner, float picture);
 
+// The time in ms the window waits after a paint before the next one: at least smallest, and three
+// times what the last paint took, so that a slow renderer (software rendering) leaves the game at
+// least three quarters of the time
+unsigned HeroStatsLayout_FrameGap(unsigned smallest, unsigned lastPaint);
+
 #endif

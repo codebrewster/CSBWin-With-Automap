@@ -28,6 +28,7 @@ struct HeroStatsStar
 {
   std::string title, caption;
   std::vector<std::string> axes;
+  std::vector<std::string> helps;                       // what each axis counts, for the hover, parallel to axes
   std::vector<HeroStatsStarShape> shapes;               // drawing order: faint ones first
   double outer;                                         // the value at the edge
   std::vector<std::pair<double, std::string> > rings;   // value and label ("50%", "Expert")

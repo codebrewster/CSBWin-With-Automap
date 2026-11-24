@@ -86,6 +86,16 @@ HeroStatsStar Completion(const HeroStats &stats, int level)
 {
   HeroStatsStar star = NewStar("How much of the dungeon they found", "Each axis: a share of what the dungeon holds.");
   static const char *const AXES[HERO_COMPLETION_AXIS_COUNT] = {"Explored", "Items", "Monsters", "Doors", "Switches"};
+  static const char *const HELPS[HERO_COMPLETION_AXIS_COUNT] = {
+    "Floor cells explored, of the floor cells the party can reach from where it has been, through stairs and teleporters. "
+    "An area no way leads into does not count.",
+    "Items picked up for the first time, of those and the items still lying on floors, in alcoves and in chests. "
+    "An item a monster drops adds to the total; a champion's gear in a mirror does not count.",
+    "Monsters killed, by any cause, of those and the monsters still alive. A monster a generator spawns adds to the total.",
+    "Doors the party has seen open or broken, or that are open now, of all the doors.",
+    "Wall switches, buttons, locks and the like that do something, of those the party has worked at least once."};
+  const char *where = level == HERO_STATS_WHOLE_RUN ? " The whole dungeon, levels not visited yet included." : " This level only.";
+  for (int axis = 0; axis < HERO_COMPLETION_AXIS_COUNT; axis++) star.helps.push_back(std::string(HELPS[axis]) + where);
   HeroStatsStarShape shape;
   shape.who = HERO_STATS_PARTY;
   shape.faint = false;
@@ -139,6 +149,20 @@ HeroStatsStar Played(const HeroStats &stats, HeroStatsChampion who, int level)
   static const char *const AXES[8] = {"Hit rate", "Melee share", "Casts worked", "Blows avoided",
                                       "Stopped by defences", "Potion healing", "Mana used", "Food & water used"};
   star.axes.assign(AXES, AXES + 8);
+  static const char *const HELPS[8] = {
+    "Attacks that hit a monster, of all attacks made: blows, throws and shots.",
+    "Damage dealt at close range (weapons and bare hands), of all damage dealt. A style, not a score: the rest was "
+    "dealt by throws, shots and spells.",
+    "Spells that worked, of all spells tried. A spell fails when the champion's skill falls short.",
+    "Monster attacks that did no harm (dodged, lucky, too weak, or stopped by the defences), of all monster attacks "
+    "on the champions.",
+    "Damage the defences took off (armour, shields, resistance, protection spells), of that and the damage taken.",
+    "Hit points healed by potions, of all healing: regeneration, potions and the heal action. A style, not a score.",
+    "Mana regeneration that went into the champions, of all the regeneration. The rest was lost because their mana "
+    "was already full: casting more often keeps it flowing.",
+    "Food and water that went into the champions, of all they ate and drank. The rest was lost over the maximum, "
+    "eating or drinking while already full."};
+  star.helps.assign(HELPS, HELPS + 8);
   if (who != HERO_STATS_PARTY)
   {
     star.title = "How they played";
@@ -165,7 +189,15 @@ HeroStatsStar Trained(const HeroStats &stats, HeroStatsChampion who, int level)
   const HeroStatsExperience &xp = stats.Experience();
   bool wholeRun = level == HERO_STATS_WHOLE_RUN;
   HeroStatsStar star = NewStar("Ranks per class", "The edge is the best rank anyone reached in this run.");
-  for (int cls = 0; cls < HERO_XP_CLASS_COUNT; cls++) star.axes.push_back(HeroXp_ClassName(cls));
+  for (int cls = 0; cls < HERO_XP_CLASS_COUNT; cls++)
+  {
+    star.axes.push_back(HeroXp_ClassName(cls));
+    std::string name = HeroXp_ClassName(cls);
+    star.helps.push_back(wholeRun ? "Each champion's rank as a " + name + " now: the rank they started with, raised by every rank "
+                                    "gained. The edge is the best rank any champion reached in any class."
+                                  : "The experience each champion gained as a " + name + " on this level. The edge is the "
+                                    "biggest gain of any champion in any class here.");
+  }
   const std::vector<HeroStatsChampionInfo> &champions = stats.Champions();
   double best = 0;
   for (size_t c = 0; c < champions.size(); c++)
@@ -234,6 +266,16 @@ HeroStatsStar Mana(const HeroStats &stats, HeroStatsChampion who, int level)
                                "Each champion's mana spent, by what it bought. One shape adds up to 100%: a big shape is no more mana.");
   static const char *const AXES[MANA_PURPOSE_COUNT] = {"Attack", "Potions", "Light", "Protection", "Other", "Wasted"};
   star.axes.assign(AXES, AXES + MANA_PURPOSE_COUNT);
+  static const char *const HELPS[MANA_PURPOSE_COUNT] = {
+    "Mana spent on attack spells: Fireball, Lightning, Poison bolt, Poison cloud, Weaken nonmaterial and Zokathra.",
+    "Mana spent brewing potions into empty flasks: health, stamina, mana, strength, dexterity, wisdom, vitality, "
+    "cure poison, shield and poison potions.",
+    "Mana spent on light and dark: Torch, Light and Darkness.",
+    "Mana spent on protection: Shield party, Fire shield and the shield action of staffs and wands.",
+    "Mana spent on everything else: Open door, Footprints, See-through-walls, Invisibility, the spells of staffs and wands, "
+    "the heal action, and spells this list does not know.",
+    "Mana lost: failed casts, runes that formed no spell, and runes cleared before casting."};
+  star.helps.assign(HELPS, HELPS + MANA_PURPOSE_COUNT);
   const std::vector<HeroStatsChampionInfo> &champions = stats.Champions();
   double best = 0;
   for (size_t c = 0; c < champions.size(); c++)
@@ -281,6 +323,14 @@ HeroStatsStar Roles(const HeroStats &stats, HeroStatsChampion who, int level, bo
                                              HeroNumPotionsBrewed, HeroNumExperience};
   static const char *const AXES[6] = {"Damage", "Kills", "Mana spent", "Blows taken", "Potions brewed", "Experience"};
   star.axes.assign(AXES, AXES + 6);
+  static const char *const HELPS[6] = {
+    "The champion's share of all the damage the party dealt to monsters.",
+    "The champion's share of the monsters the party killed.",
+    "The champion's share of all the mana the party spent.",
+    "The champion's share of the monster blows that hurt the party: who stood in front.",
+    "The champion's share of the potions the party brewed.",
+    "The champion's share of all the experience the party gained."};
+  star.helps.assign(HELPS, HELPS + 6);
   const std::vector<HeroStatsChampionInfo> &champions = stats.Champions();
   std::vector<HeroStatsRecord> records;
   std::vector<HeroStatsChampion> shown;

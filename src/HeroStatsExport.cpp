@@ -415,7 +415,7 @@ static int ColumnIndex(const std::vector<HeroStatsColumn> &columns, HeroStatsCha
 static std::string StarJson(const HeroStatsStar &star, const std::vector<HeroStatsColumn> &columns)
 {
   std::string out = "{\"title\":" + HeroStatsExport_JsonString(star.title) + ",\"caption\":" + HeroStatsExport_JsonString(star.caption) +
-                    ",\"axes\":" + Strings(star.axes) + ",\"outer\":" + Fraction(star.outer) + ",\"centre\":" + Fraction(star.centre) +
+                    ",\"axes\":" + Strings(star.axes) + ",\"helps\":" + Strings(star.helps) + ",\"outer\":" + Fraction(star.outer) + ",\"centre\":" + Fraction(star.centre) +
                     ",\"edge\":" + HeroStatsExport_JsonString(star.edgeLabel) + ",\"even\":" + Fraction(star.evenRing) + ",\"rings\":[";
   for (size_t r = 0; r < star.rings.size(); r++)
     out += std::string(r > 0 ? "," : "") + "[" + Fraction(star.rings[r].first) + "," + HeroStatsExport_JsonString(star.rings[r].second) + "]";
@@ -1573,7 +1573,7 @@ function starSvg(s) {
     const anchor = Math.abs(dx) < 8 ? 'middle' : dx > 0 ? 'start' : 'end';
     const yy = y + (Math.abs(dx) >= 8 ? 4 : y < cy ? (single ? -10 : -2) : 10);
     const tip = s.shapes.slice().reverse().map(h => `${whoName(h.who)}: ${h.texts[a]}  ${h.details[a]}`).join('\n');
-    out += `<g><title>${esc(s.axes[a] + '\n' + tip)}</title><text x="${x.toFixed(1)}" y="${yy.toFixed(1)}" font-size="11.5" fill="#d8d8d8" text-anchor="${anchor}">${esc(s.axes[a])}</text>`;
+    out += `<g><title>${esc(s.axes[a] + '\n' + (s.helps ? s.helps[a] + '\n\n' : '') + tip)}</title><text x="${x.toFixed(1)}" y="${yy.toFixed(1)}" font-size="11.5" fill="#d8d8d8" text-anchor="${anchor}">${esc(s.axes[a])}</text>`;
     if (single) out += `<text x="${x.toFixed(1)}" y="${(yy + 13).toFixed(1)}" font-size="11.5" fill="#fff" font-weight="600" text-anchor="${anchor}">${esc(single.texts[a])}</text>`;
     out += '</g>';
   }

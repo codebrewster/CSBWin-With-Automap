@@ -118,3 +118,8 @@ HeroStatsPartyStep HeroStatsLayout_PartyStep(int count, int across, float withBo
   if (withInventory <= available) return HeroPartyInventory;
   return HeroPartyPlain;
 }
+
+unsigned HeroStatsLayout_FrameGap(unsigned smallest, unsigned lastPaint)
+{
+  return 3 * lastPaint > smallest ? 3 * lastPaint : smallest;
+}
