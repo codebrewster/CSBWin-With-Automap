@@ -162,9 +162,14 @@ std::string HeroStats_AttackOptionNameOf(int option);
 HeroStatsNames HeroStats_NamesOfTheGame(void);
 // _Attack carried out an action (after its filters). Actions that cannot hit (War Cry, Calm,
 // Spellshield, Light, Climb Down ...) count one use for the weapon in hand and the action; melee
-// blows and missiles count their tries elsewhere. Fuse counts before Fusion: on Lord Chaos the
-// game ends inside it and never comes back.
+// blows, missiles and Fuse count their tries elsewhere.
 void HeroStats_OnActionDone(int slot, int attackType);
+// A champion's Fuse: one try for the weapon and Fuse, before Fusion (on Lord Chaos the game ends
+// inside it). Around the CreateCloud in _Fusion, HeroStats_BeginFuseCloud and HeroStats_EndCloud
+// give the Dispell cloud that Fuse makes the champion's blow, as an Invoke's explosion has: the
+// monsters it kills are the champion's, its first damage is the hit.
+void HeroStats_ExpectFuse(int slot);
+void HeroStats_BeginFuseCloud(void);
 // The next missile launched is the champion's (one try for the weapon and option when it is
 // launched) or a monster's
 void HeroStats_ExpectHeroMissile(int slot, HeroDamageKind kind, int weapon, bool thrown, int option,

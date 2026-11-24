@@ -11,7 +11,7 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Ranged", "", false, false, false, false, false},
     {"Magic", "", false, false, false, false, false},
     {"Kills", "Kills by the champions. Monsters killed by doors, falls, telefrags and landings are on the Monsters tab.", false, false, false, false, false},
-    {"Attacks", "Blows and missiles aimed at a monster. Other actions are not counted here, but are in the Weapons table's Tries.", false, false, false, false, false},
+    {"Attacks", "Blows, missiles and Fuse aimed at a monster. Other actions are not counted here, but are in the Weapons table's Tries.", false, false, false, false, false},
     {"Hits", "", false, false, false, false, false},
     {"Hit rate", "Hits \xc3\xb7 Attacks.", false, false, false, true, false},
     {"Damage per hit", "Damage of blows and missiles \xc3\xb7 Hits. Spells are not in it.", false, false, false, true, false},

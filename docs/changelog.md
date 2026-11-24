@@ -7,6 +7,9 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 ## Unreleased
 
+**Statistics**
+- A monster killed by the explosion of a Fuse (the Firestaff's action) is the champion's kill, as with Invoke; it counted under Other causes. Fuse now counts as an attack (a try, and a hit once its explosion hurts) rather than an Other action.
+
 ## 1.6.3 (2026-11-23)
 
 **General**

@@ -1019,7 +1019,7 @@ static bool ActionCanHit(int attackType)
   case atk_DISRUPT: case atk_JAB: case atk_PARRY: case atk_STAB2: case atk_STAB1: case atk_STUN:
   case atk_THRUST: case atk_MELEE: case atk_SLASH: case atk_CLEAVE: case atk_PUNCH:
   case atk_LIGHTNING: case atk_DISPELL: case atk_FIREBALL: case atk_SPIT: case atk_INVOKE:
-  case atk_SHOOT: case atk_THROW:
+  case atk_SHOOT: case atk_THROW: case atk_FUSE:
     return true;
   default:
     return false;
@@ -1090,6 +1090,29 @@ void HeroStats_BeginCloud(int missileIndex)
   explosionBlow = MissileBlow(missileIndex);
 }
 
+// The Fuse whose explosion _Fusion makes next; it is not kept in a snapshot: Fusion makes its
+// cloud in the same call as the action
+static bool fuseExpected = false;
+static HeroStatsBlow fuseBlow = HeroStatsBlow_Nobody(HeroBlowByOther);
+
+void HeroStats_ExpectFuse(int slot)
+{
+  fuseExpected = false;
+  if (!IsHero(slot)) return;
+  fuseBlow = HeroBlow(slot, HeroDamageMagic, HeroStats_WeaponInHand(slot), false, atk_FUSE, HERO_STATS_NO_SPELL);
+  fuseExpected = true;
+  store.CountAttackTry(PartyLevel(), fuseBlow);
+}
+
+void HeroStats_BeginFuseCloud(void)
+{
+  explosionActive = true;
+  explosionCloudPending = true;
+  explosionMissile = -1;
+  explosionBlow = fuseExpected ? fuseBlow : HeroStatsBlow_Nobody(HeroBlowByOther);
+  fuseExpected = false;
+}
+
 void HeroStats_OnCloudMade(int cloudIndex)
 {
   // Records are reused: a cloud nobody is known to have made must not keep an old cloud's origin
@@ -1107,8 +1130,11 @@ void HeroStats_OnCloudMade(int cloudIndex)
 
 void HeroStats_EndCloud(void)
 {
-  // A missile that hurt nothing on its way or in its explosion still hits once its cloud does
+  // A missile that hurt nothing on its way or in its explosion still hits once its cloud does; a
+  // champion's Fuse has no missile and hits when its cloud first hurts
   if (explosionCloud >= 0 && explosionMissile >= 0 && missilesThatHit.count(explosionMissile) == 0)
+    cloudsAwaitingHit.insert(explosionCloud);
+  if (explosionCloud >= 0 && explosionMissile < 0 && explosionBlow.by == HeroBlowByChampion)
     cloudsAwaitingHit.insert(explosionCloud);
   explosionActive = false;
   explosionCloudPending = false;
