@@ -19,6 +19,7 @@ save.
 - [Monsters](#monsters)
 - [Experience](#experience)
 - [Records](#records)
+- [Profile](#profile)
 - [Champions](#champions)
 - [Per level](#per-level)
 - [Numbers](#numbers)
@@ -62,7 +63,7 @@ The window has three controls that never move:
   arrows step to the previous or next visited level, and the list jumps to any of them.
 - **The topic**, the tabs under them: **Overview**, **Combat**, **Magic**, **Survival**,
   **Food & items**, **Exploration**, **Monsters**, **Experience** and **Records**. The tabs are the
-  same whoever is picked. After them comes **Champions**, which is not a topic of the statistics
+  same whoever is picked. Then **Profile**, the run as star plots (see [Profile](#profile)). After them comes **Champions**, which is not a topic of the statistics
   but the party as it is now (see [Champions](#champions)).
 
 After the level, at the right end of the first row, is the **Export as HTML...** button (see
@@ -504,6 +505,55 @@ gold with a ★. The party's own records (falls, teleports, sleep) are not on a 
 
 **Records go back with a reload** like the other numbers: a hit you reloaded away did not happen.
 
+## Profile
+
+The run at a glance, as star plots. It repeats what the other tabs hold, so a shape shows what the
+tables take a while to read: which champion carried the fighting, who trained what, how much of the
+dungeon the party left behind.
+
+![The Party's Profile for the whole run: the five stars and the bars of what was explored per level](images/statistics-profile.png)
+
+Every axis of a star is a share from 0 to 100%, never a plain count: a rate (hits of attacks), a
+share of a whole the axes split (the mana by purpose), a rank, or a share of what the dungeon
+holds. Hover an axis's name or spoke for the numbers behind it, for each shape.
+
+- **How much of the dungeon they found**: the party's share of what the dungeon holds.
+  - *Explored*: the floor cells explored, of those the party can reach from where it has been,
+    through stairs and teleporters. An area no way leads into does not count.
+  - *Items*: picked up the first time, of those and the ones still lying about (on the floor, in
+    alcoves and chests). An item a monster drops is lying about, so it adds to the total. A
+    champion's gear in a mirror is no item to find.
+  - *Monsters*: killed, by any cause, of those killed and those alive. A monster a generator
+    spawns adds to the total.
+  - *Doors*: the doors the party has seen open or broken, or that are open now.
+  - *Switches*: the wall faces with a switch, button, lock or the like that does something, of
+    those a click of the party has worked.
+- **How the party played**: eight rates. Bigger is better, apart from the two that show a style:
+  *Melee share* (of the damage dealt) and *Potion healing* (of all healing). *Casts worked*: spells
+  cast of those tried; *Blows avoided*: monster blows that did no harm; *Stopped by defences*: the
+  damage the defences took off, of that and the damage taken; *Mana used*: regeneration not lost to
+  full mana; *Food & water used*: not lost over the maximum.
+- **Ranks per class**: each champion's rank in Fighter, Ninja, Priest and Wizard. The edge is the
+  best rank anyone reached, so the shapes fill the star; the rings carry the rank names. A pure
+  fighter is one long arm, an all-rounder an even square. For one level it shows the experience
+  gained there instead.
+- **Where the mana went**: each champion's mana spent, by what it bought: attack spells, potions,
+  light, protection, other spells and staffs, and wasted (failed casts, meaningless runes, runes
+  cleared). A champion's axes add up to 100%, so a big shape is a different split, not more mana.
+- **Who carried what**: each champion's share of the party's damage, kills, mana spent, blows
+  taken, potions brewed and experience. The dashed ring is an even share: past it, a champion
+  carries more than their part. Only with two champions or more who did any of it.
+- **Explored per level**: a bar per visited level, orange under half. Click a level to pick it.
+
+With a champion picked, their shapes are bright and the others faint; *How they played* draws the
+party behind the champion. The completion and the bars are always the party's.
+
+On **Per level** the page is a table instead: a row per visited level and one for the whole run, a
+column for each completion axis, each cell shaded by its value and orange under half. Click a
+level's name to pick it.
+
+The exported page has the same tab.
+
 ## Champions
 
 The last tab shows the champions as they are **now**, what the game's own inventory screen shows
@@ -695,7 +745,7 @@ The window keeps these in the `[settings]` section of `csb.cfg`:
 |---|---|
 | `stats_window` | 1 when the window was open when the game was left |
 | `stats_x`, `stats_y`, `stats_width`, `stats_height` | The window's place and size |
-| `stats_page` | The topic last chosen: 0 Overview, 1 Combat, 2 Magic, 3 Survival, 4 Food & items, 5 Exploration, 6 Monsters, 7 Experience, 8 Records |
+| `stats_page` | The topic last chosen: 0 Overview, 1 Combat, 2 Magic, 3 Survival, 4 Food & items, 5 Exploration, 6 Monsters, 7 Experience, 8 Records, 9 Champions, 10 Profile |
 | `stats_layout` | 2: `stats_page` holds a topic. Without it, `stats_page` is read as the front page of earlier versions (3 Monsters, 4 Items; the others open the Overview). |
 | `stats_separator` | The mark between thousands: `comma` (4,261, the default), `dot` (4.261), `space` (4 261), `apostrophe` (4'261) or `none` (4261). Edit it while the game is closed. |
 | `stats_zoom` | The zoom in percent: 70, 80, 90, 100 (the default), 110, 125, 150, 175, 200 or 250. Another number is taken as the nearest of these. |
