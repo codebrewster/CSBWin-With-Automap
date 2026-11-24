@@ -176,8 +176,33 @@ static void TheWholeRunCountsLevelsNotVisited(void)
   CHECK(profile.levelBars.size() == 1);   // the bars are the visited levels
 }
 
+// The hover text of an axis: what it counts, then a line per shape in the window's tooltip style
+static void AnAxisTipExplainsThenListsTheShapes(void)
+{
+  HeroStats stats = OneChampion();
+  stats.MeetChampion(ELIJA, "ELIJA");
+  for (int i = 0; i < 4; i++) stats.CountAttackTry(1, BlowOf(ZED));
+  for (int i = 0; i < 3; i++) stats.CountAttackHit(1, BlowOf(ZED));
+  stats.CreditMonsterDamage(1, BlowOf(ZED), 30);
+  stats.CreditMonsterDamage(1, BlowOf(ELIJA), 10);
+  HeroStatsProfile profile = HeroStatsProfile_Make(stats, ZED, HERO_STATS_WHOLE_RUN);
+  const HeroStatsStar &played = profile.played;
+  CHECK(played.tips.size() == played.axes.size());
+  CHECK(played.tips[0].find(played.helps[0]) == 0);
+  CHECK(played.tips[0].find("\n\nZED  75% \xc2\xb7 3 of 4") != std::string::npos);  // the bright shape first
+  CHECK(played.tips[0].find("\nParty  75% \xc2\xb7 3 of 4") != std::string::npos);
+  CHECK(played.axes[6] == "Regeneration used" && played.axes[7] == "Food & water not wasted");
+  const HeroStatsStar &roles = profile.roles;
+  CHECK(roles.axes[0] == "Damage dealt" && roles.axes[3] == "Hits taken" && roles.axes[5] == "Experience gained");
+  CHECK(roles.tips[0].find("\n\nZED  75% \xc2\xb7 30\nELIJA  25% \xc2\xb7 10") != std::string::npos);
+  // The completion's own help says nothing of the level; its tip does
+  CHECK(profile.completion.helps[1].find("whole dungeon") == std::string::npos);
+  CHECK(profile.completion.tips[1].find("whole dungeon") != std::string::npos);
+}
+
 void TestHeroStatsProfile(void)
 {
+  AnAxisTipExplainsThenListsTheShapes();
   EveryAxisIsExplained();
   TheWholeRunCountsLevelsNotVisited();
   PlayedRatesAreRatiosOfCounts();

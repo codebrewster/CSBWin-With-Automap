@@ -85,66 +85,6 @@ void FillShape(ImDrawList *drawList, ImVec2 centre, const std::vector<ImVec2> &p
     drawList->AddTriangleFilled(centre, points[i], points[(i + 1) % points.size()], colour);
 }
 
-float DistanceToSegment(ImVec2 p, ImVec2 a, ImVec2 b)
-{
-  float dx = b.x - a.x, dy = b.y - a.y;
-  float lengthSquared = dx * dx + dy * dy;
-  float t = lengthSquared > 0 ? ((p.x - a.x) * dx + (p.y - a.y) * dy) / lengthSquared : 0;
-  t = t < 0 ? 0 : t > 1 ? 1 : t;
-  float x = a.x + t * dx - p.x, y = a.y + t * dy - p.y;
-  return sqrtf(x * x + y * y);
-}
-
-const ImU32 TIP_GROUND_RGB = 0x16171b;   // darker than the cards under it
-const ImU32 TIP_EDGE_RGB = 0x9aa3b8;     // and an edge lighter than the other tooltips'
-
-void AxisTooltip(const HeroStatsStar &star, int axis, const std::vector<HeroStatsColumn> &columns)
-{
-  // The spacing holds for the content; the frame's values are read when the tooltip begins
-  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 5));
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14, 11));
-  ImGui::PushStyleVar(ImGuiStyleVar_PopupBorderSize, 2.0f);
-  ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 4.0f);
-  ImGui::PushStyleColor(ImGuiCol_Border, Colour(TIP_EDGE_RGB));
-  ImGui::PushStyleColor(ImGuiCol_PopupBg, Colour(TIP_GROUND_RGB));
-  bool open = ImGui::BeginTooltip();
-  ImGui::PopStyleColor(2);
-  ImGui::PopStyleVar(3);
-  if (!open)
-  {
-    ImGui::PopStyleVar();
-    return;
-  }
-  ImGui::TextColored(Colour(WHITE_RGB), "%s", star.axes[axis].c_str());
-  if (axis < (int)star.helps.size())
-  {
-    float wrap = ImGui::CalcTextSize("0").x * 52;
-    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap);
-    ImGui::TextColored(Colour(DIM_RGB), "%s", star.helps[axis].c_str());
-    ImGui::PopTextWrapPos();
-  }
-  ImGui::Dummy(ImVec2(0, 2));
-  ImGui::Separator();
-  ImGui::Dummy(ImVec2(0, 2));
-  // The bright shapes first: they are what the star is about
-  for (int pass = 0; pass < 2; pass++)
-    for (size_t s = star.shapes.size(); s-- > 0;)
-    {
-      const HeroStatsStarShape &shape = star.shapes[s];
-      if (shape.faint != (pass == 1) || axis >= (int)shape.texts.size()) continue;
-      ImVec2 at = ImGui::GetCursorScreenPos();
-      float size = ImGui::GetFontSize();
-      ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(at.x + size * 0.4f, at.y + size * 0.55f), size * 0.3f,
-                                                  Packed(ShapeRgb(columns, shape.who)));
-      ImGui::Dummy(ImVec2(size, size));
-      ImGui::SameLine();
-      ImGui::TextColored(Colour(shape.faint ? DIM_RGB : TEXT_RGB), "%-8s %5s   %s", NameOf(columns, shape.who).c_str(),
-                         shape.texts[axis].c_str(), shape.details[axis].c_str());
-    }
-  ImGui::EndTooltip();
-  ImGui::PopStyleVar();
-}
-
 // The star in a box of width x STAR_BOX at origin
 void DrawStar(const HeroStatsStar &star, ImVec2 origin, float width, const std::vector<HeroStatsColumn> &columns)
 {
@@ -203,6 +143,9 @@ void DrawStar(const HeroStatsStar &star, ImVec2 origin, float width, const std::
     bool twoLines = single != NULL && a < (int)single->texts.size();
     if (fabsf(dx) < 8 && at.y < centre.y && twoLines) y -= size.y;
     drawList->AddText(ImVec2(x, y), Packed(TEXT_RGB), star.axes[a].c_str());
+    bool hasTip = a < (int)star.tips.size() && !star.tips[a].empty();
+    // Dotted under the name, as any label with a hovertext
+    if (hasTip) HeroStatsDraw_DottedUnderline(x, x + size.x, y + size.y);
     float bottom = y + size.y;
     float right = x + size.x;
     if (twoLines)
@@ -214,10 +157,9 @@ void DrawStar(const HeroStatsStar &star, ImVec2 origin, float width, const std::
       bottom += textSize.y;
     }
     bool overLabel = mouse.x >= x - 2 && mouse.x <= right + 2 && mouse.y >= y - 2 && mouse.y <= bottom + 2;
-    bool overSpoke = DistanceToSegment(mouse, centre, PointAt(centre, radius, a, axisCount, 1)) < 6;
-    if (overLabel || overSpoke) hoveredAxis = a;
+    if (overLabel && hasTip) hoveredAxis = a;
   }
-  if (hoveredAxis >= 0 && ImGui::IsWindowHovered() && !star.shapes.empty()) AxisTooltip(star, hoveredAxis, columns);
+  if (hoveredAxis >= 0 && ImGui::IsWindowHovered()) HeroStatsDraw_Tooltip(star.tips[hoveredAxis]);
 }
 
 void Legend(ImVec2 origin, float width, const HeroStatsStar &star, const std::vector<HeroStatsColumn> &columns)
@@ -286,7 +228,7 @@ void BarsCard(const HeroStatsProfile &profile, HeroStatsDrawState *state, ImVec2
 {
   ImDrawList *drawList = ImGui::GetWindowDrawList();
   drawList->AddRectFilled(origin, ImVec2(origin.x + width, origin.y + height), Packed(PANEL_RGB), 6);
-  float top = CardHeading(origin, width, "Explored per level", "Floor cells explored, of those the party can reach. Under half in orange; click a level to pick it.");
+  float top = CardHeading(origin, width, "Explored per level", "Squares explored, of those the party can reach. Under half in orange. Click a level to pick it.");
   float fontSize = ImGui::GetFontSize();
   float row = fontSize + 8;
   float labelWidth = ImGui::CalcTextSize("Level 00").x + 10;
@@ -338,17 +280,23 @@ void CompletionTable(const HeroStatsProfile &profile, HeroStatsDrawState *state)
   ImGui::SetCursorPos(ImVec2(GUTTER, ImGui::GetCursorPosY() + 8));
   ImGui::TextColored(Colour(WHITE_RGB), "Completion, level by level");
   ImGui::SetCursorPosX(GUTTER);
-  ImGui::TextColored(Colour(DIM_RGB), "Each cell: that level's share of what it holds. Darker and orange: under half. Click a level to pick it.");
+  ImGui::TextColored(Colour(DIM_RGB), "Each cell: what the party found on that level, of all the level holds. Under half in orange. Click a level to pick it.");
   ImGui::Dummy(ImVec2(0, 4));
   ImVec2 origin = ImGui::GetCursorScreenPos();
   origin.x = ImGui::GetWindowPos().x + GUTTER;
   float first = ImGui::CalcTextSize("Whole run").x + 24;
   float cell = ImGui::CalcTextSize("Monsters").x + 28;
   float row = fontSize + 10;
+  ImVec2 mouse = ImGui::GetMousePos();
   for (int axis = 0; axis < HERO_COMPLETION_AXIS_COUNT; axis++)
   {
     ImVec2 size = ImGui::CalcTextSize(AXES[axis]);
-    drawList->AddText(ImVec2(origin.x + first + cell * (axis + 1) - size.x - 10, origin.y), Packed(DIM_RGB), AXES[axis]);
+    ImVec2 at(origin.x + first + cell * (axis + 1) - size.x - 10, origin.y);
+    drawList->AddText(at, Packed(DIM_RGB), AXES[axis]);
+    // Dotted under the name, as any label with a hovertext
+    HeroStatsDraw_DottedUnderline(at.x, at.x + size.x, at.y + size.y);
+    if (ImGui::IsWindowHovered() && mouse.x >= at.x && mouse.x <= at.x + size.x && mouse.y >= at.y && mouse.y <= at.y + size.y + 2)
+      HeroStatsDraw_Tooltip(HERO_STATS_COMPLETION_HELPS[axis]);
   }
   for (size_t r = 0; r < profile.perLevel.size(); r++)
   {
@@ -416,10 +364,6 @@ void HeroStatsProfileDraw_Page(HeroStatsDrawState *state, const HeroStats &stats
   {
     CompletionTable(profile, state);
     return;
-  }
-  if (state->who != HERO_STATS_PARTY)
-  {
-    profile.completion.title = "How much of the dungeon the party found";
   }
   // Inside the page's own window: the scroll bar, when there is one, is not ours to draw on
   float available = ImGui::GetContentRegionMax().x - 2 * GUTTER;

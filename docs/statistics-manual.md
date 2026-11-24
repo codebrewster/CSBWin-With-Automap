@@ -190,7 +190,7 @@ hit), Damage, Kills.
 | **Mana generated** | with **Regeneration** and **Mana potions** below it |
 | **Regeneration lost (mana full)** | the mana regeneration would have given had the champion's mana not been full: all of a regeneration at or above the maximum, and the part over the maximum when the champion was nearly full (at 48 of 50, a gain of 3 gives 2 and loses 1). Spend mana before it fills up and this mana is not lost. Full mana spends no stamina on regenerating either. Not part of Mana generated. Counted from this version on; older saves show 0 |
 | **Mana spent** | counted as each rune is entered, as the game takes it, whatever becomes of the spell; below it what became of that mana, which adds up to it: **On successful casts**, **Wasted** (split into **On failed casts**, **On meaningless spells**, runes that form no spell: "mumbles a meaningless spell", and **On cleared runes**, runes entered and never cast) and **Not cast yet**. Wasted is all the mana that bought nothing, the Wasted mana of All spells in the Spells table. **Success rate**, after On successful casts, is the part of the mana that went to successful casts, out of On successful casts and Wasted: Not cast yet is left out, as those runes may still work. It is a percentage, not one of the lines that add up. In saves from before this version the meaningless spells are among the failed casts |
-| **Spells cast** | every attempt; with **Successful** and **Wasted** below it, which add up to it; Wasted is split again into **Failed** (the champion needed more practice) and **Meaningless** (runes that form no spell), as the mana is. Wasted is the Wasted casts of All spells in the Spells table. **Success rate**, after Successful, is the part of the casts that worked |
+| **Spells cast** | every attempt; with **Successful** and **Wasted** below it, which add up to it; Wasted is split again into **Failed** (the champion needed more practice, or cast a potion with no empty flask in hand) and **Meaningless** (runes that form no spell), as the mana is. Wasted is the Wasted casts of All spells in the Spells table. **Success rate**, after Successful, is the part of the casts that worked |
 
 The two success rates can differ either way. A failed cast at a high power wastes more mana than a
 weak one, which pulls the mana's rate down; a potion spell cast with no empty flask in hand fails
@@ -513,47 +513,62 @@ dungeon the party left behind.
 
 ![The Party's Profile for the whole run: the five stars and the bars of what was explored per level](images/statistics-profile.png)
 
-Every axis of a star is a share from 0 to 100%, never a plain count: a rate (hits of attacks), a
-share of a whole the axes split (the mana by purpose), a rank, or a share of what the dungeon
-holds. Hover an axis's name or spoke for what it counts and the numbers behind it, for each shape.
+Every axis of a star is a part of a whole, from 0 to 100%, never a plain count: a rate (Hits of
+Attacks), a share of a whole the axes split (the mana by what it bought), a rank, or what the party
+found of what the dungeon holds. Each axis's name has a dotted line under it: hover it for what it
+counts, then each champion's value and the numbers behind it.
 
-- **How much of the dungeon they found**: the party's share of what the dungeon holds. For the
-  whole run that is the whole dungeon, the levels not visited yet included, so the shape only
-  grows as the party finds things (a monster spawning or an item a monster drops adds to a total,
-  and takes a little off). For one level it is that level's own.
-  - *Explored*: the floor cells explored, of those the party can reach from where it has been,
-    through stairs and teleporters. An area no way leads into does not count.
-  - *Items*: picked up the first time, of those and the ones still lying about (on the floor, in
-    alcoves and chests). An item a monster drops is lying about, so it adds to the total. A
-    champion's gear in a mirror is no item to find.
-  - *Monsters*: killed, by any cause, of those killed and those alive. A monster a generator
-    spawns adds to the total.
-  - *Doors*: the doors the party has seen open or broken, or that are open now.
-  - *Switches*: the wall faces with a switch, button, lock or the like that does something, of
-    those a click of the party has worked.
-- **How the party played**: eight rates. Bigger is better, apart from the two that show a style:
-  *Melee share* (of the damage dealt) and *Potion healing* (of all healing). *Casts worked*: spells
-  cast of those tried; *Blows avoided*: monster blows that did no harm; *Stopped by defences*: the
-  damage the defences took off, of that and the damage taken; *Mana used*: regeneration not lost to
-  full mana; *Food & water used*: not lost over the maximum.
+- **How much of the dungeon the party found**: for the whole run, of the whole dungeon, the
+  levels not visited yet included, so the shape only grows as the party finds things. A monster a
+  generator spawns or an item a monster drops joins a total and takes a little off. For one level,
+  of that level alone.
+  - *Explored*: squares explored ÷ the squares the party can reach. A square can be reached when
+    a way leads to it from where the party has been, from stairs or from where a teleporter leads;
+    closed-off squares do not count.
+  - *Items*: Items picked up ÷ all the items there are to pick up, which are those picked up and
+    those still lying on floors, in alcoves and in chests. A champion's gear in a mirror is not
+    among them, nor what a monster still carries.
+  - *Monsters*: Monsters killed ÷ all the monsters, killed (by any cause) and alive.
+  - *Doors*: doors opened ÷ all the doors. A door counts as opened once the party has seen it open
+    or broken, or while it stands open.
+  - *Switches*: switches used ÷ all the switches: the buttons, levers, locks, slots and the like on
+    walls that do something. A switch counts as used once the party has worked it.
+- **How the party played**: eight rates. Bigger is better, apart from *Melee share* and *Potion
+  healing*, which show a way of playing.
+  - *Hit rate*: Hits ÷ Attacks, as on the Combat tab.
+  - *Melee share*: Melee ÷ Damage dealt: the part of the damage dealt with blows at close range.
+  - *Casts worked*: Successful ÷ Spells cast, the Cast success rate on the Magic tab. Failed casts
+    (more practice needed, or no empty flask for a potion) and meaningless ones both count against
+    it.
+  - *Blows avoided*: the part of the Monster attacks received that did no damage (dodged, lucky,
+    too weak or blocked).
+  - *Stopped by defences*: Damage reduced ÷ (Damage taken + Damage reduced). Damage taken also
+    holds harm no defence touches (poison, starvation, falls), which keeps this rate low.
+  - *Potion healing*: Potions ÷ Healed.
+  - *Regeneration used*: Regeneration ÷ (Regeneration + Regeneration lost (mana full)): the part of
+    the mana regeneration the champions actually got.
+  - *Food & water not wasted*: (Food gained + Water gained) ÷ all the food and water eaten and
+    drunk: the part that raised the champions' food and water instead of being wasted over full.
 - **Ranks per class**: each champion's rank in Fighter, Ninja, Priest and Wizard. The edge is the
-  best rank anyone reached, so the shapes fill the star; the rings carry the rank names. A pure
-  fighter is one long arm, an all-rounder an even square. For one level it shows the experience
-  gained there instead.
+  best rank any champion reached, so the shapes fill the star; the rings carry the ranks' names. A
+  pure fighter is one long arm, an all-rounder an even square. For one level it shows the
+  experience each champion gained there instead.
 - **Where the mana went**: each champion's mana spent, by what it bought: attack spells, potions,
-  light, protection, other spells and staffs, and wasted (failed casts, meaningless runes, runes
-  cleared). A champion's axes add up to 100%, so a big shape is a different split, not more mana.
-- **Who carried what**: each champion's share of the party's damage, kills, mana spent, blows
-  taken, potions brewed and experience. The dashed ring is an even share: past it, a champion
-  carries more than their part. Only with two champions or more who did any of it.
+  Torch, Light and Darkness, Shield party and Fire shield, everything else, and Mana wasted (runes of
+  spells that failed or formed no spell, and runes cleared). A champion's axes add up to 100%, so a
+  bigger shape is a different split, not more mana.
+- **Who carried what**: each champion's share of the party's Damage dealt, Kills, Mana spent, Hits
+  taken, Potions brewed and Experience gained. The dashed ring is an even share: outside it, a
+  champion did more than their part. Only with two champions or more who did any of it.
 - **Explored per level**: a bar per visited level, orange under half. Click a level to pick it.
 
-With a champion picked, their shapes are bright and the others faint; *How they played* draws the
-party behind the champion. The completion and the bars are always the party's.
+With a champion picked, their shapes are bright and the others faint; *How the party played*
+becomes *How* the champion *played* and draws the party faintly behind them. The completion and
+the bars are always the party's.
 
 On **Per level** the page is a table instead: a row per visited level and one for the whole run, a
-column for each completion axis, each cell shaded by its value and orange under half. Click a
-level's name to pick it.
+column for each completion axis, each cell shaded by its value and orange under half. Hover a
+column's name for what it counts; click a level's name to pick it.
 
 The exported page has the same tab.
 

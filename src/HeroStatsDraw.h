@@ -1,6 +1,7 @@
 #ifndef HEROSTATSDRAW_H
 #define HEROSTATSDRAW_H
 
+#include <string>
 #include <vector>
 #include "imgui.h"
 #include "HeroStats.h"
@@ -71,6 +72,10 @@ void HeroStatsDraw_Frame(HeroStatsDrawState *state, const HeroStats &stats, cons
 // shown for the first time, numbers that grew wider, another page, another window width. The
 // window then draws again before it shows anything, so the page never visibly jumps into place.
 bool HeroStatsDraw_WantsAnotherPass(void);
+// The window's own hovertext (a wrapped tooltip with its frame), and the line of dots under a label
+// that has one: for the Profile tab, so its hovertexts look like the others
+void HeroStatsDraw_Tooltip(const std::string &text);
+void HeroStatsDraw_DottedUnderline(float left, float right, float y);
 // The pages' numbers are rebuilt on the next frame (a game loaded, the window shown again)
 void HeroStatsDraw_Forget(void);
 

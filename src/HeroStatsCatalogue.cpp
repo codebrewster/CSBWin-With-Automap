@@ -33,7 +33,7 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Successful", "Casts that worked.", false, false, false, false, false},
     {"Cast success rate", "Successful \xc3\xb7 Spells cast: the part of the casts that worked. The CASTS Rate of All spells in the Spells table.", false, false, false, true, false},
     {"Wasted", "Casts that bought nothing: failed or meaningless. The Wasted casts of All spells in the Spells table.", false, false, true, false, false},
-    {"Failed", "Casts of a real spell that failed: the champion needed more practice.", false, false, true, false, false},
+    {"Failed", "Casts of a real spell that failed: the champion needed more practice, or cast a potion with no empty flask in hand.", false, false, true, false, false},
     {"Meaningless", "Casts whose runes form no spell: the champion mumbles a meaningless spell.", false, false, true, false, false},
     {"Damage taken", "All hit points lost, whatever took them: monster attacks, their missiles and spells, friendly fire, poison and poison clouds, traps, pits, walls run into, closing doors, starvation, exhaustion and harmful potions. Survival lists each cause.", false, false, false, false, false},
     {"Healed", "Hit points won back. The lines below add up to it.", false, false, false, false, false},

@@ -415,7 +415,7 @@ static int ColumnIndex(const std::vector<HeroStatsColumn> &columns, HeroStatsCha
 static std::string StarJson(const HeroStatsStar &star, const std::vector<HeroStatsColumn> &columns)
 {
   std::string out = "{\"title\":" + HeroStatsExport_JsonString(star.title) + ",\"caption\":" + HeroStatsExport_JsonString(star.caption) +
-                    ",\"axes\":" + Strings(star.axes) + ",\"helps\":" + Strings(star.helps) + ",\"outer\":" + Fraction(star.outer) + ",\"centre\":" + Fraction(star.centre) +
+                    ",\"axes\":" + Strings(star.axes) + ",\"helps\":" + Strings(star.helps) + ",\"tips\":" + Strings(star.tips) + ",\"outer\":" + Fraction(star.outer) + ",\"centre\":" + Fraction(star.centre) +
                     ",\"edge\":" + HeroStatsExport_JsonString(star.edgeLabel) + ",\"even\":" + Fraction(star.evenRing) + ",\"rings\":[";
   for (size_t r = 0; r < star.rings.size(); r++)
     out += std::string(r > 0 ? "," : "") + "[" + Fraction(star.rings[r].first) + "," + HeroStatsExport_JsonString(star.rings[r].second) + "]";
@@ -528,7 +528,9 @@ std::string HeroStatsExport_Json(const HeroStats &stats, const std::vector<HeroS
   out += ",\"views\":{\"-1\":" + ViewJson(stats, columns, names, HERO_STATS_WHOLE_RUN);
   for (size_t i = 0; i < levels.size(); i++)
     out += ",\"" + Number(levels[i]) + "\":" + ViewJson(stats, columns, names, levels[i]);
-  out += "},\"profiles\":{\"-1\":" + ProfilesOfLevel(stats, columns, HERO_STATS_WHOLE_RUN);
+  std::vector<std::string> completionHelps(HERO_STATS_COMPLETION_HELPS, HERO_STATS_COMPLETION_HELPS + HERO_COMPLETION_AXIS_COUNT);
+  out += "},\"completionHelps\":" + Strings(completionHelps);
+  out += ",\"profiles\":{\"-1\":" + ProfilesOfLevel(stats, columns, HERO_STATS_WHOLE_RUN);
   for (size_t i = 0; i < levels.size(); i++)
     out += ",\"" + Number(levels[i]) + "\":" + ProfilesOfLevel(stats, columns, levels[i]);
   return out + "},\"live\":" + LiveJson(info, columns) + "}";
@@ -1572,8 +1574,10 @@ function starSvg(s) {
     const [x, y] = pt(a, 1.17), dx = x - cx;
     const anchor = Math.abs(dx) < 8 ? 'middle' : dx > 0 ? 'start' : 'end';
     const yy = y + (Math.abs(dx) >= 8 ? 4 : y < cy ? (single ? -10 : -2) : 10);
-    const tip = s.shapes.slice().reverse().map(h => `${whoName(h.who)}: ${h.texts[a]}  ${h.details[a]}`).join('\n');
-    out += `<g><title>${esc(s.axes[a] + '\n' + (s.helps ? s.helps[a] + '\n\n' : '') + tip)}</title><text x="${x.toFixed(1)}" y="${yy.toFixed(1)}" font-size="11.5" fill="#d8d8d8" text-anchor="${anchor}">${esc(s.axes[a])}</text>`;
+    // The name dotted underneath, as any label with a hovertext; the tip is the game's own text
+    const tw = s.axes[a].length * 6.9, tx = anchor === 'middle' ? x - tw / 2 : anchor === 'end' ? x - tw : x;
+    out += `<g${s.tips && s.tips[a] ? tipOf(esc(s.tips[a]).replace(/\n/g, '<br>')) : ''} style="cursor:help"><text x="${x.toFixed(1)}" y="${yy.toFixed(1)}" font-size="11.5" fill="#d8d8d8" text-anchor="${anchor}">${esc(s.axes[a])}</text>` +
+      `<line x1="${tx.toFixed(1)}" y1="${(yy + 3).toFixed(1)}" x2="${(tx + tw).toFixed(1)}" y2="${(yy + 3).toFixed(1)}" stroke="#5a5d68" stroke-dasharray="1 2"/>`;
     if (single) out += `<text x="${x.toFixed(1)}" y="${(yy + 13).toFixed(1)}" font-size="11.5" fill="#fff" font-weight="600" text-anchor="${anchor}">${esc(single.texts[a])}</text>`;
     out += '</g>';
   }
@@ -1591,7 +1595,7 @@ function profilePage() {
   const p = all && all[st.who];
   if (!p) return '<div class="note">No profile for this level.</div>';
   if (st.per) {
-    const head = ['Explored', 'Items', 'Monsters', 'Doors', 'Switches'].map(a => `<th>${a}</th>`).join('');
+    const head = ['Explored', 'Items', 'Monsters', 'Doors', 'Switches'].map((a, i) => `<th><span class="tip"${tipOf(esc(D.completionHelps[i]))}>${a}</span></th>`).join('');
     const rows = p.table.map(r => {
       const run = r[0] === -1;
       const cells = r.slice(1).map(v => {
@@ -1600,12 +1604,12 @@ function profilePage() {
       }).join('');
       return `<tr${run ? ' style="background:#272930;font-weight:600"' : ''}><td class="l" onclick="set({per:false,level:${r[0]}})">${run ? 'Whole run' : 'Level ' + r[0]}</td>${cells}</tr>`;
     }).join('');
-    return `<h3 style="margin:10px 0 4px">Completion, level by level</h3><div class="note">Each cell: that level's share of what it holds. Under half in orange. Click a level to pick it.</div><table class="comp"><tr><th style="text-align:left">Level</th>${head}</tr>${rows}</table>`;
+    return `<h3 style="margin:10px 0 4px">Completion, level by level</h3><div class="note">Each cell: what the party found on that level, of all the level holds. Under half in orange. Click a level to pick it.</div><table class="comp"><tr><th style="text-align:left">Level</th>${head}</tr>${rows}</table>`;
   }
   const stars = p.stars.filter((s, i) => i !== 4 || p.roles);
   let cards = stars.map(s => `<div class="pf-card"><h3>${esc(s.title)}</h3><div class="pf-cap">${esc(s.caption)}</div>${starSvg(s)}${starLegend(s)}</div>`).join('');
   const bars = p.bars.map(([l, v]) => `<div class="lvbar" onclick="set({per:false,level:${l}})"${!st.per && st.level === l ? ' style="background:#2a3a57"' : ''}><span>Level ${l}</span><span class="tr"><span class="fi" style="display:block;width:${v === null ? 0 : Math.round(v * 100)}%;background:${v !== null && v < 0.5 ? '#c98a3c' : PARTY_SHAPE}"></span></span><span class="${v !== null && v < 0.5 ? 'low' : ''}" style="text-align:right">${pct(v)}</span></div>`).join('');
-  cards += `<div class="pf-card"><h3>Explored per level</h3><div class="pf-cap">Floor cells explored, of those the party can reach. Under half in orange; click a level to pick it.</div>${bars}</div>`;
+  cards += `<div class="pf-card"><h3>Explored per level</h3><div class="pf-cap">Squares explored, of those the party can reach. Under half in orange. Click a level to pick it.</div>${bars}</div>`;
   return `<div class="pf-cards">${cards}</div>`;
 }
 

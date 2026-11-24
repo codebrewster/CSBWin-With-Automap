@@ -176,6 +176,11 @@ static void WrappedTooltip(const char *text)
   ImGui::EndTooltip();
 }
 
+void HeroStatsDraw_Tooltip(const std::string &text)
+{
+  WrappedTooltip(text.c_str());
+}
+
 static void HelpTooltip(const char *text)
 {
   if (text[0] != 0 && ImGui::IsItemHovered()) WrappedTooltip(text);
@@ -1149,6 +1154,11 @@ static void DottedUnderline(float left, float right, float y)
 {
   ImDrawList *drawList = ImGui::GetWindowDrawList();
   for (float x = left; x < right; x += 3) drawList->AddRectFilled(ImVec2(x, y), ImVec2(x + 1, y + 1), Packed(FAINT_RGB));
+}
+
+void HeroStatsDraw_DottedUnderline(float left, float right, float y)
+{
+  DottedUnderline(left, right, y);
 }
 
 static void LabelCell(const std::string &text, int depth, ImU32 rgb, const char *help = "")

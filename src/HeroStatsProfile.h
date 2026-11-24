@@ -28,7 +28,8 @@ struct HeroStatsStar
 {
   std::string title, caption;
   std::vector<std::string> axes;
-  std::vector<std::string> helps;                       // what each axis counts, for the hover, parallel to axes
+  std::vector<std::string> helps;                       // what each axis counts, parallel to axes
+  std::vector<std::string> tips;                        // the whole hover text of each axis: its help, then a line per shape
   std::vector<HeroStatsStarShape> shapes;               // drawing order: faint ones first
   double outer;                                         // the value at the edge
   std::vector<std::pair<double, std::string> > rings;   // value and label ("50%", "Expert")
@@ -47,6 +48,10 @@ struct HeroStatsProfile
   std::vector<HeroStatsLevelBar> levelBars;      // the visited levels, ascending
   std::vector<HeroStatsCompletionRow> perLevel;  // the visited levels, then the whole run (HERO_STATS_WHOLE_RUN)
 };
+
+// What each completion axis counts (HeroCompletionAxis order), whatever the level: the Per level
+// table's column headers show it
+extern const char *const HERO_STATS_COMPLETION_HELPS[HERO_COMPLETION_AXIS_COUNT];
 
 // who: HERO_STATS_PARTY or a champion (bright, the others faint); level: one, or
 // HERO_STATS_WHOLE_RUN. Completion and the bars are always the party's.
