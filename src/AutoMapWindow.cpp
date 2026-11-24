@@ -6973,6 +6973,7 @@ int AutoMapWindow_SearchHitsOnLevel(int level)
 {
   if (!searchOpen || searchQuery.empty()) return 0;
   int hits = 0;
-  for (size_t i = 0; i < searchHits.size(); i++) hits += searchHits[i].level == level ? 1 : 0;
+  // What the rows hold, as the search panel's headings: SCREAMER SLICE X15 counts fifteen
+  for (size_t i = 0; i < searchHits.size(); i++) hits += searchHits[i].level == level ? std::max(1, searchHits[i].count) : 0;
   return hits;
 }

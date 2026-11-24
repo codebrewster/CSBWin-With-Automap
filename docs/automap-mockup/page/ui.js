@@ -301,7 +301,7 @@ function drawLevels() {
     let tx = x + 8 + textW('L00', p) + 22; if (gone) { text(g, tx, yy + 3, 'NOT EXPORTED', '#6f685c', p); tx += textW('NOT EXPORTED', p) + 10; } else if (!vis) { text(g, tx, yy + 3, 'NOT VISITED', sel ? '#1a160f' : '#6f685c', p); tx += textW('NOT VISITED', p) + 10; }
     // How much of it is explored, right-aligned as in the game's list (older files lack it)
     else if (DATA.index.levels[l].explored >= 0) { const share = DATA.index.levels[l].explored + '%', slot = textW('100%', p); text(g, tx + slot - textW(share, p), yy + 3, share, sel ? '#1a160f' : '#fff', p); tx += slot + 10; }
-    if (searchOpen && query && hitsByLevel[l]) text(g, tx, yy + 3, hitsByLevel[l] + (hitsByLevel[l] > 1 ? ' HITS' : ' HIT'), sel ? '#1a160f' : '#ffcc33', p);
+    if (searchOpen && query && thingsByLevel[l]) text(g, tx, yy + 3, thingsByLevel[l] + (thingsByLevel[l] > 1 ? ' HITS' : ' HIT'), sel ? '#1a160f' : '#ffcc33', p);
     if (!gone) levelRows.push([x, yy, w - 12, rh, l]); yy += rh; }
   if (n > ROWS_SHOWN) { const th = Math.max(16, (ROWS_SHOWN / n) * (h - 10)), ty = y + 5 + (levelScroll / (n - ROWS_SHOWN)) * (h - 10 - th); rect(x + w - 8, y + 5, 4, h - 10, '#2c2822'); rect(x + w - 8, ty, 4, th, '#8f8676'); }
   panelRects.levels = [x, y, w, h];
