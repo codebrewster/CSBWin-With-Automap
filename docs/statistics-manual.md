@@ -528,7 +528,9 @@ counts, then each champion's value and the numbers behind it.
   - *Items*: Items picked up ÷ all the items there are to pick up, which are those picked up and
     those still lying on floors, in alcoves and in chests. A champion's gear in a mirror is not
     among them, nor what a monster still carries.
-  - *Monsters*: Monsters killed ÷ all the monsters, killed (by any cause) and alive.
+  - *Monsters*: Monsters killed ÷ all the monsters, killed (by any cause) and alive. The hovertext
+    also gives the champions' part of the kills, as the Monsters tab splits them: `571 of 572 (566 by
+    champions)`.
   - *Doors*: doors opened ÷ all the doors. A door counts as opened once the party has seen it open
     or broken, or while it stands open.
   - *Switches*: switches used ÷ all the switches: the buttons, levers, locks, slots and the like on

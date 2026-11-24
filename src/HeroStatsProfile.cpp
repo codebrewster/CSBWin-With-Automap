@@ -109,7 +109,11 @@ HeroStatsStar Completion(const HeroStats &stats, int level)
     double ratio = Ratio(value.found, value.total);
     shape.values.push_back(ratio);
     shape.texts.push_back(Percent(ratio));
-    shape.details.push_back(OfWhole(value.found, value.total));
+    std::string detail = OfWhole(value.found, value.total);
+    // The champions' part of the kills, as the Monsters tab splits them
+    if (axis == HeroCompletionMonsters)
+      detail += " (" + Count(HeroStatsCatalogue_Value(stats, HERO_STATS_PARTY, level, HeroNumKills)) + " by champions)";
+    shape.details.push_back(detail);
   }
   star.shapes.push_back(shape);
   PercentRings(&star);

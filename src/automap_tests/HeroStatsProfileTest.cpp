@@ -203,8 +203,21 @@ static void AnAxisTipExplainsThenListsTheShapes(void)
   CHECK(profile.completion.tips[1].find("whole dungeon") != std::string::npos);
 }
 
+// The Monsters line tells the champions' kills apart from all the kills, as the Monsters tab does
+static void TheMonstersLineSaysWhatTheChampionsKilled(void)
+{
+  HeroStats stats = OneChampion();
+  stats.CountMonsterKill(1, 10, 0, BlowOf(ZED));
+  stats.CountMonsterKill(1, 10, 0, BlowOf(ZED));
+  stats.CountMonsterKill(1, 10, 0, HeroStatsBlow_Nobody(HeroBlowByDoor));
+  HeroStatsProfile profile = HeroStatsProfile_Make(stats, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN);
+  CHECK(profile.completion.shapes[0].details[HeroCompletionMonsters] == "3 of 3 (2 by champions)");
+  CHECK(profile.completion.shapes[0].details[HeroCompletionItems] == "0 of 0");
+}
+
 void TestHeroStatsProfile(void)
 {
+  TheMonstersLineSaysWhatTheChampionsKilled();
   AnAxisTipExplainsThenListsTheShapes();
   EveryAxisIsExplained();
   TheWholeRunCountsLevelsNotVisited();
