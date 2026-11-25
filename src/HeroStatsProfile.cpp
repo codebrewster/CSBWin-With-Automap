@@ -436,7 +436,9 @@ void FillTips(HeroStatsStar *star, const HeroStats &stats, const std::string &af
 
 const char *const HERO_STATS_COMPLETION_HELPS[HERO_COMPLETION_AXIS_COUNT] = {
   "Squares explored \xc3\xb7 the squares the party can reach. A square can be reached when a way leads to it from "
-  "where the party has been, by walking, up or down stairs, through a teleporter or down a pit, also from other levels. Closed-off squares do not count.",
+  "where the party has been, by walking, up or down stairs, through a teleporter or down a pit, also from other levels. Closed-off squares do not count. "
+  "Sometimes the value is a little off: what can be reached depends on switches, pressure plates and teleporters, and "
+  "no method works that out exactly for every dungeon in reasonable time.",
   "Items picked up \xc3\xb7 all the items: the ones picked up plus the ones still lying on floors, in alcoves "
   "and in chests. An item a monster drops joins them. A champion's gear in a mirror is not among them, nor "
   "what a monster still carries.",

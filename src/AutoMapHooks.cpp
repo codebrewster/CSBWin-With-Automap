@@ -510,6 +510,8 @@ LevelLayout ReadLevelLayout(int level)
   std::vector<AutoMapLevelArea> areas = AutoMapLevelReader_LevelAreas();
   layout.grid.width = snapshot.width;
   layout.grid.height = snapshot.height;
+  std::set<std::pair<int, int> > linked;  // the cells an actuator points at, snapshot coordinates
+  for (size_t i = 0; i < snapshot.linkedCells.size(); i++) linked.insert(std::make_pair(snapshot.linkedCells[i].x, snapshot.linkedCells[i].y));
   std::set<std::tuple<int, int, int> > faces;  // (x, y, side) of the wall faces that fire something
   for (size_t i = 0; i < snapshot.links.size(); i++)
   {
@@ -523,13 +525,20 @@ LevelLayout ReadLevelLayout(int level)
     {
       const AutoMapCellRecord &cell = snapshot.cells[(size_t)y * snapshot.width + x];
       bool solid = cell.isOutsideLevel || cell.kind == AutoMapCellWall;
-      bool takesTheParty = !solid && cell.hasTeleporterTarget && (cell.teleporterScope == 2 || cell.teleporterScope == 3);
-      layout.grid.cells.push_back(solid ? AutoMapReachSolid : takesTheParty ? AutoMapReachPassedOn : AutoMapReachWalkable);
+      // A teleporter that takes the party: on now (visible or not) or off. One an actuator switches
+      // counts both ways, walked across and leading to its target; one that stays on moves the party
+      // away as it steps on; one that stays off is floor.
+      bool isTeleporter = cell.kind == AutoMapCellTeleporter || cell.kind == AutoMapCellInvisibleTeleporter ||
+                          cell.kind == AutoMapCellDormantTeleporter;
+      bool takesTheParty = !solid && isTeleporter && cell.hasTeleporterTarget &&
+                           (cell.teleporterScope == 2 || cell.teleporterScope == 3);
+      bool switched = takesTheParty && linked.count(std::make_pair(x, y)) != 0;
+      bool staysOn = takesTheParty && !switched && cell.kind != AutoMapCellDormantTeleporter;
+      layout.grid.cells.push_back(solid ? AutoMapReachSolid : staysOn ? AutoMapReachPassedOn : AutoMapReachWalkable);
       layout.counted.push_back(!solid && cell.kind != AutoMapCellFalseWall);
       int at = y * snapshot.width + x, globalX = x + snapshot.offsetX, globalY = y + snapshot.offsetY;
       // Stairs and pits lead to the map one depth up or down over the same spot (IncrementLevel), a
-      // pit closed now too, as it can open; a teleporter only when it takes the party, and then the
-      // party cannot walk on from it
+      // pit closed now too, as it can open; a teleporter as above
       if (!solid && cell.kind == AutoMapCellStairs && cell.stairsTargetLevel != AUTOMAP_NO_LEVEL)
         layout.jumps.push_back(AutoMapReachJump{at, cell.stairsTargetLevel, globalX, globalY});
       if (!solid && (cell.kind == AutoMapCellPit || cell.pitIsClosedSwitchable))
@@ -537,7 +546,7 @@ LevelLayout ReadLevelLayout(int level)
         int below = AutoMapScene_StairsTarget(areas, level, false, globalX, globalY);
         if (below != AUTOMAP_NO_LEVEL) layout.jumps.push_back(AutoMapReachJump{at, below, globalX, globalY});
       }
-      if (takesTheParty)
+      if (staysOn || switched)
         layout.jumps.push_back(AutoMapReachJump{at, cell.teleporterDestLevel, cell.teleporterDestGlobalX, cell.teleporterDestGlobalY});
       if (cell.kind == AutoMapCellDoor && !cell.isOutsideLevel)
       {
