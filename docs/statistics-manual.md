@@ -333,7 +333,7 @@ champion's Exploration shows those two only.
 | **Steps** | Moves the party made to another square: forward, back, sideways, and up or down stairs |
 | **Tiles walked** | The different squares the party stood on, however it got there; each square counts once |
 | **Tiles explored** | The squares the map shows as explored that are not solid wall: floors, doors, stairs, pits, teleporters ... A false wall counts once it is seen to be passable. This comes from the map itself, so it is there for games saved before the statistics existed. |
-| **Explored rate** | The reachable squares explored ÷ the squares the party can reach, as on the Profile's Completion. A square can be reached when a way leads to it from where the party has been, from stairs or from where a teleporter leads; closed-off squares do not count. For the whole run the levels not visited yet count too. On Per level each value has a bar in front, orange under half. |
+| **Explored rate** | The reachable squares explored ÷ the squares the party can reach, as on the Profile's Completion. A square can be reached when a way leads to it from where the party has been, by walking, up or down stairs, through a teleporter or down a pit, also from other levels; closed-off squares do not count. For the whole run the levels not visited yet count too. On Per level each value has a bar in front, orange under half. |
 | **Turns** | Turns left or right you made. Turning while on stairs takes the stairs, so it counts as a step. |
 | **Wall bumps** | Moves that ran into a wall, a closed door or a solid false wall |
 | **Monster bumps** | Moves that were stopped by a monster standing on the next square |
@@ -524,7 +524,7 @@ counts, then each champion's value and the numbers behind it.
   generator spawns or an item a monster drops joins a total and takes a little off. For one level,
   of that level alone.
   - *Explored*: squares explored ÷ the squares the party can reach. A square can be reached when
-    a way leads to it from where the party has been, from stairs or from where a teleporter leads;
+    a way leads to it from where the party has been, by walking, up or down stairs, through a teleporter or down a pit, also from other levels;
     closed-off squares do not count.
   - *Items*: Items picked up ÷ all the items there are to pick up, which are those picked up and
     those still lying on floors, in alcoves and in chests. A champion's gear in a mirror is not

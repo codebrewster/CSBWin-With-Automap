@@ -482,10 +482,10 @@ namespace
 struct LevelLayout
 {
   int width, height, marginX, marginY;
+  int offsetX, offsetY;                           // a snapshot cell's global position is its own plus these
   AutoMapReachGrid grid;
   std::vector<bool> counted;                      // cells the explored tiles count: no wall, no closed false wall
-  std::vector<std::pair<int, int> > stairs;       // snapshot coordinates
-  std::vector<AutoMapCell> teleporterTargets;     // the targets of this level's teleporters: snapshot coordinates on this level, the target level's own on another
+  std::vector<AutoMapReachJump> jumps;            // stairs, party teleporters, pits: the target cell in global coordinates
   std::vector<std::pair<int, int> > doors;        // level coordinates
   std::vector<bool> doorOpenNow;
   std::vector<std::vector<AutoMapRecordId> > switchFaces;  // the actuators of each wall face that fires something (no mirror)
@@ -505,6 +505,9 @@ LevelLayout ReadLevelLayout(int level)
   layout.height = snapshot.height;
   layout.marginX = snapshot.boundaryMarginX;
   layout.marginY = snapshot.boundaryMarginY;
+  layout.offsetX = snapshot.offsetX;
+  layout.offsetY = snapshot.offsetY;
+  std::vector<AutoMapLevelArea> areas = AutoMapLevelReader_LevelAreas();
   layout.grid.width = snapshot.width;
   layout.grid.height = snapshot.height;
   std::set<std::tuple<int, int, int> > faces;  // (x, y, side) of the wall faces that fire something
@@ -520,11 +523,22 @@ LevelLayout ReadLevelLayout(int level)
     {
       const AutoMapCellRecord &cell = snapshot.cells[(size_t)y * snapshot.width + x];
       bool solid = cell.isOutsideLevel || cell.kind == AutoMapCellWall;
-      layout.grid.cells.push_back(solid ? AutoMapReachSolid : AutoMapReachWalkable);
+      bool takesTheParty = !solid && cell.hasTeleporterTarget && (cell.teleporterScope == 2 || cell.teleporterScope == 3);
+      layout.grid.cells.push_back(solid ? AutoMapReachSolid : takesTheParty ? AutoMapReachPassedOn : AutoMapReachWalkable);
       layout.counted.push_back(!solid && cell.kind != AutoMapCellFalseWall);
-      if (cell.kind == AutoMapCellStairs) layout.stairs.push_back(std::make_pair(x, y));
-      if (cell.hasTeleporterTarget)
-        layout.teleporterTargets.push_back(AutoMapCell{cell.teleporterDestLevel, cell.teleporterDestX, cell.teleporterDestY});
+      int at = y * snapshot.width + x, globalX = x + snapshot.offsetX, globalY = y + snapshot.offsetY;
+      // Stairs and pits lead to the map one depth up or down over the same spot (IncrementLevel), a
+      // pit closed now too, as it can open; a teleporter only when it takes the party, and then the
+      // party cannot walk on from it
+      if (!solid && cell.kind == AutoMapCellStairs && cell.stairsTargetLevel != AUTOMAP_NO_LEVEL)
+        layout.jumps.push_back(AutoMapReachJump{at, cell.stairsTargetLevel, globalX, globalY});
+      if (!solid && (cell.kind == AutoMapCellPit || cell.pitIsClosedSwitchable))
+      {
+        int below = AutoMapScene_StairsTarget(areas, level, false, globalX, globalY);
+        if (below != AUTOMAP_NO_LEVEL) layout.jumps.push_back(AutoMapReachJump{at, below, globalX, globalY});
+      }
+      if (takesTheParty)
+        layout.jumps.push_back(AutoMapReachJump{at, cell.teleporterDestLevel, cell.teleporterDestGlobalX, cell.teleporterDestGlobalY});
       if (cell.kind == AutoMapCellDoor && !cell.isOutsideLevel)
       {
         layout.doors.push_back(std::make_pair(x - layout.marginX, y - layout.marginY));
@@ -577,6 +591,38 @@ std::map<int, HeroStatsDungeonCounts> AutoMap_DungeonCountsPerLevel(const std::s
       cache[level].version = version;
     }
   }
+  // Where the party can get to, over all levels at once: from the cells it stood on and where it
+  // stands, walking, up and down stairs, through teleporters and down pits, several in a row too
+  std::map<int, AutoMapReachLevel> reachLevels;
+  for (std::map<int, LevelLayout>::const_iterator at = cache.begin(); at != cache.end(); ++at)
+  {
+    AutoMapReachLevel &reach = reachLevels[at->first];
+    reach.grid = at->second.grid;
+    reach.jumps = at->second.jumps;
+  }
+  for (std::map<int, AutoMapReachLevel>::iterator at = reachLevels.begin(); at != reachLevels.end(); ++at)
+    for (size_t j = 0; j < at->second.jumps.size(); j++)
+    {
+      AutoMapReachJump &jump = at->second.jumps[j];
+      std::map<int, LevelLayout>::const_iterator target = cache.find(jump.toLevel);
+      if (target == cache.end()) jump.toLevel = AUTOMAP_NO_LEVEL;
+      else
+      {
+        jump.toX -= target->second.offsetX;
+        jump.toY -= target->second.offsetY;
+      }
+    }
+  std::vector<AutoMapCell> seeds;
+  for (std::set<std::tuple<int, int, int> >::const_iterator at = walked.begin(); at != walked.end(); ++at)
+  {
+    std::map<int, LevelLayout>::const_iterator layout = cache.find(std::get<0>(*at));
+    if (layout != cache.end())
+      seeds.push_back(AutoMapCell{std::get<0>(*at), std::get<1>(*at) + layout->second.marginX, std::get<2>(*at) + layout->second.marginY});
+  }
+  std::map<int, LevelLayout>::const_iterator partyLayout = cache.find(d.partyLevel);
+  if (partyLayout != cache.end())
+    seeds.push_back(AutoMapCell{d.partyLevel, d.partyX + partyLayout->second.marginX, d.partyY + partyLayout->second.marginY});
+  std::map<int, std::vector<bool> > reachedPerLevel = AutoMapCompletion_ReachableAcross(reachLevels, seeds);
   const AutoMapExplored &explored = recorder.Explored();
   AutoMapKnowledge &knowledge = recorder.Knowledge();
   for (size_t i = 0; i < levels.size(); i++)
@@ -586,18 +632,7 @@ std::map<int, HeroStatsDungeonCounts> AutoMap_DungeonCountsPerLevel(const std::s
     if (found == cache.end()) continue;
     const LevelLayout &layout = found->second;
     HeroStatsDungeonCounts counts = {0, 0, 0, 0, 0, 0, 0, 0};
-    // Where the party can be: the cells it stood on, the stairs, the teleporters' targets
-    std::vector<std::pair<int, int> > seeds = layout.stairs;
-    for (std::set<std::tuple<int, int, int> >::const_iterator at = walked.begin(); at != walked.end(); ++at)
-      if (std::get<0>(*at) == level) seeds.push_back(std::make_pair(std::get<1>(*at) + layout.marginX, std::get<2>(*at) + layout.marginY));
-    for (std::map<int, LevelLayout>::const_iterator other = cache.begin(); other != cache.end(); ++other)
-      for (size_t t = 0; t < other->second.teleporterTargets.size(); t++)
-      {
-        const AutoMapCell &target = other->second.teleporterTargets[t];
-        if (target.level == level)
-          seeds.push_back(AutoMapCompletion_TargetSeed(target.level, target.x, target.y, other->first, level, layout.marginX, layout.marginY));
-      }
-    std::vector<bool> reached = AutoMapCompletion_Reachable(layout.grid, seeds);
+    const std::vector<bool> &reached = reachedPerLevel[level];
     for (size_t c = 0; c < reached.size() && c < layout.counted.size(); c++)
     {
       if (!reached[c] || !layout.counted[c]) continue;
