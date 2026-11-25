@@ -64,14 +64,14 @@ $CppSources = @(
     'AutoMapItemMemory', 'AutoMapCellMemory', 'AutoMapPlayerNotes',
     'AutoMapMonsterDamage', 'AutoMapVisibilityCases', 'AutoMapWindow',
     'AutoMapHooks', 'AutoMapRecorder',
-    'AutoMapLevelReader', 'AutoMapSprites', 'AutoMapMeasure', 'AutoMapExport', 'AutoMapPaint', 'AutoMapLayout', 'AutoMapBar', 'AutoMapZip', 'AutoMapHtml', 'AutoMapExportChoice', 'AutoMapExportDialog', 'AutoMapTickRate', 'AutoMapLegend',
+    'AutoMapLevelReader', 'AutoMapSprites', 'AutoMapMeasure', 'AutoMapExport', 'AutoMapPaint', 'AutoMapLayout', 'AutoMapBar', 'AutoMapZip', 'AutoMapHtml', 'AutoMapExportChoice', 'AutoMapExportDialog', 'AutoMapTickRate', 'AutoMapLegend', 'AutoMapCompletion',
     'ExportHtml',
     'ShotMissiles', 'PlaybackControl', 'GameRules', 'ContinueLog', 'ReplaySnapshot',
     'HeroStats', 'HeroStatsDefence', 'HeroStatsExperience', 'HeroStatsRecords', 'HeroStatsLive', 'HeroStatsLayout',
     'HeroStatsCatalogue', 'HeroStatsOrigins', 'HeroStatsPending',
     'HeroStatsRunes', 'HeroStatsDump', 'HeroStatsGame', 'HeroStatsView',
-    'HeroStatsPages', 'HeroStatsExport', 'HeroStatsHooks', 'HeroStatsWindow',
-    'HeroStatsDraw'
+    'HeroStatsPages', 'HeroStatsExport', 'HeroStatsProfile', 'HeroStatsHooks', 'HeroStatsWindow',
+    'HeroStatsDraw', 'HeroStatsProfileDraw'
 )
 
 $ImguiSources = @(
