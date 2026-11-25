@@ -683,6 +683,28 @@ static void CatalogueCell(HeroStatsNumber number, int value, ImU32 rgb)
   NumberCell(HeroStatsCatalogue_Format(number, value), info.isRatio && value <= 0 ? 1 : value, info.isBad, rgb);
 }
 
+// A percentage with a bar in front, orange under half; the bars line up whatever the number
+static void RateBarCell(HeroStatsNumber number, int value, ImU32 rgb)
+{
+  const float BAR = 48, GAP = 6;
+  std::string text = HeroStatsCatalogue_Format(number, value);
+  float textRoom = ImGui::CalcTextSize("100%").x;
+  NoteWidth(BAR + GAP + textRoom);
+  float room = ImGui::GetContentRegionAvail().x - (BAR + GAP + textRoom);
+  if (room > 0) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + room);
+  ImVec2 at = ImGui::GetCursorScreenPos();
+  float lineHeight = ImGui::GetTextLineHeight();
+  ImDrawList *drawList = ImGui::GetWindowDrawList();
+  ImVec2 top(at.x, at.y + lineHeight / 2 - 4), bottom(at.x + BAR, at.y + lineHeight / 2 + 5);
+  drawList->AddRectFilled(top, bottom, Packed(TRACK_RGB), 2.0f);
+  if (value > 0)
+    drawList->AddRectFilled(top, ImVec2(top.x + BAR * std::min(1.0f, value / 100.0f), bottom.y),
+                            Packed(value < 50 ? LOW_BAR_RGB : RATE_BAR_RGB), 2.0f);
+  float width = ImGui::CalcTextSize(text.c_str()).x;
+  ImGui::SetCursorScreenPos(ImVec2(at.x + BAR + GAP + textRoom - width, at.y));
+  ImGui::TextColored(Colour(Hot(rgb)), "%s", text.c_str());
+}
+
 static void PlainCell(int value, ImU32 rgb = TEXT_RGB, bool isBad = false)
 {
   NumberCell(HeroStatsView_Number(value), value, isBad, rgb);
@@ -3022,7 +3044,9 @@ static void DrawPerLevel(HeroStatsDrawState *state, const HeroStats &stats, cons
                    HeroStatsCatalogue_Info(number).isBad, rgb);
         continue;
       }
-      CatalogueCell(number, row.values[v], dimmed ? DIM_RGB : rgb);
+      // A rate gets its bar, as Explored per level had on the Profile
+      if (!grid && HeroStatsCatalogue_IsPercent(number)) RateBarCell(number, row.values[v], rgb);
+      else CatalogueCell(number, row.values[v], dimmed ? DIM_RGB : rgb);
     }
     if (table.hasShare)
     {

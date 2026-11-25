@@ -12,7 +12,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 **Statistics**
 - A new **Profile** tab shows the run as star plots: how much of the dungeon the party found (explored, items, monsters, doors, switches), how it played, each champion's ranks per class, where the mana went and who carried what and, on Per level, a table of the completion level by level. The exported page has it too.
-- The Exploration tab has an **Explored rate** under Tiles explored: the part of the squares the party can reach that it has explored, for a level, for the whole run and on Per level.
+- The Exploration tab has an **Explored rate** under Tiles explored: the part of the squares the party can reach that it has explored, for a level, for the whole run and on Per level, where each value has a bar in front, orange under half.
 - A monster killed by the explosion of a Fuse (the Firestaff's action) is the champion's kill, as with Invoke; it counted under Other causes. Fuse now counts as an attack (a try, and a hit once its explosion hurts) rather than an Other action.
 
 ## 1.6.3 (2026-11-23)

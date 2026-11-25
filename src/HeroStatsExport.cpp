@@ -653,6 +653,7 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   table td.sd { color:var(--part) }  /* secondary data: grey, but not as faint as a zero or a hint */
   .z, table tr td.z { color:var(--faint) } .gone { color:var(--dim) }  /* a zero is faint in part and total rows too */
   .pill { color:var(--bad); background:rgba(229,115,95,.16); border-radius:3px; padding:0 4px }
+  .rate { display:inline-grid; grid-template-columns:48px 3.2em; gap:6px; align-items:center } .rate .share { min-width:0 } .rate > span:last-child { text-align:right }
   .share { display:flex; height:9px; background:var(--track); border-radius:2px; overflow:hidden; min-width:60px } .share i { display:block; height:100% }
   .choices { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:8px }
   .note { color:var(--dim); padding:4px 0 }
@@ -1319,7 +1320,10 @@ function perLevel() {
     const head = n => t === TOPIC_MONSTERS && isParty() && NUM[n].label === 'Kills' ? 'By champions' : NUM[n].label;
     cols = [nameCol('Level')].concat(numbers.map(n => numCol(head(n))));
     if (share !== undefined) cols.push(numCol('Who: ' + NUM[share].label));
-    const valueCell = (n, v, l) => v === null ? cell(v) : cell(v, NUM[n].bad, NUM[n].ratio, esc(text(n, v) + runShare(n, l, v)));
+    // A rate gets its bar in front, orange under half, as in the window
+    const rateBar = v => `<span class="rate"><span class="share"><i style="width:${Math.max(0, Math.min(100, v))}%;background:${v < 50 ? '#c98a3c' : '#7fa6e6'}"></i></span>`;
+    const valueCell = (n, v, l) => v === null ? cell(v) : NUM[n].pct && v >= 0 ? `<td>${rateBar(v)}<span>${esc(text(n, v))}</span></span></td>` :
+      cell(v, NUM[n].bad, NUM[n].ratio, esc(text(n, v) + runShare(n, l, v)));
     rowOf = l => [levelTd(l)].concat(numbers.map(n => td(rec(st.who, l)[n], valueCell(n, rec(st.who, l)[n], l))),
       share === undefined ? [] : [td(rec(N, l)[share], `<td class="whobar">${shareBar(H.map((h, i) => rec(i, l)[share]))}</td>`)]);
   }
