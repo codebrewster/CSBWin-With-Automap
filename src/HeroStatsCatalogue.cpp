@@ -82,6 +82,7 @@ static const HeroStatsNumberInfo NUMBERS[HERO_NUMBER_COUNT] = {
     {"Steps", "Moves the party made to another square, stairs included. Falls and teleports are no steps.", true, false, false, false, false},
     {"Tiles walked", "The different squares the party stood on; each counts once.", true, false, false, false, false},
     {"Tiles explored", "The squares the map shows as explored that are not solid wall.", true, false, false, false, false},
+    {"Explored rate", "Reachable squares explored \xc3\xb7 the squares the party can reach. A square can be reached when a way leads to it from where the party has been, from stairs or from where a teleporter leads. Closed-off squares do not count. For the whole run the levels not visited yet count too.", true, false, false, true, false},
     {"Turns", "Turns left or right on a square. A turn on stairs takes the stairs, so it is a Step.", true, false, false, false, false},
     {"Wall bumps", "Moves that ran into a wall, a closed door or a solid false wall.", true, false, false, false, false},
     {"Monster bumps", "Moves that were stopped by a monster on the next square.", true, false, false, false, false},
@@ -175,7 +176,7 @@ static const char *const KEYS[] = {
     "deaths", "resurrected", "wipes", "reloads",
     "eaten", "drunk", "potions_drunk", "potions_brewed", "food_gained", "food_wasted", "water_gained", "water_wasted",
     "picked_up", "used_in_walls",
-    "steps", "tiles_walked", "tiles_explored", "turns", "wall_bumps", "monster_bumps", "teleports", "telefrags", "telefragged", "landings",
+    "steps", "tiles_walked", "tiles_explored", "explored_rate", "turns", "wall_bumps", "monster_bumps", "teleports", "telefrags", "telefragged", "landings",
     "pit_falls", "pit_climbs", "climb_landings", "arrivals", "stair_changes",
     "stair_dances", "stair_dance_moves", "strict_stair_dances", "strict_stair_dance_moves",
     "formation_changes", "formation_swaps", "formation_moves", "formation_put_backs", "formation_swapped_aside", "ticks", "sleep_ticks",
@@ -298,7 +299,7 @@ static std::vector<HeroStatsTopicInfo> MakeTopics(void)
   topics[HeroTopicExploration] = {"Exploration", {}, {HeroNumTilesExplored, HeroNumSteps, HeroNumTicks, HeroNumTeleports}, {}};
   SetGroups(&topics[HeroTopicExploration],
             {{"Movement", true,
-              {{HeroNumSteps, 0}, {HeroNumTurns, 0}, {HeroNumTilesWalked, 0}, {HeroNumTilesExplored, 0}, {HeroNumBumps, 0}, {HeroNumMonsterBumps, 0}}},
+              {{HeroNumSteps, 0}, {HeroNumTurns, 0}, {HeroNumTilesWalked, 0}, {HeroNumTilesExplored, 0}, {HeroNumExploredRate, 0}, {HeroNumBumps, 0}, {HeroNumMonsterBumps, 0}}},
              {"Travel", true,
               {{HeroNumTeleports, 0}, {HeroNumTelefrags, 1, "onto monsters"}, {HeroNumPitFalls, 0}, {HeroNumLandings, 1, "onto monsters"},
                {HeroNumPitClimbs, 0}, {HeroNumClimbLandings, 1, "onto monsters"}, {HeroNumArrivals, 0}, {HeroNumStairChanges, 0},
@@ -633,6 +634,8 @@ static void FillMovement(const HeroStats &stats, HeroStatsChampion, int level, i
   v[HeroNumSteps] = move.steps;
   v[HeroNumTilesWalked] = move.tilesWalked;
   v[HeroNumTilesExplored] = move.tilesExplored;
+  HeroStatsCompletionAxis explored = stats.Completion(level, HeroCompletionExplored);
+  v[HeroNumExploredRate] = RoundedRatio((long long)explored.found * 100, explored.total);
   v[HeroNumTurns] = move.turns;
   v[HeroNumBumps] = move.bumps;
   v[HeroNumMonsterBumps] = move.monsterBumps;
@@ -852,7 +855,7 @@ static FillGroup GroupOf(HeroStatsNumber number)
   case HeroNumEaten: case HeroNumDrunk: case HeroNumPotionsDrunk: case HeroNumFoodGained: case HeroNumFoodWasted: case HeroNumWaterGained:
   case HeroNumWaterWasted: return FillFood;
   case HeroNumPickedUp: case HeroNumUsedInWalls: return FillItems;
-  case HeroNumSteps: case HeroNumTilesWalked: case HeroNumTilesExplored: case HeroNumTurns: case HeroNumBumps:
+  case HeroNumSteps: case HeroNumTilesWalked: case HeroNumTilesExplored: case HeroNumExploredRate: case HeroNumTurns: case HeroNumBumps:
   case HeroNumMonsterBumps: case HeroNumTeleports: case HeroNumTelefrags: case HeroNumLandings: case HeroNumPitFalls: case HeroNumPitClimbs: case HeroNumClimbLandings: case HeroNumArrivals: case HeroNumStairChanges:
   case HeroNumStairDances: case HeroNumStairDanceMoves: case HeroNumStrictStairDances: case HeroNumStrictStairDanceMoves:
   case HeroNumTicks: case HeroNumSleepTicks:
@@ -903,7 +906,7 @@ bool HeroStatsCatalogue_Summable(HeroStatsNumber number)
 
 bool HeroStatsCatalogue_IsPercent(HeroStatsNumber number)
 {
-  return number == HeroNumHitRate || number == HeroNumManaSuccessRate || number == HeroNumCastsSuccessRate;
+  return number == HeroNumHitRate || number == HeroNumExploredRate || number == HeroNumManaSuccessRate || number == HeroNumCastsSuccessRate;
 }
 
 bool HeroStatsCatalogue_IsRecord(HeroStatsNumber number)

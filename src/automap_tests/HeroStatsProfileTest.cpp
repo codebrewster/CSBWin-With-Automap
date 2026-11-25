@@ -122,7 +122,7 @@ static void APickedChampionIsBrightTheOthersFaint(void)
   CHECK(!profile.played.shapes[1].faint && profile.played.shapes[1].who == ELIJA);
 }
 
-static void LevelBarsListTheVisitedLevels(void)
+static void PerLevelListsTheVisitedLevels(void)
 {
   HeroStats stats = OneChampion();
   stats.MarkLevelVisited(0);
@@ -132,11 +132,10 @@ static void LevelBarsListTheVisitedLevels(void)
   perLevel[5] = half;
   stats.SetDungeonCounts(perLevel);
   HeroStatsProfile profile = HeroStatsProfile_Make(stats, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN);
-  CHECK(profile.levelBars.size() == 3);
-  CHECK(profile.levelBars[0].level == 0 && profile.levelBars[1].level == 1 && profile.levelBars[2].level == 5);
-  CHECK(Near(profile.levelBars[0].explored, -1));  // nothing reachable known
-  CHECK(Near(profile.levelBars[2].explored, 0.5));
   CHECK(profile.perLevel.size() == 4);
+  CHECK(profile.perLevel[0].level == 0 && profile.perLevel[1].level == 1 && profile.perLevel[2].level == 5);
+  CHECK(Near(profile.perLevel[0].values[HeroCompletionExplored], -1));  // nothing reachable known
+  CHECK(Near(profile.perLevel[2].values[HeroCompletionExplored], 0.5));
   CHECK(profile.perLevel.back().level == HERO_STATS_WHOLE_RUN);
   CHECK(Near(profile.perLevel.back().values[HeroCompletionExplored], 0.5));
   CHECK(profile.completion.axes.size() == HERO_COMPLETION_AXIS_COUNT);
@@ -173,7 +172,7 @@ static void TheWholeRunCountsLevelsNotVisited(void)
   stats.SetDungeonCounts(perLevel);
   HeroStatsProfile profile = HeroStatsProfile_Make(stats, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN);
   CHECK(Near(profile.completion.shapes[0].values[HeroCompletionExplored], 0.25));
-  CHECK(profile.levelBars.size() == 1);   // the bars are the visited levels
+  CHECK(profile.perLevel.size() == 2);   // the rows are the visited levels and the whole run
 }
 
 // The hover text of an axis: what it counts, then a line per shape in the window's tooltip style
@@ -196,7 +195,7 @@ static void AnAxisTipExplainsThenListsTheShapes(void)
   CHECK(played.axes[4] == "Defences" && played.axes[6] == "Mana regen" && played.axes[7] == "Food & water");
   const HeroStatsStar &roles = profile.roles;
   for (size_t a = 0; a < roles.axes.size(); a++) CHECK(roles.axes[a].size() <= 14);
-  CHECK(roles.axes[0] == "Damage" && roles.axes[3] == "Hits taken" && roles.axes[4] == "Potions" && roles.axes[5] == "Experience");
+  CHECK(roles.axes[0] == "Damage" && roles.axes[2] == "Hits taken" && roles.axes[3] == "Mana spent" && roles.axes[4] == "Potions" && roles.axes[5] == "Experience");
   CHECK(roles.tips[0].find("\n\nZED  75% \xc2\xb7 30\nELIJA  25% \xc2\xb7 10") != std::string::npos);
   // The completion's own help says nothing of the level; its tip does
   CHECK(profile.completion.helps[1].find("whole dungeon") == std::string::npos);
@@ -242,5 +241,5 @@ void TestHeroStatsProfile(void)
   RolesNeedTwoChampionsWithAnyValue();
   TrainedOuterRingIsTheBestRank();
   APickedChampionIsBrightTheOthersFaint();
-  LevelBarsListTheVisitedLevels();
+  PerLevelListsTheVisitedLevels();
 }

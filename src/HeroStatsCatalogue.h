@@ -31,7 +31,7 @@ enum HeroStatsNumber {
   HeroNumDeaths, HeroNumResurrected, HeroNumWipes, HeroNumReloads,
   HeroNumEaten, HeroNumDrunk, HeroNumPotionsDrunk, HeroNumPotionsBrewed, HeroNumFoodGained, HeroNumFoodWasted, HeroNumWaterGained, HeroNumWaterWasted,
   HeroNumPickedUp, HeroNumUsedInWalls,
-  HeroNumSteps, HeroNumTilesWalked, HeroNumTilesExplored, HeroNumTurns, HeroNumBumps, HeroNumMonsterBumps, HeroNumTeleports, HeroNumTelefrags, HeroNumTelefragged, HeroNumLandings,
+  HeroNumSteps, HeroNumTilesWalked, HeroNumTilesExplored, HeroNumExploredRate, HeroNumTurns, HeroNumBumps, HeroNumMonsterBumps, HeroNumTeleports, HeroNumTelefrags, HeroNumTelefragged, HeroNumLandings,
   HeroNumPitFalls, HeroNumPitClimbs, HeroNumClimbLandings, HeroNumArrivals, HeroNumStairChanges,
   HeroNumStairDances, HeroNumStairDanceMoves, HeroNumStrictStairDances, HeroNumStrictStairDanceMoves,
   HeroNumFormationChanges, HeroNumFormationSwaps, HeroNumFormationMoves, HeroNumFormationPutBacks, HeroNumFormationSwappedAside, HeroNumTicks, HeroNumSleepTicks,

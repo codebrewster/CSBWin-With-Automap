@@ -164,6 +164,31 @@ static void RecordMatchesTheStore(void)
   CHECK(party.value[HeroNumSteps] == 1);
 }
 
+// Explored rate: the reachable squares explored of those the party can reach, the party's only;
+// the whole run counts the levels not visited yet too
+static void ExploredRateIsOfTheReachableSquares(void)
+{
+  HeroStats stats;
+  stats.MeetChampion(7, "HALK");
+  CHECK(HeroStatsCatalogue_Record(stats, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN).value[HeroNumExploredRate] == -1);
+  std::map<int, HeroStatsDungeonCounts> perLevel;
+  HeroStatsDungeonCounts here = {100, 60, 0, 0, 0, 0, 0, 0}, notYet = {300, 0, 0, 0, 0, 0, 0, 0};
+  perLevel[1] = here;
+  perLevel[2] = notYet;
+  stats.SetDungeonCounts(perLevel);
+  CHECK(HeroStatsCatalogue_Record(stats, HERO_STATS_PARTY, 1).value[HeroNumExploredRate] == 60);
+  CHECK(HeroStatsCatalogue_Record(stats, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN).value[HeroNumExploredRate] == 15);
+  CHECK(HeroStatsCatalogue_Format(HeroNumExploredRate, 60) == "60%");
+  CHECK(!HeroStatsCatalogue_Summable(HeroNumExploredRate));
+  CHECK(!HeroStatsCatalogue_Applies(HeroNumExploredRate, 7, HERO_STATS_WHOLE_RUN));
+  CHECK(HeroStatsCatalogue_Key(HeroNumExploredRate) == "explored_rate");
+  // A row of its own, not a part of Tiles explored: Per level shows the top rows only
+  const std::vector<HeroStatsTopicRow> &rows = HeroStatsCatalogue_Topic(HeroTopicExploration).rows;
+  bool topRow = false;
+  for (size_t r = 0; r < rows.size(); r++) topRow = topRow || (rows[r].number == HeroNumExploredRate && rows[r].depth == 0);
+  CHECK(topRow);
+}
+
 static void RatiosAreUndefinedWithoutAttacks(void)
 {
   HeroStats stats;
@@ -712,6 +737,7 @@ void TestHeroStatsCatalogue(void)
   TopicsHaveGroups();
   PartyNumbersStandInPanels();
   KillCausesAddUp();
+  ExploredRateIsOfTheReachableSquares();
   HovertextsSayWhatLabelsDoNot();
   ExperienceAndRecordsHaveTopics();
   RecordValuesAreTheBest();

@@ -333,6 +333,7 @@ champion's Exploration shows those two only.
 | **Steps** | Moves the party made to another square: forward, back, sideways, and up or down stairs |
 | **Tiles walked** | The different squares the party stood on, however it got there; each square counts once |
 | **Tiles explored** | The squares the map shows as explored that are not solid wall: floors, doors, stairs, pits, teleporters ... A false wall counts once it is seen to be passable. This comes from the map itself, so it is there for games saved before the statistics existed. |
+| **Explored rate** | The reachable squares explored ÷ the squares the party can reach, as on the Profile's Completion. A square can be reached when a way leads to it from where the party has been, from stairs or from where a teleporter leads; closed-off squares do not count. For the whole run the levels not visited yet count too. |
 | **Turns** | Turns left or right you made. Turning while on stairs takes the stairs, so it counts as a step. |
 | **Wall bumps** | Moves that ran into a wall, a closed door or a solid false wall |
 | **Monster bumps** | Moves that were stopped by a monster standing on the next square |
@@ -560,14 +561,15 @@ counts, then each champion's value and the numbers behind it.
   Torch, Light and Darkness, Shield party and Fire shield, everything else, and Mana wasted (runes of
   spells that failed or formed no spell, and runes cleared). A champion's axes add up to 100%, so a
   bigger shape is a different split, not more mana.
-- **Who carried what**: each champion's share of the party's Damage dealt (*Damage*), Kills, Mana
-  spent, Hits taken, Potions brewed (*Potions*) and Experience gained (*Experience*). The dashed ring is an even share: outside it, a
-  champion did more than their part. Only with two champions or more who did any of it.
-- **Explored per level**: a bar per visited level, orange under half. Click a level to pick it.
+- **Who carried what**: each champion's share of the party's Damage dealt (*Damage*), Kills, Hits
+  taken, Mana spent, Potions brewed (*Potions*) and Experience gained (*Experience*). The dashed ring is an even share: outside it, a
+  champion did more than their part. Only with two champions or more who did any of it. The
+  fighting axes sit together on the right and the casting ones at the bottom left, so a fighter
+  and a wizard each make one lobe.
 
 With a champion picked, their shapes are bright and the others faint; *How the party played*
-becomes *How* the champion *played* and draws the party faintly behind them. The completion and
-the bars are always the party's.
+becomes *How* the champion *played* and draws the party faintly behind them. The completion is always the
+party's.
 
 On **Per level** the page is a table instead: a row per visited level and one for the whole run, a
 column for each completion axis, each cell shaded by its value and orange under half. Hover a

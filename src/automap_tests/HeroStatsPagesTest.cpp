@@ -594,7 +594,7 @@ static void ChampionPageDropsPartyOnlyRows(void)
   for (size_t i = 0; i < halk.numbers.size(); i++) CHECK(!halk.numbers[i].partyOnly && halk.numbers[i].byColumn.size() == 1);
   if (halk.numbers.size() == 10) CHECK(halk.numbers[0].number == HeroNumDoorsBashed && halk.numbers[0].byColumn[0] == 1 && halk.numbers[0].party == 1);
   HeroStatsTopicPage party = HeroStatsPages_Topic(stats, Columns(stats), HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN, HeroTopicExploration, NAMES);
-  CHECK(party.numbers.size() == 37);
+  CHECK(party.numbers.size() == 38);
   if (!party.numbers.empty()) CHECK(party.numbers[0].number == HeroNumSteps && party.numbers[0].partyOnly && party.numbers[0].party == 1);
   CHECK(party.tiles.size() == 4);
   // A champion's Overview has tiles of their own
@@ -688,6 +688,9 @@ static void ManyLevelsAllListed(void)
   HeroStatsPerLevel table = HeroStatsPages_PerLevelTotals(stats, Columns(stats), HERO_STATS_PARTY, HeroTopicExploration);
   CHECK(table.rows.size() == 21);
   if (!table.rows.empty()) CHECK(table.rows.back().level == HERO_STATS_WHOLE_RUN);
+  // The party's Explored rate has its column, after Tiles explored
+  std::vector<HeroStatsNumber>::const_iterator tiles = std::find(table.numbers.begin(), table.numbers.end(), HeroNumTilesExplored);
+  CHECK(tiles != table.numbers.end() && tiles + 1 != table.numbers.end() && tiles[1] == HeroNumExploredRate);
   CHECK(HeroStatsView_Picker(stats, HERO_STATS_WHOLE_RUN).stepper);
 }
 
@@ -1321,7 +1324,7 @@ static void ExportHoldsTheProfile(void)
   CHECK(json.find("\"roles\":false") != std::string::npos);
   CHECK(json.find("{\"who\":1,\"faint\":false") != std::string::npos);   // the party: the column after the champions
   CHECK(json.find("\"values\":[null,null,null,null,null]") != std::string::npos);  // nothing known of the dungeon
-  CHECK(json.find("\"bars\":[[2,null]]") != std::string::npos);
+  CHECK(json.find("\"bars\"") == std::string::npos && json.find("\"table\":[[2,null,") != std::string::npos);
   HeroStatsExportInfo info = {"dungeon.dat", "2026-11-24 12:00"};
   std::string all = HeroStatsExport_Json(stats, Columns(stats), NAMES, info);
   CHECK(all.find("\"profiles\":{\"-1\":[{\"stars\":") != std::string::npos);

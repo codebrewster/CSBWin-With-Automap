@@ -16,7 +16,6 @@ namespace
 
 const ImU32 PARTY_SHAPE_RGB = 0x7fa6e6;  // the party's shape, as in the mockup
 const ImU32 LOW_RGB = 0xe0a35c;          // a share under half: the text
-const ImU32 LOW_BAR_RGB = 0xc98a3c;      // and the bar
 const ImU32 GRID_RGB = 0x3a3d46;
 const ImU32 EVEN_RGB = 0x9aa0ad;
 const float CARD_GAP = 14;
@@ -227,59 +226,6 @@ void StarCard(const HeroStatsStar &star, ImVec2 origin, float width, float heigh
   Legend(ImVec2(origin.x, origin.y + top + STAR_BOX + 4), width, star, columns);
 }
 
-float BarsCardHeight(const HeroStatsProfile &profile)
-{
-  float row = ImGui::GetFontSize() + 8;
-  return std::fmax(StarCardHeight(), CARD_PADDING * 2 + ImGui::GetFontSize() * 4 + 12 + row * profile.levelBars.size());
-}
-
-void BarsCard(const HeroStatsProfile &profile, HeroStatsDrawState *state, ImVec2 origin, float width, float height)
-{
-  ImDrawList *drawList = ImGui::GetWindowDrawList();
-  drawList->AddRectFilled(origin, ImVec2(origin.x + width, origin.y + height), Packed(PANEL_RGB), 6);
-  float top = CardHeading(origin, width, "Explored per level", "Squares explored, of those the party can reach. Under half in orange. Click a level to pick it.");
-  float fontSize = ImGui::GetFontSize();
-  float row = fontSize + 8;
-  float labelWidth = ImGui::CalcTextSize("Level 00").x + 10;
-  float valueWidth = ImGui::CalcTextSize("100%").x + 6;
-  float barLeft = origin.x + CARD_PADDING + labelWidth;
-  float barWidth = width - 2 * CARD_PADDING - labelWidth - valueWidth - 10;
-  for (size_t i = 0; i < profile.levelBars.size(); i++)
-  {
-    const HeroStatsLevelBar &bar = profile.levelBars[i];
-    float y = origin.y + top + row * i;
-    ImGui::SetCursorScreenPos(ImVec2(origin.x + CARD_PADDING / 2, y - 3));
-    ImGui::PushID((int)i);
-    bool clicked = ImGui::InvisibleButton("##level", ImVec2(width - CARD_PADDING, row));
-    bool hovered = ImGui::IsItemHovered();
-    ImGui::PopID();
-    if (clicked)
-    {
-      state->perLevel = false;
-      state->level = bar.level;
-    }
-    bool picked = !state->perLevel && state->level == bar.level;
-    if (picked || hovered)
-      drawList->AddRectFilled(ImVec2(origin.x + CARD_PADDING / 2, y - 3), ImVec2(origin.x + width - CARD_PADDING / 2, y + row - 3),
-                              Packed(picked ? PICKED_GROUND_RGB : PANEL_HOVERED_RGB), 3);
-    std::string label = "Level " + std::to_string(bar.level);
-    drawList->AddText(ImVec2(origin.x + CARD_PADDING, y), Packed(TEXT_RGB), label.c_str());
-    float barY = y + fontSize / 2 - 5;
-    drawList->AddRectFilled(ImVec2(barLeft, barY), ImVec2(barLeft + barWidth, barY + 10), Packed(TRACK_RGB), 3);
-    std::string text = "-";
-    bool low = false;
-    if (bar.explored >= 0)
-    {
-      low = bar.explored < 0.5;
-      drawList->AddRectFilled(ImVec2(barLeft, barY), ImVec2(barLeft + barWidth * (float)bar.explored, barY + 10),
-                              Packed(low ? LOW_BAR_RGB : PARTY_SHAPE_RGB), 3);
-      text = std::to_string((int)floor(bar.explored * 100 + 0.5)) + "%";
-    }
-    ImVec2 size = ImGui::CalcTextSize(text.c_str());
-    drawList->AddText(ImVec2(origin.x + width - CARD_PADDING - size.x, y), Packed(low ? LOW_RGB : WHITE_RGB), text.c_str());
-  }
-}
-
 // Per level: a row per level, a column per completion axis, each cell shaded by its value
 void CompletionTable(const HeroStatsProfile &profile, HeroStatsDrawState *state)
 {
@@ -388,19 +334,12 @@ void HeroStatsProfileDraw_Page(HeroStatsDrawState *state, const HeroStats &stats
   stars.push_back(&profile.trained);
   stars.push_back(&profile.mana);
   if (profile.showRoles) stars.push_back(&profile.roles);
-  size_t cardCount = stars.size() + 1;  // and the bars
   float y = origin.y;
-  for (size_t first = 0; first < cardCount; first += across)
+  for (size_t first = 0; first < stars.size(); first += across)
   {
     float rowHeight = StarCardHeight();
-    for (size_t c = first; c < first + across && c < cardCount; c++)
-      if (c == stars.size()) rowHeight = std::fmax(rowHeight, BarsCardHeight(profile));
-    for (size_t c = first; c < first + across && c < cardCount; c++)
-    {
-      ImVec2 at(origin.x + (width + CARD_GAP) * (c - first), y);
-      if (c < stars.size()) StarCard(*stars[c], at, width, rowHeight, columns);
-      else BarsCard(profile, state, at, width, rowHeight);
-    }
+    for (size_t c = first; c < first + across && c < stars.size(); c++)
+      StarCard(*stars[c], ImVec2(origin.x + (width + CARD_GAP) * (c - first), y), width, rowHeight, columns);
     y += rowHeight + CARD_GAP;
   }
   ImGui::SetCursorScreenPos(origin);

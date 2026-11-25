@@ -434,10 +434,7 @@ std::string HeroStatsExport_ProfileJson(const HeroStatsProfile &profile, const s
   const HeroStatsStar *stars[5] = {&profile.completion, &profile.played, &profile.trained, &profile.mana, &profile.roles};
   std::string out = "{\"stars\":[";
   for (int i = 0; i < 5; i++) out += std::string(i > 0 ? "," : "") + StarJson(*stars[i], columns);
-  out += "],\"roles\":" + Bool(profile.showRoles) + ",\"bars\":[";
-  for (size_t i = 0; i < profile.levelBars.size(); i++)
-    out += std::string(i > 0 ? "," : "") + "[" + Number(profile.levelBars[i].level) + "," + Fraction(profile.levelBars[i].explored) + "]";
-  out += "],\"table\":[";
+  out += "],\"roles\":" + Bool(profile.showRoles) + ",\"table\":[";
   for (size_t i = 0; i < profile.perLevel.size(); i++)
   {
     out += std::string(i > 0 ? "," : "") + "[" + Number(profile.perLevel[i].level);
@@ -664,10 +661,6 @@ static const char *const PAGE_HEAD = R"HTML(<!doctype html>
   .pf-card h3 { margin:0; font-size:1em; color:#fff; font-weight:600 }
   .pf-card .pf-cap { color:var(--dim); font-size:.92em }
   .pf-card svg { align-self:center; overflow:visible; width:100%; max-width:420px; height:auto }
-  .lvbar { display:grid; grid-template-columns:5.5em 1fr 3.5em; gap:8px; align-items:center; padding:2px 4px; border-radius:3px; cursor:pointer }
-  .lvbar:hover { background:#2e3139 }
-  .lvbar .tr { height:10px; background:#2f323a; border-radius:3px; overflow:hidden }
-  .lvbar .fi { height:10px; border-radius:3px }
   .low { color:#e0a35c }
   table.comp td.c { text-align:right; padding:4px 12px; border:2px solid #1e1f24 }
   table.comp th { color:var(--dim); font-weight:400; text-align:right; padding:4px 12px }
@@ -1547,7 +1540,7 @@ document.addEventListener('click', e => {
 document.addEventListener('focusin', e => { const el = e.target.closest ? e.target.closest('[data-tip]') : null; if (el && !pinned) showTip(el); });
 document.addEventListener('focusout', () => hideTip(false));
 
-// The Profile: the run as star plots (HeroStatsProfile in the game), the bars and on Per level the
+// The Profile: the run as star plots (HeroStatsProfile in the game) and on Per level the
 // completion table. Its data is made by the game: D.profiles[level][who], who the column, the party last.
 const PARTY_SHAPE = '#7fa6e6';
 const shapeColour = w => w === N ? PARTY_SHAPE : COLOUR(w);
@@ -1614,9 +1607,7 @@ function profilePage() {
     return `<h3 style="margin:10px 0 4px">Completion, level by level</h3><div class="note">Each cell: what the party found on that level, of all the level holds. Under half in orange. Click a level to pick it.</div><div style="overflow-x:auto"><table class="comp"><tr><th style="text-align:left">Level</th>${head}</tr>${rows}</table></div>`;
   }
   const stars = p.stars.filter((s, i) => i !== 4 || p.roles);
-  let cards = stars.map(s => `<div class="pf-card"><h3>${esc(s.title)}</h3><div class="pf-cap">${esc(s.caption)}</div>${starSvg(s)}${starLegend(s)}</div>`).join('');
-  const bars = p.bars.map(([l, v]) => `<div class="lvbar" onclick="set({per:false,level:${l}})"${!st.per && st.level === l ? ' style="background:#2a3a57"' : ''}><span>Level ${l}</span><span class="tr"><span class="fi" style="display:block;width:${v === null ? 0 : Math.round(v * 100)}%;background:${v !== null && v < 0.5 ? '#c98a3c' : PARTY_SHAPE}"></span></span><span class="${v !== null && v < 0.5 ? 'low' : ''}" style="text-align:right">${pct(v)}</span></div>`).join('');
-  cards += `<div class="pf-card"><h3>Explored per level</h3><div class="pf-cap">Squares explored, of those the party can reach. Under half in orange. Click a level to pick it.</div>${bars}</div>`;
+  const cards = stars.map(s => `<div class="pf-card"><h3>${esc(s.title)}</h3><div class="pf-cap">${esc(s.caption)}</div>${starSvg(s)}${starLegend(s)}</div>`).join('');
   return `<div class="pf-cards">${cards}</div>`;
 }
 

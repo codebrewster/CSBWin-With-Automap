@@ -343,17 +343,17 @@ HeroStatsStar Roles(const HeroStats &stats, HeroStatsChampion who, int level, bo
   HeroStatsStar star = NewStar("Who carried what",
                                "Each champion's share of the party's total. The dashed ring is an even share: outside it, a "
                                "champion did more than their part.");
-  static const HeroStatsNumber NUMBERS[6] = {HeroNumDamage, HeroNumKills, HeroNumManaSpent, HeroNumHitsTaken,
+  static const HeroStatsNumber NUMBERS[6] = {HeroNumDamage, HeroNumKills, HeroNumHitsTaken, HeroNumManaSpent,
                                              HeroNumPotionsBrewed, HeroNumExperience};
-  static const char *const AXES[6] = {"Damage", "Kills", "Mana spent", "Hits taken", "Potions", "Experience"};
+  static const char *const AXES[6] = {"Damage", "Kills", "Hits taken", "Mana spent", "Potions", "Experience"};
   star.axes.assign(AXES, AXES + 6);
   static const char *const HELPS[6] = {
     "The champion's Damage dealt \xc3\xb7 the party's: their part of all the damage the champions did to monsters.",
     "The champion's Kills \xc3\xb7 the party's. Monsters killed by doors, falls, telefrags and landings are no "
     "champion's kills and are left out.",
-    "The champion's Mana spent \xc3\xb7 the party's.",
     "The champion's Hits taken \xc3\xb7 the party's: their part of the monster attacks that did damage. It shows who "
     "stood in front.",
+    "The champion's Mana spent \xc3\xb7 the party's.",
     "The champion's Potions brewed \xc3\xb7 the party's.",
     "The champion's Experience gained \xc3\xb7 the party's."};
   star.helps.assign(HELPS, HELPS + 6);
@@ -458,9 +458,6 @@ HeroStatsProfile HeroStatsProfile_Make(const HeroStats &stats, HeroStatsChampion
   std::vector<int> levels = stats.VisitedLevels();
   for (size_t i = 0; i < levels.size(); i++)
   {
-    HeroStatsCompletionAxis explored = stats.Completion(levels[i], HeroCompletionExplored);
-    HeroStatsLevelBar bar = {levels[i], Ratio(explored.found, explored.total)};
-    profile.levelBars.push_back(bar);
     profile.perLevel.push_back(CompletionRow(stats, levels[i]));
   }
   profile.perLevel.push_back(CompletionRow(stats, HERO_STATS_WHOLE_RUN));

@@ -38,14 +38,12 @@ struct HeroStatsStar
   std::string edgeLabel;                                // the edge's label when no ring is at the edge (Trained: its rank)
 };
 
-struct HeroStatsLevelBar { int level; double explored; };   // -1: nothing reachable known
 struct HeroStatsCompletionRow { int level; double values[HERO_COMPLETION_AXIS_COUNT]; };  // -1: nothing there
 
 struct HeroStatsProfile
 {
   HeroStatsStar completion, played, trained, mana, roles;
   bool showRoles;                                // two champions or more with any of its values
-  std::vector<HeroStatsLevelBar> levelBars;      // the visited levels, ascending
   std::vector<HeroStatsCompletionRow> perLevel;  // the visited levels, then the whole run (HERO_STATS_WHOLE_RUN)
 };
 
