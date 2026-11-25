@@ -7,6 +7,8 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 ## Unreleased
 
+## 1.7.0 (2026-11-25)
+
 **Automap**
 - The search counts what its rows hold, not only the rows: FOOD shows `225 IN 91 PLACES ON 10 LEVELS` when stacks like `SCREAMER SLICE X15` hold more than one, and each level heading likewise (`36 IN 27 PLACES`). The level list's `HITS` while searching count them too. Searches whose rows each hold one thing read as before. The same in the exported map page, whose total also no longer drops the hits of a folded level.
 
