@@ -1,8 +1,9 @@
 # CSBwin Plus
 
 **Dungeon Master** and **Chaos Strikes Back** on Linux, macOS and Windows. CSBwin Plus is based
-on Paul Stevens' CSBwin, the faithful reverse-engineered port of FTL's game engine, so it plays
-the original games and every custom dungeon made for CSBwin. On top of that it adds an automap,
+on [zelurker's Linux port](https://github.com/zelurker/CSB) of Paul Stevens' CSBwin, the faithful
+reverse-engineered port of FTL's game engine, so it plays the original games and every custom
+dungeon made for CSBwin. On top of that it adds an automap,
 statistics, and a record and replay that ties into both.
 
 It is the best way to play the game: everything CSBwin has, plus the map and the statistics. And
@@ -71,7 +72,7 @@ next to the program:
 2. **Sounds, main font and icon (strongly recommended):** the `sounds` and
    `fonts` folders and `lsb.bmp` from
    [csb64.7z](http://raine.1emulation.com/archive/csb/csb64.7z), the package of
-   the CSBwin Linux port ([forum topic](https://www.dungeon-master.com/forum/viewtopic.php?t=31666)).
+   [zelurker's CSBwin Linux port](https://github.com/zelurker/CSB) ([forum topic](https://www.dungeon-master.com/forum/viewtopic.php?t=31666)).
    Without them, monsters move in silence.
 3. **Text fonts (recommended):** [Diogenes](https://www.dafont.com/diogenes.font)
    and [Olde English](https://www.dafont.com/olde-english.font) from dafont,
@@ -352,6 +353,9 @@ Dungeon Master Encyclopaedia:
 - Dungeon Master Encyclopaedia: <http://dmweb.free.fr/>
 - Dungeon Master forum: <https://www.dungeon-master.com/forum/>
 
+zelurker ported CSBwin to Linux with SDL2; CSBwin Plus is built on that port. Its sources are at
+<https://github.com/zelurker/CSB>.
+
 Downloadable binary packages on those sites contain the game data and the
 optional sounds and fonts. The repository itself ships neither the game data
 nor those optional files.
@@ -359,10 +363,8 @@ nor those optional files.
 ## Credits
 
 - CSBwin and the original reverse engineering: Paul R. Stevens.
-- The SDL2 Linux port this tree builds on: the CSBwin Linux community.
+- The SDL2 Linux port this tree builds on: zelurker, <https://github.com/zelurker/CSB>.
 - Original games, artwork and game data: FTL Games / Software Heaven, Inc.
-- Automap, statistics, Windows build and documentation:
-  [codebrewster](https://github.com/codebrewster).
 - Bundled libraries: [Dear ImGui](https://github.com/ocornut/imgui),
   [SDL_sound](https://github.com/icculus/SDL_sound),
   [dr_mp3](https://github.com/mackron/dr_libs) and
