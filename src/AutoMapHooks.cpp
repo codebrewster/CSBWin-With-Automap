@@ -947,14 +947,20 @@ static void LearnFromViewportDraws(void)
     else if (key.kind == AutoMapDrawMonster)
     {
       // A monster is told by the pixels that stand out like an item's, but needs no patch: two
-      // eyes in the dark give it away
-      AutoMapItemShape shape = AutoMapSight_ShapeOfItem(AutoMapMeasure_ViewOf(key, palette), NULL);
-      std::snprintf(entry, sizeof(entry), " %u pos %d:%d of %d patch %d", (unsigned)key.record,
-                    monsterPositionsOfFrame[key.record], shape.visible, shape.drawn,
-                    shape.largestPatch);
-      monsterTrace += entry;
-      KeepMeasurement(key, shape.visible, shape.drawn, shape.largestPatch);
-      bool isSeen = shape.visible >= AUTOMAP_SEEN_MONSTER_PIXELS;
+      // eyes in the dark give it away. Judged on nearly every frame, so only as far as needed,
+      // unless the measurements are wanted (map_timing, a visibility test)
+      bool isSeen;
+      if (MeasuresEveryDraw())
+      {
+        AutoMapItemShape shape = AutoMapSight_ShapeOfItem(AutoMapMeasure_ViewOf(key, palette), NULL);
+        std::snprintf(entry, sizeof(entry), " %u pos %d:%d of %d patch %d", (unsigned)key.record,
+                      monsterPositionsOfFrame[key.record], shape.visible, shape.drawn,
+                      shape.largestPatch);
+        monsterTrace += entry;
+        KeepMeasurement(key, shape.visible, shape.drawn, shape.largestPatch);
+        isSeen = shape.visible >= AUTOMAP_SEEN_MONSTER_PIXELS;
+      }
+      else isSeen = AutoMapSight_StandsOutAtLeast(AutoMapMeasure_ViewOf(key, palette), AUTOMAP_SEEN_MONSTER_PIXELS);
       // Through the hole of OH EW RA the monster is drawn shrunken, not as measured
       if (!isSeen && d.SeeThruWalls != 0) isSeen = MonsterStandsInHole(key.record);
       if (isSeen) recorder.SeeMonster(key.record);
@@ -980,6 +986,12 @@ static void LearnFromViewportDraws(void)
       // Judged by its pixels that stand out against what it covers, touching or not: the bars
       // of a portcullis two ahead show in the dark beyond the light's reach as a grid of small
       // patches, a wooden door there is black
+      if (!MeasuresEveryDraw())
+      {
+        if (AutoMapSight_StandsOutAtLeast(AutoMapMeasure_ViewOf(key, palette), AUTOMAP_SEEN_DOOR_PIXELS))
+          recorder.SeeDoor(key.x, key.y);
+        continue;
+      }
       AutoMapItemShape shape = AutoMapSight_ShapeOfItem(AutoMapMeasure_ViewOf(key, palette), NULL);
       std::snprintf(entry, sizeof(entry), " door@%d,%d:%d of %d patch %d", key.x + offsetX,
                     key.y + offsetY, shape.visible, shape.drawn, shape.largestPatch);
@@ -2138,12 +2150,13 @@ static void FilterLastSnapshotAnew(void)
 
 // ---------------------------------------------------------------------------------------------
 // The damage the game showed. It counts wherever the group is: the number was on screen, even
-// when the group then walks out of sight.
+// when the group then walks out of sight. The map shows it with its next rebuild, as it shows
+// the monsters moving (RebuildShownLevel, a few times a second): a fight at max shows hundreds
+// of numbers a second, and drawing the whole level anew for each one cost a fifth of the replay.
 
 void AutoMap_OnMonsterDamageShown(int group, int member, int damage)
 {
   recorder.Damage().Credit(AutoMapLevelReader_RecordId(group), member, damage);
-  FilterLastSnapshotAnew();
 }
 
 void AutoMap_OnGroupDamageShown(int group, const int *damage, int memberCount)
@@ -2155,13 +2168,11 @@ void AutoMap_OnGroupDamageShown(int group, const int *damage, int memberCount)
   {
     if (damage[member] > 0) recorder.Damage().Credit(AutoMapLevelReader_RecordId(group), member, damage[member]);
   }
-  FilterLastSnapshotAnew();
 }
 
 void AutoMap_OnMonsterMemberRemoved(int group, int member)
 {
   recorder.Damage().RemoveMember(AutoMapLevelReader_RecordId(group), member);
-  FilterLastSnapshotAnew();
 }
 
 // Records are reused: a generator's new group must not show the damage of the group that died

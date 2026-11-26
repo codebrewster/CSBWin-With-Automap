@@ -7,6 +7,9 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 ## Unreleased
 
+**Replay**
+- A replay at max in the window is faster again (DMMovie8: 9 s → 6 s). The map window no longer draws the whole level anew for every damage number of a fight: the damage shows with its next update, a few times a second, as the monsters' moves do. And a monster or door in the 3D view is judged only until it is clearly seen.
+
 ## 1.7.3 (2026-11-26)
 
 **Replay**

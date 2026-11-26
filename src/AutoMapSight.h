@@ -160,6 +160,9 @@ struct AutoMapDrawView
 struct AutoMapItemShape { int drawn; int visible; int largestPatch; };
 // standsOut, unless NULL: per pixel of the view, whether it is an item pixel that stands out
 AutoMapItemShape AutoMapSight_ShapeOfItem(const AutoMapDrawView &view, std::vector<bool> *standsOut);
+// Whether at least count of the drawn pixels stand out, as ShapeOfItem counts them in visible;
+// it stops at the count, without looking at the rest or for patches
+bool AutoMapSight_StandsOutAtLeast(const AutoMapDrawView &view, int count);
 // A shut door is seen from as many of its pixels standing out (AutoMapSight_ShapeOfItem), touching
 // or not: its pattern spreads over the doorway, so no patch need be large. Measured in the game:
 // a portcullis two ahead at light 5 shows as a grid of 25 patches, 5 of one pixel and 20 wedges of

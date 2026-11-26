@@ -408,6 +408,20 @@ AutoMapItemShape AutoMapSight_ShapeOfItem(const AutoMapDrawView &view, std::vect
   return shape;
 }
 
+bool AutoMapSight_StandsOutAtLeast(const AutoMapDrawView &view, int count)
+{
+  if (count <= 0) return true;
+  int found = 0;
+  for (int y = 0; y < view.height; y++)
+  {
+    for (int x = 0; x < view.width; x++)
+    {
+      if (!view.isDrawn[(size_t)(y * view.width + x)] || !StandsOut(view, x, y)) continue;
+      if (++found >= count) return true;
+    }
+  }
+  return false;
+}
 
 static bool IsGrey(short colour)
 {

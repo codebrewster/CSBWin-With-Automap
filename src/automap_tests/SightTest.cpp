@@ -440,6 +440,21 @@ static void TouchingPixelsThatStandOutMakeAPatch(void)
   CHECK(standsOut.size() == 24 && standsOut[8] && !standsOut[0]);
 }
 
+// The early answer of StandsOutAtLeast is ShapeOfItem's visible count compared, for any count
+static void StandsOutAtLeastAgreesWithTheCount(void)
+{
+  const char *corn[] = {"bbbbbb", "bbBbBbbbB", "bbbBbbb", "bbbbbb"};
+  const char *bread[] = {"......", ".oGoGoB..", ".oG.oG..", "......"};
+  const char *club[] = {"bobob", "bbKoKbKb", "bobob"};
+  AutoMapDrawView views[] = {ViewOf(corn, 4), ViewOf(bread, 4), ViewOf(club, 3)};
+  for (int v = 0; v < 3; v++)
+  {
+    int visible = AutoMapSight_ShapeOfItem(views[v], NULL).visible;
+    for (int count = 0; count <= 6; count++)
+      CHECK(AutoMapSight_StandsOutAtLeast(views[v], count) == (visible >= count));
+  }
+}
+
 // A row of pixels: count drawn ones of letter drawn over the wall of letter wall
 static std::string Row(char wall, const char *drawn, int count, int wallAfter)
 {
@@ -684,6 +699,7 @@ static void CutAtLightReachDropsTheFartherRows(void)
 
 void TestAutoMapSight(void)
 {
+  StandsOutAtLeastAgreesWithTheCount();
   ScribblesNeedTwentyFourContrastingPixels();
   CellNumbersFollowTheViewportTables();
   ThePartyCellIsAlwaysVisible();
