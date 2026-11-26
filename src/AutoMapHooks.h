@@ -77,13 +77,12 @@ std::map<int, AutoMapWallCounts> AutoMap_WallCountsPerLevel(void);
 void AutoMap_ForgetDungeonCounts(void);
 // For the statistics' Profile: what each level in levels holds (HeroStatsDungeonCounts). held: the
 // records of the items the party has held (AutoMapLevelReader_RecordId), left out of what lies
-// about; walked: the cells the party stood on, as (level, x, y), from which the reachable cells
-// are counted (with the stairs and the teleporters' targets). versions: per level, a number that
-// moves whenever the party spends time there (the ticks spent on it); a level is read again when
-// its version moved since it was read (AutoMapCompletion_LevelIsStale), so a level cleared while
+// about. The tiles counted are every cell that is not wall, reachable or not, and the explored
+// ones those of them the map shows as explored. versions: per level, a number that moves
+// whenever the party spends time there (the ticks spent on it); a level is read again when its
+// version moved since it was read (AutoMapCompletion_LevelIsStale), so a level cleared while
 // the window was closed is not remembered as it was.
 std::map<int, HeroStatsDungeonCounts> AutoMap_DungeonCountsPerLevel(const std::set<AutoMapRecordId> &held,
-                                                                    const std::set<std::tuple<int, int, int> > &walked,
                                                                     const std::vector<int> &levels,
                                                                     const std::map<int, long long> &versions);
 // The party put the item onto (x, y) of the loaded level: dropped it, or a champion died

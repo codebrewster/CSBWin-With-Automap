@@ -52,7 +52,8 @@ const char *AutoMapFile_Describe(AutoMapFileResult result);
 //   4 bytes  number of facts
 //   per fact: 1 byte kind, 4 bytes record, 1 byte level, 1 byte x, 1 byte y
 //             (a record fact has 0xff for level, x and y; a cell fact has 0xffffffff for record;
-//             kind 9, a door seen open, is read by builds from 2026-11 on)
+//             kind 9, a door seen open, is read by builds from 2026-11 on; kind 10, a false
+//             wall seen open, by builds after 1.7.0)
 //   4 bytes  number of remembered floor items (version 3)
 //   per item: 4 bytes record, 2 bytes description index, 1 byte level, 1 byte x, 1 byte y,
 //             1 byte 1 for a mere glimpse in the dark, else 0 (version 4)

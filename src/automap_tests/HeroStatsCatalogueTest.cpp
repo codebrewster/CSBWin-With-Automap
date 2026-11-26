@@ -164,9 +164,9 @@ static void RecordMatchesTheStore(void)
   CHECK(party.value[HeroNumSteps] == 1);
 }
 
-// Explored rate: the reachable squares explored of those the party can reach, the party's only;
+// Explored rate: the squares explored of all that are not wall, the party's only;
 // the whole run counts the levels not visited yet too
-static void ExploredRateIsOfTheReachableSquares(void)
+static void ExploredRateIsOfAllTheSquares(void)
 {
   HeroStats stats;
   stats.MeetChampion(7, "HALK");
@@ -737,7 +737,7 @@ void TestHeroStatsCatalogue(void)
   TopicsHaveGroups();
   PartyNumbersStandInPanels();
   KillCausesAddUp();
-  ExploredRateIsOfTheReachableSquares();
+  ExploredRateIsOfAllTheSquares();
   HovertextsSayWhatLabelsDoNot();
   ExperienceAndRecordsHaveTopics();
   RecordValuesAreTheBest();

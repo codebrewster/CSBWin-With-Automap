@@ -836,7 +836,7 @@ HeroStatsDungeonCounts HeroStats::DungeonCounts(int level) const
   {
     if (!LevelMatches(level, at->first)) continue;
     const HeroStatsDungeonCounts &counts = at->second;
-    sum.reachable += counts.reachable;
+    sum.tiles += counts.tiles;
     sum.explored += counts.explored;
     sum.itemsLying += counts.itemsLying;
     sum.monstersAlive += counts.monstersAlive;
@@ -854,7 +854,7 @@ HeroStatsCompletionAxis HeroStats::Completion(int level, HeroCompletionAxis axis
   HeroStatsCompletionAxis value = {0, 0};
   switch (axis)
   {
-  case HeroCompletionExplored: value.found = counts.explored; value.total = counts.reachable; break;
+  case HeroCompletionExplored: value.found = counts.explored; value.total = counts.tiles; break;
   case HeroCompletionItems:
   {
     std::vector<HeroStatsItemRow> items = Items(level);

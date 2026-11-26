@@ -66,12 +66,12 @@ static void ForgetClearsEverything(void)
   CHECK(knowledge.Facts().empty());
 }
 
-static void OnlyTheNineKindsAreKnown(void)
+static void OnlyTheTenKindsAreKnown(void)
 {
   CHECK(!AutoMapFact_KindIsKnown(0));
-  for (int kind = 1; kind <= 9; kind++)
+  for (int kind = 1; kind <= 10; kind++)
     CHECK(AutoMapFact_KindIsKnown(kind));
-  CHECK(!AutoMapFact_KindIsKnown(10));
+  CHECK(!AutoMapFact_KindIsKnown(11));
 }
 
 static void ADoorSeenOpenTwiceIsKeptOnce(void)
@@ -94,6 +94,6 @@ void TestAutoMapKnowledge(void)
   LearningTwiceKeepsOne();
   FactsComeOutInOrder();
   ForgetClearsEverything();
-  OnlyTheNineKindsAreKnown();
+  OnlyTheTenKindsAreKnown();
   ADoorSeenOpenTwiceIsKeptOnce();
 }

@@ -29,7 +29,9 @@ enum AutoMapFactKind
   AutoMapFactPit = 6,               // cell
   AutoMapFactTeleporter = 7,        // cell: teleporter or spinner that moved or turned the party
   AutoMapFactLink = 8,              // record (source actuator) and cell (target)
-  AutoMapFactDoorOpen = 9           // cell: a door the party saw open or broken
+  AutoMapFactDoorOpen = 9,          // cell: a door the party saw open or broken
+  AutoMapFactFalseWallSeenOpen = 10 // cell: a false wall the party saw open, as floor (the
+                                    // statistics count it explored; the map does not use it)
 };
 
 struct AutoMapFact
@@ -42,7 +44,7 @@ struct AutoMapFact
 AutoMapFact AutoMapFact_OfRecord(AutoMapFactKind kind, AutoMapRecordId record);
 AutoMapFact AutoMapFact_OfCell(AutoMapFactKind kind, const AutoMapCell &cell);
 AutoMapFact AutoMapFact_OfLink(AutoMapRecordId source, const AutoMapCell &target);
-bool AutoMapFact_KindIsKnown(int kind);   // 1..9
+bool AutoMapFact_KindIsKnown(int kind);   // 1..10
 bool operator<(const AutoMapFact &left, const AutoMapFact &right);   // kind, record, level, x, y
 
 // Facts are never removed during play: what the party has learned stays learned.

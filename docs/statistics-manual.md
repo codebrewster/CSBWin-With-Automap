@@ -332,8 +332,8 @@ champion's Exploration shows those two only.
 |---|---|
 | **Steps** | Moves the party made to another square: forward, back, sideways, and up or down stairs |
 | **Tiles walked** | The different squares the party stood on, however it got there; each square counts once |
-| **Tiles explored** | The squares the map shows as explored that are not solid wall: floors, doors, stairs, pits, teleporters ... A false wall counts once it is seen to be passable. This comes from the map itself, so it is there for games saved before the statistics existed. |
-| **Explored rate** | The reachable squares explored ÷ the squares the party can reach, as on the Profile's Completion. A square can be reached when a way leads to it from where the party has been, by walking, up or down stairs, through a teleporter or down a pit, also from other levels; closed-off squares do not count. For the whole run the levels not visited yet count too. On Per level each value has a bar in front, orange under half. Sometimes the value is a little off: what can be reached depends on switches, pressure plates and teleporters, and no method works that out exactly for every dungeon in reasonable time. The count follows the map instead: a teleporter that a switch or pressure plate turns on and off counts both ways, one that stays on leads only where it sends, one that stays off is floor. |
+| **Tiles explored** | The squares the map shows as explored that are not solid wall: floors, doors, stairs, pits, teleporters ... A false wall that is always passable (it looks like stone) counts once the party has found it out: it walked through it, or clicked it and hit no wall. One that a switch or pressure plate opens and closes counts once the party has seen it open, as floor, and stays counted when it closes again; seen only closed it was a wall to the party and counts as stone does. This comes from the map itself, so it is there for games saved before the statistics existed. |
+| **Explored rate** | The squares explored ÷ all the squares that are not wall, a false wall included (open or closed), as on the Profile's Completion. A false wall counts as explored as in Tiles explored; seeing a passable one as stone is not enough. For the whole run the levels not visited yet count too. Squares no party can get to count as well: which ones can be reached depends on the doors a run opens with its few keys, on switches and on teleporters, so no total of the reachable ones is right for every run. A run that sees all it can stays a little under 100% (about 99% in Dungeon Master). On Per level each value has a bar in front, orange under half. |
 | **Turns** | Turns left or right you made. Turning while on stairs takes the stairs, so it counts as a step. |
 | **Wall bumps** | Moves that ran into a wall, a closed door or a solid false wall |
 | **Monster bumps** | Moves that were stopped by a monster standing on the next square |
@@ -523,10 +523,9 @@ counts, then each champion's value and the numbers behind it.
   levels not visited yet included, so the shape only grows as the party finds things. A monster a
   generator spawns or an item a monster drops joins a total and takes a little off. For one level,
   of that level alone.
-  - *Explored*: squares explored ÷ the squares the party can reach. A square can be reached when
-    a way leads to it from where the party has been, by walking, up or down stairs, through a
-    teleporter or down a pit, also from other levels; closed-off squares do not count. Sometimes a
-    little off, as Explored rate on the Exploration tab.
+  - *Explored*: squares explored ÷ all the squares that are not wall, as Explored rate on the
+    Exploration tab; a false wall counts as in Tiles explored. Squares no party can get to count too, so a run that sees all it can stays a
+    little under the edge.
   - *Items*: Items picked up ÷ all the items there are to pick up, which are those picked up and
     those still lying on floors, in alcoves and in chests. A champion's gear in a mirror is not
     among them, nor what a monster still carries.

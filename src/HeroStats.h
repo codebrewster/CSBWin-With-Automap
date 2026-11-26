@@ -152,13 +152,14 @@ enum HeroDoorMethod { HeroDoorSmashed, HeroDoorShot, HeroDoorBySpell, HeroDoorUn
 const int HERO_DOOR_ANY_METHOD = -1;
 
 // What a level holds now, from the automap, for the Profile's completion: not stored, the
-// owner refreshes it like the explored tiles. reachable: floor cells the party can reach,
-// explored: those of them explored; itemsLying: items on the level the party never held (floor,
-// alcoves, chests; no monster's possessions); doorsOpened: seen open or broken, or open now;
-// switches: wall faces with an actuator a click can fire, switchesUsed: one of them fired.
+// owner refreshes it like the explored tiles. tiles: the cells that are not wall, reachable or
+// not (a false wall is one), explored: those of them explored; itemsLying: items on the level
+// the party never held (floor, alcoves, chests; no monster's possessions); doorsOpened: seen
+// open or broken, or open now; switches: wall faces with an actuator a click can fire,
+// switchesUsed: one of them fired.
 struct HeroStatsDungeonCounts
 {
-  int reachable, explored;
+  int tiles, explored;
   int itemsLying;
   int monstersAlive;
   int doors, doorsOpened;

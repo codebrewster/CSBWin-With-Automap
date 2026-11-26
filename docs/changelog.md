@@ -7,6 +7,10 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 ## Unreleased
 
+**Statistics**
+- **Explored rate** and the Profile's **Explored** are the squares explored out of all the squares that are not wall, the ones no party can get to included. They counted only the squares the party could reach, which depends on which doors a run opens with its few keys, on switches and on teleporters, and was sometimes off. Now the total is the same in every run and the value only grows. A false wall is one of the squares, whatever its state.
+- **Tiles explored** (and so Explored rate and Explored) count false walls: one that is always passable once the party finds it out (walks through it, or clicks it and hits no wall), so finding secrets raises them; one that a switch opens and closes once seen open, and it stays counted when it closes. One seen only closed counts as stone does. Before, only open ones counted. A run that sees everything stays a little under 100% (about 99% in Dungeon Master).
+
 ## 1.7.0 (2026-11-25)
 
 **Automap**

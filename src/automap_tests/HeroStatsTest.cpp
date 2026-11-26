@@ -1251,11 +1251,11 @@ static void DungeonCountsAddUpOverLevels(void)
   perLevel[2] = two;
   stats.SetDungeonCounts(perLevel);
   HeroStatsDungeonCounts all = stats.DungeonCounts(HERO_STATS_WHOLE_RUN);
-  CHECK(all.reachable == 150 && all.explored == 90 && all.itemsLying == 10 && all.monstersAlive == 60);
+  CHECK(all.tiles == 150 && all.explored == 90 && all.itemsLying == 10 && all.monstersAlive == 60);
   CHECK(all.doors == 15 && all.doorsOpened == 9 && all.switches == 10 && all.switchesUsed == 6);
-  CHECK(stats.DungeonCounts(2).reachable == 50);
+  CHECK(stats.DungeonCounts(2).tiles == 50);
   HeroStatsDungeonCounts none = stats.DungeonCounts(5);
-  CHECK(none.reachable == 0 && none.monstersAlive == 0 && none.switches == 0);
+  CHECK(none.tiles == 0 && none.monstersAlive == 0 && none.switches == 0);
 }
 
 static void CompletionCountsWhatAppearedToo(void)
@@ -1292,7 +1292,7 @@ static void CompletionNeverGoesOver100(void)
   HeroStatsDungeonCounts level2 = NoCounts();
   level2.doors = 3;
   level2.doorsOpened = 4;
-  level2.reachable = 10;
+  level2.tiles = 10;
   level2.explored = 12;
   perLevel[2] = level2;
   stats.SetDungeonCounts(perLevel);
@@ -1314,7 +1314,7 @@ static void AnEmptyLevelHasNothingToComplete(void)
     CHECK(value.found == 0 && value.total == 0);
   }
   stats.Forget();
-  CHECK(stats.DungeonCounts(HERO_STATS_WHOLE_RUN).reachable == 0);
+  CHECK(stats.DungeonCounts(HERO_STATS_WHOLE_RUN).tiles == 0);
 }
 
 void TestHeroStats(void)

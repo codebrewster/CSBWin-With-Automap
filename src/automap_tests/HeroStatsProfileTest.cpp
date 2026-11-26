@@ -134,7 +134,7 @@ static void PerLevelListsTheVisitedLevels(void)
   HeroStatsProfile profile = HeroStatsProfile_Make(stats, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN);
   CHECK(profile.perLevel.size() == 4);
   CHECK(profile.perLevel[0].level == 0 && profile.perLevel[1].level == 1 && profile.perLevel[2].level == 5);
-  CHECK(Near(profile.perLevel[0].values[HeroCompletionExplored], -1));  // nothing reachable known
+  CHECK(Near(profile.perLevel[0].values[HeroCompletionExplored], -1));  // no tiles known
   CHECK(Near(profile.perLevel[2].values[HeroCompletionExplored], 0.5));
   CHECK(profile.perLevel.back().level == HERO_STATS_WHOLE_RUN);
   CHECK(Near(profile.perLevel.back().values[HeroCompletionExplored], 0.5));

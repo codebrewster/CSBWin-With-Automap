@@ -528,7 +528,9 @@ static void FacesAndFactsRoundTrip(void)
   AutoMapFact pit = AutoMapFact_OfCell(AutoMapFactPit, AutoMapCell{0, 1, 1});
   AutoMapFact link = AutoMapFact_OfLink(9, AutoMapCell{1, 2, 2});
   AutoMapFact door = AutoMapFact_OfCell(AutoMapFactDoorOpen, AutoMapCell{1, 3, 3});
+  AutoMapFact openWall = AutoMapFact_OfCell(AutoMapFactFalseWallSeenOpen, AutoMapCell{1, 4, 3});
   knowledge.Learn(door);
+  knowledge.Learn(openWall);
   knowledge.Learn(actuator);
   knowledge.Learn(pit);
   knowledge.Learn(link);
@@ -544,7 +546,8 @@ static void FacesAndFactsRoundTrip(void)
   CHECK(readKnowledge.Knows(pit));
   CHECK(readKnowledge.Knows(link));
   CHECK(readKnowledge.Knows(door));
-  CHECK(readKnowledge.Facts().size() == 4);
+  CHECK(readKnowledge.Knows(openWall));
+  CHECK(readKnowledge.Facts().size() == 5);
 }
 
 static void OldFileFillsFacesTowardsExploredCells(void)
@@ -572,7 +575,7 @@ static void CheckFileLeavesStoresUnchanged(const std::string &bytes, AutoMapFile
 
 static void UnknownFactKindIsRejected(void)
 {
-  CheckFileLeavesStoresUnchanged(NewFileWithFacts(1, FactBytes(10, 3, 0xff, 0xff, 0xff)),
+  CheckFileLeavesStoresUnchanged(NewFileWithFacts(1, FactBytes(11, 3, 0xff, 0xff, 0xff)),
                                  AutoMapFileHasOtherLevels);
 }
 

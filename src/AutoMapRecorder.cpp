@@ -389,7 +389,8 @@ void AutoMapRecorder::SeeFallenThroughPit(int level, int x, int y)
 }
 
 // The party sees the cell: its look is remembered, and a door seen open or broken is a door
-// that has been open (the Statistics window's Profile counts them)
+// that has been open (the Statistics window's Profile counts them). A false wall seen open was
+// floor to the party: it stays explored for the statistics when it closes again
 void AutoMapRecorder::SeeLook(const AutoMapCell &cell, const AutoMapCellLook &look)
 {
   m_cells.See(cell, look);
@@ -397,6 +398,7 @@ void AutoMapRecorder::SeeLook(const AutoMapCell &cell, const AutoMapCellLook &lo
   {
     m_knowledge.Learn(AutoMapFact_OfCell(AutoMapFactDoorOpen, cell));
   }
+  if (look.kind == AutoMapCellOpenFalseWall) m_knowledge.Learn(AutoMapFact_OfCell(AutoMapFactFalseWallSeenOpen, cell));
 }
 
 AutoMapCellLook AutoMapRecorder::VisibleLookAt(const AutoMapCell &cell) const

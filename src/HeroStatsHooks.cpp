@@ -757,7 +757,7 @@ void HeroStats_RefreshMapCounts(bool force)
   std::map<int, long long> versions;
   std::vector<int> visited = store.VisitedLevels();
   for (size_t i = 0; i < visited.size(); i++) versions[visited[i]] = store.Movement(visited[i]).ticks;
-  store.SetDungeonCounts(AutoMap_DungeonCountsPerLevel(held, store.TilesWalked(), levels, versions));
+  store.SetDungeonCounts(AutoMap_DungeonCountsPerLevel(held, levels, versions));
 }
 
 void HeroStats_OnStairwayTaken(int toLevel, int toX, int toY)
