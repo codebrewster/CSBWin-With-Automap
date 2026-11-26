@@ -10,6 +10,9 @@
 #include "resource.h"
 #include <stdio.h>
 #include <unistd.h>
+#include <dirent.h>
+#include <strings.h>
+#include <limits.h>
 
 #include "CSBTypes.h"
 #include "confile.h"
@@ -1867,12 +1870,13 @@ void PlayfileOpen(bool open); // Recording.cpp
 // post_render: after Reset nobody plays on from a replay, so the bar does not say "Replay ended"
 static bool replayClosedByReset = false;
 
-static void reset_game() {
+// replayNext: the new game starts as with --play (OpenReplayInItsFolder)
+static void reset_game(bool replayNext = false) {
     if (endSequencePlaying) { endSequenceAbandonRequested = true; return; }
     // A replay still open (at its win screen, or anywhere in it) would play on into the new game,
     // which then takes no clicks: Reset ends it, as Stop replay does. And --play is not asked for
     // again: the new game would open the replay anew and skip the title menu
-    PlaybackCommandOption = false;
+    PlaybackCommandOption = replayNext;
     if (PlayfileIsOpen()) {
 	PlayfileOpen(false);
 	PlaybackControl_Reset();
@@ -1898,6 +1902,64 @@ static void reset_game() {
 	PostQuitMessage(0);
     }
     gameFrozen = false;
+}
+
+// A file of that name in the folder, in any case (old game folders come from Windows:
+// GRAPHICS.DAT, Csbgame.dat); with prefix, any file whose name starts so and ends in suffix
+static bool FolderHasFile(const std::string &folder, const char *name, bool prefix = false, const char *suffix = "")
+{
+    DIR *dir = opendir(folder.c_str());
+    if (dir == NULL) return false;
+    bool found = false;
+    size_t nameLength = strlen(name), suffixLength = strlen(suffix);
+    struct dirent *entry;
+    while (!found && (entry = readdir(dir)) != NULL) {
+	const char *file = entry->d_name;
+	size_t length = strlen(file);
+	if (!prefix) found = strcasecmp(file, name) == 0;
+	else found = length >= nameLength + suffixLength && strncasecmp(file, name, nameLength) == 0
+	             && strcasecmp(file + length - suffixLength, suffix) == 0;
+    }
+    closedir(dir);
+    return found;
+}
+
+// File > Playback: a recording is played in the dungeon it was made in. When the playfile's
+// folder holds a game (graphics.dat with dungeon.dat, or a Chaos Strikes Back save csbgame*.dat,
+// which the replay resumes), the game goes into that folder and starts anew as
+// "--directory folder --play file" would. A playfile without a game beside it plays in the game
+// that is loaded, as before. The names stay relative, so csb.cfg keeps none of the movie's folder.
+extern char dungeonname[FILENAME_MAX]; // CSBUI.cpp, where dungeonName points unless --dungeon named one
+static bool OpenReplayInItsFolder(const std::string &path)
+{
+    size_t slash = path.find_last_of("/\\");
+    std::string folder = slash == std::string::npos ? std::string(".") : path.substr(0, slash);
+    if (folder.empty()) folder = "/";
+    if (!FolderHasFile(folder, "graphics.dat")) return false;
+    if (!FolderHasFile(folder, "dungeon.dat") && !FolderHasFile(folder, "csbgame", true, ".dat")) return false;
+#ifdef _WIN32
+    char absolute[_MAX_PATH];
+    if (_fullpath(absolute, path.c_str(), sizeof absolute) == NULL) return false;
+#else
+    char absolute[PATH_MAX];
+    if (realpath(path.c_str(), absolute) == NULL) return false;
+#endif
+    if (chdir(folder.c_str()) != 0) { perror(folder.c_str()); return false; }
+    static std::string replayed; // PlayfileName points at it while the replay runs
+    replayed = absolute;
+    PlayfileName = (char *)replayed.c_str();
+    // Every name is looked up in the new folder: a --directory or --dungeon given at the start
+    // named the old one
+    folderParentName = (char *)".";
+    folderName = (char *)".";
+    root = (char *)"./";
+    dungeonName = dungeonname;
+    strcpy(dungeonName, "dungeon.dat");
+    strcpy(graphicName, "graphics.dat");
+    extraTicks = false; // as --play has it
+    skipLogo = true;
+    reset_game(true);
+    return true;
 }
 
 // CSBUI, after it caught EndSequenceAbandoned: the reset the menu asked for
@@ -3146,8 +3208,10 @@ void post_render() {
 	fb_shown = false;
 
     if(file_dialog.showFileDialog(_("Select playback file..."), imgui_addons::ImGuiFileBrowser::DialogMode::OPEN, ImVec2(700, 310), "*.log")) {
-	PlayfileName = (char*)file_dialog.selected_path.c_str();
-	Process_ecode_IDC_Playback();
+	if (!OpenReplayInItsFolder(file_dialog.selected_path)) {
+	    PlayfileName = (char*)file_dialog.selected_path.c_str();
+	    Process_ecode_IDC_Playback();
+	}
 	fb_shown = false;
     } else if (fb_shown && !ImGui::IsPopupOpen(_("Select playback file...")) && !ImGui::IsPopupOpen(_("Load saved game")))
 	fb_shown = false;

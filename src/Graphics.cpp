@@ -2451,7 +2451,11 @@ void CleanupGraphics(void)
     CLOSE(d.GraphicHandle);
     d.GraphicHandle = -1;
     d.Word23244 = 0;
+    // The next game may open another graphics.dat (a replay in its own folder, Select dungeon):
+    // openGraphicsFile signs it anew, else a replay is checked against the file closed here
+    graphicSignature1 = graphicSignature2 = legacyGraphicSignature = 0;
   };
+  CSBgraphicSignature1 = CSBgraphicSignature2 = 0; // CSBgraphics.dat closes below, the same
   if (d.pGraphicCachePointers != NULL)
   {
     for (i=0; i<NumExpandedGraphics; i++)
