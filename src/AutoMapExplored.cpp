@@ -237,6 +237,11 @@ void AutoMapExplored::MarkGlimpsedFace(const AutoMapCell &cell, int side)
   SetBit(cell, AutoMapGlimpsedFaceBits, side);
 }
 
+bool AutoMapExplored::GlimpseIsMarked(const AutoMapCell &cell, int side) const
+{
+  return GetBit(cell, AutoMapGlimpsedFaceBits, side);
+}
+
 bool AutoMapExplored::FaceIsGlimpsed(const AutoMapCell &cell, int side) const
 {
   return !FaceIsSeen(cell, side) && GetBit(cell, AutoMapGlimpsedFaceBits, side);

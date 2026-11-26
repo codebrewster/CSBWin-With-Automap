@@ -64,6 +64,8 @@ public:
   // Faces on which something was glimpsed in the dark, beyond the light: the map shows that
   // something is there, not what. A face seen in the light is no glimpse. Same layout.
   void MarkGlimpsedFace(const AutoMapCell &cell, int side);
+  // Whether MarkGlimpsedFace was called for the face, seen since or not: marking it again changes nothing
+  bool GlimpseIsMarked(const AutoMapCell &cell, int side) const;
   bool FaceIsGlimpsed(const AutoMapCell &cell, int side) const;
   const std::vector<uint8_t> &GlimpsedFaceBitsOfLevel(int level) const;
   void ReplaceGlimpsedFaceBitsOfLevel(int level, const std::vector<uint8_t> &bits);

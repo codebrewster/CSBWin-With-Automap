@@ -2945,7 +2945,7 @@ void Interpret(ui16 *code,
         bool measured = stairsCell >= 0 && pRectangle->b.uByte4 != 0;
         if (measured)
         {
-          AutoMap_BeforeStairsDrawn(pRectangle->b.x1, pRectangle->b.x2, pRectangle->b.y1, pRectangle->b.y2);
+          AutoMap_BeforeStairsDrawn(stairsCell, pRectangle->b.x1, pRectangle->b.x2, pRectangle->b.y1, pRectangle->b.y2);
         };
         // P[-1] is the opcode this case was entered by
         if (P[-1] == StdMirrorGraphicToViewport) MirrorGraphicToViewport(graphicNum,pRectangle);

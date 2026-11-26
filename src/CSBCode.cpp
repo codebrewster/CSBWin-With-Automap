@@ -4082,7 +4082,7 @@ void DrawFloorDecorations(i32 graphicOrdinal,i32 relativeCell)
     // Footprints (index 15) are no picture of the floor; custom graphics have none the map shows
     bool measured = !extFloorDec && graphicIndex != 15;
     BYTE_RECTANGLE &shownRect = pDisplayDesc->rect;
-    if (measured) AutoMap_BeforeFloorDecorationDrawn(shownRect.x1, shownRect.x2, shownRect.y1, shownRect.y2);
+    if (measured) AutoMap_BeforeFloorDecorationDrawn(relativeCell, shownRect.x1, shownRect.x2, shownRect.y1, shownRect.y2);
     TAG0088b2((ui8 *)A3,
               (ui8 *)d.pViewportBMP,
               (RectPos *)&pDisplayDesc->rect,//(RectPos *)&pDesc[relativeCell].rect, //&pFDD_A2->rect,

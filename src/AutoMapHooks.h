@@ -34,12 +34,12 @@ void AutoMap_AfterWallDecorationDrawn(int drawLocation, int x1, int x2, int y1, 
 // (0..8: three ahead left, centre, right, then two ahead, then one ahead) into the viewport
 // rectangle x1..x2, y1..y2; the floor picture counts as noticed only if enough of it is still
 // visible in the finished frame. Footprints are not reported.
-void AutoMap_BeforeFloorDecorationDrawn(int x1, int x2, int y1, int y2);
+void AutoMap_BeforeFloorDecorationDrawn(int relativeCell, int x1, int x2, int y1, int y2);
 void AutoMap_AfterFloorDecorationDrawn(int relativeCell, int x1, int x2, int y1, int y2);
 // The viewport interpreter is about to draw, and has drawn, stairs in viewCell (AutoMapSight.h
 // numbers the cells) into the viewport rectangle x1..x2, y1..y2; they count, like a floor
 // picture, only if enough of them is still visible in the finished frame
-void AutoMap_BeforeStairsDrawn(int x1, int x2, int y1, int y2);
+void AutoMap_BeforeStairsDrawn(int viewCell, int x1, int x2, int y1, int y2);
 void AutoMap_AfterStairsDrawn(int viewCell, int x1, int x2, int y1, int y2);
 // The 3D view is about to draw the objects of (x, y) of the loaded level; the item draws that
 // follow lie there

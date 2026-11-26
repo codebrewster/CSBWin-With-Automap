@@ -65,9 +65,14 @@ static int pendingX2 = -1;
 static int pendingY1 = 0;
 static int pendingY2 = -1;
 static AutoMapDrawTally tally;
-// The blit that wrote each viewport pixel last in this frame, 0 for none
+// The blit that wrote each viewport pixel last in this frame, 0 for none. Only the blits from the
+// frame's first measured draw on are stamped: a stamp tells whether a pixel of a measured draw
+// was drawn over later, so the blits before it leave no stamp that is ever compared. Most frames
+// of a replay measure nothing, or only late in the frame (a monster), and stamp little.
 static int writeStamps[VIEWPORT_WIDTH * VIEWPORT_HEIGHT];
 static int blitCount = 0;
+static bool stampsBlits = false;
+static bool hasStamps = false;
 // The finished frame without its floor items, the background every item of a pile is seen
 // against; made on the first item that asks for it in a frame
 static std::vector<int> frameWithoutItems;
@@ -87,7 +92,9 @@ void AutoMapMeasure_OnViewportSummarised(const SUMMARIZEROOMDATA *cellsInView)
   pendingBefore = false;
   decorationsOfFrame.clear();
   tally.StartFrame();
-  std::memset(writeStamps, 0, sizeof(writeStamps));
+  if (hasStamps) std::memset(writeStamps, 0, sizeof(writeStamps));
+  hasStamps = false;
+  stampsBlits = false;
   blitCount = 0;
   hasFrameWithoutItems = false;
 }
@@ -112,6 +119,7 @@ void AutoMapMeasure_BeforeBlit(int x1, int x2, int y1, int y2)
   pendingY2 = Clamp(y2, 0, VIEWPORT_HEIGHT - 1);
   // A rectangle clamped to nothing would wrap the copy size below
   if (pendingX2 < pendingX1 || pendingY2 < pendingY1) return;
+  stampsBlits = true;
   // Only the rectangle: a blit changes nothing outside it. The viewport is in bitplanes, 16
   // pixels in four words, so whole groups of 16 are copied: a pixel's colour is in all four.
   int firstByte = (pendingX1 / 16) * 8;
@@ -176,6 +184,8 @@ void AutoMapMeasure_OnViewportBlit(const unsigned char *src, int x1, int x2, int
                                    int transparentColor)
 {
   blitCount++;
+  if (!stampsBlits) return;
+  hasStamps = true;
   for (int y = Clamp(y1, 0, VIEWPORT_HEIGHT); y <= y2 && y < VIEWPORT_HEIGHT; y++)
   {
     int *stamps = writeStamps + y * VIEWPORT_WIDTH;

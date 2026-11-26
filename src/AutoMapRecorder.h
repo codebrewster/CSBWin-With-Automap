@@ -38,6 +38,9 @@ public:
   // drawn as a wall, marks that wall face seen if the view cell is explored in that frame, else
   // glimpsed
   void MarkDrawnDecoration(int drawLocation);
+  // Whether MarkDrawnDecoration(drawLocation) would change nothing now: its face is marked as it
+  // would be already, or the frame's view cell takes no marks. Then the draw need not be judged.
+  bool DrawnDecorationTeachesNothing(int drawLocation) const;
   // The 3D view has put the words of a wall text on screen at drawLocation: read when the frame
   // is on the party's level and the light reaches that wall (its view cell is explored)
   void MarkTextRead(int drawLocation);
@@ -56,6 +59,8 @@ public:
   void SeeDoor(int x, int y);
   // The floor picture of (x, y) was drawn and noticed; beyond the light it tells nothing
   void SeeFloorPicture(int x, int y);
+  // Whether SeeFloorPicture(x, y) would change nothing now
+  bool FloorPictureTeachesNothing(int x, int y) const;
   // A champion portrait on side of the wall (x, y) of the party's level was clicked and the
   // champion's inventory shown: what the portrait holds is known now
   void LookIntoPortrait(int x, int y, int side);

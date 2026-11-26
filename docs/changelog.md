@@ -8,7 +8,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 ## Unreleased
 
 **Replay**
-- A replay at max runs faster: DMMovie8 takes about 18 s instead of 30 s. The map's own work on every frame of the 3D view costs much less, and the map window paints at most 30 times a second at max, leaving the game the rest. `--export-html` gets the same gain (all 43 movies 100 s → 73 s) and keeps the map and statistics windows closed, so the pages no longer depend on csb.cfg.
+- A replay at max runs faster: DMMovie8 takes about 15 s instead of 30 s. The map's own work on every frame of the 3D view costs much less (wall decorations and floor pictures it already knows are no longer measured again), and the map window paints at most 30 times a second at max, leaving the game the rest. `--export-html` gets the same gain (all 43 movies 100 s → 61 s, DMMovie8 35 s → 14 s) and keeps the map and statistics windows closed, so the pages no longer depend on csb.cfg.
 
 **Automap**
 - A sleeping generator's "WAKES IN … TICKS, ABOUT m:ss" in a replay at max or an exported map gives the time at the game's speed setting. It was measured from how fast the replay ran, so 1902 ticks could read "ABOUT 0:05" instead of about 7½ minutes.

@@ -256,6 +256,21 @@ void AutoMapRecorder::MarkDrawnDecoration(int drawLocation)
   else m_explored.MarkGlimpsedFace(wallCell, side);
 }
 
+bool AutoMapRecorder::DrawnDecorationTeachesNothing(int drawLocation) const
+{
+  // MarkDrawnDecoration's tests, then whether the bit it would set is set
+  int cellNumber = 0;
+  int summaryIndex = 0;
+  if (!AutoMapSight_DecorationPlacement(drawLocation, &cellNumber, &summaryIndex)) return true;
+  if (m_frameLevel != d.partyLevel) return true;
+  const FrameCell &cell = m_frame[cellNumber];
+  if ((!cell.isOnLevel && !cell.isOnRim) || !cell.isWall) return true;
+  AutoMapCell wallCell = {m_frameLevel, cell.x, cell.y};
+  int side = AutoMapSight_SideOfSummaryIndex(m_frameFacing, summaryIndex);
+  if (cell.isExplored) return m_explored.FaceIsSeen(wallCell, side);
+  return m_explored.GlimpseIsMarked(wallCell, side);
+}
+
 void AutoMapRecorder::MarkTextRead(int drawLocation)
 {
   int cellNumber = 0;
@@ -317,6 +332,13 @@ void AutoMapRecorder::SeeFloorPicture(int x, int y)
   if (!IsLitInFrame(x, y)) return;
   AutoMapCell floorCell = {m_frameLevel, x, y};
   m_explored.MarkFloorSeen(floorCell);
+}
+
+bool AutoMapRecorder::FloorPictureTeachesNothing(int x, int y) const
+{
+  if (m_frameLevel != d.partyLevel || !IsLitInFrame(x, y)) return true;
+  AutoMapCell floorCell = {m_frameLevel, x, y};
+  return m_explored.FloorIsSeen(floorCell);
 }
 
 void AutoMapRecorder::LookIntoPortrait(int x, int y, int side)

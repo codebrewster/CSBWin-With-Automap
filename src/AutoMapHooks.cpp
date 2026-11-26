@@ -295,9 +295,19 @@ void AutoMap_OnWallTextRead(int drawLocation)
   recorder.MarkTextRead(drawLocation);
 }
 
+// Whether every draw of the frame is to be measured and judged, also those that can teach the
+// map nothing: the sweep's CSV, the map_timing reports and a visibility test want them all
+static bool MeasuresEveryDraw(void)
+{
+  return AutoMapMeasure_IsRunning() || AutoMapWindow_TimingReportsOn() || visibilityTestIsPending;
+}
+
+// A decoration whose face is marked as this frame would mark it is not measured: a replay shows
+// the same walls over and over, and judging each of them costs more than all else the map does
 void AutoMap_BeforeWallDecorationDrawn(int drawLocation, int x1, int x2, int y1, int y2)
 {
   MeasuringTimer timer;
+  if (!MeasuresEveryDraw() && recorder.DrawnDecorationTeachesNothing(drawLocation)) return;
   AutoMapMeasure_BeforeBlit(x1, x2, y1, y2);
 }
 
@@ -311,11 +321,35 @@ void AutoMap_AfterWallDecorationDrawn(int drawLocation, int x1, int x2, int y1, 
 
 static void PositionOfViewCell(int cellNumber, int *x, int *y);
 
-void AutoMap_BeforeFloorDecorationDrawn(int x1, int x2, int y1, int y2)
+// The view cell of each relative cell of a floor decoration (AutoMapSight.h numbers them): left,
+// centre, right of three ahead, then of two ahead and one ahead; the right ones (2, 5, 8) are
+// drawn mirrored. -1 for none.
+static int ViewCellOfFloorDecoration(int relativeCell)
+{
+  static const int VIEW_CELL[9] = {7, 9, 8, 12, 14, 13, 15, 17, 16};
+  if (relativeCell < 0 || relativeCell > 8) return -1;
+  return VIEW_CELL[relativeCell];
+}
+
+// What lies on a floor, a picture or stairs, is not measured once its floor is seen, as a
+// decoration: in the dark it is not, and noticing it there would teach nothing
+static void BeforeFloorThingDrawn(int viewCell, int x1, int x2, int y1, int y2)
+{
+  if (viewCell < 0) return;
+  if (!MeasuresEveryDraw())
+  {
+    int x = -1, y = -1;
+    PositionOfViewCell(viewCell, &x, &y);
+    if (recorder.FloorPictureTeachesNothing(x, y)) return;
+  }
+  AutoMapMeasure_BeforeBlit(x1, x2, y1, y2);
+}
+
+void AutoMap_BeforeFloorDecorationDrawn(int relativeCell, int x1, int x2, int y1, int y2)
 {
   MeasuringTimer timer;
   if (!PartyLevelIsLoaded()) return;
-  AutoMapMeasure_BeforeBlit(x1, x2, y1, y2);
+  BeforeFloorThingDrawn(ViewCellOfFloorDecoration(relativeCell), x1, x2, y1, y2);
 }
 
 // What lies on a floor, a picture or stairs, is measured as one thing of its cell
@@ -331,18 +365,16 @@ void AutoMap_AfterFloorDecorationDrawn(int relativeCell, int x1, int x2, int y1,
 {
   MeasuringTimer timer;
   if (!PartyLevelIsLoaded()) return;
-  // The view cell of each relative cell (AutoMapSight.h numbers them): left, centre, right of
-  // three ahead, then of two ahead and one ahead; the right ones (2, 5, 8) are drawn mirrored
-  static const int VIEW_CELL[9] = {7, 9, 8, 12, 14, 13, 15, 17, 16};
-  if (relativeCell < 0 || relativeCell > 8) return;
-  AfterFloorThingDrawn(VIEW_CELL[relativeCell], x1, x2, y1, y2);
+  int viewCell = ViewCellOfFloorDecoration(relativeCell);
+  if (viewCell < 0) return;
+  AfterFloorThingDrawn(viewCell, x1, x2, y1, y2);
 }
 
-void AutoMap_BeforeStairsDrawn(int x1, int x2, int y1, int y2)
+void AutoMap_BeforeStairsDrawn(int viewCell, int x1, int x2, int y1, int y2)
 {
   MeasuringTimer timer;
   if (!PartyLevelIsLoaded()) return;
-  AutoMapMeasure_BeforeBlit(x1, x2, y1, y2);
+  BeforeFloorThingDrawn(viewCell, x1, x2, y1, y2);
 }
 
 void AutoMap_AfterStairsDrawn(int viewCell, int x1, int x2, int y1, int y2)
