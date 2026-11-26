@@ -7,6 +7,8 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 ## Unreleased
 
+## 1.7.4 (2026-11-26)
+
 **Replay**
 - A replay starts at 1x, also a recording that asks for quick play itself (`#NoSpeedLimit`, `#FastVBL` in the playfile, such as CSBSweep_996Minutes): its start can be watched, and + or the speed buttons go faster. `--quick` still runs one quickly.
 - 0 in the "pause at" field goes back to the start of the replay and pauses there; it did nothing. Going back further than the replay has run (2500 ticks back at tick 1000) goes to the start too, instead of not at all.
