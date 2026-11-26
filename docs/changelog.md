@@ -8,6 +8,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 ## Unreleased
 
 **Replay**
+- A replay at max runs about a third faster in the window (DMMovie8: 13 s → 9 s), for getting to a late part of a run quickly. The game screen is copied into the window only as often as it is shown (30 times a second), the snapshots for going back are compressed beside the game instead of in its way, and the map finds the items it remembers on a square without looking through all of them.
 - `--export-html` no longer waits in real time before the replay's first tick (about 4 s) or in a Chaos Strikes Back ending: all 43 movies export in 25 s instead of 59 s, DMMovie8 in 8 s instead of 13 s, with the same pages.
 
 ## 1.7.2 (2026-11-26)

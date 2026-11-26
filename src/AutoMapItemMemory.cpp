@@ -8,9 +8,38 @@ static bool SameCell(const AutoMapCell &left, const AutoMapCell &right)
   return left.level == right.level && left.x == right.x && left.y == right.y;
 }
 
+static long long KeyOf(const AutoMapCell &cell)
+{
+  return ((long long)cell.level << 40) ^ ((long long)(unsigned)cell.x << 20) ^ (long long)(unsigned)cell.y;
+}
+
+AutoMapItemMemory::AutoMapItemMemory(void)
+  : m_byCellIsCurrent(false)
+{
+}
+
+void AutoMapItemMemory::Changed(void)
+{
+  m_byCellIsCurrent = false;
+}
+
+const std::vector<size_t> *AutoMapItemMemory::PositionsOn(const AutoMapCell &cell) const
+{
+  if (!m_byCellIsCurrent)
+  {
+    m_byCell.clear();
+    for (size_t i = 0; i < m_items.size(); i++) m_byCell[KeyOf(m_items[i].cell)].push_back(i);
+    m_byCellIsCurrent = true;
+  }
+  CellIndex::const_iterator at = m_byCell.find(KeyOf(cell));
+  if (at == m_byCell.end()) return NULL;
+  return &at->second;
+}
+
 void AutoMapItemMemory::Forget(void)
 {
   m_items.clear();
+  Changed();
 }
 
 void AutoMapItemMemory::ForgetLevel(int level)
@@ -20,6 +49,7 @@ void AutoMapItemMemory::ForgetLevel(int level)
   {
     if (m_items[i].cell.level != level) kept.push_back(m_items[i]);
   }
+  if (kept.size() != m_items.size()) Changed();
   m_items.swap(kept);
 }
 
@@ -39,6 +69,7 @@ void AutoMapItemMemory::See(const AutoMapRememberedItem &item)
     break;
   }
   m_items.push_back(item);
+  Changed();
 }
 
 void AutoMapItemMemory::ForgetItem(AutoMapRecordId record)
@@ -48,6 +79,7 @@ void AutoMapItemMemory::ForgetItem(AutoMapRecordId record)
     if (m_items[i].record == record)
     {
       m_items.erase(m_items.begin() + (std::ptrdiff_t)i);
+      Changed();
       return;
     }
   }
@@ -55,26 +87,24 @@ void AutoMapItemMemory::ForgetItem(AutoMapRecordId record)
 
 bool AutoMapItemMemory::Remembers(const AutoMapRememberedItem &item) const
 {
-  for (size_t i = 0; i < m_items.size(); i++)
+  const std::vector<size_t> *on = PositionsOn(item.cell);
+  if (on == NULL) return false;
+  for (size_t p = 0; p < on->size(); p++)
   {
-    if (m_items[i].record == item.record && m_items[i].descIndex == item.descIndex
-        && SameCell(m_items[i].cell, item.cell))
-    {
-      return true;
-    }
+    const AutoMapRememberedItem &kept = m_items[(*on)[p]];
+    if (kept.record == item.record && kept.descIndex == item.descIndex) return true;
   }
   return false;
 }
 
 bool AutoMapItemMemory::Identifies(const AutoMapRememberedItem &item) const
 {
-  for (size_t i = 0; i < m_items.size(); i++)
+  const std::vector<size_t> *on = PositionsOn(item.cell);
+  if (on == NULL) return false;
+  for (size_t p = 0; p < on->size(); p++)
   {
-    if (m_items[i].record == item.record && m_items[i].descIndex == item.descIndex
-        && SameCell(m_items[i].cell, item.cell))
-    {
-      return !m_items[i].isGlimpsed;
-    }
+    const AutoMapRememberedItem &kept = m_items[(*on)[p]];
+    if (kept.record == item.record && kept.descIndex == item.descIndex) return !kept.isGlimpsed;
   }
   return false;
 }
@@ -94,10 +124,9 @@ bool AutoMapItemMemory::HasSeen(const AutoMapFloorItemTag &tag) const
 std::vector<AutoMapRememberedItem> AutoMapItemMemory::ItemsOn(const AutoMapCell &cell) const
 {
   std::vector<AutoMapRememberedItem> found;
-  for (size_t i = 0; i < m_items.size(); i++)
-  {
-    if (SameCell(m_items[i].cell, cell)) found.push_back(m_items[i]);
-  }
+  const std::vector<size_t> *on = PositionsOn(cell);
+  if (on == NULL) return found;
+  for (size_t p = 0; p < on->size(); p++) found.push_back(m_items[(*on)[p]]);
   return found;
 }
 
@@ -116,6 +145,7 @@ void AutoMapItemMemory::KeepOnlyItemsStillOn(const AutoMapCell &cell,
     }
     if (stays) kept.push_back(m_items[i]);
   }
+  if (kept.size() != m_items.size()) Changed();
   m_items.swap(kept);
 }
 

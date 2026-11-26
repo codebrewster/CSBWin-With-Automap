@@ -135,8 +135,41 @@ static void AGlimpseHasNotBeenSeen(void)
   CHECK(!memory.HasSeen(club));
 }
 
+// The items of a cell are found through an index: every change since the last question shows
+static void EachCellAnswersAfterEveryChange(void)
+{
+  AutoMapItemMemory memory;
+  AutoMapRememberedItem gem = {0x00060020u, 9, {3, 4, 5}};
+  memory.See(Club(4, 5));
+  memory.See(gem);
+  std::vector<AutoMapRememberedItem> two = memory.ItemsOn(AutoMapCell{3, 4, 5});
+  CHECK(two.size() == 2 && two[0].record == 0x00050012u && two[1].record == 0x00060020u);
+  CHECK(memory.Identifies(gem) && memory.ItemsOn(AutoMapCell{3, 6, 5}).empty());
+  // Moved: gone from the old cell, on the new one
+  memory.See(Club(6, 5));
+  CHECK(memory.ItemsOn(AutoMapCell{3, 4, 5}).size() == 1 && memory.Remembers(Club(6, 5)));
+  CHECK(!memory.Remembers(Club(4, 5)));
+  // Picked up
+  memory.ForgetItem(0x00060020u);
+  CHECK(memory.ItemsOn(AutoMapCell{3, 4, 5}).empty() && !memory.Identifies(gem));
+  // Seen again on its cell, with the same description: kept in place
+  AutoMapFloorItemTag there = {0x00050012u, 27};
+  memory.KeepOnlyItemsStillOn(AutoMapCell{3, 6, 5}, std::vector<AutoMapFloorItemTag>(1, there));
+  CHECK(memory.ItemsOn(AutoMapCell{3, 6, 5}).size() == 1);
+  memory.KeepOnlyItemsStillOn(AutoMapCell{3, 6, 5}, std::vector<AutoMapFloorItemTag>());
+  CHECK(memory.ItemsOn(AutoMapCell{3, 6, 5}).empty() && memory.Items().empty());
+  // A level forgotten, and everything
+  memory.See(Club(1, 1));
+  memory.ForgetLevel(3);
+  CHECK(memory.ItemsOn(AutoMapCell{3, 1, 1}).empty());
+  memory.See(Club(2, 2));
+  memory.Forget();
+  CHECK(!memory.Remembers(Club(2, 2)));
+}
+
 void TestAutoMapItemMemory(void)
 {
+  EachCellAnswersAfterEveryChange();
   AGlimpseIsRememberedButNotIdentified();
   SeenInTheLightAGlimpseIsIdentified();
   AGlimpseLeavesAnIdentifiedItemIdentified();

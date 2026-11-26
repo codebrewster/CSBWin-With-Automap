@@ -857,16 +857,8 @@ extern void post_render();
 void UI_ScreenPresent(void)
 {
   if (ExportHtml_IsOn()) return; // nothing is shown
-  // A replay at max changes the screen on nearly every tick, and drawing the window costs far
-  // more than a tick: it shows PLAYBACK_MAX_FRAMES_PER_SECOND frames, the rest of the time goes
-  // to the game. The picture stays in the texture, so the next frame shows the latest one.
-  static i64 lastFrame = 0;
-  if (PlayfileIsOpen() && PlaybackControl_IsMax() && NoSpeedLimit != 0 && !PlaybackControl_IsPaused())
-  {
-    i64 now = UI_GetSystemTime();
-    if (now - lastFrame < 1000 / PLAYBACK_MAX_FRAMES_PER_SECOND && now >= lastFrame) return;
-    lastFrame = now;
-  }
+  // A replay at max shows PLAYBACK_MAX_FRAMES_PER_SECOND frames: display() copies and presents
+  // the picture only as often, and presents each one it copies
   post_render();
 }
 

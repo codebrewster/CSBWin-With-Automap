@@ -1,6 +1,7 @@
 #ifndef AUTOMAPITEMMEMORY_H
 #define AUTOMAPITEMMEMORY_H
 
+#include <map>
 #include <vector>
 
 #include "AutoMapExplored.h"
@@ -28,6 +29,7 @@ struct AutoMapRememberedItem
 class AutoMapItemMemory
 {
 public:
+  AutoMapItemMemory(void);
   void Forget(void);
   void ForgetLevel(int level);
   // Sets the item's cell; an item seen on another cell moves there and goes last. Seen on its
@@ -48,8 +50,16 @@ public:
   std::vector<AutoMapRememberedItem> Items(void) const;
 
 private:
-  // A few hundred entries at most, so a vector in the order seen is enough
+  // In the order seen. A long run remembers thousands, and the map asks for the items of every
+  // cell of a level each time it draws it: they are found through m_byCell.
   std::vector<AutoMapRememberedItem> m_items;
+  // The positions in m_items of each cell's items, in order; made again on the first question
+  // after an item came, went or moved
+  typedef std::map<long long, std::vector<size_t> > CellIndex;
+  mutable CellIndex m_byCell;
+  mutable bool m_byCellIsCurrent;
+  void Changed(void);
+  const std::vector<size_t> *PositionsOn(const AutoMapCell &cell) const;
 };
 
 #endif

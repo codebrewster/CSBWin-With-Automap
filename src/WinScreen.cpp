@@ -12,6 +12,8 @@
 #include "Dispatch.h"
 #include "CSB.h"
 #include "Data.h"
+#include "PlaybackControl.h"
+#include "ExportHtml.h"
 #ifdef _MSCV_INTEL
 #include <io.h>
 #include <FCNTL.h>
@@ -73,6 +75,8 @@ extern i32 xOverlayJitter;
 extern i32 yGraphicJitter;
 extern bool jitterChanged;
 extern ui32 dumpWindow;
+extern i32 NoSpeedLimit;
+bool PlayfileIsOpen(void);
 //extern CDC *OnDrawDC;
 ui32 STBLTCount=0;
 
@@ -1510,6 +1514,19 @@ void display (void){
     if (StillScreenNeedsFrame()) PresentScreen();
     return;
   };
+  // --export-html shows nothing
+  if (ExportHtml_IsOn()) return;
+  // A replay at max asks for the picture on many ticks (each click it replays flashes a button),
+  // and copying it costs more than a tick. The window shows PLAYBACK_MAX_FRAMES_PER_SECOND
+  // frames (UI_ScreenPresent): the picture is copied as often, the latest one when it is. A
+  // pause draws it again at once (checkVBL asks for paints while paused).
+  if (PlayfileIsOpen() && PlaybackControl_IsMax() && NoSpeedLimit != 0 && !PlaybackControl_IsPaused())
+  {
+    static i64 lastCopied = 0;
+    i64 now = UI_GetSystemTime();
+    if (now - lastCopied < 1000 / PLAYBACK_MAX_FRAMES_PER_SECOND && now >= lastCopied) return;
+    lastCopied = now;
+  }
   if (d.DynamicPaletteSwitching)
   {
     memcpy(palette1,&d.Palette11978, 32);

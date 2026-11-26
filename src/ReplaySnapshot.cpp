@@ -11,6 +11,7 @@
 #include <unistd.h>
 #endif
 #include <algorithm>
+#include <deque>
 #include <map>
 #include <memory>
 #include <string>
@@ -440,17 +441,108 @@ i32 mainLoopStartCSB = 0;
 Snapshot lastTaken;
 std::vector<StoredPartRef> lastStored;
 
+void CompressInto(StoredPart &p, const SnapshotBytes &raw)
+{
+  p.rawSize = raw.size();
+  mz_ulong n = mz_compressBound((mz_ulong)raw.size());
+  p.z.resize(n);
+  if (mz_compress2(&p.z[0], &n, raw.empty() ? NULL : &raw[0], (mz_ulong)raw.size(), 1) != MZ_OK)
+    n = 0;
+  p.z.resize(n);
+  p.z.shrink_to_fit();
+}
+
+// Compressing a snapshot costs a few milliseconds, and a replay at max takes one every 250
+// ticks: a thread of its own does it, beside the game. The game hands it a copy of the bytes and
+// goes on; whatever reads a compressed part (putting a snapshot back) waits until it is done.
+// Without the thread (it could not be started) the parts are compressed at once, as before.
+struct CompressJob
+{
+  std::shared_ptr<StoredPart> part;
+  SnapshotBytes raw;
+};
+SDL_mutex *jobMutex = NULL;
+SDL_cond *jobArrived = NULL;
+SDL_cond *jobsDone = NULL;
+std::deque<CompressJob> jobs;
+bool workerIsBusy = false;
+bool workerFailed = false;
+
+int CompressWorker(void *)
+{
+  SDL_LockMutex(jobMutex);
+  for (;;)
+  {
+    while (jobs.empty()) SDL_CondWait(jobArrived, jobMutex);
+    CompressJob job;
+    job.part = jobs.front().part;
+    job.raw.swap(jobs.front().raw);
+    jobs.pop_front();
+    workerIsBusy = true;
+    SDL_UnlockMutex(jobMutex);
+    CompressInto(*job.part, job.raw);
+    SDL_LockMutex(jobMutex);
+    storeBytes += job.part->z.size();
+    workerIsBusy = false;
+    if (jobs.empty()) SDL_CondBroadcast(jobsDone);
+  }
+  return 0;
+}
+
+bool WorkerIsRunning(void)
+{
+  if (jobMutex != NULL) return true;
+  if (workerFailed) return false;
+  jobMutex = SDL_CreateMutex();
+  jobArrived = SDL_CreateCond();
+  jobsDone = SDL_CreateCond();
+  SDL_Thread *thread = NULL;
+  if (jobMutex != NULL && jobArrived != NULL && jobsDone != NULL)
+    thread = SDL_CreateThread(CompressWorker, "snapshots", NULL);
+  if (thread == NULL)
+  {
+    if (jobMutex != NULL) SDL_DestroyMutex(jobMutex);
+    if (jobArrived != NULL) SDL_DestroyCond(jobArrived);
+    if (jobsDone != NULL) SDL_DestroyCond(jobsDone);
+    jobMutex = NULL;
+    workerFailed = true;
+    return false;
+  }
+  SDL_DetachThread(thread);
+  return true;
+}
+
+// Every part handed to the thread is compressed, and storeBytes counts it
+void WaitForCompression(void)
+{
+  if (jobMutex == NULL) return;
+  SDL_LockMutex(jobMutex);
+  while (!jobs.empty() || workerIsBusy) SDL_CondWait(jobsDone, jobMutex);
+  SDL_UnlockMutex(jobMutex);
+}
+
 StoredPartRef Compress(const SnapshotBytes &raw)
 {
   std::shared_ptr<StoredPart> p(new StoredPart);
-  p->rawSize = raw.size();
-  mz_ulong n = mz_compressBound((mz_ulong)raw.size());
-  p->z.resize(n);
-  if (mz_compress2(&p->z[0], &n, raw.empty() ? NULL : &raw[0], (mz_ulong)raw.size(), 1) != MZ_OK)
-    n = 0;
-  p->z.resize(n);
-  p->z.shrink_to_fit();
+  CompressInto(*p, raw);
+  if (jobMutex != NULL) SDL_LockMutex(jobMutex);
   storeBytes += p->z.size();
+  if (jobMutex != NULL) SDL_UnlockMutex(jobMutex);
+  return p;
+}
+
+// The part, compressed by the thread; its bytes are there once WaitForCompression returns
+StoredPartRef CompressLater(const SnapshotBytes &raw)
+{
+  if (!WorkerIsRunning()) return Compress(raw);
+  std::shared_ptr<StoredPart> p(new StoredPart);
+  p->rawSize = raw.size();
+  SDL_LockMutex(jobMutex);
+  jobs.push_back(CompressJob());
+  jobs.back().part = p;
+  jobs.back().raw = raw;
+  SDL_CondSignal(jobArrived);
+  SDL_UnlockMutex(jobMutex);
   return p;
 }
 
@@ -463,6 +555,7 @@ void Expand(const StoredPart &p, SnapshotBytes &raw)
 
 void Forget(void)
 {
+  WaitForCompression();
   store.clear();
   storeBytes = 0;
   mainLoopStack.clear();
@@ -478,7 +571,7 @@ void TakeStored(void)
   for (int i = 0; i < PART_COUNT; i++)
   {
     if (!lastStored.empty() && lastTaken.data[i] == s.data[i]) parts[i] = lastStored[i];
-    else parts[i] = Compress(s.data[i]);
+    else parts[i] = CompressLater(s.data[i]);
   }
   CallStack_Take(mainLoopStack);
   mainLoopStartCSB = StartCSB_State();
@@ -494,6 +587,7 @@ bool RestoreStored(int target, int *restored)
   std::map<int, StoredSnapshot>::iterator it = store.upper_bound(target);
   if (it == store.begin()) return false;
   --it;
+  WaitForCompression();
   Snapshot s;
   s.tick = it->first;
   s.data.resize(PART_COUNT);
@@ -522,6 +616,7 @@ void CheckEnd(void)
 {
   Snapshot s;
   Take(s);
+  WaitForCompression();
   printf("rewind-check: replay ended at tick %d, %d snapshots, %zu bytes\n",
          (int)d.Time, (int)store.size(), storeBytes);
   for (int i = 0; i < PART_COUNT; i++)
@@ -959,6 +1054,7 @@ int ReplaySnapshot_Count(void)
 
 size_t ReplaySnapshot_Bytes(void)
 {
+  WaitForCompression();
   return storeBytes;
 }
 
