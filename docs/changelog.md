@@ -8,8 +8,10 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 ## Unreleased
 
 **Replay**
+- A replay starts at 1x, also a recording that asks for quick play itself (`#NoSpeedLimit`, `#FastVBL` in the playfile, such as CSBSweep_996Minutes): its start can be watched, and + or the speed buttons go faster. `--quick` still runs one quickly.
+- 0 in the "pause at" field goes back to the start of the replay and pauses there; it did nothing. Going back further than the replay has run (2500 ticks back at tick 1000) goes to the start too, instead of not at all.
 - A replay at max in the window is faster again (DMMovie8: 9 s → 4 s). The map window no longer draws the whole level anew for every damage number of a fight: the damage shows with its next update, a few times a second, as the monsters' moves do. A monster or door in the 3D view is judged only until it is clearly seen, and after a switch is used the map looks only at the squares it may change, not at the whole level.
-- At max the map judges which monsters the 3D view shows only on the frames it draws from (a few a second) and around a pause the replay makes by itself (a "pause at" tick, the end of going back or skipping, the replay's end, a breakpoint). A pause by hand (Space) at max shows, until the next frame, the monsters standing on lit squares in view: sometimes one just around a corner too. What the map remembers and the exported pages are unchanged.
+- At max the map judges which monsters the 3D view shows only on the frames it draws from (a few a second) and on the frame a pause shows; on the others it takes the monsters drawn on lit squares. What the map shows when paused, what it remembers and the exported pages are unchanged.
 
 ## 1.7.3 (2026-11-26)
 

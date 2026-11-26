@@ -638,9 +638,10 @@ bool PLAYFILE::Play(MouseQueueEnt *ent)
         VBLMultiplier = 1;
         continue;
       };
+      // Quick play asked for by the recording (#NoSpeedLimit, #FastVBL): the replay bar sets the
+      // speed, and a replay starts at 1x so that its start can be watched; + or --quick go faster
       if (strcmp(line,"#NoSpeedLimit") == 0)
       {
-        NoSpeedLimit = 0x20000000;
         continue;
       };
       if (strcmp(line,"#AutoEnlarge") == 0)
@@ -676,15 +677,6 @@ bool PLAYFILE::Play(MouseQueueEnt *ent)
       };
       if (memcmp(line,"#FastVBL",8) == 0)
       {
-        i32 speed;
-        VBLMultiplier = 4;
-        if (sscanf(line+8,"%d",&speed) == 1)
-        {
-          if ( (speed>0) && (speed<100))
-          {
-            VBLMultiplier = speed;
-          };
-        };
         continue;
       };
       if (strcmp(line,"#TimerTraceOn") == 0)

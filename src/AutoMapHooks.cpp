@@ -234,35 +234,19 @@ struct FrameDoor { int door; int x; int y; };
 static std::vector<FrameDoor> doorsOfFrame;
 
 // Monsters are judged on every frame, but in a replay at max only on the frames the map window
-// draws from and those around a pause known ahead: what a monster's look tells (MonstersSeenNow)
-// is only shown, never remembered, and judging them cost a third of the replay. The other frames
-// take the monsters drawn on squares the light reaches (ApproximateMonstersSeen), which a pause
-// by hand (Space) at max shows until a frame is judged again. Decided when a frame starts.
+// draws from and the frame a pause shows (DrawViewportAsPauseBegins draws it once more as the
+// pause begins, ticks held): what a monster's look tells (MonstersSeenNow) is only shown, never
+// remembered, and judging them cost a third of the replay. The other frames take the monsters
+// drawn on squares the light reaches (ApproximateMonstersSeen), which only a map rebuild between
+// two judged frames shows (a new level). Decided when a frame starts.
 static bool MeasuresEveryDraw(void);
 static bool monstersAreJudged = true;
 static std::vector<int> monstersDrawnUnjudged;
 
-// A pause the replay will make by itself within a few ticks: at a "pause at" tick, at the end of
-// going back or skipping ahead, at the replay's end, or on a breakpoint square the party is on
-static bool PauseMayComeSoon(void)
-{
-  static const int TICKS_AROUND = 3;
-  int now = (int)d.Time;
-  int targets[] = {PlaybackControl_PauseTarget(), PlaybackControl_RewindTarget(),
-                   PlaybackControl_SkipTarget(), PlaybackControl_TotalTicks()};
-  for (size_t i = 0; i < sizeof targets / sizeof targets[0]; i++)
-  {
-    if (targets[i] > 0 && now >= targets[i] - TICKS_AROUND && now <= targets[i] + TICKS_AROUND) return true;
-  }
-  return PlaybackControl_BreakpointCount() > 0 &&
-         PlaybackControl_HasBreakpoint(d.partyLevel, d.partyX, d.partyY);
-}
-
 static bool MonstersOfThisFrameAreJudged(void)
 {
   if (MeasuresEveryDraw() || ExportHtml_IsOn()) return true;
-  if (!PlayfileIsOpen() || !PlaybackControl_IsMax() || PlaybackControl_IsPaused()) return true;
-  if (PauseMayComeSoon()) return true;
+  if (!PlayfileIsOpen() || !PlaybackControl_IsMax() || PlaybackControl_HoldsTicks()) return true;
   // RebuildShownLevel's next rebuild, due once its gap has passed, shows this frame
   return AutoMapWindow_IsShown() && SDL_GetTicks() - lastRebuildTicks >= SMALLEST_REBUILD_GAP;
 }

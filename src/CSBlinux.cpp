@@ -2735,31 +2735,36 @@ static void DrawReplayControls(bool &was_active)
   }
   {
     // Go to the number typed (Enter) and pause there: ahead at max (over snapshots where the
-    // replay has been), behind back to it, the tick it stands at now. Empty or 0 takes a pause
-    // ahead away.
+    // replay has been), behind back to it (0 to the start), the tick it stands at now. Empty
+    // takes a pause ahead away.
     static char target[16] = "";
     ImGui::SetNextItemWidth(70);
     bool entered = ImGui::InputTextWithHint("##pauseAt", _("pause at"), target, sizeof target, ImGuiInputTextFlags_EnterReturnsTrue);
     int tick = 0;
+    bool hasTick = false;
     if (entered)
     {
       for (const char *c = target; *c; c++)
-        if (*c >= '0' && *c <= '9' && tick < 100000000) tick = tick * 10 + (*c - '0');
+      {
+        if (*c < '0' || *c > '9') continue;
+        hasTick = true;
+        if (tick < 100000000) tick = tick * 10 + (*c - '0');
+      }
       target[0] = 0;
     }
-    else if (pauseAtClicked > 0) { tick = pauseAtClicked; entered = true; }
+    else if (pauseAtClicked > 0) { tick = pauseAtClicked; entered = hasTick = true; }
     pauseAtClicked = 0;
     if (entered)
     {
       int now = (int)d.Time;
-      if (tick > 0 && tick < now) PlaybackControl_GoBackAndPause(now, tick, ReplaySpeedIndex());
-      else if (tick > 0 && tick == now) PlaybackControl_SetPaused(true);
-      else if (tick > 0) PlaybackControl_GoAheadAndPause(now, tick, ReplaySpeedIndex());
+      if (hasTick && tick < now) PlaybackControl_GoBackAndPause(now, tick, ReplaySpeedIndex());
+      else if (hasTick && tick == now) PlaybackControl_SetPaused(true);
+      else if (hasTick) PlaybackControl_GoAheadAndPause(now, tick, ReplaySpeedIndex());
       else PlaybackControl_SetPauseTarget(now, 0);
     }
     if (ImGui::IsItemHovered())
-      ImGui::SetTooltip("%s", _("Go to this tick and pause there (type a number, Enter), ahead or behind. "
-                                "0 or empty clears a pause ahead."));
+      ImGui::SetTooltip("%s", _("Go to this tick and pause there (type a number, Enter), ahead or behind; "
+                                "0 goes back to the start. Empty clears a pause ahead."));
     if (PlaybackControl_PauseTarget() >= 0)
     {
       ImGui::TextDisabled(_("pause at %d"), PlaybackControl_PauseTarget());

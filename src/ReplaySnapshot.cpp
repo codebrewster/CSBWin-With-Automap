@@ -581,12 +581,14 @@ void TakeStored(void)
   lastStored = parts;
 }
 
-// The latest snapshot at or before the target, put back; false when there is none
+// The latest snapshot at or before the target, put back; the first one for a target before it
+// (tick 0, or going back further than the replay has run: the first is taken at its first
+// tick); false when there is none
 bool RestoreStored(int target, int *restored)
 {
+  if (store.empty()) return false;
   std::map<int, StoredSnapshot>::iterator it = store.upper_bound(target);
-  if (it == store.begin()) return false;
-  --it;
+  if (it != store.begin()) --it;
   WaitForCompression();
   Snapshot s;
   s.tick = it->first;
