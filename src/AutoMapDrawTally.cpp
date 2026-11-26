@@ -83,19 +83,21 @@ std::vector<AutoMapDrawOnScreen> AutoMapDrawTally::FinishFrame(AutoMapScreenPixe
   std::vector<AutoMapDrawOnScreen> result;
   for (size_t i = 0; i < draws.size(); i++)
   {
-    std::map<int, int> pairs;
+    // Colour indices are 0..15, so a pair fits a byte; in its order, as a sorted map would give
+    int pairs[256] = {0};
     for (size_t p = 0; p < draws[i].pixels.size(); p++)
     {
       const AutoMapDrawnPixel &pixel = draws[i].pixels[p];
-      if (screenPixel(pixel.x, pixel.y) != pixel.drawn) continue;
       if (writeStamp != NULL && writeStamp(pixel.x, pixel.y) != pixel.stamp) continue;
-      pairs[pixel.behind * 16 + pixel.drawn]++;
+      if (screenPixel(pixel.x, pixel.y) != pixel.drawn) continue;
+      pairs[(pixel.behind & 15) * 16 + (pixel.drawn & 15)]++;
     }
     AutoMapDrawOnScreen onScreen;
     onScreen.key = draws[i].key;
-    for (std::map<int, int>::const_iterator it = pairs.begin(); it != pairs.end(); ++it)
+    for (int at = 0; at < 256; at++)
     {
-      AutoMapPixelPair pair = {it->first / 16, it->first % 16, it->second};
+      if (pairs[at] == 0) continue;
+      AutoMapPixelPair pair = {at / 16, at % 16, pairs[at]};
       onScreen.kept.push_back(pair);
     }
     result.push_back(onScreen);

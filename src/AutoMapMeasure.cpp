@@ -80,6 +80,19 @@ static bool hasFrameWithoutItems = false;
 // The sweep's decoration draws, in the order drawn: where each one was
 static std::vector<DecorationDraw> decorationsOfFrame;
 static std::vector<AutoMapDrawOnScreen> drawsOfFrame;
+// The finished frame's pixels, taken apart a group of 16 at a time when first asked for: judging
+// reads the same pixels many times over. Valid from AutoMapMeasure_OnViewportFinished until the
+// viewport is drawn on again (the next frame, or any blit the hooks see).
+static const int VIEWPORT_GROUPS = VIEWPORT_BYTES / 8;
+static ui8 decodedPixels[VIEWPORT_WIDTH * VIEWPORT_HEIGHT];
+static unsigned decodedGeneration[VIEWPORT_GROUPS];
+static unsigned frameGeneration = 1;
+static bool decodedIsValid = false;
+
+static void ForgetDecodedPixels(void)
+{
+  decodedIsValid = false;
+}
 
 bool AutoMapMeasure_IsRunning(void)
 {
@@ -90,6 +103,7 @@ void AutoMapMeasure_OnViewportSummarised(const SUMMARIZEROOMDATA *cellsInView)
 {
   for (int i = 0; i < AUTOMAP_SIGHT_CELL_COUNT; i++) framePositions[i] = cellsInView[i];
   pendingBefore = false;
+  ForgetDecodedPixels();
   decorationsOfFrame.clear();
   tally.StartFrame();
   if (hasStamps) std::memset(writeStamps, 0, sizeof(writeStamps));
@@ -118,6 +132,7 @@ void AutoMapMeasure_BeforeBlit(int x1, int x2, int y1, int y2)
   pendingY1 = Clamp(y1, 0, VIEWPORT_HEIGHT - 1);
   pendingY2 = Clamp(y2, 0, VIEWPORT_HEIGHT - 1);
   // A rectangle clamped to nothing would wrap the copy size below
+  ForgetDecodedPixels();
   if (pendingX2 < pendingX1 || pendingY2 < pendingY1) return;
   stampsBlits = true;
   // Only the rectangle: a blit changes nothing outside it. The viewport is in bitplanes, 16
@@ -153,26 +168,42 @@ void AutoMapMeasure_AfterBlit(const AutoMapDrawKey &key, int x1, int x2, int y1,
     where.drawn = 0;
     decorationsOfFrame.push_back(where);
   }
+  // The changed pixels, left to right and row by row. A group of 16 pixels is four big-endian
+  // plane words (PlanarPixel), its leftmost pixel in bit 15: one XOR of the planes tells which
+  // of the 16 the blit changed, and only those are taken apart.
   std::vector<AutoMapDrawnPixel> changed;
+  const ui8 *after = (const ui8 *)d.pViewportBMP;
   for (int y = pendingY1; y <= pendingY2; y++)
   {
-    for (int x = pendingX1; x <= pendingX2; x++)
+    for (int group = pendingX1 / 16; group <= pendingX2 / 16; group++)
     {
-      // A group of 16 pixels the blit left as it was has no changed pixel: skip it whole
-      if ((x & 15) == 0 || x == pendingX1)
+      int at = y * VIEWPORT_BYTE_WIDTH + group * 8;
+      unsigned before[4];
+      unsigned now[4];
+      unsigned differs = 0;
+      for (int plane = 0; plane < 4; plane++)
       {
-        int at = y * VIEWPORT_BYTE_WIDTH + (x / 16) * 8;
-        if (std::memcmp(viewportBefore + at, (const ui8 *)d.pViewportBMP + at, 8) == 0)
-        {
-          x |= 15;
-          continue;
-        }
+        before[plane] = (unsigned)((viewportBefore[at + plane * 2] << 8) | viewportBefore[at + plane * 2 + 1]);
+        now[plane] = (unsigned)((after[at + plane * 2] << 8) | after[at + plane * 2 + 1]);
+        differs |= before[plane] ^ now[plane];
       }
-      int behind = PlanarPixel((const ui8 *)viewportBefore, x, y, VIEWPORT_BYTE_WIDTH);
-      int drawn = PlanarPixel((const ui8 *)d.pViewportBMP, x, y, VIEWPORT_BYTE_WIDTH);
-      if (behind == drawn) continue;
-      AutoMapDrawnPixel pixel = {x, y, behind, drawn, writeStamps[y * VIEWPORT_WIDTH + x]};
-      changed.push_back(pixel);
+      if (differs == 0) continue;
+      int first = std::max(pendingX1, group * 16);
+      int last = std::min(pendingX2, group * 16 + 15);
+      for (int x = first; x <= last; x++)
+      {
+        int shift = 15 - (x & 15);
+        if (((differs >> shift) & 1) == 0) continue;
+        int behind = 0;
+        int drawn = 0;
+        for (int plane = 0; plane < 4; plane++)
+        {
+          behind |= (int)((before[plane] >> shift) & 1) << plane;
+          drawn |= (int)((now[plane] >> shift) & 1) << plane;
+        }
+        AutoMapDrawnPixel pixel = {x, y, behind, drawn, writeStamps[y * VIEWPORT_WIDTH + x]};
+        changed.push_back(pixel);
+      }
     }
   }
   if (key.kind == AutoMapDrawDecoration) decorationsOfFrame.back().drawn = (int)changed.size();
@@ -184,6 +215,7 @@ void AutoMapMeasure_OnViewportBlit(const unsigned char *src, int x1, int x2, int
                                    int transparentColor)
 {
   blitCount++;
+  ForgetDecodedPixels();
   if (!stampsBlits) return;
   hasStamps = true;
   for (int y = Clamp(y1, 0, VIEWPORT_HEIGHT); y <= y2 && y < VIEWPORT_HEIGHT; y++)
@@ -224,7 +256,24 @@ void AutoMapMeasure_OnViewportBlit(const unsigned char *src, int x1, int x2, int
 
 static int ViewportPixel(int x, int y)
 {
-  return PlanarPixel((const ui8 *)d.pViewportBMP, x, y, VIEWPORT_BYTE_WIDTH);
+  if (!decodedIsValid || x < 0 || y < 0 || x >= VIEWPORT_WIDTH || y >= VIEWPORT_HEIGHT)
+    return PlanarPixel((const ui8 *)d.pViewportBMP, x, y, VIEWPORT_BYTE_WIDTH);
+  int group = y * (VIEWPORT_WIDTH / 16) + x / 16;
+  ui8 *pixels = decodedPixels + y * VIEWPORT_WIDTH + (x & ~15);
+  if (decodedGeneration[group] != frameGeneration)
+  {
+    decodedGeneration[group] = frameGeneration;
+    const ui8 *words = (const ui8 *)d.pViewportBMP + group * 8;
+    unsigned plane[4];
+    for (int p = 0; p < 4; p++) plane[p] = (unsigned)((words[p * 2] << 8) | words[p * 2 + 1]);
+    for (int i = 0; i < 16; i++)
+    {
+      int shift = 15 - i;
+      pixels[i] = (ui8)(((plane[0] >> shift) & 1) | (((plane[1] >> shift) & 1) << 1) |
+                        (((plane[2] >> shift) & 1) << 2) | (((plane[3] >> shift) & 1) << 3));
+    }
+  }
+  return pixels[x & 15];
 }
 
 static int WriteStamp(int x, int y)
@@ -234,6 +283,13 @@ static int WriteStamp(int x, int y)
 
 void AutoMapMeasure_OnViewportFinished(void)
 {
+  frameGeneration++;
+  if (frameGeneration == 0)
+  {
+    std::memset(decodedGeneration, 0, sizeof(decodedGeneration));
+    frameGeneration = 1;
+  }
+  decodedIsValid = true;
   drawsOfFrame = tally.FinishFrame(ViewportPixel, WriteStamp);
   hasFrameWithoutItems = false;
 }
@@ -272,9 +328,11 @@ static DrawOnScreen DrawOnScreenOf(const std::vector<AutoMapDrawnPixel> &pixels,
   int x2 = -1;
   int y1 = VIEWPORT_HEIGHT;
   int y2 = -1;
+  std::vector<char> kept(pixels.size());
   for (size_t p = 0; p < pixels.size(); p++)
   {
-    if (!IsKept(pixels[p])) continue;
+    kept[p] = IsKept(pixels[p]);
+    if (!kept[p]) continue;
     if (pixels[p].x < x1) x1 = pixels[p].x;
     if (pixels[p].x > x2) x2 = pixels[p].x;
     if (pixels[p].y < y1) y1 = pixels[p].y;
@@ -285,21 +343,24 @@ static DrawOnScreen DrawOnScreenOf(const std::vector<AutoMapDrawnPixel> &pixels,
   AutoMapDrawView &view = item.view;
   view.width = x2 < 0 ? 0 : Clamp(x2 + AUTOMAP_CAMOUFLAGE_RADIUS, 0, VIEWPORT_WIDTH - 1) - item.originX + 1;
   view.height = y2 < 0 ? 0 : Clamp(y2 + AUTOMAP_CAMOUFLAGE_RADIUS, 0, VIEWPORT_HEIGHT - 1) - item.originY + 1;
+  size_t size = (size_t)(view.width * view.height);
+  view.screen.reserve(size);
+  view.background.reserve(size);
+  view.isDrawn.assign(size, false);
   for (int y = 0; y < view.height; y++)
   {
     for (int x = 0; x < view.width; x++)
     {
-      view.screen.push_back(palette[ViewportPixel(item.originX + x, item.originY + y) & 15]);
-      int background = isItem ? BackgroundPixel(item.originX + x, item.originY + y)
-                              : ViewportPixel(item.originX + x, item.originY + y);
+      int shown = ViewportPixel(item.originX + x, item.originY + y);
+      view.screen.push_back(palette[shown & 15]);
+      int background = isItem ? BackgroundPixel(item.originX + x, item.originY + y) : shown;
       view.background.push_back(palette[background & 15]);
-      view.isDrawn.push_back(false);
     }
   }
   for (size_t p = 0; p < pixels.size(); p++)
   {
     const AutoMapDrawnPixel &pixel = pixels[p];
-    if (!IsKept(pixel)) continue;
+    if (!kept[p]) continue;
     size_t at = (size_t)((pixel.y - item.originY) * view.width + pixel.x - item.originX);
     view.isDrawn[at] = true;
     if (!isItem) view.background[at] = palette[pixel.behind & 15];
