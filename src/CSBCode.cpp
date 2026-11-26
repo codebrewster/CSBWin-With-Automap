@@ -4484,7 +4484,49 @@ ui8 data008734[256] = { //166 bytes
     0x1f, 0x9f, 0x5f, 0xdf, 0x3f, 0xbf, 0x7f, 0xff,
 };
 
-void Mirror(ui8 *bitmap, i32 width, i32 height) //TAG008642
+// A planar picture turned left to right, in place: width bytes a line (16 pixels to 8 bytes,
+// a big-endian word per colour bit), height lines. Groups swap ends, each word's bits turn
+// round. Mirror68000 is the 68000 code, for the widths MirrorPlanar does not take.
+static void Mirror68000(ui8 *bitmap, i32 width, i32 height);
+
+static inline ui64 MirrorGroup(ui64 v)
+{
+  v = ((v >> 1) & 0x5555555555555555ULL) | ((v & 0x5555555555555555ULL) << 1);
+  v = ((v >> 2) & 0x3333333333333333ULL) | ((v & 0x3333333333333333ULL) << 2);
+  v = ((v >> 4) & 0x0f0f0f0f0f0f0f0fULL) | ((v & 0x0f0f0f0f0f0f0f0fULL) << 4);
+  return ((v & 0x00ff00ff00ff00ffULL) << 8) | ((v >> 8) & 0x00ff00ff00ff00ffULL);
+}
+
+static void MirrorPlanar(ui8 *bitmap, i32 width, i32 height)
+{
+  int groups = width >> 3;
+  for (int line = 0; line < height; line++, bitmap += width)
+  {
+    for (int g = 0, h = groups - 1; g < h; g++, h--)
+    {
+      ui64 a, b;
+      memcpy(&a, bitmap + 8 * g, 8);
+      memcpy(&b, bitmap + 8 * h, 8);
+      a = MirrorGroup(a);
+      b = MirrorGroup(b);
+      memcpy(bitmap + 8 * g, &b, 8);
+      memcpy(bitmap + 8 * h, &a, 8);
+    }
+  }
+}
+
+void Mirror(ui8 *bitmap, i32 width, i32 height)
+{
+  // An odd count of groups, or a width that is no whole number of them, as the 68000 code did
+  if (height <= 0 || width <= 0 || (width & 15) != 0)
+  {
+    Mirror68000(bitmap, width, height);
+    return;
+  }
+  MirrorPlanar(bitmap, width, height);
+}
+
+static void Mirror68000(ui8 *bitmap, i32 width, i32 height) //TAG008642
 { // width is in bytes
   dReg D0, D1, D2, D3;
   aReg A1, A2, A3, A4;

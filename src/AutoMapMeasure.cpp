@@ -210,6 +210,42 @@ void AutoMapMeasure_AfterBlit(const AutoMapDrawKey &key, int x1, int x2, int y1,
   tally.AddDraw(key, changed);
 }
 
+// The stamps of one viewport line a blit writes: x1..x2 of line y, source line sourceY
+static void StampLine(int *stamps, const unsigned char *src, int x, int xEnd, int x1, int sourceY,
+                      int srcOffsetX, int srcByteWidth, int transparentColor)
+{
+  if (transparentColor < 0)
+  {
+    for (; x <= xEnd; x++) stamps[x] = blitCount;
+    return;
+  }
+  // The source pixels in the transparent colour, a bit each, for a group of 16 at a time
+  // (PlanarPixel's group and bit): one look at the four planes serves the run of pixels
+  // of that group
+  while (x <= xEnd)
+  {
+    int sourceX = srcOffsetX + x - x1;
+    int bit = sourceX & 15;                                  // the run's first pixel in its group
+    int run = std::min(16 - bit, xEnd - x + 1);
+    int sourceGroup = ((unsigned short)sourceX >> 4) & 31;   // PlanarPixel's "& 0xf8"
+    const ui8 *words = (const ui8 *)src + (short)(sourceY * srcByteWidth + sourceGroup * 8);
+    unsigned transparent = 0xffff;
+    for (int plane = 0; plane < 4; plane++)
+    {
+      unsigned word = (unsigned)((words[plane * 2] << 8) | words[plane * 2 + 1]);
+      transparent &= (transparentColor >> plane) & 1 ? word : ~word;
+    }
+    unsigned runBits = ((1u << run) - 1) << (16 - bit - run);  // the run's pixels, first one highest
+    transparent &= runBits;
+    if (transparent == 0)
+      for (int i = 0; i < run; i++) stamps[x + i] = blitCount;
+    else if (transparent != runBits)
+      for (int i = 0; i < run; i++)
+        if (((transparent >> (15 - bit - i)) & 1) == 0) stamps[x + i] = blitCount;
+    x += run;
+  }
+}
+
 void AutoMapMeasure_OnViewportBlit(const unsigned char *src, int x1, int x2, int y1, int y2,
                                    int srcOffsetX, int srcOffsetY, int srcByteWidth,
                                    int transparentColor)
@@ -223,34 +259,8 @@ void AutoMapMeasure_OnViewportBlit(const unsigned char *src, int x1, int x2, int
     int *stamps = writeStamps + y * VIEWPORT_WIDTH;
     int xEnd = std::min(x2, VIEWPORT_WIDTH - 1);
     int x = Clamp(x1, 0, VIEWPORT_WIDTH);
-    if (transparentColor < 0)
-    {
-      for (; x <= xEnd; x++) stamps[x] = blitCount;
-      continue;
-    }
-    // The source pixels in the transparent colour, a bit each, for a group of 16 at a time
-    // (PlanarPixel's group and bit): one look at the four planes serves 16 pixels
     int sourceY = srcOffsetY + y - y1;
-    int group = -1;
-    unsigned transparent = 0;
-    for (; x <= xEnd; x++)
-    {
-      int sourceX = srcOffsetX + x - x1;
-      int sourceGroup = ((unsigned short)sourceX >> 4) & 31; // PlanarPixel's "& 0xf8"
-      if (sourceGroup != group)
-      {
-        group = sourceGroup;
-        const ui8 *words = (const ui8 *)src + (short)(sourceY * srcByteWidth + sourceGroup * 8);
-        transparent = 0xffff;
-        for (int plane = 0; plane < 4; plane++)
-        {
-          unsigned word = (unsigned)((words[plane * 2] << 8) | words[plane * 2 + 1]);
-          transparent &= (transparentColor >> plane) & 1 ? word : ~word;
-        }
-      }
-      if ((transparent >> (15 - (sourceX & 15))) & 1) continue;
-      stamps[x] = blitCount;
-    }
+    StampLine(stamps, src, x, xEnd, x1, sourceY, srcOffsetX, srcByteWidth, transparentColor);
   }
 }
 

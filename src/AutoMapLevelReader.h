@@ -50,6 +50,9 @@ bool AutoMapLevelReader_IsStairsAt(int x, int y);
 
 // Expects the party's level to be the level the engine has loaded
 AutoMapLevelSnapshot AutoMapLevelReader_ReadPartyLevel(void);
+// Only what ReadPartyLevel finds of the level's links: its level, width, height, rock margins
+// and links, the same as ReadPartyLevel's; no cells and nothing else. Far quicker.
+AutoMapLevelSnapshot AutoMapLevelReader_ReadPartyLevelLinks(void);
 
 // Any level of the dungeon, by index. Temporarily loads the level the way LoadLevel does
 // and rebuilds that level's decoration tables from the dungeon data, then restores

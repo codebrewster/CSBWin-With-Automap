@@ -4,6 +4,7 @@
 #include "UI.h"
 
 #include <stdio.h>
+#include <string.h>
 
 //#include "Objects.h"
 #include "Dispatch.h"
@@ -577,7 +578,9 @@ ui8 *FindMemoryBuffer(ui8 *addr, ui8* &end)
 #endif
 
 
-void TAG0088b2(ui8 *src,
+// The Atari blitter as the 68000 code had it, register by register. TAG0088b2 copies the same
+// pixels with BlitPlanar and leaves only the rectangles that one does not take to this.
+static void Blit68000(ui8 *src,
                ui8 *dst,
                RectPos *dstPos,
                i32 SrcOffsetX,  // pixel starting x offset
@@ -594,11 +597,6 @@ void TAG0088b2(ui8 *src,
   i32 iA4;
   i32 iA5;
   bool H1Valid;
-  // Where the viewport goes on screen, for the TrueType text drawn over it. A copy inside the
-  // viewport (DoMenu's two- and four-button layouts) tells nothing about that and used to move
-  // the text of an in-game menu off its buttons.
-  if (src == d.pViewportBMP && dst != d.pViewportBMP)
-      viewport_xy(dstPos->w.x1,dstPos->w.y1);
   static ui16 masks[] = {
       0x0000, 0x8000, 0xc000, 0xe000, 0xf000, 0xf800, 0xfc00, 0xfe00,
       0xff00, 0xff80, 0xffc0, 0xffe0, 0xfff0, 0xfff8, 0xfffc, 0xfffe
@@ -1198,6 +1196,171 @@ jumpA2:
 tag008c90:
   //D4=saveD4;D5=saveD5;D6=saveD6;D7=saveD7;
   //A2=saveA2;A3=saveA3;A4=saveA4;A5=saveA5;
+  return;
+}
+
+// The pixels of a rectangle copied from one planar picture to another: 16 pixels to a group of
+// four big-endian words, one per colour bit, the leftmost pixel in a word's top bit. Each
+// destination pixel of the rectangle takes the source pixel at the same place from (srcX, srcY),
+// unless that one has the transparent colour (none if it is negative). As Blit68000, only
+// faster: a group's four words are handled at once as one 64-bit number, a word per lane.
+static inline ui64 SwapLanes(ui64 v) // big-endian words <-> native ones, all four lanes
+{
+  return ((v & 0x00ff00ff00ff00ffULL) << 8) | ((v >> 8) & 0x00ff00ff00ff00ffULL);
+}
+
+static void BlitPlanar(const ui8 *src, ui8 *dst, int x1, int x2, int y1, int rows,
+                       int srcX, int srcY, int srcByteWidth, int dstByteWidth, int transparent)
+{
+  const ui64 LANES = 0x0001000100010001ULL;
+  int width = x2 - x1 + 1;
+  int srcBit = srcX & 15, dstBit = x1 & 15;
+  int srcGroups = (srcBit + width + 15) >> 4;           // source groups a line reads
+  int groups = (dstBit + width + 15) >> 4;              // destination groups a line touches
+  int shift = srcBit - dstBit;                          // source bit of a group's first pixel
+  int k0 = shift >> 4, off = shift & 15;                // floor; the group's source starts at k0+g
+  ui16 firstEdge = (ui16)(0xffff << (16 - dstBit));     // pixels left of x1 in the first group
+  int tail = (dstBit + width) & 15;
+  ui16 lastEdge = tail ? (ui16)(0xffff >> tail) : 0;    // pixels right of x2 in the last group
+  // A lane is a pixel's colour bit: a pixel has the transparent colour where all four lanes
+  // of (planes ^ flip) are set
+  ui64 flip = 0;
+  for (int p = 0; p < 4; p++)
+    if (((transparent >> p) & 1) == 0) flip |= (ui64)0xffff << (16 * p);
+  const ui8 *srcLine = src + srcY * srcByteWidth + ((srcX & 0xfff0) >> 1);
+  ui8 *dstLine = dst + y1 * dstByteWidth + ((x1 & 0xfff0) >> 1);
+  // Groups whose source words all lie inside the line and that have no edge: no checks there
+  int inFrom = 1, inTo = groups - 1;
+  while (inFrom < inTo && k0 + inFrom < 0) inFrom++;
+  while (inTo > inFrom && k0 + inTo - 1 + (off != 0) >= srcGroups) inTo--;
+  ui64 hiMask = LANES * (ui16)(0xffff << off), loMask = LANES * (ui16)(0xffff >> (16 - off));
+  if (off == 0 && k0 == 0)
+  { // Source and destination groups line up: no shifting, so the words keep their byte order
+    // and so do the masks (a lane is all of one colour bit either way)
+    ui16 firstKeep = (ui16)(firstEdge << 8 | firstEdge >> 8), lastKeep = (ui16)(lastEdge << 8 | lastEdge >> 8);
+    for (int row = 0; row < rows; row++, srcLine += srcByteWidth, dstLine += dstByteWidth)
+    {
+      for (int g = 0; g < groups; g++)
+      {
+        ui64 planes;
+        memcpy(&planes, srcLine + 8 * g, 8);
+        ui16 keep = 0;
+        if (g == 0) keep |= firstKeep;
+        if (g == groups - 1) keep |= lastKeep;
+        if (transparent >= 0)
+        {
+          ui64 same = planes ^ flip;
+          same &= same >> 32;
+          same &= same >> 16;
+          keep |= (ui16)same;
+        }
+        if (keep == 0xffff) continue;
+        if (keep != 0)
+        {
+          ui64 keepLanes = LANES * keep, out;
+          memcpy(&out, dstLine + 8 * g, 8);
+          planes = (out & keepLanes) | (planes & ~keepLanes);
+        }
+        memcpy(dstLine + 8 * g, &planes, 8);
+      }
+    }
+    return;
+  }
+  for (int row = 0; row < rows; row++, srcLine += srcByteWidth, dstLine += dstByteWidth)
+  {
+    for (int g = 0; g < groups; g++)
+    {
+      int k = k0 + g;
+      ui64 hi = 0, lo = 0, planes;
+      ui16 keep = 0;
+      if (g >= inFrom && g < inTo)
+      {
+        memcpy(&hi, srcLine + 8 * k, 8);
+        hi = SwapLanes(hi);
+        if (off == 0) planes = hi;
+        else
+        {
+          memcpy(&lo, srcLine + 8 * (k + 1), 8);
+          planes = ((hi << off) & hiMask) | ((SwapLanes(lo) >> (16 - off)) & loMask);
+        }
+      }
+      else
+      {
+        if (k >= 0 && k < srcGroups) { memcpy(&hi, srcLine + 8 * k, 8); hi = SwapLanes(hi); }
+        if (off != 0 && k + 1 >= 0 && k + 1 < srcGroups)
+        {
+          memcpy(&lo, srcLine + 8 * (k + 1), 8);
+          lo = SwapLanes(lo);
+        }
+        // the 16 pixels from bit off of hi on, into lo: per lane (hi << off) | (lo >> (16 - off))
+        planes = off == 0 ? hi : ((hi << off) & hiMask) | ((lo >> (16 - off)) & loMask);
+        if (g == 0) keep |= firstEdge;
+        if (g == groups - 1) keep |= lastEdge;
+      }
+      if (transparent >= 0)
+      {
+        ui64 same = planes ^ flip;
+        same &= same >> 32;
+        same &= same >> 16;
+        keep |= (ui16)same;
+      }
+      if (keep == 0xffff) continue;
+      ui64 out;
+      if (keep == 0) out = SwapLanes(planes);
+      else
+      {
+        ui64 keepLanes = LANES * keep;
+        memcpy(&out, dstLine + 8 * g, 8);
+        out = SwapLanes((SwapLanes(out) & keepLanes) | (planes & ~keepLanes));
+      }
+      memcpy(dstLine + 8 * g, &out, 8);
+    }
+  }
+}
+
+// The pixels of the rectangle, by BlitPlanar or, where that one is not sure to do the same,
+// by Blit68000
+static void BlitEitherWay(ui8 *src, ui8 *dst, RectPos *dstPos, i32 SrcOffsetX, i32 SrcOffsetY,
+                          i32 SrcByteWidth, i32 DestByteWidth, i32 transparentColor)
+{
+  int x1, x2, y1, y2;
+  if (d.UseByteCoordinates != 0)
+  {
+    x1 = dstPos->b.x1; x2 = dstPos->b.x2; y1 = dstPos->b.y1; y2 = dstPos->b.y2;
+  }
+  else
+  {
+    x1 = dstPos->w.x1; x2 = dstPos->w.x2; y1 = dstPos->w.y1; y2 = dstPos->w.y2;
+  }
+  int srcX = (ui16)SrcOffsetX, srcY = (ui16)SrcOffsetY;
+  // Anything the plain copy is not sure to do as the 68000 code did goes there
+  bool plain = x1 >= 0 && x2 >= x1 && y1 >= 0 && y2 >= y1 && SrcOffsetY >= 0
+            && SrcByteWidth > 0 && DestByteWidth > 0 && transparentColor < 16;
+  if (!plain)
+  {
+    Blit68000(src, dst, dstPos, SrcOffsetX, SrcOffsetY, SrcByteWidth, DestByteWidth, transparentColor);
+    return;
+  }
+  BlitPlanar(src, dst, x1, x2, y1, y2 - y1 + 1, srcX, srcY, SrcByteWidth, DestByteWidth, transparentColor);
+}
+
+void TAG0088b2(ui8 *src,
+               ui8 *dst,
+               RectPos *dstPos,
+               i32 SrcOffsetX,  // pixel starting x offset
+               i32 SrcOffsetY,  // pixel starting y offset
+               i32 SrcByteWidth, // #bytes per line in source
+               i32 DestByteWidth,// #bytes per line in destination
+               i32 transparentColor)
+{
+  // Where the viewport goes on screen, for the TrueType text drawn over it. A copy inside the
+  // viewport (DoMenu's two- and four-button layouts) tells nothing about that and used to move
+  // the text of an in-game menu off its buttons.
+  if (src == d.pViewportBMP && dst != d.pViewportBMP)
+      viewport_xy(dstPos->w.x1,dstPos->w.y1);
+  ASSERT(verifyRectPos(dstPos),"rectpos");
+  BlitEitherWay(src, dst == NULL ? (ui8 *)physbase() : dst, dstPos, SrcOffsetX, SrcOffsetY,
+                SrcByteWidth, DestByteWidth, transparentColor);
   if (dst == d.pViewportBMP)
   {
     if (d.UseByteCoordinates != 0)
@@ -1207,7 +1370,6 @@ tag008c90:
       AutoMap_OnViewportBlit(src, dstPos->w.x1, dstPos->w.x2, dstPos->w.y1, dstPos->w.y2,
                              SrcOffsetX, SrcOffsetY, SrcByteWidth, transparentColor);
   };
-  return;
 }
 
 // *********************************************************

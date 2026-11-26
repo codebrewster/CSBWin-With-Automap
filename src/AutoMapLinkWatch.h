@@ -23,6 +23,13 @@ public:
   // until now + summed delays + AUTOMAP_WATCH_SLACK_TICKS, with its current record as the
   // baseline. A cell already watched for the same source keeps the later deadline.
   void Start(AutoMapRecordId source, const AutoMapLevelSnapshot &snapshot, int now);
+  // The look of (x, y) of the watched level now; level coordinates, which may lie in the rock
+  // margin outside the level
+  typedef AutoMapCellLook (*LookAt)(void *context, int x, int y);
+  // Start on a snapshot without cells (AutoMapLevelReader_ReadPartyLevelLinks): each reached
+  // cell's baseline is its look through lookAt. The same watches as Start on a whole snapshot.
+  void StartLooks(AutoMapRecordId source, const AutoMapLevelSnapshot &links, LookAt lookAt,
+                  void *context, int now);
   bool IsWatching(void) const;
   // A later look at the party's level. seenNow, in level coordinates, holds the cells the
   // party can see this tick (AutoMapRecorder::SeenThisTick). Returns one AutoMapFactLink
@@ -42,8 +49,6 @@ public:
   bool MightLearn(int level, const AutoMapVisibleCells &seenNow, int partyX, int partyY, int now) const;
   // Drops the watches past their deadline, as Observe does
   void DropExpired(int now);
-  // The look of (x, y) of the watched level now, level coordinates inside its width and height
-  typedef AutoMapCellLook (*LookAt)(void *context, int x, int y);
   // Observe on level without a snapshot of it: only the watched cells in sight are looked at,
   // through lookAt, of a level width by height; the party stands on (partyX, partyY), level
   // coordinates. The same facts, start ticks and watches kept as Observe on a snapshot of the
@@ -54,6 +59,8 @@ public:
                                         std::vector<int> *startTicks = NULL);
 
 private:
+  void WatchCell(AutoMapRecordId source, int x, int y, int deadline, int now,
+                 const AutoMapCellRecord &baseline);
   struct Watch
   {
     AutoMapRecordId source;

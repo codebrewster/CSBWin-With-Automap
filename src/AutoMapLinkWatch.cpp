@@ -93,23 +93,51 @@ void AutoMapLinkWatch::Start(AutoMapRecordId source, const AutoMapLevelSnapshot 
   {
     if (!IsInside(snapshot, reached[i].x, reached[i].y)) continue;
     int deadline = now + reached[i].delaySum + AUTOMAP_WATCH_SLACK_TICKS;
-    const AutoMapCellRecord &record =
-      snapshot.cells[reached[i].y * snapshot.width + reached[i].x];
-    bool isWatched = false;
-    for (size_t w = 0; w < m_watches.size(); w++)
-    {
-      Watch &watch = m_watches[w];
-      if (watch.source != source || watch.x != reached[i].x || watch.y != reached[i].y) continue;
-      if (deadline > watch.deadline) watch.deadline = deadline;
-      watch.baseline = record;
-      watch.startedAt = now;
-      isWatched = true;
-    }
-    if (isWatched) continue;
-    Watch watch = {source, reached[i].x, reached[i].y, deadline, now, record};
-    m_watches.push_back(watch);
+    WatchCell(source, reached[i].x, reached[i].y, deadline, now,
+              snapshot.cells[reached[i].y * snapshot.width + reached[i].x]);
   }
   if (m_watches.empty()) m_level = AUTOMAP_NO_LEVEL;
+}
+
+void AutoMapLinkWatch::StartLooks(AutoMapRecordId source, const AutoMapLevelSnapshot &links,
+                                  LookAt lookAt, void *context, int now)
+{
+  if (links.level != m_level) Clear();
+  m_level = links.level;
+  m_marginX = links.boundaryMarginX;
+  m_marginY = links.boundaryMarginY;
+  std::vector<Reach> reached = ReachFrom(source, links);
+  for (size_t i = 0; i < reached.size(); i++)
+  {
+    if (!IsInside(links, reached[i].x, reached[i].y)) continue;
+    int deadline = now + reached[i].delaySum + AUTOMAP_WATCH_SLACK_TICKS;
+    // Observe and ObserveLooks only ever compare the look of the baseline
+    AutoMapCellRecord baseline;
+    AutoMapScene_ApplyLook(lookAt(context, reached[i].x - m_marginX, reached[i].y - m_marginY),
+                           &baseline);
+    WatchCell(source, reached[i].x, reached[i].y, deadline, now, baseline);
+  }
+  if (m_watches.empty()) m_level = AUTOMAP_NO_LEVEL;
+}
+
+// Watches snapshot cell (x, y) for source until deadline; one watched already for the same
+// source keeps the later deadline and takes the new baseline
+void AutoMapLinkWatch::WatchCell(AutoMapRecordId source, int x, int y, int deadline, int now,
+                                 const AutoMapCellRecord &baseline)
+{
+  bool isWatched = false;
+  for (size_t w = 0; w < m_watches.size(); w++)
+  {
+    Watch &watch = m_watches[w];
+    if (watch.source != source || watch.x != x || watch.y != y) continue;
+    if (deadline > watch.deadline) watch.deadline = deadline;
+    watch.baseline = baseline;
+    watch.startedAt = now;
+    isWatched = true;
+  }
+  if (isWatched) return;
+  Watch watch = {source, x, y, deadline, now, baseline};
+  m_watches.push_back(watch);
 }
 
 bool AutoMapLinkWatch::IsWatching(void) const

@@ -510,10 +510,16 @@ static void ResolveTeleporter(int x, int y, int level, const SUMMARIZEROOMDATA &
   }
 }
 
+static AutoMapCellRecord ReadCellSummarised(int x, int y, int level, const SUMMARIZEROOMDATA &seenFromSouth);
+
 static AutoMapCellRecord ReadCell(int x, int y, int level)
 {
+  return ReadCellSummarised(x, y, level, Summarize(x, y, AutoMapNorth));
+}
+
+static AutoMapCellRecord ReadCellSummarised(int x, int y, int level, const SUMMARIZEROOMDATA &seenFromSouth)
+{
   AutoMapCellRecord record;
-  SUMMARIZEROOMDATA seenFromSouth = Summarize(x, y, AutoMapNorth);
   // A false wall looks like stone or like an open passage; the raw type tells which
   // illusion a stone-looking or open-looking cell is. A closed pit looks like open
   // floor the same way (Codea59a.cpp reports roomOPEN when the open bit 0x08 is
@@ -841,10 +847,23 @@ std::vector<AutoMapFloorItemPlace> AutoMapLevelReader_FloorItemPlacesAt(int x, i
   return places;
 }
 
-// One cell of the loaded level, so the per-tick refresh never reads the whole level
+// One cell of the loaded level, so the per-tick refresh never reads the whole level. A wall's
+// look is its kind and the pictures on its sides (ReadWall's, from the same two summaries):
+// the rest of ReadWall, its texts, portraits and actuators, is what makes it costly.
 AutoMapCellLook AutoMapLevelReader_CellLookAt(int x, int y)
 {
-  return AutoMapScene_LookOf(ReadCell(x, y, d.LoadedLevel));
+  SUMMARIZEROOMDATA seenFromSouth = Summarize(x, y, AutoMapNorth);
+  if (seenFromSouth.roomType != roomSTONE)
+    return AutoMapScene_LookOf(ReadCellSummarised(x, y, d.LoadedLevel, seenFromSouth));
+  static const AutoMapCellLook blank = AutoMapScene_LookOf(AutoMapCellRecord());
+  AutoMapCellLook look = blank;
+  look.kind = RawRoomType(x, y) == roomFALSEWALL ? AutoMapCellFalseWall : AutoMapCellWall;
+  SUMMARIZEROOMDATA seenFromNorth = Summarize(x, y, AutoMapSouth);
+  for (int i = 0; i < WALL_SIDES_IN_ONE_SUMMARY; i++)
+    look.sidePictures[(AutoMapNorth + i + 1) % AUTOMAP_SIDE_COUNT] = WallFeaturePicture(seenFromSouth.decorations[i]);
+  for (int i = 0; i < WALL_SIDES_IN_ONE_SUMMARY; i++)
+    look.sidePictures[(AutoMapSouth + i + 1) % AUTOMAP_SIDE_COUNT] = WallFeaturePicture(seenFromNorth.decorations[i]);
+  return look;
 }
 
 // The descriptor a death-residue entry names: same value encoding as
@@ -1880,30 +1899,38 @@ static void MaybeInspectAlcoves(const AutoMapLevelSnapshot &snapshot)
 // and leave the solid sides alone. The ring holds the fabricated walls, the real cells shift
 // inward, and the offsets step back so the global coordinates the rulers and tooltips show do
 // not move. Any level cell whose feature coordinates name this level shift with it.
+// The rock rows and columns a snapshot of the loaded level gets around it: one where open
+// floor or a pit touches the level's edge, so the walls on that edge have a cell to be drawn in
+static void BoundaryMargins(int width, int height, int *left, int *right, int *top, int *bottom)
+{
+  bool needWest = false, needEast = false, needNorth = false, needSouth = false;
+  for (int y = 0; y < height; y++)
+  {
+    ROOMTYPE west = RawRoomType(0, y);
+    if (west == roomOPEN || west == roomPIT) needWest = true;
+    ROOMTYPE east = RawRoomType(width - 1, y);
+    if (east == roomOPEN || east == roomPIT) needEast = true;
+  }
+  for (int x = 0; x < width; x++)
+  {
+    ROOMTYPE north = RawRoomType(x, 0);
+    if (north == roomOPEN || north == roomPIT) needNorth = true;
+    ROOMTYPE south = RawRoomType(x, height - 1);
+    if (south == roomOPEN || south == roomPIT) needSouth = true;
+  }
+  *left = needWest ? 1 : 0;
+  *right = needEast ? 1 : 0;
+  *top = needNorth ? 1 : 0;
+  *bottom = needSouth ? 1 : 0;
+}
+
 static void ExpandSnapshotWithBoundaryRock(AutoMapLevelSnapshot *snapshot)
 {
   if (snapshot->width <= 0 || snapshot->height <= 0) return;
   int oldWidth = snapshot->width;
   int oldHeight = snapshot->height;
-  bool needWest = false, needEast = false, needNorth = false, needSouth = false;
-  for (int y = 0; y < oldHeight; y++)
-  {
-    ROOMTYPE west = RawRoomType(0, y);
-    if (west == roomOPEN || west == roomPIT) needWest = true;
-    ROOMTYPE east = RawRoomType(oldWidth - 1, y);
-    if (east == roomOPEN || east == roomPIT) needEast = true;
-  }
-  for (int x = 0; x < oldWidth; x++)
-  {
-    ROOMTYPE north = RawRoomType(x, 0);
-    if (north == roomOPEN || north == roomPIT) needNorth = true;
-    ROOMTYPE south = RawRoomType(x, oldHeight - 1);
-    if (south == roomOPEN || south == roomPIT) needSouth = true;
-  }
-  int marginLeft = needWest ? 1 : 0;
-  int marginRight = needEast ? 1 : 0;
-  int marginTop = needNorth ? 1 : 0;
-  int marginBottom = needSouth ? 1 : 0;
+  int marginLeft, marginRight, marginTop, marginBottom;
+  BoundaryMargins(oldWidth, oldHeight, &marginLeft, &marginRight, &marginTop, &marginBottom);
   if (marginLeft == 0 && marginRight == 0 && marginTop == 0 && marginBottom == 0) return;
   std::vector<AutoMapCellRecord> oldCells;
   oldCells.swap(snapshot->cells);
@@ -2015,6 +2042,49 @@ AutoMapLevelSnapshot AutoMapLevelReader_ReadPartyLevel(void)
   ResolveStairsTargets(&snapshot);
   ExpandSnapshotWithBoundaryRock(&snapshot);
   MaybeInspectAlcoves(snapshot);
+  return snapshot;
+}
+
+AutoMapLevelSnapshot AutoMapLevelReader_ReadPartyLevelLinks(void)
+{
+  IllegalDecorationWarningSilencer silencer;
+  AutoMapLevelSnapshot snapshot;
+  snapshot.level = d.partyLevel;
+  snapshot.width = d.width;
+  snapshot.height = d.height;
+  // LinkCell only asks the source cell whether it is stone (ReadCell's wall and false wall)
+  static AutoMapCellRecord stone, open;
+  stone.kind = AutoMapCellWall;
+  open.kind = AutoMapCellFloor;
+  for (int y = 0; y < snapshot.height; y++)
+  {
+    for (int x = 0; x < snapshot.width; x++)
+    {
+      const AutoMapCellRecord *record = NULL;
+      for (RN object = FindFirstObject(x, y); object != RNeof; object = GetDBRecordLink(object))
+      {
+        if (object.dbType() != dbACTUATOR) continue;
+        DB3 *actuator = GetRecordAddressDB3(object);
+        if (actuator->localActionOnly() != 0) continue;
+        if (record == NULL) record = Summarize(x, y, AutoMapNorth).roomType == roomSTONE ? &stone : &open;
+        LinkCell(&snapshot, x, y, object, actuator, record);
+      }
+    }
+  }
+  if (snapshot.width <= 0 || snapshot.height <= 0) return snapshot;
+  int marginLeft, marginRight, marginTop, marginBottom;
+  BoundaryMargins(snapshot.width, snapshot.height, &marginLeft, &marginRight, &marginTop, &marginBottom);
+  snapshot.width += marginLeft + marginRight;
+  snapshot.height += marginTop + marginBottom;
+  snapshot.boundaryMarginX = marginLeft;
+  snapshot.boundaryMarginY = marginTop;
+  for (size_t i = 0; i < snapshot.links.size(); i++)
+  {
+    snapshot.links[i].srcX += marginLeft;
+    snapshot.links[i].srcY += marginTop;
+    snapshot.links[i].dstX += marginLeft;
+    snapshot.links[i].dstY += marginTop;
+  }
   return snapshot;
 }
 

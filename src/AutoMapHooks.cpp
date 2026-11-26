@@ -291,13 +291,31 @@ static void LearnCell(AutoMapFactKind kind, int level, int x, int y)
   Learn(AutoMapFact_OfCell(kind, cell));
 }
 
+static AutoMapCellLook LookOfLoadedLevel(void *, int x, int y)
+{
+  return AutoMapLevelReader_CellLookAt(x, y);
+}
+
+// Watches the cells source can change, from the party's level as it is now. A pad or switch
+// fires often: the loaded level gives its links and the looks of those cells alone.
+static void WatchLinksOf(AutoMapRecordId source)
+{
+  if (d.partyLevel != d.LoadedLevel)
+  {
+    recorder.LinkWatch().Start(source, AutoMapLevelReader_ReadLevel(d.partyLevel), d.Time);
+    return;
+  }
+  recorder.LinkWatch().StartLooks(source, AutoMapLevelReader_ReadPartyLevelLinks(), LookOfLoadedLevel,
+                                  NULL, d.Time);
+}
+
 // A known actuator teaches the cells it changes when the party sees them change
 static void LearnActuatorAndWatchItsLinks(int actuator)
 {
   AutoMapRecordId id = AutoMapLevelReader_RecordId(actuator);
   if (id == AUTOMAP_NO_RECORD) return;
   Learn(AutoMapFact_OfRecord(AutoMapFactActuator, id));
-  recorder.LinkWatch().Start(id, AutoMapLevelReader_ReadLevel(d.partyLevel), d.Time);
+  WatchLinksOf(id);
 }
 
 void AutoMap_OnPortraitFaceDrawn(int drawLocation)
@@ -1173,7 +1191,7 @@ void AutoMap_OnFloorActuatorFired(int actuator, int x, int y)
   }
   AutoMapRecordId id = AutoMapLevelReader_RecordId(actuator);
   if (id == AUTOMAP_NO_RECORD) return;
-  recorder.LinkWatch().Start(id, AutoMapLevelReader_ReadLevel(d.partyLevel), d.Time);
+  WatchLinksOf(id);
 }
 
 void AutoMap_OnWallClickedSilently(int x, int y)
@@ -1289,11 +1307,6 @@ static void ReportLearnedLink(const AutoMapLevelSnapshot &snapshot, const AutoMa
   printf("Automap learned link: source %u %s -> L%d (%d, %d), watch started %d, learned %d, "
          "seen by %s\n", (unsigned)fact.record, source, fact.cell.level, targetX, targetY,
          startedAt, (int)d.Time, seenBy);
-}
-
-static AutoMapCellLook LookOfLoadedLevel(void *, int x, int y)
-{
-  return AutoMapLevelReader_CellLookAt(x, y);
 }
 
 static void LearnWatchedLinks(void)

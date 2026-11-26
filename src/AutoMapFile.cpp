@@ -5,6 +5,7 @@
 #include <istream>
 #include <iterator>
 #include <ostream>
+#include <string>
 #include <vector>
 
 static const char FILE_TYPE_MARKER[4] = {'C', 'S', 'B', 'M'};
@@ -33,9 +34,18 @@ static const uint32_t NO_PICTURE_BYTES = 0xffff;
 // In a record fact the three cell bytes (and in a cell fact the record) hold no value
 static const uint32_t NO_CELL_BYTE = 0xff;
 
-static void WriteNumber(std::ostream &out, uint32_t value, int byteCount)
+// The bytes of a file as Write makes them, handed to the stream in one piece at the end: a
+// stream's put and write cost more than the byte itself, and a replay's snapshots write the
+// whole map every 250 ticks
+struct ByteSink
 {
-  for (int i = 0; i < byteCount; i++) out.put((char)((value >> (8 * i)) & 0xff));
+  std::string bytes;
+  void write(const char *data, std::streamsize count) { bytes.append(data, (size_t)count); }
+};
+
+static void WriteNumber(ByteSink &out, uint32_t value, int byteCount)
+{
+  for (int i = 0; i < byteCount; i++) out.bytes.push_back((char)((value >> (8 * i)) & 0xff));
 }
 
 static bool ReadNumber(std::istream &in, int byteCount, uint32_t *value)
@@ -65,12 +75,13 @@ AutoMapFile::AutoMapFile(const AutoMapSaveSignature &saveSignature)
 {
 }
 
-void AutoMapFile::Write(std::ostream &out, const AutoMapExplored &explored,
+void AutoMapFile::Write(std::ostream &file, const AutoMapExplored &explored,
                         const AutoMapKnowledge &knowledge,
                         const AutoMapItemMemory &items, const AutoMapCellMemory &cells,
                         const AutoMapPlayerNotes &notes,
                         const AutoMapMonsterDamage &damage) const
 {
+  ByteSink out;
   out.write(FILE_TYPE_MARKER, sizeof(FILE_TYPE_MARKER));
   WriteNumber(out, FORMAT_VERSION, 2);
   WriteNumber(out, m_saveSignature.first, 4);
@@ -176,6 +187,7 @@ void AutoMapFile::Write(std::ostream &out, const AutoMapExplored &explored,
       WriteNumber(out, (uint32_t)groups[i].second[(size_t)member], 2);
     }
   }
+  file.write(out.bytes.data(), (std::streamsize)out.bytes.size());
 }
 
 static AutoMapFileResult ReadHeader(std::istream &in, const char *typeMarker, uint32_t firstVersion,
@@ -612,8 +624,9 @@ AutoMapStatsFile::AutoMapStatsFile(const AutoMapSaveSignature &saveSignature)
 {
 }
 
-void AutoMapStatsFile::Write(std::ostream &out, const HeroStats &stats, const HeroStatsOrigins &origins) const
+void AutoMapStatsFile::Write(std::ostream &file, const HeroStats &stats, const HeroStatsOrigins &origins) const
 {
+  ByteSink out;
   out.write(STATS_TYPE_MARKER, sizeof(STATS_TYPE_MARKER));
   WriteNumber(out, (uint32_t)HeroStats::LAYOUT, 2);
   WriteNumber(out, m_saveSignature.first, 4);
@@ -625,6 +638,7 @@ void AutoMapStatsFile::Write(std::ostream &out, const HeroStats &stats, const He
   WriteNumber(out, (uint32_t)statsBytes.size(), 4);
   out.write((const char *)statsBytes.data(), (std::streamsize)statsBytes.size());
   out.write((const char *)originsBytes.data(), (std::streamsize)originsBytes.size());
+  file.write(out.bytes.data(), (std::streamsize)out.bytes.size());
 }
 
 AutoMapFileResult AutoMapStatsFile::Read(std::istream &in, HeroStats *stats, HeroStatsOrigins *origins) const
