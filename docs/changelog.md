@@ -7,6 +7,9 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 ## Unreleased
 
+**Replay**
+- `--export-html` no longer waits in real time before the replay's first tick (about 4 s) or in a Chaos Strikes Back ending: all 43 movies export in 25 s instead of 59 s, DMMovie8 in 8 s instead of 13 s, with the same pages.
+
 ## 1.7.2 (2026-11-26)
 
 **Replay**

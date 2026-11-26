@@ -562,7 +562,11 @@ void checkVBL(void)
   CheckVBLCount++;
   // A replay that stands still or runs at other than 1x keeps its own clock (PlaybackControl.h);
   // at 1x it runs on the game's clock below
-  bool replayPaced = IsPlayFileOpen()
+  // --export-html shows nothing and keeps no pace: every check is a blank. The replay runs at
+  // max from its first tick on anyway; this also takes the waits before it (the start, some
+  // 4 s at 60 blanks a second) at once.
+  bool unpaced = (NoSpeedLimit != 0) || NoClock || ExportHtml_IsOn();
+  bool replayPaced = IsPlayFileOpen() && !ExportHtml_IsOn()
                   && (PlaybackControl_IsPaused() || ((PlaybackControl_Factor() != 1.0) && (NoSpeedLimit == 0)));
   if (!replayPaced) playbackClock.Restart();
   if (replayPaced)
@@ -583,7 +587,7 @@ void checkVBL(void)
     prevTime = now;
     goal = actual;
   }
-  else if ((NoSpeedLimit!=0) || NoClock)
+  else if (unpaced)
   {
     forceVBL = true;
   }
