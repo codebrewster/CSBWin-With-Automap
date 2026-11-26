@@ -65,6 +65,32 @@ move `csb.exe` somewhere else, move these four DLLs with it.
 Dear ImGui, SDL_sound, `fnmatch` and the `Dirent` shim are already in `src\` and
 need nothing extra.
 
+## Cross-compiling on Linux
+
+`build-win64.sh` in the repository root builds the same `csb.exe` on Linux, with
+Debian's or Ubuntu's MinGW-w64:
+
+```sh
+sudo apt install g++-mingw-w64-x86-64-posix   # once; the posix variant, as Qt's
+./build-win64.sh            # build into build/win64-cross
+./build-win64.sh -c         # rebuild from scratch
+./build-win64.sh -o DIR     # build somewhere else
+```
+
+It reads the source lists from `build.ps1`, so a new source file is added there
+only, and uses its defines and link flags. SDL2 comes from the same
+`third_party/SDL2-2.30.9`. The four DLLs are copied beside the exe, the runtime
+ones stripped of their debug information. The output goes to
+`build/win64-cross`, not `build/win64`, so an exe built on Windows is left alone.
+
+Wine runs the result. A replay exported headless gives the same pages as the
+Linux build:
+
+```sh
+cd <a game folder with a playfile.log>
+WINEDEBUG=-all wine /path/to/build/win64-cross/csb.exe --directory . --play playfile.log --export-html out
+```
+
 ## Running
 
 The engine reads `dungeon.dat`, `graphics.dat` and `csb.cfg` from the *current
