@@ -7,6 +7,8 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 ## Unreleased
 
+## 1.7.5 (2026-11-26)
+
 **Replay**
 - A replay at max in the window is faster again, by about 40 % (DMMovie8 to tick 130000: 3.8 s → 2.3 s), and the HTML export of all 43 movies takes 13 s instead of 19 s. The 3D view's pictures are copied and turned round many pixels at a time instead of the old 68000 way, and the map reads only the links and looks it needs, keeps what it saw in a quicker form and studies each frame faster. What the game, the map and the exported pages show is unchanged.
 
