@@ -1863,8 +1863,23 @@ static bool show_coords,open_char_info;
 extern i32 numState;
 i32 launcher_power;
 
+void PlayfileOpen(bool open); // Recording.cpp
+// post_render: after Reset nobody plays on from a replay, so the bar does not say "Replay ended"
+static bool replayClosedByReset = false;
+
 static void reset_game() {
     if (endSequencePlaying) { endSequenceAbandonRequested = true; return; }
+    // A replay still open (at its win screen, or anywhere in it) would play on into the new game,
+    // which then takes no clicks: Reset ends it, as Stop replay does. And --play is not asked for
+    // again: the new game would open the replay anew and skip the title menu
+    PlaybackCommandOption = false;
+    if (PlayfileIsOpen()) {
+	PlayfileOpen(false);
+	PlaybackControl_Reset();
+	NoSpeedLimit = 0;
+	VBLMultiplier = 1;
+    }
+    replayClosedByReset = true;
     saveRequestedFromMenu = false; // a save asked for in the last game is not for this one
     numState = 0; // reset the "stackState" from system.cpp
 		  // because we are creating a new one here.
@@ -2868,7 +2883,8 @@ void post_render() {
     static Uint32 replayEndedAt = 0;
     static int replayEndTick = 0;
     if (PlayfileIsOpen()) replayEndTick = (int)d.Time;
-    if (replayWasOpen && !PlayfileIsOpen()) replayEndedAt = SDL_GetTicks() | 1;
+    if (replayWasOpen && !PlayfileIsOpen() && !replayClosedByReset) replayEndedAt = SDL_GetTicks() | 1;
+    if (replayClosedByReset) { replayClosedByReset = false; replayEndedAt = 0; }
     if (!replayWasOpen && PlayfileIsOpen()) replayEndedAt = 0;
     replayWasOpen = PlayfileIsOpen();
     if (replayEndedAt != 0 && SDL_GetTicks() - replayEndedAt > 15000) replayEndedAt = 0;

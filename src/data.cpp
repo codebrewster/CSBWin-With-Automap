@@ -2199,6 +2199,7 @@ void Cleanup(bool programTermination)
   FreeIfNonNULL((void **)&d.objectList);
   FreeIfNonNULL((void **)&dataIndexMap);
   FreeIfNonNULL((void **)&dataTypeMap);
+  dataMapLength = 0; // else RN::checkIndirectIndex takes a record of the game gone for one in the freed maps
   StartSound(NULL,0,0);
   expool.Cleanup();
   for (i=0; i<16; i++)

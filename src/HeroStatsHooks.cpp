@@ -743,7 +743,9 @@ void HeroStats_RefreshMapCounts(bool force)
   }
   store.SetWallTextsRead(texts);
   store.SetChampionsSeen(seen, viewed);
-  if (dungeonCountsDeferred) return;
+  // After Reset no dungeon is loaded until the next game starts, but the window still paints:
+  // the items held are records of the game gone, and its levels are freed
+  if (dungeonCountsDeferred || dataMapLength == 0) return;
   std::set<AutoMapRecordId> held;
   const std::set<int> &heldItems = origins.HeldItems();
   for (std::set<int>::const_iterator at = heldItems.begin(); at != heldItems.end(); ++at)

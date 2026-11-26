@@ -7,6 +7,12 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 ## Unreleased
 
+**Replay**
+- Reset during a replay or at its end (the win screen) ends the replay: the replay controls go away and the title menu takes clicks again. The replay used to play on into the new game, and with `--play` it started over by itself.
+
+**Statistics**
+- Reset no longer closes the game while the Statistics window is open (for example after a replay ran to its end): the window read the items of the game just reset after its dungeon was freed.
+
 ## 1.7.5 (2026-11-26)
 
 **Replay**
