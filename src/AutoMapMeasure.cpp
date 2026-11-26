@@ -150,6 +150,16 @@ void AutoMapMeasure_AfterBlit(const AutoMapDrawKey &key, int x1, int x2, int y1,
   {
     for (int x = pendingX1; x <= pendingX2; x++)
     {
+      // A group of 16 pixels the blit left as it was has no changed pixel: skip it whole
+      if ((x & 15) == 0 || x == pendingX1)
+      {
+        int at = y * VIEWPORT_BYTE_WIDTH + (x / 16) * 8;
+        if (std::memcmp(viewportBefore + at, (const ui8 *)d.pViewportBMP + at, 8) == 0)
+        {
+          x |= 15;
+          continue;
+        }
+      }
       int behind = PlanarPixel((const ui8 *)viewportBefore, x, y, VIEWPORT_BYTE_WIDTH);
       int drawn = PlanarPixel((const ui8 *)d.pViewportBMP, x, y, VIEWPORT_BYTE_WIDTH);
       if (behind == drawn) continue;
@@ -168,14 +178,36 @@ void AutoMapMeasure_OnViewportBlit(const unsigned char *src, int x1, int x2, int
   blitCount++;
   for (int y = Clamp(y1, 0, VIEWPORT_HEIGHT); y <= y2 && y < VIEWPORT_HEIGHT; y++)
   {
-    for (int x = Clamp(x1, 0, VIEWPORT_WIDTH); x <= x2 && x < VIEWPORT_WIDTH; x++)
+    int *stamps = writeStamps + y * VIEWPORT_WIDTH;
+    int xEnd = std::min(x2, VIEWPORT_WIDTH - 1);
+    int x = Clamp(x1, 0, VIEWPORT_WIDTH);
+    if (transparentColor < 0)
     {
-      if (transparentColor >= 0)
+      for (; x <= xEnd; x++) stamps[x] = blitCount;
+      continue;
+    }
+    // The source pixels in the transparent colour, a bit each, for a group of 16 at a time
+    // (PlanarPixel's group and bit): one look at the four planes serves 16 pixels
+    int sourceY = srcOffsetY + y - y1;
+    int group = -1;
+    unsigned transparent = 0;
+    for (; x <= xEnd; x++)
+    {
+      int sourceX = srcOffsetX + x - x1;
+      int sourceGroup = ((unsigned short)sourceX >> 4) & 31; // PlanarPixel's "& 0xf8"
+      if (sourceGroup != group)
       {
-        int source = PlanarPixel((const ui8 *)src, srcOffsetX + x - x1, srcOffsetY + y - y1, srcByteWidth);
-        if (source == transparentColor) continue;
+        group = sourceGroup;
+        const ui8 *words = (const ui8 *)src + (short)(sourceY * srcByteWidth + sourceGroup * 8);
+        transparent = 0xffff;
+        for (int plane = 0; plane < 4; plane++)
+        {
+          unsigned word = (unsigned)((words[plane * 2] << 8) | words[plane * 2 + 1]);
+          transparent &= (transparentColor >> plane) & 1 ? word : ~word;
+        }
       }
-      writeStamps[y * VIEWPORT_WIDTH + x] = blitCount;
+      if ((transparent >> (15 - (sourceX & 15))) & 1) continue;
+      stamps[x] = blitCount;
     }
   }
 }

@@ -223,6 +223,11 @@ static void MovementIsKeptPerLevel(void)
   for (int i = 0; i < 30; i++) stats.CountTick(4, i < 10);
   HeroStatsMovement one = stats.Movement(1);
   CHECK(one.steps == 2 && one.turns == 1 && one.teleports == 0 && one.ticks == 0);
+  // Ticks is Movement's ticks alone, per level and for the whole run
+  stats.CountTick(1, false);
+  CHECK(stats.Ticks(1) == 1 && stats.Ticks(4) == 30 && stats.Ticks(2) == 0);
+  CHECK(stats.Ticks(HERO_STATS_WHOLE_RUN) == 31 && stats.Ticks(HERO_STATS_WHOLE_RUN) == stats.Movement(HERO_STATS_WHOLE_RUN).ticks);
+  CHECK(HeroStats().Ticks(HERO_STATS_WHOLE_RUN) == 0);
   stats.CountPitFall(4);
   stats.CountPitClimb(4);
   stats.CountPitClimb(5);
@@ -234,7 +239,7 @@ static void MovementIsKeptPerLevel(void)
   stats.CountTelefrag(4);
   stats.SetLegacyTelefragKills(4, 4);  // as a layout 28 file has them
   HeroStatsMovement run = stats.Movement(HERO_STATS_WHOLE_RUN);
-  CHECK(run.steps == 3 && run.turns == 1 && run.teleports == 1 && run.ticks == 30 && run.sleepTicks == 10);
+  CHECK(run.steps == 3 && run.turns == 1 && run.teleports == 1 && run.ticks == 31 && run.sleepTicks == 10);
   CHECK(run.pitFalls == 1 && run.pitClimbs == 2 && run.bumps == 1);
   CHECK(stats.Movement(1).bumps == 1 && stats.Movement(5).pitClimbs == 1);
   CHECK(run.monsterBumps == 3 && stats.Movement(1).monsterBumps == 1 && stats.Movement(5).monsterBumps == 2);

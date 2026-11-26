@@ -36,6 +36,12 @@ public:
                                    const AutoMapVisibleCells &seenNow,
                                    const AutoMapKnowledge *knowledge, int now,
                                    std::vector<int> *startTicks = NULL);
+  // False when Observe on level at now could not learn anything: the level is the watched one
+  // and no watch still running is on a cell in seenNow or the party's (partyX, partyY, level
+  // coordinates). Then DropExpired(now) does all Observe would, without reading the level.
+  bool MightLearn(int level, const AutoMapVisibleCells &seenNow, int partyX, int partyY, int now) const;
+  // Drops the watches past their deadline, as Observe does
+  void DropExpired(int now);
 
 private:
   struct Watch
@@ -50,6 +56,9 @@ private:
     AutoMapCellRecord baseline;
   };
   int m_level;
+  // The watched level's rock margins (AutoMapLevelSnapshot::boundaryMarginX/Y), from Start
+  int m_marginX;
+  int m_marginY;
   std::vector<Watch> m_watches;
 };
 

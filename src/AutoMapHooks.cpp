@@ -49,6 +49,7 @@ struct SavedGameFile
 
 #include "AutoMapHooks.h"
 #include "PlaybackControl.h"
+#include "ExportHtml.h"
 #include "ReplaySnapshotParts.h"
 
 extern bool PlayfileIsOpen(void);
@@ -1200,12 +1201,19 @@ static void ReportLearnedLink(const AutoMapLevelSnapshot &snapshot, const AutoMa
 static void LearnWatchedLinks(void)
 {
   if (!recorder.LinkWatch().IsWatching()) return;
+  // What the 3D view shows this tick, not the monsters' line of sight
+  AutoMapVisibleCells seenNow = recorder.SeenThisTick();
+  // Reading the whole level on every tick of a watch is costly: only when a watched cell is in sight
+  if (!recorder.LinkWatch().MightLearn(d.partyLevel, seenNow, d.partyX, d.partyY, (int)d.Time))
+  {
+    recorder.LinkWatch().DropExpired((int)d.Time);
+    return;
+  }
   AutoMapLevelSnapshot snapshot = AutoMapLevelReader_ReadLevel(d.partyLevel);
   std::vector<int> startTicks;
-  // What the 3D view shows this tick, not the monsters' line of sight, and whether a
-  // concealed pit is known: its toggling is only seen once it is
+  // Whether a concealed pit is known: its toggling is only seen once it is
   std::vector<AutoMapFact> facts = recorder.LinkWatch().Observe(
-      snapshot, recorder.SeenThisTick(), &recorder.Knowledge(), d.Time, &startTicks);
+      snapshot, seenNow, &recorder.Knowledge(), d.Time, &startTicks);
   for (size_t i = 0; i < facts.size(); i++)
   {
     if (AutoMapWindow_DebugIsOn()) ReportLearnedLink(snapshot, facts[i], startTicks[i]);
@@ -1231,8 +1239,11 @@ static AutoMapTickRate tickRate;
 
 static void MeasureTheTick(void)
 {
-  // Asleep, the engine skips the speed's wait between ticks: those ticks run far faster
-  if (d.PartySleeping != 0) tickRate.Interrupt();
+  // Asleep, the engine skips the speed's wait between ticks: those ticks run far faster. So does
+  // a replay at max or --export-html: the clock measures the machine there, not the game, and
+  // the exported pages would change with the machine's speed. The speed setting's rate serves.
+  if (d.PartySleeping != 0 || ExportHtml_IsOn() || (PlayfileIsOpen() && PlaybackControl_IsMax()))
+    tickRate.Interrupt();
   else tickRate.OnTick(SDL_GetTicks());
   AutoMapScene_SetTicksPerSecond(tickRate.TicksPerSecond(AutoMapTickRate_OfSpeed(speedTable[gameSpeed].vblPerTick)));
 }

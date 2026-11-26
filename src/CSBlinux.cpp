@@ -1648,8 +1648,12 @@ int main(int argc, char* argv[])
 
   SDL_ShowCursor(SDL_ENABLE);
   cursorIsShowing = true;
-  AutoMapWindow_RestoreVisibility();
-  HeroStatsWindow_RestoreVisibility();
+  // --export-html shows nothing: the windows stay closed, so the pages do not depend on the settings
+  if (!ExportHtml_IsOn())
+  {
+    AutoMapWindow_RestoreVisibility();
+    HeroStatsWindow_RestoreVisibility();
+  }
   if(fullscreenRequested)
   {
     fullscreenActive = true;

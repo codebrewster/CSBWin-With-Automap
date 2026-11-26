@@ -878,6 +878,14 @@ HeroStatsCompletionAxis HeroStats::Completion(int level, HeroCompletionAxis axis
   return value;
 }
 
+int HeroStats::Ticks(int level) const
+{
+  int ticks = 0;
+  for (std::map<int, HeroStatsMovement>::const_iterator at = m_movement.begin(); at != m_movement.end(); ++at)
+    if (LevelMatches(level, at->first)) ticks += at->second.ticks;
+  return ticks;
+}
+
 HeroStatsMovement HeroStats::Movement(int level) const
 {
   HeroStatsMovement sum = NoMovement();

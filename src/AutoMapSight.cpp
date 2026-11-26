@@ -301,17 +301,20 @@ static int LargestPatch(std::vector<bool> open, int width)
 // The median brightness of the background within AUTOMAP_CAMOUFLAGE_RADIUS of (x, y)
 static int WallBrightnessAround(const AutoMapDrawView &view, int x, int y)
 {
-  std::vector<int> around;
+  // Asked for every drawn pixel of a frame's decorations: no allocation, no full sort
+  static const int SIDE = 2 * AUTOMAP_CAMOUFLAGE_RADIUS + 1;
+  int around[SIDE * SIDE];
+  int count = 0;
   for (int ny = y - AUTOMAP_CAMOUFLAGE_RADIUS; ny <= y + AUTOMAP_CAMOUFLAGE_RADIUS; ny++)
   {
     for (int nx = x - AUTOMAP_CAMOUFLAGE_RADIUS; nx <= x + AUTOMAP_CAMOUFLAGE_RADIUS; nx++)
     {
       if (nx < 0 || ny < 0 || nx >= view.width || ny >= view.height) continue;
-      around.push_back(BrightnessOf(view.background[(size_t)(ny * view.width + nx)]));
+      around[count++] = BrightnessOf(view.background[(size_t)(ny * view.width + nx)]);
     }
   }
-  std::sort(around.begin(), around.end());
-  return around[around.size() / 2];
+  std::nth_element(around, around + count / 2, around + count);
+  return around[count / 2];
 }
 
 int AutoMapSight_ContrastingPixels(const AutoMapDrawView &view, std::vector<bool> *contrasts)

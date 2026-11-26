@@ -314,6 +314,8 @@ public:
   // the .map file itself, and the owner refreshes this before the numbers are shown.
   void SetExploredTiles(const std::map<int, int> &perLevel);
   HeroStatsMovement Movement(int level) const;
+  // Movement(level).ticks alone, without walking the tiles: asked on every tick
+  int Ticks(int level) const;
   // What each level holds now (HeroStatsDungeonCounts); a level not given holds nothing
   void SetDungeonCounts(const std::map<int, HeroStatsDungeonCounts> &perLevel);
   HeroStatsDungeonCounts DungeonCounts(int level) const;   // a level or the sum (HERO_STATS_WHOLE_RUN)

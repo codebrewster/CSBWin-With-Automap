@@ -266,6 +266,28 @@ static void FalseWallSeenChanging(void)
   CHECK(!watch.Observe(other, true));
 }
 
+// MightLearn is false only when Observe could learn nothing; DropExpired then does what it does
+static void MightLearnOnlyWithAWatchedCellInSight(void)
+{
+  AutoMapLevelSnapshot s = LeverCounterDoor(5, 4);
+  s.boundaryMarginX = 1;  // watches are kept in snapshot coordinates, the sight in level ones
+  AutoMapLinkWatch watch;
+  watch.Start(SWITCH_RECORD, s, 100);
+  AutoMapVisibleCells nothing;
+  CHECK(!watch.MightLearn(LEVEL, nothing, 9, 9, 101));
+  AutoMapVisibleCells door;
+  door.Add(1, 1);  // the door (2, 1) in level coordinates
+  CHECK(watch.MightLearn(LEVEL, door, 9, 9, 101));
+  CHECK(watch.MightLearn(LEVEL, nothing, 1, 1, 101));  // the party on the door's cell
+  CHECK(watch.MightLearn(LEVEL + 1, nothing, 9, 9, 101));  // another level drops the watch
+  // Past the deadline (100 + 5 + 4 + 12) the door counts no more, and DropExpired ends the watch
+  CHECK(!watch.MightLearn(LEVEL, door, 9, 9, 122));
+  watch.DropExpired(121);
+  CHECK(watch.IsWatching());
+  watch.DropExpired(122);
+  CHECK(!watch.IsWatching());
+}
+
 void TestAutoMapLinkWatch(void)
 {
   ChangeInSightTeachesTheLink();
@@ -279,4 +301,5 @@ void TestAutoMapLinkWatch(void)
   ConcealedPitTeachesOnlyOnceKnown();
   ReportsStartTicks();
   FalseWallSeenChanging();
+  MightLearnOnlyWithAWatchedCellInSight();
 }

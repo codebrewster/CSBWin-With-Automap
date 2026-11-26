@@ -511,7 +511,7 @@ void HeroStats_OnPartyOnLevel(void)
   MeetNewChampions();
   // The first tick counted, with the game's own counter already past 0 (a replay or a game that
   // starts from a saved state): those ticks happened before the statistics began, on this level
-  if (d.Time > 0 && store.Movement(HERO_STATS_WHOLE_RUN).ticks == 0) store.CountTicksBefore(d.partyLevel, (int)d.Time);
+  if (d.Time > 0 && store.Ticks(HERO_STATS_WHOLE_RUN) == 0) store.CountTicksBefore(d.partyLevel, (int)d.Time);
   store.CountTick(d.partyLevel, d.PartySleeping != 0);
   store.MarkTileWalked(d.partyLevel, d.partyX, d.partyY);
   store.TrackPartyLevel(d.partyLevel);
@@ -756,7 +756,7 @@ void HeroStats_RefreshMapCounts(bool force)
   // A level changes while the party is on it: the ticks spent there tell when it was
   std::map<int, long long> versions;
   std::vector<int> visited = store.VisitedLevels();
-  for (size_t i = 0; i < visited.size(); i++) versions[visited[i]] = store.Movement(visited[i]).ticks;
+  for (size_t i = 0; i < visited.size(); i++) versions[visited[i]] = store.Ticks(visited[i]);
   store.SetDungeonCounts(AutoMap_DungeonCountsPerLevel(held, levels, versions));
 }
 

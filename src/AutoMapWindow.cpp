@@ -24,6 +24,8 @@
 
 #include "confile.h"
 #include "WindowPosition.h"
+#include "PlaybackControl.h"
+bool PlayfileIsOpen(void);
 
 static const char *SETTINGS_SECTION = "settings";
 static const int DEFAULT_SIZE = 640;
@@ -6765,6 +6767,7 @@ void AutoMapWindow_PaintIfDirty(void)
   // once per event. The flag stays set, so the next loop wake (timer events arrive
   // constantly) flushes the pending paint.
   static const Uint32 SMALLEST_REPAINT_GAP = 16;
+  static const Uint32 SMALLEST_REPAINT_GAP_AT_MAX = 33;
   static Uint32 lastPaint = 0;
   // Shift unfolds the hovered tooltip and decides whether the wheel scrolls it, but a Shift
   // press sends the map no event when the game window has the keyboard, and the map ignores
@@ -6778,13 +6781,22 @@ void AutoMapWindow_PaintIfDirty(void)
     if (hoverValid) isDirty = true;
   }
   if (!isShown || !isDirty) return;
-  if (SDL_GetTicks() - lastPaint < SMALLEST_REPAINT_GAP) return;
+  // A replay at max changes the map on nearly every tick, and a paint costs more than many ticks:
+  // as the statistics window, the map paints at most 30 times a second and leaves the game at
+  // least three times what its last paint took, so the replay does not crawl while it is open
+  static Uint32 lastPaintCost = 0;
+  Uint32 gap = SMALLEST_REPAINT_GAP;
+  if (PlayfileIsOpen() && PlaybackControl_IsMax() && !PlaybackControl_IsPaused())
+    gap = std::max(SMALLEST_REPAINT_GAP_AT_MAX, 3 * lastPaintCost);
+  if (SDL_GetTicks() - lastPaint < gap) return;
   Uint64 paintStart = SDL_GetPerformanceCounter();
+  Uint32 paintStartTicks = SDL_GetTicks();
   PaintWindow();
   SDL_RenderPresent(mapRenderer);
   isDirty = false;
   drawListWasPainted = true;
   lastPaint = SDL_GetTicks();
+  lastPaintCost = lastPaint - paintStartTicks;
   if (MapTimingOn())
   {
     paintMicroseconds += (Uint64)((SDL_GetPerformanceCounter() - paintStart) * MicrosecondsPerTick());

@@ -71,7 +71,7 @@ static bool IsInside(const AutoMapLevelSnapshot &snapshot, int x, int y)
 }
 
 AutoMapLinkWatch::AutoMapLinkWatch(void)
-  : m_level(AUTOMAP_NO_LEVEL)
+  : m_level(AUTOMAP_NO_LEVEL), m_marginX(0), m_marginY(0)
 {
 }
 
@@ -86,6 +86,8 @@ void AutoMapLinkWatch::Start(AutoMapRecordId source, const AutoMapLevelSnapshot 
 {
   if (snapshot.level != m_level) Clear();
   m_level = snapshot.level;
+  m_marginX = snapshot.boundaryMarginX;
+  m_marginY = snapshot.boundaryMarginY;
   std::vector<Reach> reached = ReachFrom(source, snapshot);
   for (size_t i = 0; i < reached.size(); i++)
   {
@@ -113,6 +115,30 @@ void AutoMapLinkWatch::Start(AutoMapRecordId source, const AutoMapLevelSnapshot 
 bool AutoMapLinkWatch::IsWatching(void) const
 {
   return !m_watches.empty();
+}
+
+bool AutoMapLinkWatch::MightLearn(int level, const AutoMapVisibleCells &seenNow, int partyX, int partyY,
+                                  int now) const
+{
+  if (level != m_level) return true;  // Observe drops every watch
+  for (size_t i = 0; i < m_watches.size(); i++)
+  {
+    const Watch &watch = m_watches[i];
+    if (now > watch.deadline) continue;
+    int levelX = watch.x - m_marginX;
+    int levelY = watch.y - m_marginY;
+    if (seenNow.Contains(levelX, levelY) || (levelX == partyX && levelY == partyY)) return true;
+  }
+  return false;
+}
+
+void AutoMapLinkWatch::DropExpired(int now)
+{
+  std::vector<Watch> kept;
+  for (size_t i = 0; i < m_watches.size(); i++)
+    if (now <= m_watches[i].deadline) kept.push_back(m_watches[i]);
+  m_watches.swap(kept);
+  if (m_watches.empty()) m_level = AUTOMAP_NO_LEVEL;
 }
 
 std::vector<AutoMapFact> AutoMapLinkWatch::Observe(const AutoMapLevelSnapshot &snapshot,
