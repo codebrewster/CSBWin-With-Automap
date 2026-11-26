@@ -428,7 +428,10 @@ AutoMapCellLook AutoMapRecorder::VisibleLookAt(const AutoMapCell &cell) const
   AutoMapCellLook seen = AutoMapLevelReader_CellLookAt(cell.x, cell.y);
   AutoMapCellLook remembered;
   bool isRemembered = m_cells.LookOf(cell, &remembered);
-  bool pitIsKnown = m_knowledge.Knows(AutoMapFact_OfCell(AutoMapFactPit, cell));
+  // Whether the pit is known only tells for a concealed pit seen before (VisibleLook), and the
+  // knowledge is a large set: not asked for every cell on every tick
+  bool pitIsKnown = seen.pitIsHidden && isRemembered
+                    && m_knowledge.Knows(AutoMapFact_OfCell(AutoMapFactPit, cell));
   return AutoMapScene_VisibleLook(seen, isRemembered ? &remembered : NULL, pitIsKnown);
 }
 

@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include <vector>
 
 #include "UI.h"
 
@@ -6716,6 +6717,34 @@ void FillViewportCanvas(VIEWPORTCANVAS * /*pvc*/, i32 /*x*/, i32 /*y*/, i32 /*fa
 ui32 viewportRandom = 0x34175432;
 
 //   TAG00803a
+// A picture and the same turned left to right (Mirror), kept for MirrorPlainPicture
+struct MirroredPicture
+{
+  std::vector<ui8> plain;
+  std::vector<ui8> mirrored;
+};
+static MirroredPicture floorMirror, ceilingMirror;
+
+// Mirror(area, width, height), where the area mostly holds the plain floor or ceiling picture
+// (FloorAndCeilingOnly copied it there): then the turned copy kept from the last time is
+// copied in, made anew when the level's picture is another
+static void MirrorPlainPicture(ui8 *area, const ui8 *picture, i32 width, i32 height, MirroredPicture *kept)
+{
+  size_t size = (size_t)width * height;
+  if (memcmp(area, picture, size) != 0)
+  {
+    Mirror(area, width, height);
+    return;
+  }
+  if (kept->plain.size() != size || memcmp(kept->plain.data(), picture, size) != 0)
+  {
+    kept->plain.assign(picture, picture + size);
+    kept->mirrored = kept->plain;
+    Mirror(kept->mirrored.data(), width, height);
+  }
+  memcpy(area, kept->mirrored.data(), size);
+}
+
 void DrawViewport(i32 facing,i32 x,i32 y)
 {
   SUMMARIZEROOMDATA roomData[21];
@@ -6764,7 +6793,7 @@ void DrawViewport(i32 facing,i32 x,i32 y)
   d.UseMirrorImages = (I16)((x + y + facing)&1);
   if (d.UseMirrorImages != 0)
   { //Mirror Floor
-    if (!skipDrawing) Mirror(d.pViewportFloor, 0x0070, 0x0046); //height=0x46
+    if (!skipDrawing) MirrorPlainPicture(d.pViewportFloor, d.pFloorBitmap, 0x0070, 0x0046, &floorMirror); //height=0x46
     D4W = 1;//d.BigMemory;
     d.pWallBitmaps[4] = (ui8 *)d.Pointer2214;
     d.pWallBitmaps[3] = (ui8 *)d.Pointer2218;
@@ -6774,7 +6803,7 @@ void DrawViewport(i32 facing,i32 x,i32 y)
   }
   else
   { //Mirror Ceiling
-    if (!skipDrawing) Mirror(d.pViewportBMP, 0x0070, 0x001d); //ceiling
+    if (!skipDrawing) MirrorPlainPicture(d.pViewportBMP, d.pCeilingBitmap, 0x0070, 0x001d, &ceilingMirror); //ceiling
   };
 
 //D0W = GetCelltypeRelative(facing, 3, -2, x, y);

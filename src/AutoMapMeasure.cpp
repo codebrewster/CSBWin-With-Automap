@@ -264,6 +264,38 @@ void AutoMapMeasure_OnViewportBlit(const unsigned char *src, int x1, int x2, int
   }
 }
 
+// Each of a byte's 8 bits, leftmost first, as a byte of its own: one plane byte of 8 pixels
+// spread out, ready to be shifted to its plane's bit and OR-ed with the others
+struct SpreadBits
+{
+  unsigned long long of[256];
+  SpreadBits(void)
+  {
+    for (int b = 0; b < 256; b++)
+    {
+      of[b] = 0;
+      for (int i = 0; i < 8; i++) of[b] |= (unsigned long long)((b >> (7 - i)) & 1) << (8 * i);
+    }
+  }
+};
+
+// The 16 pixels of one group (four big-endian plane words) as colour numbers, leftmost first
+static void DecodeGroup(const ui8 *words, ui8 *pixels)
+{
+  static const SpreadBits spread;
+  unsigned long long left = 0, right = 0;
+  for (int p = 0; p < 4; p++)
+  {
+    left |= spread.of[words[p * 2]] << p;
+    right |= spread.of[words[p * 2 + 1]] << p;
+  }
+  for (int i = 0; i < 8; i++)
+  {
+    pixels[i] = (ui8)(left >> (8 * i));
+    pixels[8 + i] = (ui8)(right >> (8 * i));
+  }
+}
+
 static int ViewportPixel(int x, int y)
 {
   if (!decodedIsValid || x < 0 || y < 0 || x >= VIEWPORT_WIDTH || y >= VIEWPORT_HEIGHT)
@@ -273,15 +305,7 @@ static int ViewportPixel(int x, int y)
   if (decodedGeneration[group] != frameGeneration)
   {
     decodedGeneration[group] = frameGeneration;
-    const ui8 *words = (const ui8 *)d.pViewportBMP + group * 8;
-    unsigned plane[4];
-    for (int p = 0; p < 4; p++) plane[p] = (unsigned)((words[p * 2] << 8) | words[p * 2 + 1]);
-    for (int i = 0; i < 16; i++)
-    {
-      int shift = 15 - i;
-      pixels[i] = (ui8)(((plane[0] >> shift) & 1) | (((plane[1] >> shift) & 1) << 1) |
-                        (((plane[2] >> shift) & 1) << 2) | (((plane[3] >> shift) & 1) << 3));
-    }
+    DecodeGroup((const ui8 *)d.pViewportBMP + group * 8, pixels);
   }
   return pixels[x & 15];
 }

@@ -5,6 +5,9 @@
 
 #include <stdio.h>
 #include <string.h>
+#ifdef __SSE2__
+#include <emmintrin.h>
+#endif
 
 //#include "Objects.h"
 #include "Dispatch.h"
@@ -1209,6 +1212,51 @@ static inline ui64 SwapLanes(ui64 v) // big-endian words <-> native ones, all fo
   return ((v & 0x00ff00ff00ff00ffULL) << 8) | ((v >> 8) & 0x00ff00ff00ff00ffULL);
 }
 
+#ifdef __SSE2__
+// Two groups at once, one 64-bit half each: the same as two turns of BlitPlanar's loops for
+// groups that have no edge and whose source words lie inside the line
+static inline __m128i SwapLanes2(__m128i v)
+{
+  return _mm_or_si128(_mm_slli_epi16(v, 8), _mm_srli_epi16(v, 8));
+}
+
+// keep: per group, the pixels to leave as they are, in the low word of its half
+static inline __m128i KeepOfPair(__m128i planes, __m128i flip, int transparent)
+{
+  if (transparent < 0) return _mm_setzero_si128();
+  __m128i same = _mm_xor_si128(planes, flip);
+  same = _mm_and_si128(same, _mm_srli_epi64(same, 32));
+  same = _mm_and_si128(same, _mm_srli_epi64(same, 16));
+  return _mm_shufflelo_epi16(_mm_shufflehi_epi16(same, 0), 0);
+}
+
+// Source and destination line up: bytes stay in memory order
+static inline void BlitPairAligned(const ui8 *src, ui8 *dst, __m128i flip, int transparent)
+{
+  __m128i planes = _mm_loadu_si128((const __m128i *)src);
+  __m128i keep = KeepOfPair(planes, flip, transparent);
+  __m128i out = _mm_loadu_si128((const __m128i *)dst);
+  out = _mm_or_si128(_mm_and_si128(keep, out), _mm_andnot_si128(keep, planes));
+  _mm_storeu_si128((__m128i *)dst, out);
+}
+
+// The source starts off bits into group src: the planes are shifted, so in native order
+static inline void BlitPairShifted(const ui8 *src, ui8 *dst, int off, __m128i flip, int transparent)
+{
+  __m128i planes = SwapLanes2(_mm_loadu_si128((const __m128i *)src));
+  if (off != 0)
+  {
+    __m128i lo = SwapLanes2(_mm_loadu_si128((const __m128i *)(src + 8)));
+    planes = _mm_or_si128(_mm_sll_epi16(planes, _mm_cvtsi32_si128(off)),
+                          _mm_srl_epi16(lo, _mm_cvtsi32_si128(16 - off)));
+  }
+  __m128i keep = KeepOfPair(planes, flip, transparent);
+  __m128i out = SwapLanes2(_mm_loadu_si128((const __m128i *)dst));
+  out = _mm_or_si128(_mm_and_si128(keep, out), _mm_andnot_si128(keep, planes));
+  _mm_storeu_si128((__m128i *)dst, SwapLanes2(out));
+}
+#endif
+
 static void BlitPlanar(const ui8 *src, ui8 *dst, int x1, int x2, int y1, int rows,
                        int srcX, int srcY, int srcByteWidth, int dstByteWidth, int transparent)
 {
@@ -1227,6 +1275,9 @@ static void BlitPlanar(const ui8 *src, ui8 *dst, int x1, int x2, int y1, int row
   ui64 flip = 0;
   for (int p = 0; p < 4; p++)
     if (((transparent >> p) & 1) == 0) flip |= (ui64)0xffff << (16 * p);
+#ifdef __SSE2__
+  __m128i flip2 = _mm_set_epi64x((long long)flip, (long long)flip);
+#endif
   const ui8 *srcLine = src + srcY * srcByteWidth + ((srcX & 0xfff0) >> 1);
   ui8 *dstLine = dst + y1 * dstByteWidth + ((x1 & 0xfff0) >> 1);
   // Groups whose source words all lie inside the line and that have no edge: no checks there
@@ -1242,6 +1293,14 @@ static void BlitPlanar(const ui8 *src, ui8 *dst, int x1, int x2, int y1, int row
     {
       for (int g = 0; g < groups; g++)
       {
+#ifdef __SSE2__
+        if (g >= 1 && g + 2 <= groups - 1)
+        {
+          BlitPairAligned(srcLine + 8 * g, dstLine + 8 * g, flip2, transparent);
+          g++;
+          continue;
+        }
+#endif
         ui64 planes;
         memcpy(&planes, srcLine + 8 * g, 8);
         ui16 keep = 0;
@@ -1271,6 +1330,14 @@ static void BlitPlanar(const ui8 *src, ui8 *dst, int x1, int x2, int y1, int row
     for (int g = 0; g < groups; g++)
     {
       int k = k0 + g;
+#ifdef __SSE2__
+      if (g >= inFrom && g + 1 < inTo)
+      {
+        BlitPairShifted(srcLine + 8 * k, dstLine + 8 * g, off, flip2, transparent);
+        g++;
+        continue;
+      }
+#endif
       ui64 hi = 0, lo = 0, planes;
       ui16 keep = 0;
       if (g >= inFrom && g < inTo)

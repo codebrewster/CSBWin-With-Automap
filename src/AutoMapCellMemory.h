@@ -29,17 +29,20 @@ public:
   std::vector<std::pair<AutoMapCell, AutoMapCellLook> > Looks(void) const;
 
 private:
-  // Ordered by level, then y, then x; a plain value, as a lookup runs per cell and tick
-  struct Key
+  // A lookup runs for every cell in view on every tick: each level keeps its looks in a grid
+  // that grows to take any cell seen, rim cells (-1) included; a plain value, copied whole
+  struct LevelLooks
   {
-    int level;
-    int y;
-    int x;
-    bool operator<(const Key &other) const;
+    int x0, y0, width, height;            // the grid's first cell and size
+    std::vector<AutoMapCellLook> looks;   // row by row
+    std::vector<unsigned char> known;     // 1 where a look is stored
   };
-  typedef std::map<Key, AutoMapCellLook> LookMap;
-  static Key KeyOf(const AutoMapCell &cell);
-  LookMap m_looks;
+  const AutoMapCellLook *Find(const AutoMapCell &cell) const;
+  // The look stored for cell, made room for if none; *isNew tells whether it was there
+  AutoMapCellLook *Slot(const AutoMapCell &cell, bool *isNew);
+  std::vector<LevelLooks> m_levels;       // by level
+  // Cells of a level number no dungeon has (negative): in (level, y, x) order like the grids
+  std::map<std::pair<int, std::pair<int, int> >, AutoMapCellLook> m_odd;
 };
 
 #endif

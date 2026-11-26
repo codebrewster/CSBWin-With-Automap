@@ -833,13 +833,21 @@ static unsigned long long Mixed(unsigned long long hash, unsigned long long valu
 static unsigned long long FingerprintOfFrame(const std::vector<AutoMapDrawOnScreen> &draws, int shown)
 {
   unsigned long long hash = recorder.FrameFingerprint();
+  // The picture in four chains of its own, joined at the end: one chain waits for every
+  // multiply in turn, four keep the processor busy
   const unsigned char *pixels = (const unsigned char *)d.pViewportBMP;
-  for (int i = 0; i < (112 * 136) / 8; i++)
+  unsigned long long lane[4] = {hash, hash ^ 1, hash ^ 2, hash ^ 3};
+  const int WORDS = (112 * 136) / 8;
+  for (int i = 0; i < WORDS; i += 4)
   {
-    unsigned long long word;
-    std::memcpy(&word, pixels + 8 * i, sizeof(word));
-    hash = Mixed(hash, word);
+    for (int j = 0; j < 4; j++)
+    {
+      unsigned long long word;
+      std::memcpy(&word, pixels + 8 * (i + j), sizeof(word));
+      lane[j] = Mixed(lane[j], word);
+    }
   }
+  for (int j = 0; j < 4; j++) hash = Mixed(hash, lane[j]);
   hash = Mixed(hash, (unsigned long long)(unsigned)shown);
   hash = Mixed(hash, (unsigned long long)(unsigned)d.partyLevel);
   hash = Mixed(hash, (unsigned long long)(unsigned)d.partyX * 4096 + (unsigned)d.partyY);

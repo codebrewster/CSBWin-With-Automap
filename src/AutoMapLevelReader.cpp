@@ -853,9 +853,38 @@ std::vector<AutoMapFloorItemPlace> AutoMapLevelReader_FloorItemPlacesAt(int x, i
 AutoMapCellLook AutoMapLevelReader_CellLookAt(int x, int y)
 {
   SUMMARIZEROOMDATA seenFromSouth = Summarize(x, y, AutoMapNorth);
-  if (seenFromSouth.roomType != roomSTONE)
-    return AutoMapScene_LookOf(ReadCellSummarised(x, y, d.LoadedLevel, seenFromSouth));
   static const AutoMapCellLook blank = AutoMapScene_LookOf(AutoMapCellRecord());
+  switch (seenFromSouth.roomType)
+  {
+  case roomSTONE:
+    break;
+  case roomPIT:
+  case roomTELEPORTER:
+  case roomSTAIRFACING:
+  case roomSTAIREDGE:
+  case roomDOORFACING:
+  case roomDOOREDGE:
+    return AutoMapScene_LookOf(ReadCellSummarised(x, y, d.LoadedLevel, seenFromSouth));
+  default:
+    { // Floor, or a concealed closed pit, as ReadCell's default case has them
+      AutoMapCellLook look = blank;
+      bool rawPit = RawRoomType(x, y) == roomPIT;
+      if (rawPit && (GetCellFlags(x, y) & 4) != 0)
+      {
+        look.kind = AutoMapCellPit;
+        look.floorPicture = CONCEALED_PIT_PICTURE;
+        look.pitIsOpen = false;
+        look.pitIsHidden = true;
+      }
+      else
+      {
+        look.kind = AutoMapCellFloor;
+        look.floorPicture = FloorFeaturePicture(seenFromSouth.decorations[2]);
+      }
+      if (RawRoomType(x, y) == roomFALSEWALL) look.kind = AutoMapCellOpenFalseWall;
+      return look;
+    }
+  }
   AutoMapCellLook look = blank;
   look.kind = RawRoomType(x, y) == roomFALSEWALL ? AutoMapCellFalseWall : AutoMapCellWall;
   SUMMARIZEROOMDATA seenFromNorth = Summarize(x, y, AutoMapSouth);
