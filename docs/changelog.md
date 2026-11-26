@@ -8,7 +8,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 ## Unreleased
 
 **Replay**
-- File > Playback plays a recording in the game it was made in: when its folder holds a graphics.dat with a dungeon.dat, or a Chaos Strikes Back saved game (csbgame.dat), the game loads them from there and starts the replay as `--directory <folder> --play <file>` would. A movie of another dungeon no longer goes out of step at once. A playfile alone in a folder plays in the loaded game as before.
+- File > Playback and File > Continue recording play a recording in the game it was made in: when its folder holds a graphics.dat with a dungeon.dat, or a Chaos Strikes Back saved game (csbgame.dat), the game loads them from there and starts the replay as `--directory <folder> --play <file>` would. A movie of another dungeon no longer goes out of step at once. A playfile alone in a folder plays in the loaded game as before.
 - Reset during a replay or at its end (the win screen) ends the replay: the replay controls go away and the title menu takes clicks again. The replay used to play on into the new game, and with `--play` it started over by itself.
 
 **Statistics**

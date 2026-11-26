@@ -953,15 +953,33 @@ bool PrepareContinueRecording(const std::string &path)
   return true;
 }
 
-// Replays the recording at max to its end; the recording goes on there
-static void StartContinueRecording(const std::string &path)
+// Replays the recording at max to its end; the recording goes on there. In the folder of the
+// recording when that holds its game, as File > Playback does (OpenReplayInItsFolder)
+static bool ReplayFolderHasGame(const std::string &path, std::string *absolutePath);
+static bool EnterReplayFolder(const std::string &absolutePath);
+static void reset_game(bool replayNext);
+// The game started anew opens the replay a little later, as it starts (post_render)
+static bool continueAtMaxPending = false;
+static void ContinueAtMax(void)
 {
-  if (!PrepareContinueRecording(path)) return;
-  Process_ecode_IDC_Playback();
-  if (!PlayfileIsOpen()) return;
+  continueAtMaxPending = false;
   PlaybackControl_SetSpeedIndex(PLAYBACK_SPEED_MAX);
   NoSpeedLimit = 0x20000000;
   VBLMultiplier = 1;
+}
+static void StartContinueRecording(const std::string &path)
+{
+  std::string absolute;
+  bool ownFolder = ReplayFolderHasGame(path, &absolute);
+  if (!PrepareContinueRecording(ownFolder ? absolute : path)) return;
+  if (ownFolder && EnterReplayFolder(absolute)) {
+    reset_game(true);
+    if (PlayfileIsOpen()) ContinueAtMax();
+    else continueAtMaxPending = true;
+    return;
+  }
+  Process_ecode_IDC_Playback();
+  if (PlayfileIsOpen()) ContinueAtMax();
 }
 
 static void Process_ecode_IDC_DispatchTrace(void)
@@ -1924,13 +1942,15 @@ static bool FolderHasFile(const std::string &folder, const char *name, bool pref
     return found;
 }
 
-// File > Playback: a recording is played in the dungeon it was made in. When the playfile's
-// folder holds a game (graphics.dat with dungeon.dat, or a Chaos Strikes Back save csbgame*.dat,
-// which the replay resumes), the game goes into that folder and starts anew as
+// File > Playback and Continue recording: a recording is played in the dungeon it was made in.
+// When the playfile's folder holds a game (graphics.dat with dungeon.dat, or a Chaos Strikes Back
+// save csbgame*.dat, which the replay resumes), the game goes into that folder and starts anew as
 // "--directory folder --play file" would. A playfile without a game beside it plays in the game
 // that is loaded, as before. The names stay relative, so csb.cfg keeps none of the movie's folder.
 extern char dungeonname[FILENAME_MAX]; // CSBUI.cpp, where dungeonName points unless --dungeon named one
-static bool OpenReplayInItsFolder(const std::string &path)
+
+// The playfile's own path made absolute, when its folder holds a game
+static bool ReplayFolderHasGame(const std::string &path, std::string *absolutePath)
 {
     size_t slash = path.find_last_of("/\\");
     std::string folder = slash == std::string::npos ? std::string(".") : path.substr(0, slash);
@@ -1944,12 +1964,17 @@ static bool OpenReplayInItsFolder(const std::string &path)
     char absolute[PATH_MAX];
     if (realpath(path.c_str(), absolute) == NULL) return false;
 #endif
+    *absolutePath = absolute;
+    return true;
+}
+
+// Into the folder of the playfile (an absolute path), with every name looked up there: a
+// --directory or --dungeon given at the start named the old one
+static bool EnterReplayFolder(const std::string &absolutePath)
+{
+    size_t slash = absolutePath.find_last_of("/\\");
+    std::string folder = slash == std::string::npos || slash == 0 ? std::string("/") : absolutePath.substr(0, slash);
     if (chdir(folder.c_str()) != 0) { perror(folder.c_str()); return false; }
-    static std::string replayed; // PlayfileName points at it while the replay runs
-    replayed = absolute;
-    PlayfileName = (char *)replayed.c_str();
-    // Every name is looked up in the new folder: a --directory or --dungeon given at the start
-    // named the old one
     folderParentName = (char *)".";
     folderName = (char *)".";
     root = (char *)"./";
@@ -1958,6 +1983,16 @@ static bool OpenReplayInItsFolder(const std::string &path)
     strcpy(graphicName, "graphics.dat");
     extraTicks = false; // as --play has it
     skipLogo = true;
+    return true;
+}
+
+static bool OpenReplayInItsFolder(const std::string &path)
+{
+    std::string absolute;
+    if (!ReplayFolderHasGame(path, &absolute) || !EnterReplayFolder(absolute)) return false;
+    static std::string replayed; // PlayfileName points at it while the replay runs
+    replayed = absolute;
+    PlayfileName = (char *)replayed.c_str();
     reset_game(true);
     return true;
 }
@@ -2939,6 +2974,7 @@ static void DrawReplayBackControls(void)
 void post_render() {
     static bool was_active;
     ContinueCheck();
+    if (continueAtMaxPending && PlayfileIsOpen()) ContinueAtMax();
     // A replay that ended (its file ran out, the party died, or it was stopped) says so on the bar
     // for a while; no message box, which would stop the game and its windows until answered
     static bool replayWasOpen = false;
