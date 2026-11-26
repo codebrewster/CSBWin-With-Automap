@@ -7,6 +7,8 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 ## Unreleased
 
+## 1.7.2 (2026-11-26)
+
 **Replay**
 - A replay at max runs faster: DMMovie8 takes about 13 s instead of 30 s. The map's own work on every frame of the 3D view costs much less (wall decorations and floor pictures it already knows are no longer measured again), and the map window paints at most 30 times a second at max, leaving the game the rest. `--export-html` gets the same gain (all 43 movies 100 s → 59 s, DMMovie8 35 s → 13 s) and keeps the map and statistics windows closed, so the pages no longer depend on csb.cfg.
 
