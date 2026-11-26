@@ -1327,8 +1327,9 @@ static void LearnWatchedLinks(void)
       d.partyLevel, d.width, d.height, LookOfLoadedLevel, NULL, seenNow, d.partyX, d.partyY,
       &recorder.Knowledge(), d.Time, &startTicks);
   if (facts.empty()) return;
+  // The report needs only the links (the party's level is the loaded one here)
   AutoMapLevelSnapshot snapshot;
-  if (AutoMapWindow_DebugIsOn()) snapshot = AutoMapLevelReader_ReadLevel(d.partyLevel);
+  if (AutoMapWindow_DebugIsOn()) snapshot = AutoMapLevelReader_ReadPartyLevelLinks();
   for (size_t i = 0; i < facts.size(); i++)
   {
     if (AutoMapWindow_DebugIsOn()) ReportLearnedLink(snapshot, facts[i], startTicks[i]);

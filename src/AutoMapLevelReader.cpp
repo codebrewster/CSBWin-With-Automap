@@ -2052,6 +2052,7 @@ AutoMapLevelSnapshot AutoMapLevelReader_ReadPartyLevelLinks(void)
   snapshot.level = d.partyLevel;
   snapshot.width = d.width;
   snapshot.height = d.height;
+  LevelOffset(snapshot.level, &snapshot.offsetX, &snapshot.offsetY);
   // LinkCell only asks the source cell whether it is stone (ReadCell's wall and false wall)
   static AutoMapCellRecord stone, open;
   stone.kind = AutoMapCellWall;
@@ -2076,6 +2077,8 @@ AutoMapLevelSnapshot AutoMapLevelReader_ReadPartyLevelLinks(void)
   BoundaryMargins(snapshot.width, snapshot.height, &marginLeft, &marginRight, &marginTop, &marginBottom);
   snapshot.width += marginLeft + marginRight;
   snapshot.height += marginTop + marginBottom;
+  snapshot.offsetX -= marginLeft;
+  snapshot.offsetY -= marginTop;
   snapshot.boundaryMarginX = marginLeft;
   snapshot.boundaryMarginY = marginTop;
   for (size_t i = 0; i < snapshot.links.size(); i++)
