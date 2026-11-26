@@ -42,6 +42,16 @@ public:
   bool MightLearn(int level, const AutoMapVisibleCells &seenNow, int partyX, int partyY, int now) const;
   // Drops the watches past their deadline, as Observe does
   void DropExpired(int now);
+  // The look of (x, y) of the watched level now, level coordinates inside its width and height
+  typedef AutoMapCellLook (*LookAt)(void *context, int x, int y);
+  // Observe on level without a snapshot of it: only the watched cells in sight are looked at,
+  // through lookAt, of a level width by height; the party stands on (partyX, partyY), level
+  // coordinates. The same facts, start ticks and watches kept as Observe on a snapshot of the
+  // level whose cells have those looks.
+  std::vector<AutoMapFact> ObserveLooks(int level, int width, int height, LookAt lookAt, void *context,
+                                        const AutoMapVisibleCells &seenNow, int partyX, int partyY,
+                                        const AutoMapKnowledge *knowledge, int now,
+                                        std::vector<int> *startTicks = NULL);
 
 private:
   struct Watch

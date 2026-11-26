@@ -233,9 +233,45 @@ static int LightReachOfLoadedLevel(void)
 struct FrameDoor { int door; int x; int y; };
 static std::vector<FrameDoor> doorsOfFrame;
 
+// Monsters are judged on every frame, but in a replay at max only on the frames the map window
+// draws from and those around a pause known ahead: what a monster's look tells (MonstersSeenNow)
+// is only shown, never remembered, and judging them cost a third of the replay. The other frames
+// take the monsters drawn on squares the light reaches (ApproximateMonstersSeen), which a pause
+// by hand (Space) at max shows until a frame is judged again. Decided when a frame starts.
+static bool MeasuresEveryDraw(void);
+static bool monstersAreJudged = true;
+static std::vector<int> monstersDrawnUnjudged;
+
+// A pause the replay will make by itself within a few ticks: at a "pause at" tick, at the end of
+// going back or skipping ahead, at the replay's end, or on a breakpoint square the party is on
+static bool PauseMayComeSoon(void)
+{
+  static const int TICKS_AROUND = 3;
+  int now = (int)d.Time;
+  int targets[] = {PlaybackControl_PauseTarget(), PlaybackControl_RewindTarget(),
+                   PlaybackControl_SkipTarget(), PlaybackControl_TotalTicks()};
+  for (size_t i = 0; i < sizeof targets / sizeof targets[0]; i++)
+  {
+    if (targets[i] > 0 && now >= targets[i] - TICKS_AROUND && now <= targets[i] + TICKS_AROUND) return true;
+  }
+  return PlaybackControl_BreakpointCount() > 0 &&
+         PlaybackControl_HasBreakpoint(d.partyLevel, d.partyX, d.partyY);
+}
+
+static bool MonstersOfThisFrameAreJudged(void)
+{
+  if (MeasuresEveryDraw() || ExportHtml_IsOn()) return true;
+  if (!PlayfileIsOpen() || !PlaybackControl_IsMax() || PlaybackControl_IsPaused()) return true;
+  if (PauseMayComeSoon()) return true;
+  // RebuildShownLevel's next rebuild, due once its gap has passed, shows this frame
+  return AutoMapWindow_IsShown() && SDL_GetTicks() - lastRebuildTicks >= SMALLEST_REBUILD_GAP;
+}
+
 void AutoMap_OnViewportDrawn(const SUMMARIZEROOMDATA *cellsInView)
 {
   MeasuringTimer timer;
+  monstersAreJudged = MonstersOfThisFrameAreJudged();
+  monstersDrawnUnjudged.clear();
   AutoMapMeasure_OnViewportSummarised(cellsInView);
   doorsOfFrame.clear();
   for (int i = 0; i < AUTOMAP_SIGHT_CELL_COUNT; i++)
@@ -450,6 +486,7 @@ void AutoMap_BeforeMonsterDrawn(int group, int x1, int x2, int y1, int y2)
 {
   MeasuringTimer timer;
   if (!PartyLevelIsLoaded()) return;
+  if (!monstersAreJudged) return;
   AutoMapMeasure_BeforeBlit(x1, x2, y1, y2);
 }
 
@@ -480,6 +517,11 @@ void AutoMap_AfterMonsterDrawn(int group, int x1, int x2, int y1, int y2)
 {
   MeasuringTimer timer;
   if (!PartyLevelIsLoaded()) return;
+  if (!monstersAreJudged)
+  {
+    monstersDrawnUnjudged.push_back(group);
+    return;
+  }
   AutoMapDrawKey key = {AutoMapDrawMonster, -1, AutoMapLevelReader_RecordId(group), -1, -1, -1};
   if (AutoMapWindow_TimingReportsOn())
   {
@@ -848,6 +890,28 @@ static bool MonsterStandsInHole(AutoMapRecordId group)
   return false;
 }
 
+// A frame whose monsters were not judged: those drawn on a square of the frame the light reaches
+// count as seen. Judging would nearly always agree; one in the dark or behind a nearer one differs.
+static void ApproximateMonstersSeen(void)
+{
+  if (monstersAreJudged || monstersDrawnUnjudged.empty()) return;
+  if (AutoMapMeasure_IsRunning() || !PartyLevelIsLoaded()) return;
+  for (int cell = 0; cell < AUTOMAP_SIGHT_CELL_COUNT; cell++)
+  {
+    int x = -1, y = -1;
+    PositionOfViewCell(cell, &x, &y);
+    if (!recorder.IsLitInFrame(x, y)) continue;
+    AutoMapRecordId group = MonsterGroupAt(x, y);
+    if (group == AUTOMAP_NO_RECORD) continue;
+    for (size_t i = 0; i < monstersDrawnUnjudged.size(); i++)
+    {
+      if (AutoMapLevelReader_RecordId(monstersDrawnUnjudged[i]) != group) continue;
+      recorder.SeeMonster(group);
+      break;
+    }
+  }
+}
+
 // A decoration counts as seen when the frame shows enough of it in the light on screen, the
 // debug light included; a floor item likewise is remembered where it lies
 static void LearnFromViewportDraws(void)
@@ -1068,6 +1132,7 @@ static void LearnFromViewportDraws(void)
 void AutoMap_OnViewportFinished(void)
 {
   LearnFromViewportDraws();
+  ApproximateMonstersSeen();
   if (!AutoMapWindow_TimingReportsOn())
   {
     measuringCounts = 0;
@@ -1242,6 +1307,11 @@ static void ReportLearnedLink(const AutoMapLevelSnapshot &snapshot, const AutoMa
          startedAt, (int)d.Time, seenBy);
 }
 
+static AutoMapCellLook LookOfLoadedLevel(void *, int x, int y)
+{
+  return AutoMapLevelReader_CellLookAt(x, y);
+}
+
 static void LearnWatchedLinks(void)
 {
   if (!recorder.LinkWatch().IsWatching()) return;
@@ -1253,11 +1323,15 @@ static void LearnWatchedLinks(void)
     recorder.LinkWatch().DropExpired((int)d.Time);
     return;
   }
-  AutoMapLevelSnapshot snapshot = AutoMapLevelReader_ReadLevel(d.partyLevel);
   std::vector<int> startTicks;
-  // Whether a concealed pit is known: its toggling is only seen once it is
-  std::vector<AutoMapFact> facts = recorder.LinkWatch().Observe(
-      snapshot, seenNow, &recorder.Knowledge(), d.Time, &startTicks);
+  // Only the watched cells in sight are read, not the whole level (the party's, which is loaded).
+  // Whether a concealed pit is known: its toggling is only seen once it is.
+  std::vector<AutoMapFact> facts = recorder.LinkWatch().ObserveLooks(
+      d.partyLevel, d.width, d.height, LookOfLoadedLevel, NULL, seenNow, d.partyX, d.partyY,
+      &recorder.Knowledge(), d.Time, &startTicks);
+  if (facts.empty()) return;
+  AutoMapLevelSnapshot snapshot;
+  if (AutoMapWindow_DebugIsOn()) snapshot = AutoMapLevelReader_ReadLevel(d.partyLevel);
   for (size_t i = 0; i < facts.size(); i++)
   {
     if (AutoMapWindow_DebugIsOn()) ReportLearnedLink(snapshot, facts[i], startTicks[i]);

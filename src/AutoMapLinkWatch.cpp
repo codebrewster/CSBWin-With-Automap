@@ -181,6 +181,51 @@ std::vector<AutoMapFact> AutoMapLinkWatch::Observe(const AutoMapLevelSnapshot &s
   return facts;
 }
 
+std::vector<AutoMapFact> AutoMapLinkWatch::ObserveLooks(int level, int width, int height, LookAt lookAt,
+                                                        void *context, const AutoMapVisibleCells &seenNow,
+                                                        int partyX, int partyY,
+                                                        const AutoMapKnowledge *knowledge, int now,
+                                                        std::vector<int> *startTicks)
+{
+  std::vector<AutoMapFact> facts;
+  if (startTicks != NULL) startTicks->clear();
+  if (level != m_level)
+  {
+    Clear();
+    return facts;
+  }
+  std::vector<Watch> kept;
+  for (size_t i = 0; i < m_watches.size(); i++)
+  {
+    const Watch &watch = m_watches[i];
+    // Every watch lies inside its level's snapshot: Start took it from one of the same size
+    if (now > watch.deadline) continue;
+    int levelX = watch.x - m_marginX;
+    int levelY = watch.y - m_marginY;
+    bool isSeen = seenNow.Contains(levelX, levelY) || (levelX == partyX && levelY == partyY);
+    if (isSeen)
+    {
+      AutoMapCell target = {level, levelX, levelY};
+      bool pitIsKnown = knowledge != NULL &&
+                        knowledge->Knows(AutoMapFact_OfCell(AutoMapFactPit, target));
+      AutoMapCellLook was = AutoMapScene_LookOf(watch.baseline);
+      // The rim around the level is made-up rock, the same in every snapshot
+      bool isOnLevel = levelX >= 0 && levelY >= 0 && levelX < width && levelY < height;
+      AutoMapCellLook look = isOnLevel ? lookAt(context, levelX, levelY) : was;
+      if (AutoMapScene_LooksDiffer(was, AutoMapScene_VisibleLook(look, &was, pitIsKnown)))
+      {
+        facts.push_back(AutoMapFact_OfLink(watch.source, target));
+        if (startTicks != NULL) startTicks->push_back(watch.startedAt);
+        continue;
+      }
+    }
+    kept.push_back(watch);
+  }
+  m_watches.swap(kept);
+  if (m_watches.empty()) m_level = AUTOMAP_NO_LEVEL;
+  return facts;
+}
+
 void AutoMapFalseWallWatch::Clear(void)
 {
   m_seen.clear();

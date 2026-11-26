@@ -288,8 +288,86 @@ static void MightLearnOnlyWithAWatchedCellInSight(void)
   CHECK(!watch.IsWatching());
 }
 
+// ObserveLooks, with the looks taken from a snapshot, learns what Observe on it learns
+static AutoMapCellLook LookInSnapshot(void *context, int x, int y)
+{
+  const AutoMapLevelSnapshot *s = (const AutoMapLevelSnapshot *)context;
+  return AutoMapScene_LookOf(s->cells[(y + s->boundaryMarginY) * s->width + x + s->boundaryMarginX]);
+}
+
+static bool SameFacts(const std::vector<AutoMapFact> &a, const std::vector<AutoMapFact> &b)
+{
+  if (a.size() != b.size()) return false;
+  for (size_t i = 0; i < a.size(); i++)
+    if (a[i] < b[i] || b[i] < a[i]) return false;
+  return true;
+}
+
+static void ObserveLooksLearnsWhatObserveLearns(void)
+{
+  AutoMapLevelSnapshot lever = LeverCounterDoor(3, 0);
+  AutoMapLevelSnapshot grown;
+  grown.level = LEVEL;
+  grown.width = 5;
+  grown.height = 4;
+  grown.boundaryMarginX = 1;
+  grown.boundaryMarginY = 1;
+  grown.cells.assign(20, AutoMapCellRecord());
+  for (int y = 0; y < lever.height; y++)
+    for (int x = 0; x < lever.width; x++) At(&grown, x + 1, y + 1) = At(&lever, x, y);
+  AutoMapLink toCounter(2, 1, 4, 1, true, AutoMapSouth);
+  toCounter.source = SWITCH_RECORD;
+  AutoMapLink toDoor(4, 1, 3, 2, true, AutoMapSouth);
+  toDoor.source = 8;
+  grown.links.push_back(toCounter);
+  grown.links.push_back(toDoor);
+  grown.party.x = 2;
+  grown.party.y = 2;
+  AutoMapLevelSnapshot grownOpened = grown;
+  At(&grownOpened, 3, 2).doorState = AutoMapDoorOpen;
+  struct Case { AutoMapLevelSnapshot before, after; int levelWidth, levelHeight; };
+  Case cases[] = {
+    {lever, DoorOpened(lever), 4, 3},
+    {grown, grownOpened, 3, 3},
+    {PadAndConcealedPit(false), PadAndConcealedPit(true), 4, 3},
+  };
+  for (size_t c = 0; c < sizeof cases / sizeof cases[0]; c++)
+  {
+    const Case &k = cases[c];
+    AutoMapKnowledge knowledge;
+    if (c == 2) knowledge.Learn(AutoMapFact_OfCell(AutoMapFactPit, AutoMapCell{LEVEL, 2, 1}));
+    // Every single cell in sight, the party elsewhere and then on each cell, ticks to past the end
+    for (int partyOn = -1; partyOn < k.levelWidth * k.levelHeight; partyOn++)
+    {
+      for (int seen = -1; seen < k.levelWidth * k.levelHeight; seen++)
+      {
+        AutoMapLinkWatch byLevel, byLooks;
+        byLevel.Start(SWITCH_RECORD, k.before, 100);
+        byLooks.Start(SWITCH_RECORD, k.before, 100);
+        AutoMapVisibleCells seenNow;
+        if (seen >= 0) seenNow.Add(seen % k.levelWidth, seen / k.levelWidth);
+        int partyX = partyOn < 0 ? 9 : partyOn % k.levelWidth;
+        int partyY = partyOn < 0 ? 9 : partyOn / k.levelWidth;
+        AutoMapLevelSnapshot after = k.after;
+        after.party.x = partyX + after.boundaryMarginX;
+        after.party.y = partyY + after.boundaryMarginY;
+        for (int now = 101; now <= 130; now += 7)
+        {
+          std::vector<int> ticksA, ticksB;
+          std::vector<AutoMapFact> a = byLevel.Observe(after, seenNow, &knowledge, now, &ticksA);
+          std::vector<AutoMapFact> b = byLooks.ObserveLooks(LEVEL, k.levelWidth, k.levelHeight, LookInSnapshot,
+                                                            &after, seenNow, partyX, partyY, &knowledge, now, &ticksB);
+          CHECK(SameFacts(a, b) && ticksA == ticksB);
+          CHECK(byLevel.IsWatching() == byLooks.IsWatching());
+        }
+      }
+    }
+  }
+}
+
 void TestAutoMapLinkWatch(void)
 {
+  ObserveLooksLearnsWhatObserveLearns();
   ChangeInSightTeachesTheLink();
   ChangeOutOfSightTeachesNothing();
   PartyCellCountsAsInSight();
