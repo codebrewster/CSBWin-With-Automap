@@ -131,13 +131,10 @@ void ThrowPage::recalculate()
   std::vector<Job> jobs;
   bool skipped = false;
   auto add = [&](const WeaponType &object, const WeaponType *launcher) {
-    // try it on: the hand's weight changes, the load does not
+    // try it on: the hand's weight and the skill levels it adds change, the load does not
     const WeaponType &held = launcher ? *launcher : object;
     Hero hero = s_->hero;
-    if (held.id != s_->hero.weapon) {
-      hero.weapon = held.id;
-      hero.handWeight[1] = held.weight;
-    }
+    if (held.id != s_->hero.weapon) holdWeapon(hero, held.id, held.weight);
     const int action = launcher ? 32 : 42;
     int need = levelNeeded(g, held, action);
     bool usable = need < 0 || hero.mastery[g.actions.at(size_t(action)).skill] >= need;

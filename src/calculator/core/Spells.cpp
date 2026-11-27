@@ -276,6 +276,11 @@ MonsterHit missileOnMonster(int missile, const MissileState &at, const Target &t
   switch (missile) {
     case MissileFireball:
     case MissileLightning: {
+      if (missile == MissileFireball && m.id == 11) {   // ProcessMissileEncounter, before the
+        r.noEffect = true;                              // non-material test
+        r.note = "heals a Black Flame by the fireball's damage (up to 1000 hit points)";
+        return r;
+      }
       if (m.nonMaterial) {
         r.noEffect = true;
         r.note = "passes through non-material beings";

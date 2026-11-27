@@ -218,7 +218,11 @@ class Model {
     const ActionType &a = s.a;
     const MonsterType &m = s.t.type;
     mult_ = s.t.level;
-    missXp_ = a.exp / 2;
+    // A swing that reaches the damage roll gives the action's full experience, hit or miss:
+    // AttackWithPhysicalForce returns 1 (Attack.cpp) and _Attack halves the experience only
+    // on 0.  That 0 comes from a Disrupt on a monster that is not non-material.
+    const bool fizzle = a.id == ActionDisrupt && !m.nonMaterial;
+    missXp_ = fizzle ? a.exp / 2 : a.exp;
     if (mult_ != 0) missXp_ *= mult_;
     missXp_ *= 2;
     // gate-miss: energy + R2 + 2 + R2
@@ -709,6 +713,15 @@ SwingResult heroAttack(const Hero &hero, const WeaponType &weapon, const ActionT
   r.expPerSecond = tot.eTicks > 0 ? ticksPerSecond() * tot.eXp / tot.eTicks : 0;
   r.endStamina = tot.endSta;
   for (size_t d = 1; d < tot.dmg.size(); d++) r.damage.add(int(d), tot.dmg[d] / n);
+  if (target.type.invincible) {
+    // DamageMonster returns before it takes any hit points (Code11f52.cpp); the roll still
+    // happens, so stamina and experience stay as they are
+    r.damage = Dist();
+    r.perSwing = r.perHit = 0;
+    r.minHit = r.maxHit = 0;
+    r.dps = r.damagePerStamina = 0;
+    return r;
+  }
   if (target.hp > 0) {
     r.swingsToKill = meanTriesToReach(r.damage, target.hp);
     r.secondsToKill = r.swingsToKill * r.ticks / ticksPerSecond();

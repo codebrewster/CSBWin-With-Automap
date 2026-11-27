@@ -7,6 +7,15 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 ## Unreleased
 
+**Calculator**
+- A missed swing gives the action's full experience, as in the game; only a Disrupt on a material monster gives half. Before, every miss counted half.
+- A shot gives 20 experience under the port's rules (9 in Nostalgia Mode), with a tick for it in the side panel.
+- Swings at Lord Chaos and the other monsters that cannot be harmed show no damage and "never" to kill.
+- Trying another weapon (or picking one in the side panel) moves the Firestaff's and the Sceptre of Lyf's skill bonus with the weapon.
+- A Fireball on a Black Flame says it heals it. Mana above the maximum falls as slowly as in the game.
+- "Per second" values use 6 ticks a second by default, as the docs said.
+- Opening a savegame starts from the game's default rules before reading the `csb.cfg` beside it: a folder without one, or a file without a rule's line, no longer keeps the rules of the savegame opened before.
+
 ## 1.7.8 (2026-11-27)
 
 **Map**

@@ -1,6 +1,7 @@
 // The inputs every tab shares: the hero, the party, the monster, the rules.
 #pragma once
 #include <QWidget>
+#include <vector>
 #include "Session.h"
 
 class QComboBox;
@@ -8,6 +9,8 @@ class QLabel;
 class QVBoxLayout;
 
 namespace ui {
+
+class IntField;
 
 class Sidebar : public QWidget {
   Q_OBJECT
@@ -26,6 +29,7 @@ class Sidebar : public QWidget {
   QComboBox *levelBox_ = nullptr, *groupBox_ = nullptr, *monsterBox_ = nullptr, *kindBox_ = nullptr;
   QComboBox *tablesBox_ = nullptr;
   QLabel *heroNote_ = nullptr, *monsterNote_ = nullptr, *tablesNote_ = nullptr;
+  std::vector<IntField *> masteryFields_;   // refreshed when the weapon changes them
   bool filling_ = false;
 };
 

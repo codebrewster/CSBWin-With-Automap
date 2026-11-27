@@ -30,11 +30,35 @@ struct Hero {
   int handWeight[2] = {0, 0};   // weight of what each hand holds (ready, action)
   bool elvenBoots = false;      // on the feet: more load
   bool ekkhardCross = false;    // round the neck: faster healing
+  bool gemOfAges = false;       // round the neck: +1 Heal (as the Sceptre of Lyf in the hand)
 
   int strength() const { return attr[Strength]; }
   int dexterity() const { return attr[Dexterity]; }
   int luck() const { return attr[Luck]; }
 };
+
+// DetermineMastery (Code17818.cpp): what the weapon in the action hand adds to the skill
+// levels.  The Firestaff adds to every skill, the Sceptre of Lyf to Heal unless a Gem of Ages
+// round the neck already does.
+inline int allSkillsBonus(int weapon)
+{
+  return weapon == WeaponFirestaffA ? 1 : (weapon == WeaponFirestaffB ? 2 : 0);
+}
+inline int healBonus(const Hero &h, int weapon)
+{
+  return h.gemOfAges || weapon == WeaponSceptreOfLyf ? 1 : 0;
+}
+// Put another weapon (-1 = nothing) in the action hand: its weight and the skill levels it
+// adds replace those of the weapon held before.  The load is left as it is.
+inline void holdWeapon(Hero &h, int weapon, int weight)
+{
+  const int all = allSkillsBonus(weapon) - allSkillsBonus(h.weapon);
+  const int heal = healBonus(h, weapon) - healBonus(h, h.weapon);
+  for (int &m : h.mastery) m += all;
+  h.mastery[SkillHeal] += heal;
+  h.weapon = weapon;
+  h.handWeight[1] = weight;
+}
 
 struct Party {
   int partyShield = 0;          // d.PartyShield (YA IR)
@@ -63,13 +87,16 @@ struct Rules {
   int shotDamageFactor = 1;         // a missile from a launcher hits this many times as hard
   bool moduloBias = true;           // STRandom(n) as the Atari had it
   bool luckDrift = true;            // IsCharacterLucky moves Luck by 2 each call
+  bool shootExperience20 = true;    // SHOOT gives 20 experience where the table says 9 (DM 1.1;
+                                    // this port's rule unless Nostalgia Mode is on)
 };
 
-// Real time per game tick, measured by the player.  Normal speed gives about
-// 4.2 ticks a second; while the party sleeps the game sets its speed to 0 and
+// Real time per game tick.  It varies: Normal speed was measured at about 4.2
+// ticks a second with no input and faster while fighting; 6 is the reference
+// the numbers use.  While the party sleeps the game sets its speed to 0 and
 // ticks on every vertical blank, which is far faster (58.8 measured).
 struct TickRates {
-  double awake = 4.2;
+  double awake = 6.0;
   double asleep = 58.8;
 };
 inline TickRates &tickRates() { static TickRates r; return r; }

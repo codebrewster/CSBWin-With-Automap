@@ -199,8 +199,7 @@ void addNote(std::string &note, const std::string &line)
 //
 // Shot.  atk_SHOOT (Attack.cpp:1933) leaves disableTime, staminaCost and experienceGained as _Attack
 // set them from the SHOOT action (id 32): its ticks, its energy + STRandomBool() and its experience
-// (9; DM 1.1's 20 under the shootExperience20 rule, Attack.cpp:1807-1810, which the calculator has
-// not got).  LaunchObject (Magic.cpp:481) takes no stamina, so there is no weight term.
+// (9, or DM 1.1's 20 under the shootExperience20 rule).  LaunchObject (Magic.cpp:481) takes no stamina, so there is no weight term.
 //
 // The clicks: swingPeriod adds 2 ticks of clicking that were measured for swings only.
 ThrowResult throwAttack(const GameData &g, const Hero &hero, const WeaponType &object,
@@ -231,7 +230,8 @@ ThrowResult throwAttack(const GameData &g, const Hero &hero, const WeaponType &o
     r.usable = need < 0 || hero.mastery[a.skill] >= need;
     delay = a.ticks;
     r.stamina = a.energy + 0.5;
-    exp = scaledExp(a.exp, target.level);
+    // _Attack: SHOOT's 9 becomes 20 under the shootExperience20 rule
+    exp = scaledExp(a.exp == 9 && rules.shootExperience20 ? 20 : a.exp, target.level);
   } else {
     l = handLaunch(hero, object, dice);
     r.damage = damageOnMonster(l, object, target, squares, backRow, 1, dice);

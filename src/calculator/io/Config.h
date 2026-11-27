@@ -5,7 +5,8 @@
 
 namespace calc {
 
-// Gives false when there is no such file; rules it does not name stay as they are
+// Gives false when there is no such file (rules then stay as they are).  A rule the file does
+// not name gets the game's default, as when the game reads the file.
 bool readRulesFromConfig(const std::string &path, Rules &rules);
 
 }  // namespace calc

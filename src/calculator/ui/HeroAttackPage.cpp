@@ -109,10 +109,8 @@ void HeroAttackPage::recalculate()
   std::vector<Job> jobs;
   for (const WeaponType &w : weapons) {
     Hero hero = s_->hero;
-    if (w.id != s_->hero.weapon) {   // try it on: the hand's weight changes, the load does not
-      hero.weapon = w.id;
-      hero.handWeight[1] = w.weight;
-    }
+    // try it on: the hand's weight and the skill levels it adds change, the load does not
+    if (w.id != s_->hero.weapon) holdWeapon(hero, w.id, w.weight);
     for (const GameData::Offer &offer : g.physicalActions(w)) {
       const ActionType &a = g.actions[size_t(offer.action)];
       bool usable = hero.mastery[a.skill] >= offer.minMastery;

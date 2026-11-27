@@ -73,16 +73,17 @@ void tenSecondUpdate(RecoveryState &s, const Hero &h, bool sleeping, unsigned ti
   if (s.hp == 0) return;
   const int r112 = random112(time);
   // ---- mana
+  const int mastery = magicMastery(h, sleeping);
+  const bool regenerates = r112 < mastery + h.attr[Wisdom];
   if (s.mana < h.maxMana) {
-    int mastery = magicMastery(h, sleeping);
-    if (r112 < mastery + h.attr[Wisdom]) {
+    if (regenerates) {
       int adj = manaStep(h, sleeping);
       int cost = adj * std::max(7, 16 - mastery);
       if (staminaForMana) *staminaForMana += cost;
       adjustStamina(s, h, cost, hpLost);
       s.mana += std::min(adj, h.maxMana - s.mana);
     }
-  } else if (s.mana > h.maxMana) {
+  } else if (s.mana > h.maxMana && regenerates) {   // above the maximum: down by 1 on a mana roll
     s.mana--;
   }
   // ---- stamina, food and water

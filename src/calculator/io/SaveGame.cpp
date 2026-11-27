@@ -477,6 +477,7 @@ SaveGame readSaveGame(const Bytes &data, const GameData &g, const std::string &l
       h.elvenBoots = sh.items[SlotFeet].kind == ItemArmour &&
                      sh.items[SlotFeet].type == ArmourElvenBoots;
       h.ekkhardCross = neck.kind == ItemMisc && neck.type == 38;
+      h.gemOfAges = neck.kind == ItemMisc && neck.type == 37;
       // DetermineMastery: what items add
       int all = 0;
       if (hand.kind == ItemWeapon && hand.type == WeaponFirestaffA) all = 1;

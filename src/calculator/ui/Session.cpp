@@ -85,6 +85,14 @@ QString Session::openSave(const QString &path)
     tableSource = TablesFromFile;
     data = tables;
   }
+  // the game's rules start from its defaults for every savegame (no csb.cfg = the defaults);
+  // dice and luck drift are the calculator's own settings and stay
+  {
+    const Rules defaults;
+    rules.vulnerableOnAttack = defaults.vulnerableOnAttack;
+    rules.shotDamageFactor = defaults.shotDamageFactor;
+    rules.shootExperience20 = defaults.shootExperience20;
+  }
   for (const QString &name : info.dir().entryList(QDir::Files))
     if (name.compare(QLatin1String("csb.cfg"), Qt::CaseInsensitive) == 0)
       readRulesFromConfig(info.dir().filePath(name).toStdString(), rules);

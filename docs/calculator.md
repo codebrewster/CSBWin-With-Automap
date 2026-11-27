@@ -73,8 +73,9 @@ hand, at 3 squares unless the distance is the input.
 
 ## What to know about the numbers
 
-- **Time.** The game clock runs at 6 ticks a second; all "per second" values
-  use that.
+- **Time.** The game's speed varies (about 4.2 ticks a second at Normal speed
+  with no input, faster while fighting); all "per second" values use 6 ticks a
+  second unless "Speed awake" says otherwise.
 - **A monster's attack rhythm** is taken from its timers when it stands and
   strikes. A monster that turns or steps in between is slower; the field
   "Ticks between attacks" overrides the value.
@@ -87,7 +88,15 @@ hand, at 3 squares unless the distance is the input.
   defence, and nothing at all against a defence above 64.
 - **Harm Non-Material against a Zytaz** is calculated like against any other
   non-material being; the engine has a special case for Zytaz that are attacking.
-- **Other weapons** in "Every weapon" are tried on with the hero's load as it is.
+- **Other weapons** in "Every weapon" are tried on with the hero's load as it is;
+  the skill levels a weapon adds (the Firestaff to every skill, the Sceptre of
+  Lyf to Heal) go with it.
+- **Experience of a miss.** A swing that misses gives the action's full
+  experience, as in the game; only a Disrupt on a material monster gives half.
+- **A shot gives 20 experience** under this port's rules, 9 in Nostalgia Mode
+  ("Shooting gives 20 experience" in the side panel).
+- **A monster that cannot be harmed** (Lord Chaos and the Lords) loses nothing
+  to a swing; the swing still costs stamina and gives experience.
 - **Missiles have no hit roll** against monsters: a missile that arrives hits
   (assumes the monster stands in the missile's path; the engine hits only a monster
   at the missile's position in the square, so a small monster in a group may be

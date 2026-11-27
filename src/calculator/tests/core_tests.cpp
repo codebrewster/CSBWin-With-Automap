@@ -13,6 +13,7 @@
 #include "../core/Recovery.h"
 #include "../core/Spells.h"
 #include "../core/Thrown.h"
+#include "../io/Config.h"
 #include "../io/GraphicsDat.h"
 #include "../io/SaveGame.h"
 
@@ -358,6 +359,119 @@ static void spells(const GameData &g)
   expect(c.range == (2 * 9 + 4) * 8 && c.decay == 10 - 60 / 8, "range and decay of a MON fireball");
 }
 
+// Steps of the engine the formulas once left out
+static void engineDetails(const GameData &g)
+{
+  Rules rules;
+  rules.luckDrift = false;
+  Hero h = fighter(g);
+  // a swing that misses still gives the action's full experience (AttackWithPhysicalForce
+  // returns 1); only a Disrupt on a material monster gives half
+  {
+    const ActionType &a = g.actions[13];
+    Target ghost = monster(g, 8, 3);
+    SwingResult r = heroAttack(h, g.weapons[10], a, ghost, rules, SwingOptions());
+    expect(r.hitChance == 0 && std::fabs(r.expPerSwing - a.exp * 3 * 2) < 1e-9,
+           "a swing through a Ghost gives the full experience");
+    const ActionType &disrupt = g.actions[24];
+    SwingResult f = heroAttack(h, g.weapons[16], disrupt, monster(g, 21, 3), rules, SwingOptions());
+    expect(std::fabs(f.expPerSwing - (disrupt.exp / 2) * 3 * 2) < 1e-9,
+           "a Disrupt on a material monster gives half");
+  }
+  // a monster that cannot be harmed loses nothing, but the swing costs and teaches as before
+  {
+    Target chaos = monster(g, 23, 4);
+    Target plain = chaos;
+    plain.type.invincible = false;
+    const ActionType &a = g.actions[2];
+    SwingResult r = heroAttack(h, g.weapons[18], a, chaos, rules, SwingOptions());
+    SwingResult p = heroAttack(h, g.weapons[18], a, plain, rules, SwingOptions());
+    expect(r.perSwing == 0 && r.dps == 0 && r.damage.empty() && r.swingsToKill == 0,
+           "Lord Chaos loses no hit points to a swing");
+    expect(r.expPerSwing == p.expPerSwing && r.staminaPerSwing == p.staminaPerSwing,
+           "the swing at Lord Chaos still costs stamina and gives experience");
+  }
+  // the weapon in hand adds to the skill levels: the Firestaff to all, the Sceptre of Lyf to Heal
+  {
+    Hero x = h;
+    holdWeapon(x, 10, g.weapons[10].weight);
+    Hero fire = x;
+    holdWeapon(fire, WeaponFirestaffB, g.weapons[WeaponFirestaffB].weight);
+    bool all = true;
+    for (int k = 0; k < SkillCount; k++) all = all && fire.mastery[k] == x.mastery[k] + 2;
+    expect(all, "the complete Firestaff adds 2 to every skill");
+    holdWeapon(fire, 10, g.weapons[10].weight);
+    bool back = true;
+    for (int k = 0; k < SkillCount; k++) back = back && fire.mastery[k] == x.mastery[k];
+    expect(back, "putting the sword back takes the Firestaff's levels away");
+    Hero lyf = x;
+    holdWeapon(lyf, WeaponSceptreOfLyf, g.weapons[WeaponSceptreOfLyf].weight);
+    expect(lyf.mastery[SkillHeal] == x.mastery[SkillHeal] + 1, "the Sceptre of Lyf adds 1 to Heal");
+    Hero gem = x;
+    gem.gemOfAges = true;
+    holdWeapon(gem, WeaponSceptreOfLyf, g.weapons[WeaponSceptreOfLyf].weight);
+    expect(gem.mastery[SkillHeal] == x.mastery[SkillHeal], "but not on top of a Gem of Ages");
+  }
+  // SHOOT: 9 experience in the table, 20 under this port's rule
+  {
+    const WeaponType *bow = nullptr, *arrow = nullptr;
+    for (const WeaponType &w : g.weapons) {
+      if (!bow && w.cls >= 16 && w.cls <= 31) bow = &w;
+      if (!arrow && w.cls == 10) arrow = &w;
+    }
+    expect(bow && arrow && g.actions[32].exp == 9, "a bow, an arrow and SHOOT's 9 experience");
+    if (bow && arrow) {
+      Target t = monster(g, 21, 2);
+      Rules on = rules, off = rules;
+      on.shootExperience20 = true;
+      off.shootExperience20 = false;
+      double e20 = throwAttack(g, h, *arrow, bow, t, on, 2, false).expPerThrow;
+      double e9 = throwAttack(g, h, *arrow, bow, t, off, 2, false).expPerThrow;
+      expect(e20 == 20 * 2 * 2 && e9 == 9 * 2 * 2, "a shot gives 20 experience by the port's rule, 9 without");
+    }
+  }
+  // mana above the maximum falls by 1 only on an update whose mana roll comes up
+  {
+    Hero m;
+    m.maxMana = 80;
+    m.attr[Wisdom] = 20;
+    m.mastery[SkillWizard] = 2;
+    m.mastery[SkillPriest] = 2;   // 24: only the clock values 0 and 16 pass
+    RecoveryState s{m.hp, m.stamina, 90, m.food, m.water};
+    tenSecondUpdate(s, m, false, 0x40, 0);   // random112 = 64
+    expect(s.mana == 90, "mana above the maximum stays when the roll fails");
+    tenSecondUpdate(s, m, false, 0, 0);      // random112 = 0
+    expect(s.mana == 89, "and falls by 1 when it comes up");
+  }
+}
+
+// csb.cfg: Nostalgia Mode wins over the other rules; a missing line is the game's default
+static void configRules()
+{
+  auto read = [](const char *text, Rules start) {
+    const char *path = "calc_tests_csb.cfg";   // in the working directory, removed again
+    FILE *f = std::fopen(path, "w");
+    std::fputs(text, f);
+    std::fclose(f);
+    readRulesFromConfig(path, start);
+    std::remove(path);
+    return start;
+  };
+  Rules changed;
+  changed.vulnerableOnAttack = true;
+  changed.shotDamageFactor = 4;
+  changed.shootExperience20 = false;
+  Rules port = read("[settings]\nmonsters_vulnerable_on_attack = 1\nnostalgia_mode = 0\nlauncher_power = 3\n", Rules());
+  expect(port.vulnerableOnAttack && port.shotDamageFactor == 3 && port.shootExperience20,
+         "csb.cfg: the port's rules as the file sets them");
+  Rules classic = read("[settings]\nmonsters_vulnerable_on_attack = 1\nnostalgia_mode = 1\nlauncher_power = 3\n", Rules());
+  expect(!classic.vulnerableOnAttack && classic.shotDamageFactor == 1 && !classic.shootExperience20,
+         "csb.cfg: Nostalgia Mode plays by the classic rules");
+  Rules empty = read("[settings]\n", changed);
+  expect(!empty.vulnerableOnAttack && empty.shotDamageFactor == 1 && empty.shootExperience20,
+         "csb.cfg: a missing line is the game's default, not the value before");
+}
+
 static void recovery()
 {
   Hero h;
@@ -562,8 +676,8 @@ static void thrown(const GameData &g)
          "a shot's table is damageOnMonster's");
   expect(std::fabs(shot.stamina - (shootAct.energy + 0.5)) < 1e-12 &&
            std::fabs(shot.ticks - swingPeriod(shootAct.ticks)) < 1e-12 &&
-           std::fabs(shot.expPerThrow - shootAct.exp * t.level * 2) < 1e-12,
-         "a shot: the Shoot action's energy + coin flip, its ticks and its experience");
+           std::fabs(shot.expPerThrow - (rules.shootExperience20 ? 20 : shootAct.exp) * t.level * 2) < 1e-12,
+         "a shot: the Shoot action's energy + coin flip, its ticks and its experience (20 by the port's rule)");
 }
 
 int main(int argc, char **argv)
@@ -583,6 +697,8 @@ int main(int argc, char **argv)
   spells(g);
   thrown(g);
   recovery();
+  engineDetails(g);
+  configRules();
   std::printf("%d checks, %d failed\n", checks, failures);
   return failures ? 1 : 0;
 }

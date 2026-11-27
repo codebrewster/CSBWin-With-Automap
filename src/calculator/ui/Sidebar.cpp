@@ -127,8 +127,11 @@ void Sidebar::buildHero(QVBoxLayout *column)
                                          "Bonuses of held items are included.")));
   g = skills->addGrid();
   n = 0;
-  for (int k = 0; k < SkillCount; k++)
-    Card::addPair(g, n++, 2, tr(skillName(k)), field(&h.mastery[k], &b.mastery[k], 0, 40));
+  for (int k = 0; k < SkillCount; k++) {
+    IntField *f = field(&h.mastery[k], &b.mastery[k], 0, 40);
+    masteryFields_.push_back(f);
+    Card::addPair(g, n++, 2, tr(skillName(k)), f);
+  }
   column->addWidget(skills);
   skills->setCollapsed(true);
 
@@ -139,15 +142,18 @@ void Sidebar::buildHero(QVBoxLayout *column)
   connect(weaponBox_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
     if (filling_) return;
     Hero &hero = s_->hero;
-    hero.weapon = weaponBox_->currentData().toInt();
+    const int weapon = weaponBox_->currentData().toInt();
     const ArmourType *shield = nullptr;
     if (hero.armour[SlotActionHand] >= 0) shield = &s_->data.armours[size_t(hero.armour[SlotActionHand])];
+    // the weapon's weight and the skill levels it adds (Firestaff, Sceptre of Lyf)
+    holdWeapon(hero, weapon, hero.handWeight[1]);
     if (hero.weapon >= 0) {
       hero.armour[SlotActionHand] = -1;
       hero.handWeight[1] = s_->data.weapon(hero.weapon).weight;
     } else if (!shield) {
       hero.handWeight[1] = 0;
     }
+    for (IntField *f : masteryFields_) f->refresh();
     s_->touch();
   });
   static const char *const slotLabels[6] = {"Ready hand", "", "Head", "Torso", "Legs", "Feet"};
@@ -248,7 +254,7 @@ void Sidebar::buildHero(QVBoxLayout *column)
     ShieldCast c = castShield(sp, powerBox->currentData().toInt(), current);
     castNote->setText(tr("Adds %1 to the %2 shield, which wears off again after %3 ticks (about %4 seconds awake).")
                         .arg(c.added).arg(sp == ShieldYaIr ? tr("party") : tr("fire")).arg(c.ticks)
-                        .arg(c.ticks / 4.2, 0, 'f', 0));
+                        .arg(c.ticks / ticksPerSecond(), 0, 'f', 0));
   };
   connect(spellBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, preview);
   connect(powerBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, preview);
@@ -352,6 +358,10 @@ void Sidebar::buildRules(QVBoxLayout *column)
   auto *vulnerable = new BoolField(tr("Monsters vulnerable on attack"), s_, &r.vulnerableOnAttack);
   vulnerable->setToolTip(tr("This port's rule: a monster caught while it attacks has half its defence"));
   card->body()->addWidget(vulnerable);
+  auto *shoot = new BoolField(tr("Shooting gives 20 experience"), s_, &r.shootExperience20);
+  shoot->setToolTip(tr("This port's rule (DM 1.1): SHOOT gives 20 experience where the table says 9; "
+                       "off in Nostalgia Mode"));
+  card->body()->addWidget(shoot);
   auto *drift = new BoolField(tr("Luck drifts during a fight"), s_, &r.luckDrift);
   drift->setToolTip(tr("Every luck roll moves Luck by 2: down after a lucky one, up after an unlucky one"));
   card->body()->addWidget(drift);
@@ -374,7 +384,7 @@ void Sidebar::buildRules(QVBoxLayout *column)
   };
   rate(1, tr("Speed awake"), &tickRates().awake,
        tr("Game ticks per real second at your speed setting. Count the ticks over a stretch of time; "
-          "Normal speed is about 4.2 with no input, but 5.6 measured while fighting with a key held down"));
+          "it varies: Normal speed was about 4.2 with no input and faster while fighting. 6 is the reference"));
   rate(2, tr("Speed asleep"), &tickRates().asleep,
        tr("While the party sleeps the game ticks on every vertical blank, far faster than awake; "
           "58.8 was measured"));

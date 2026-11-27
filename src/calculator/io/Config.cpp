@@ -10,8 +10,9 @@ bool readRulesFromConfig(const std::string &path, Rules &rules)
 {
   FILE *f = std::fopen(path.c_str(), "r");
   if (!f) return false;
-  bool nostalgia = false, vulnerable = rules.vulnerableOnAttack;
-  int launcher = rules.shotDamageFactor;
+  // a missing line counts as the game's default (CSBlinux.cpp: csb_get_config_int(..., 0 or 1))
+  bool nostalgia = false, vulnerable = false;
+  int launcher = 1;
   char line[512];
   while (std::fgets(line, sizeof line, f)) {
     char key[128];
@@ -24,6 +25,7 @@ bool readRulesFromConfig(const std::string &path, Rules &rules)
   std::fclose(f);
   // Nostalgia Mode plays by the classic rules whatever else is set (GameRules.cpp)
   rules.vulnerableOnAttack = !nostalgia && vulnerable;
+  rules.shootExperience20 = !nostalgia;
   rules.shotDamageFactor = nostalgia ? 1 : (launcher < 1 ? 1 : (launcher > 6 ? 6 : launcher));
   return true;
 }
