@@ -175,7 +175,7 @@ void HeroAttackPage::recalculate()
   };
   const bool slow = opt.staminaDrain && jobs.size() * size_t(opt.swings) > 400;
   if (slow) QApplication::setOverrideCursor(Qt::WaitCursor);
-  unsigned threads = std::max(1u, std::min<unsigned>(std::thread::hardware_concurrency(), unsigned(jobs.size())));
+  unsigned threads = workerThreads(jobs.size());
   std::vector<std::thread> pool;
   for (unsigned i = 1; i < threads; i++) pool.emplace_back(work);
   work();

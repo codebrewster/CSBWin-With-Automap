@@ -40,12 +40,21 @@ find_package(QT NAMES Qt6 Qt5 COMPONENTS Widgets QUIET)
 if(QT_FOUND)
   find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
   set(CMAKE_AUTOMOC ON)
-  add_executable(dm_calculator WIN32 MACOSX_BUNDLE
+  set(CALC_UI
     ui/main.cpp ui/MainWindow.cpp ui/MainWindow.h ui/Session.cpp ui/Session.h
     ui/Sidebar.cpp ui/Sidebar.h ui/Theme.cpp ui/Theme.h ui/Widgets.cpp ui/Widgets.h
     ui/Pages.h ui/Page.cpp ui/HeroAttackPage.cpp ui/ThrowPage.cpp ui/MonsterAttackPage.cpp ui/SpellPage.cpp
     ui/RecoveryPage.cpp ui/WhatIfPage.cpp)
-  target_link_libraries(dm_calculator calc_core Qt${QT_VERSION_MAJOR}::Widgets Threads::Threads)
+  if(QT_VERSION_MAJOR GREATER_EQUAL 6)
+    # Qt's own command adds what a platform needs, such as the browser's libraries for WebAssembly
+    qt_add_executable(dm_calculator WIN32 MACOSX_BUNDLE ${CALC_UI})
+  else()
+    add_executable(dm_calculator WIN32 MACOSX_BUNDLE ${CALC_UI})
+  endif()
+  target_link_libraries(dm_calculator PRIVATE calc_core Qt${QT_VERSION_MAJOR}::Widgets)
+  if(NOT EMSCRIPTEN)   # the browser build runs on one thread
+    target_link_libraries(dm_calculator PRIVATE Threads::Threads)
+  endif()
 else()
   message(STATUS "Qt not found: building only the checks and command-line tools")
 endif()

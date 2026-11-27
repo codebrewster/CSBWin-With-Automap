@@ -10,6 +10,8 @@
 #include <QCheckBox>
 #include <QDragEnterEvent>
 #include <QFileDialog>
+#include <QFile>
+#include <QDir>
 #include <QFileInfo>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -64,6 +66,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
   warning_ = new QLabel;
   warning_->setObjectName(QStringLiteral("warning"));
   barLayout->addWidget(warning_);
+#ifndef Q_OS_WASM   // in a browser its own zoom (Ctrl + and Ctrl -) does this
   zoomButton_ = new QToolButton;
   {
     const int now = qRound(qEnvironmentVariable("QT_SCALE_FACTOR", QStringLiteral("1")).toDouble() * 100);
@@ -87,6 +90,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     zoomButton_->setMenu(menu);
   }
   barLayout->addWidget(zoomButton_);
+#else
+  zoomButton_ = nullptr;
+#endif
   themeButton_ = new QToolButton;
   themeButton_->setToolTip(tr("Light or dark"));
   barLayout->addWidget(themeButton_);
@@ -137,6 +143,27 @@ void MainWindow::refreshBar()
 
 void MainWindow::chooseSave()
 {
+#ifdef Q_OS_WASM
+  // A web page gets the bytes of the file the visitor picks, not a path: they go into the page's
+  // own file space, and from there the savegame opens as any other.  No graphics.dat or csb.cfg
+  // comes with it, so the built-in tables and the default rules apply (both in the side panel).
+  // No filter: with any, the browser's own dialog hides "All files" (Qt sets excludeAcceptAllOption),
+  // and many savegames have no ending at all
+  QFileDialog::getOpenFileContent(
+    QString(),
+    [this](const QString &name, const QByteArray &bytes) {
+      if (name.isEmpty()) return;
+      const QString dir = QDir::tempPath() + QStringLiteral("/savegames");
+      QDir().mkpath(dir);
+      const QString path = dir + QLatin1Char('/') + QFileInfo(name).fileName();
+      QFile file(path);
+      if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size()) return;
+      file.close();
+      openSave(path);
+    },
+    this);
+  return;
+#endif
   QSettings settings;
   QString dir = settings.value(QStringLiteral("lastSaveDir")).toString();
   QString path = QFileDialog::getOpenFileName(
@@ -254,6 +281,7 @@ void MainWindow::restoreState(const QByteArray &state)
   showSetup(setup);
 }
 
+#ifndef Q_OS_WASM
 void MainWindow::setZoom(int percent)
 {
   QSettings().setValue(QStringLiteral("zoom"), percent);
@@ -272,6 +300,7 @@ void MainWindow::setZoom(int percent)
   process.setProcessEnvironment(env);
   if (process.startDetached()) qApp->quit();
 }
+#endif
 
 void MainWindow::fitSidebar()
 {

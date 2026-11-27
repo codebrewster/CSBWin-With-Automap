@@ -361,7 +361,7 @@ void Histogram::paintEvent(QPaintEvent *)
   const Theme &t = theme();
   QPainter p(this);
   p.setRenderHint(QPainter::Antialiasing);
-  QRectF r = rect().adjusted(0.5, 0.5, -0.5, -0.5);
+  QRectF r = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
   p.setPen(t.border);
   p.setBrush(t.surface);
   p.drawRoundedRect(r, 10, 10);
@@ -501,7 +501,7 @@ void LineChart::paintEvent(QPaintEvent *)
   const Theme &t = theme();
   QPainter p(this);
   p.setRenderHint(QPainter::Antialiasing);
-  QRectF r = rect().adjusted(0.5, 0.5, -0.5, -0.5);
+  QRectF r = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
   p.setPen(t.border);
   p.setBrush(t.surface);
   p.drawRoundedRect(r, 10, 10);

@@ -1,3 +1,4 @@
+#include <thread>
 #include <algorithm>
 #include <QHeaderView>
 #include <QScrollArea>
@@ -97,6 +98,16 @@ QTableWidgetItem *textCell(const QString &text)
   auto *item = new QTableWidgetItem(text);
   item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
   return item;
+}
+
+unsigned workerThreads(size_t jobs)
+{
+#ifdef Q_OS_WASM
+  (void)jobs;
+  return 1;
+#else
+  return std::max(1u, std::min<unsigned>(std::thread::hardware_concurrency(), unsigned(jobs)));
+#endif
 }
 
 void styleTable(QTableWidget *table)

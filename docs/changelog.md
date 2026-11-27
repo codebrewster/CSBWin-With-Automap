@@ -8,6 +8,8 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 ## Unreleased
 
 **Calculator**
+- The calculator also builds for a web browser (Qt for WebAssembly, see BUILDING.md): the whole program in a page, savegames opened from any folder, the browser's zoom instead of the Zoom button.
+- Rounded borders are now drawn on the half pixel as meant, so they stay sharp.
 - The window starts wide enough that, with the side panel hidden (Setup), the Hero attacks table shows every column. `--no-setup` starts with the side panel hidden.
 - Zoom in the top bar, from 75 % to 300 %: text, tables and charts grow together, for poor eyesight, small screens or very high resolutions. The window starts again with everything as it was: savegame, hero, monster, the values typed in and each tab's settings; the zoom is kept.
 - Names follow the game of the tables in use: Dungeon Master's (Bolt Blade, Giant Wasp) or Chaos Strikes Back's (Storm, Muncher), one name per entry; the other game's name shows as a tooltip. Without a savegame the Dungeon Master names are used.

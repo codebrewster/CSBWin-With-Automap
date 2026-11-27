@@ -32,7 +32,9 @@ class MainWindow : public QMainWindow {
  private:
   void chooseSave();
   void toggleTheme();
+#ifndef Q_OS_WASM
   void setZoom(int percent);   // saves it and starts the window again at that size
+#endif
   void refreshBar();
   void fitSidebar();
 

@@ -50,6 +50,8 @@ QString otherGameTip(const std::string &otherName, bool chaosStrikesBack);
 // hero's strength allows (DetermineThrowingDistance), else "".  what = "swing" or "throw".
 QString weightNote(const calc::Hero &hero, const calc::WeaponType &weapon, const QString &what);
 void styleTable(QTableWidget *table);
+// How many threads to spread `jobs` rows over: the cores, but 1 in a browser (one thread there)
+unsigned workerThreads(size_t jobs);
 // The first click on a column header sorts the best rows to the top: text columns A to Z, the
 // columns in lowerIsBetter (stamina, time to kill) from the least, every other number from the
 // most.  A second click on the same column turns the order round as usual.

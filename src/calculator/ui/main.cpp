@@ -8,6 +8,9 @@
 #include <QScreen>
 
 #include <cstdlib>
+#ifdef Q_OS_WASM
+#include <emscripten/val.h>
+#endif
 #include <cstring>
 
 #include "MainWindow.h"
@@ -19,6 +22,11 @@
 // the user set in the environment is left alone.
 static void applyZoom(int argc, char **argv)
 {
+#ifdef Q_OS_WASM
+  (void)argc;
+  (void)argv;
+  return;   // the browser zooms the page itself
+#endif
   if (qEnvironmentVariableIsSet("QT_SCALE_FACTOR")) return;
   int percent = QSettings(QStringLiteral("CSBwin"), QStringLiteral("Calculator"))
                   .value(QStringLiteral("zoom"), 100).toInt();
@@ -31,6 +39,11 @@ static void applyZoom(int argc, char **argv)
 int main(int argc, char **argv)
 {
   applyZoom(argc, argv);
+#ifdef Q_OS_WASM
+  // Chrome's newer file dialog (showOpenFilePicker) refuses whole folders it counts as
+  // "system files". Without it Qt takes the classic file input, which hands over any file.
+  emscripten::val::global("window").set("showOpenFilePicker", emscripten::val::undefined());
+#endif
   QApplication app(argc, argv);
   QCoreApplication::setOrganizationName(QStringLiteral("CSBwin"));
   QCoreApplication::setApplicationName(QStringLiteral("Calculator"));

@@ -94,6 +94,35 @@ compiler that Qt was built for. Without Qt, CMake builds only the checks (`calc_
 two command-line tools, `calc_dump` (the tables of a `graphics.dat`) and `calc_save` (what the
 calculator reads out of a savegame).
 
+### The calculator in a web browser
+
+The calculator also builds for the browser with Qt for WebAssembly. It needs Qt's
+"WebAssembly (single-threaded)" kit and the Emscripten version that kit was made with (4.0.7 for
+Qt 6.10; `qt-cmake` names it if it differs), installed with
+[emsdk](https://emscripten.org/docs/getting_started/downloads.html):
+
+```
+git clone https://github.com/emscripten-core/emsdk.git ~/emsdk
+~/emsdk/emsdk install 4.0.7 && ~/emsdk/emsdk activate 4.0.7
+
+cd src/calculator
+source ~/emsdk/emsdk_env.sh
+/path/to/Qt/6.x/wasm_singlethread/bin/qt-cmake -S . -B build-wasm -DQT_HOST_PATH=/path/to/Qt/6.x/gcc_64
+cmake --build build-wasm --target dm_calculator -j8
+```
+
+`build-wasm` then holds `dm_calculator.html`, `.js`, `.wasm` and `qtloader.js`. A browser loads
+them only from a web server, not from the disk; to try them:
+
+```
+cd build-wasm && python3 -m http.server 8765 --bind 127.0.0.1
+```
+
+and open http://127.0.0.1:8765/dm_calculator.html. In the browser, "Open savegame…" reads the
+file the visitor picks; no `graphics.dat` or `csb.cfg` comes with it, so the built-in tables and
+the default rules apply (both can be changed in the side panel). The browser's own zoom
+(Ctrl + and Ctrl −) replaces the Zoom button.
+
 ## What was checked
 
 - macOS on Apple Silicon with Apple clang and SDL2 2.32 from Homebrew: both builds, the tests,

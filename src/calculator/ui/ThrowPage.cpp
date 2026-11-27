@@ -187,7 +187,7 @@ void ThrowPage::recalculate()
       heroes_[i] = job.hero;
     }
   };
-  unsigned threads = std::max(1u, std::min<unsigned>(std::thread::hardware_concurrency(), unsigned(jobs.size())));
+  unsigned threads = workerThreads(jobs.size());
   const bool slow = jobs.size() > 100;
   if (slow) QApplication::setOverrideCursor(Qt::WaitCursor);
   std::vector<std::thread> pool;
