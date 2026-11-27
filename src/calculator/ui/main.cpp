@@ -3,6 +3,8 @@
 //   dm_calculator [SAVEGAME]
 #include <QApplication>
 #include <QCommandLineParser>
+#include <QFont>
+#include <QFontDatabase>
 #include <QSettings>
 #include <QTimer>
 #include <QScreen>
@@ -45,6 +47,12 @@ int main(int argc, char **argv)
   emscripten::val::global("window").set("showOpenFilePicker", emscripten::val::undefined());
 #endif
   QApplication app(argc, argv);
+#ifdef Q_OS_WASM
+  // the fonts inside the program (CMakeLists.txt); symbols they lack come from Qt's own font
+  QFontDatabase::addApplicationFont(QStringLiteral(":/fonts/NotoSans-Regular.ttf"));
+  QFontDatabase::addApplicationFont(QStringLiteral(":/fonts/NotoSans-Bold.ttf"));
+  QApplication::setFont(QFont(QStringLiteral("Noto Sans")));
+#endif
   QCoreApplication::setOrganizationName(QStringLiteral("CSBwin"));
   QCoreApplication::setApplicationName(QStringLiteral("Calculator"));
   QCommandLineParser parser;

@@ -54,6 +54,11 @@ if(QT_FOUND)
   target_link_libraries(dm_calculator PRIVATE calc_core Qt${QT_VERSION_MAJOR}::Widgets)
   if(NOT EMSCRIPTEN)   # the browser build runs on one thread
     target_link_libraries(dm_calculator PRIVATE Threads::Threads)
+  else()
+    # A browser has no fonts for the page to use: Noto Sans, cut down to what the calculator
+    # shows (ui/fonts/OFL.txt), goes inside the program
+    qt_add_resources(dm_calculator "fonts" PREFIX "/fonts" BASE ui/fonts
+                     FILES ui/fonts/NotoSans-Regular.ttf ui/fonts/NotoSans-Bold.ttf)
   endif()
 else()
   message(STATUS "Qt not found: building only the checks and command-line tools")

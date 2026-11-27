@@ -118,7 +118,11 @@ them only from a web server, not from the disk; to try them:
 cd build-wasm && python3 -m http.server 8765 --bind 127.0.0.1
 ```
 
-and open http://127.0.0.1:8765/dm_calculator.html. In the browser, "Open savegame…" reads the
+and open http://127.0.0.1:8765/dm_calculator.html. `scripts/publish-calculator-web.sh` does the
+build and puts the files together with the calculator's own page (`src/calculator/web`), its icon
+and the font licence in `build-wasm/site`; with `-p` it adds that folder to the GitHub Pages site as
+`calculator/`. The browser build carries Noto Sans (cut down to what the calculator shows, see
+`src/calculator/ui/fonts/OFL.txt`), since a browser has no fonts for it. In the browser, "Open savegame…" reads the
 file the visitor picks; no `graphics.dat` or `csb.cfg` comes with it, so the built-in tables and
 the default rules apply (both can be changed in the side panel). The browser's own zoom
 (Ctrl + and Ctrl −) replaces the Zoom button.
