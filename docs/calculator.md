@@ -10,6 +10,10 @@ the same order instead of running trials. Results appear as you type.
 
 ## Building and running
 
+The calculator also runs in the browser, with nothing to install:
+https://codebrewster.github.io/CSBwin-Plus/calculator/ (built from these sources
+with Qt for WebAssembly; see BUILDING.md).
+
 See [BUILDING.md](../BUILDING.md#the-calculator). In short:
 
 ```

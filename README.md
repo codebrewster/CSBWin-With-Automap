@@ -311,6 +311,15 @@ savegame, so a custom dungeon is calculated with its own.
 
 ![The calculator: a hero from a savegame on the left, a monster's attack on him worked out on the right](docs/images/calculator.png)
 
+**Try it in your browser**, with nothing to install:
+[codebrewster.github.io/CSBwin-Plus/calculator](https://codebrewster.github.io/CSBwin-Plus/calculator/).
+It is the same program, built for the web; a savegame you open there stays on your
+computer. The browser version has no `graphics.dat` beside the savegame, so it
+uses the built-in tables of Dungeon Master or Chaos Strikes Back (*Tables* in
+the side panel).
+
+To build it yourself:
+
 ```sh
 cd src/calculator
 cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/Qt/6.x/gcc_64
