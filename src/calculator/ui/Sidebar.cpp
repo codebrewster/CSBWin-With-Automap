@@ -11,6 +11,10 @@
 #include <QVBoxLayout>
 #include <QWheelEvent>
 
+#include <algorithm>
+#include <utility>
+#include <vector>
+
 #include "../core/Defense.h"
 #include "../core/Spells.h"
 #include "Widgets.h"
@@ -20,6 +24,15 @@ using namespace calc;
 namespace ui {
 
 namespace {
+
+// Fill a choice with (name, id) pairs sorted by name, after the entries already in it
+void addSorted(QComboBox *box, std::vector<std::pair<QString, int>> items)
+{
+  std::stable_sort(items.begin(), items.end(), [](const auto &a, const auto &b) {
+    return QString::localeAwareCompare(a.first, b.first) < 0;
+  });
+  for (const auto &it : items) box->addItem(it.first, it.second);
+}
 // Combo boxes in a scrolling panel must not eat the wheel
 class Choice : public QComboBox {
  public:
@@ -87,6 +100,21 @@ void Sidebar::buildHero(QVBoxLayout *column)
   card->body()->addWidget(heroBox_);
   heroNote_ = noteLabel();
   card->body()->addWidget(heroNote_);
+  {
+    auto *row = new QHBoxLayout;
+    auto *maxButton = new QPushButton(tr("Max out"));
+    maxButton->setToolTip(tr("Every attribute to 255, every skill to level 21 (the most experience the game "
+                             "can hold), hit points to 999, stamina to 9999 and mana to 900. What the hero "
+                             "holds and wears stays."));
+    restoreButton_ = new QPushButton(tr("As in the savegame"));
+    restoreButton_->setToolTip(tr("Put every value of this hero back as the savegame has it"));
+    row->addWidget(maxButton);
+    row->addWidget(restoreButton_);
+    row->addStretch();
+    card->body()->addLayout(row);
+    connect(maxButton, &QPushButton::clicked, s_, &Session::maxOutHero);
+    connect(restoreButton_, &QPushButton::clicked, s_, &Session::restoreHero);
+  }
   connect(heroBox_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int i) {
     if (!filling_ && i >= 0) s_->selectHero(i);
   });
@@ -366,7 +394,11 @@ void Sidebar::buildRules(QVBoxLayout *column)
   drift->setToolTip(tr("Every luck roll moves Luck by 2: down after a lucky one, up after an unlucky one"));
   card->body()->addWidget(drift);
   auto *bias = new BoolField(tr("Dice as on the Atari"), s_, &r.moduloBias);
-  bias->setToolTip(tr("The game's dice favour low numbers very slightly; off = perfectly even dice"));
+  bias->setToolTip(tr("On: the dice roll exactly as in the game. The game rolls a number from 0 to n−1 "
+                      "by taking a 16-bit random number modulo n, so the low numbers come up very "
+                      "slightly more often: by less than half a percent for the dice the formulas use.\n"
+                      "Off: every number of a roll is equally likely. The results then differ from "
+                      "the game's only in the last decimals."));
   card->body()->addWidget(bias);
   auto rate = [&](int row, const QString &label, double *value, const QString &tip) {
     auto *box = new QDoubleSpinBox;
@@ -446,21 +478,28 @@ void Sidebar::refill()
     heroNote_->setText(tr("Open a savegame to fill these in from a real party."));
   }
   heroBox_->setEnabled(s_->save != nullptr);
+  restoreButton_->setEnabled(s_->save != nullptr);
 
   weaponBox_->clear();
   weaponBox_->addItem(tr("Bare hands"), -1);
-  for (const WeaponType &w : d.weapons) weaponBox_->addItem(QString::fromStdString(w.name), w.id);
+  {
+    std::vector<std::pair<QString, int>> items;
+    for (const WeaponType &w : d.weapons) items.push_back({QString::fromStdString(w.name), w.id});
+    addSorted(weaponBox_, items);
+  }
   selectData(weaponBox_, s_->hero.weapon);
   static const int slotBit[6] = {0, 0, 0x02, 0x08, 0x10, 0x20};
   for (int slot : {0, 2, 3, 4, 5}) {
     QComboBox *box = armourBox_[slot];
     box->clear();
     box->addItem(slot == 0 ? tr("No shield") : tr("Nothing"), -1);
+    std::vector<std::pair<QString, int>> items;
     for (const ArmourType &a : d.armours) {
       bool fits = slot == 0 ? a.isShield() : (a.wearSlots & slotBit[slot]) != 0;
       if (fits || a.id == s_->hero.armour[slot])
-        box->addItem(tr("%1  (%2)").arg(QString::fromStdString(a.name)).arg(a.defense), a.id);
+        items.push_back({tr("%1  (%2)").arg(QString::fromStdString(a.name)).arg(a.defense), a.id});
     }
+    addSorted(box, items);
     selectData(box, s_->hero.armour[slot]);
   }
 
@@ -477,7 +516,11 @@ void Sidebar::refill()
   levelBox_->setEnabled(levelBox_->count() > 1);
   fillGroups();
   monsterBox_->clear();
-  for (const MonsterType &m : d.monsters) monsterBox_->addItem(QString::fromStdString(m.name), m.id);
+  {
+    std::vector<std::pair<QString, int>> items;
+    for (const MonsterType &m : d.monsters) items.push_back({QString::fromStdString(m.name), m.id});
+    addSorted(monsterBox_, items);
+  }
   selectData(monsterBox_, s_->target.type.id);
   selectData(kindBox_, s_->target.type.attackKind);
   const MonsterType &m = s_->target.type;

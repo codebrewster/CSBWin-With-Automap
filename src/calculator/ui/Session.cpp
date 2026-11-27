@@ -142,6 +142,18 @@ void Session::selectHero(int index)
   emit changed();
 }
 
+void Session::maxOutHero()
+{
+  calc::maxOut(hero);
+  emit reloaded();
+  emit changed();
+}
+
+void Session::restoreHero()
+{
+  if (save) selectHero(heroIndex);
+}
+
 void Session::setNegativeActionIsZero(bool on)
 {
   negativeActionIsZero = on;

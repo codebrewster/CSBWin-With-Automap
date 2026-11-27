@@ -2,6 +2,7 @@
 // level, and the rules in force.  Every value a formula reads is a field
 // here, so each one can be typed in or come from a savegame.
 #pragma once
+#include <algorithm>
 #include <string>
 #include "GameData.h"
 
@@ -58,6 +59,33 @@ inline void holdWeapon(Hero &h, int weapon, int weight)
   h.mastery[SkillHeal] += heal;
   h.weapon = weapon;
   h.handWeight[1] = weight;
+}
+
+// The highest values the game's numbers can hold.  Attributes are single bytes; skill
+// experience stops at 0x10000000 (LimitSkillExperience, CSB.h), which DetermineMastery turns
+// into level 21 for every skill (the game names levels only up to Archmaster, 16); level-ups
+// stop hit points at 999, stamina at 9999 and mana at 900 (MAXMANA) (Magic.cpp, LevelUp).
+enum { MaxAttribute = 255, MaxSkillLevel = 21, MaxHitPoints = 999, MaxStaminaPoints = 9999,
+       MaxManaPoints = 900 };
+
+// Everything at the game's maximum, current and maximum alike, to see what a hero at the
+// very top could do.  What is held and worn stays, and still adds its skill levels.
+inline void maxOut(Hero &h)
+{
+  for (int a = 0; a < AttributeCount; a++) {
+    h.attr[a] = h.attrMax[a] = MaxAttribute;
+    if (h.attrMin[a] > MaxAttribute) h.attrMin[a] = MaxAttribute;
+  }
+  for (int k = 0; k < SkillCount; k++) {
+    int level = MaxSkillLevel + allSkillsBonus(h.weapon);
+    if (k == SkillHeal) level += healBonus(h, h.weapon);
+    if (k == SkillDefend && h.ekkhardCross) level++;
+    // a necklace the hero model does not record (Pendant Feral, Moonstone) keeps its level
+    h.mastery[k] = std::max(h.mastery[k], level);
+  }
+  h.hp = h.maxHp = MaxHitPoints;
+  h.stamina = h.maxStamina = MaxStaminaPoints;
+  h.mana = h.maxMana = MaxManaPoints;
 }
 
 struct Party {

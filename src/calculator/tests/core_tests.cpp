@@ -2,7 +2,9 @@
 // the recovery simulation against hand-worked cases.  No Qt, no game files.
 //   calc_tests [trials]
 //   calc_tests --files GRAPHICS.DAT SAVEGAME...   the readers, on files of your own
+#include <algorithm>
 #include <cmath>
+#include <iterator>
 #include <cstdio>
 #include <cstdlib>
 #include <functional>
@@ -472,6 +474,27 @@ static void configRules()
          "csb.cfg: a missing line is the game's default, not the value before");
 }
 
+// "Max out": the game's ceilings, with what the hand holds still adding its levels
+static void maxedHero(const GameData &g)
+{
+  Hero h = fighter(g);
+  holdWeapon(h, WeaponFirestaffB, g.weapons[WeaponFirestaffB].weight);
+  h.ekkhardCross = true;
+  maxOut(h);
+  bool attrs = true;
+  for (int a = 0; a < AttributeCount; a++) attrs = attrs && h.attr[a] == 255 && h.attrMax[a] == 255;
+  expect(attrs, "max out: every attribute at 255");
+  expect(h.mastery[SkillSwing] == 21 + 2 && h.mastery[SkillDefend] == 21 + 2 + 1,
+         "max out: level 21 plus the Firestaff's 2 and the Ekkhard Cross");
+  expect(h.hp == 999 && h.maxHp == 999 && h.stamina == 9999 && h.maxStamina == 9999 &&
+           h.mana == 900 && h.maxMana == 900,
+         "max out: 999 hit points, 9999 stamina, 900 mana");
+  Hero again = h;
+  maxOut(again);
+  expect(std::equal(std::begin(h.mastery), std::end(h.mastery), std::begin(again.mastery)),
+         "max out twice changes nothing");
+}
+
 static void recovery()
 {
   Hero h;
@@ -699,6 +722,7 @@ int main(int argc, char **argv)
   recovery();
   engineDetails(g);
   configRules();
+  maxedHero(g);
   std::printf("%d checks, %d failed\n", checks, failures);
   return failures ? 1 : 0;
 }

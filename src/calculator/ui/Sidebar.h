@@ -6,6 +6,7 @@
 
 class QComboBox;
 class QLabel;
+class QPushButton;
 class QVBoxLayout;
 
 namespace ui {
@@ -28,6 +29,7 @@ class Sidebar : public QWidget {
   QComboBox *heroBox_ = nullptr, *weaponBox_ = nullptr, *armourBox_[6] = {};
   QComboBox *levelBox_ = nullptr, *groupBox_ = nullptr, *monsterBox_ = nullptr, *kindBox_ = nullptr;
   QComboBox *tablesBox_ = nullptr;
+  QPushButton *restoreButton_ = nullptr;
   QLabel *heroNote_ = nullptr, *monsterNote_ = nullptr, *tablesNote_ = nullptr;
   std::vector<IntField *> masteryFields_;   // refreshed when the weapon changes them
   bool filling_ = false;

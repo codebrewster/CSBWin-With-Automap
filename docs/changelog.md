@@ -7,6 +7,10 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 ## Unreleased
 
+**Calculator**
+- The weapon, armour and monster lists in the side panel are sorted by name.
+- "Max out" in the Hero card puts every attribute at 255, every skill at level 21 (the most experience the game can hold), hit points at 999, stamina at 9999 and mana at 900; "As in the savegame" puts the hero back.
+
 ## 1.7.9 (2026-11-27)
 
 **Calculator**

@@ -41,6 +41,8 @@ class Session : public QObject {
   QString openSave(const QString &path);
   void closeSave();
   void selectHero(int index);
+  void maxOutHero();          // every attribute, skill and pool at the game's maximum
+  void restoreHero();         // the hero as the savegame has it again
   void setNegativeActionIsZero(bool on);
   void selectTables(int source);
   void selectLevel(int index);           // -1 = no savegame level
