@@ -1076,10 +1076,10 @@ function buildIndex() {
   INDEX = []; if (!DATA) return;
   DATA.index.levels.forEach((L, l) => {
     const v = viewOf(l); if (!v) return;
-    // food: the item is of the food kind (index 6 of KIND_SHOW), which the word FOOD finds as in the game
+    // ik: the item's kind, an index of KIND_SHOW, which the word FOOD and the SHOW menu's words
+    // (WEAPONS, ARMOUR, ...) find as in the game
     // n: how many, drawn after the name as the tooltip does (DAGGER X2)
-    const add = (x, y, name, tag, icon, kind, food, n) => INDEX.push({ l, x, y, gx: x + L.offsetX, gy: y + L.offsetY, name: (name || '').toUpperCase(), tag, icon, kind, food: !!food, n: n || 1 });
-    const FOOD_KIND = KIND_SHOW.indexOf('FOOD');
+    const add = (x, y, name, tag, icon, kind, ik, n) => INDEX.push({ l, x, y, gx: x + L.offsetX, gy: y + L.offsetY, name: (name || '').toUpperCase(), tag, icon, kind, ik: ik === undefined ? -1 : ik, n: n || 1 });
     const monsterAt = {}; v.monsters.forEach(m => monsterAt[m.x + ',' + m.y] = m);
     for (const c of v.cells) {
       const h = v.hover[c.x + ',' + c.y], m = monsterAt[c.x + ',' + c.y];
@@ -1097,15 +1097,15 @@ function buildIndex() {
             : launched ? 'LAUNCHER' : side >= 0 ? 'ALCOVE' : '';
           const key = it[2] + '|' + tag; (rows[key] = rows[key] || { n: 0, it, tag }).n += n;
         });
-        for (const key in rows) { const { n, it, tag } = rows[key]; add(c.x, c.y, it[2], tag, it[1] || it[0], 'item', it[3] === FOOD_KIND, n); }
+        for (const key in rows) { const { n, it, tag } = rows[key]; add(c.x, c.y, it[2], tag, it[1] || it[0], 'item', it[3], n); }
       } else {
-        if (c.items) { const by = {}; c.items.forEach(i => { if (!i[2]) return; (by[i[2]] = by[i[2]] || { n: 0, icon: i[1] || i[0], food: i[3] === FOOD_KIND }).n++; }); for (const n in by) add(c.x, c.y, n, '', by[n].icon, 'item', by[n].food, by[n].n); }
+        if (c.items) { const by = {}; c.items.forEach(i => { if (!i[2]) return; (by[i[2]] = by[i[2]] || { n: 0, icon: i[1] || i[0], ik: i[3] }).n++; }); for (const n in by) add(c.x, c.y, n, '', by[n].icon, 'item', by[n].ik, by[n].n); }
         const inAlcove = {}; (c.alc || []).forEach(a => { if (!a[1][2]) return; const key = a[0] + '|' + a[1][2]; (inAlcove[key] = inAlcove[key] || { n: 0, it: a[1] }).n++; });
-        for (const key in inAlcove) { const { n, it } = inAlcove[key]; add(c.x, c.y, it[2], 'ALCOVE', it[1] || it[0], 'item', it[3] === FOOD_KIND, n); }
+        for (const key in inAlcove) { const { n, it } = inAlcove[key]; add(c.x, c.y, it[2], 'ALCOVE', it[1] || it[0], 'item', it[3], n); }
       }
       // A face with several locks that want one item is one row, as its tooltip says it once
       const lockSaid = new Set();
-      (c.locks || []).forEach(k => { const key = k[0] + '|' + k[2][2]; if (k[1] && k[2][2] && !lockSaid.has(key) && lockSaid.add(key)) add(c.x, c.y, k[2][2], 'NEEDS', k[2][1] || k[2][0], 'needs', k[2][3] === FOOD_KIND); });
+      (c.locks || []).forEach(k => { const key = k[0] + '|' + k[2][2]; if (k[1] && k[2][2] && !lockSaid.has(key) && lockSaid.add(key)) add(c.x, c.y, k[2][2], 'NEEDS', k[2][1] || k[2][0], 'needs', k[2][3]); });
       (c.sides || []).forEach((s, i) => { if (s && s[7] === 1) add(c.x, c.y, 'FOUNTAIN', 'NESW'[i], s[0], 'feature'); if (s && s[7] === 2) add(c.x, c.y, 'ALTAR OF VI', 'NESW'[i], s[0], 'feature'); });
       // As AutoMapScene_CellTexts: read scrolls and the wall texts, found by their words
       (c.txt || []).forEach(([wall, tag, words, it]) => add(c.x, c.y, words, tag, wall ? null : it[1] || it[0], wall ? 'wall' : 'scroll'));
@@ -1113,15 +1113,18 @@ function buildIndex() {
     }
     const seen = new Set();
     v.acts.forEach(a => { const k = a[0] + ',' + a[1] + ',' + a[2] + ',' + a[3]; if (seen.has(k)) return; seen.add(k);
-      if ((a[3] === 4 || a[3] === 6) && a[2] === 0 && a[5][2]) add(a[0], a[1], a[5][2], a[3] === 6 ? 'PAD, CARRIED' : 'PAD NEEDS', a[5][1] || a[5][0], 'needs', a[5][3] === FOOD_KIND);
+      if ((a[3] === 4 || a[3] === 6) && a[2] === 0 && a[5][2]) add(a[0], a[1], a[5][2], a[3] === 6 ? 'PAD, CARRIED' : 'PAD NEEDS', a[5][1] || a[5][0], 'needs', a[5][3]);
       if ((a[2] === 2 || a[2] === 4) && a[7]) add(a[0], a[1], nice(a[7]), 'GENERATOR', a[6], 'gen'); });
-    v.monsters.forEach(m => add(m.x, m.y, nice(m.name) || 'MONSTER', '', m.m[0] && m.m[0][0], 'monster', false, m.m.length));
+    v.monsters.forEach(m => add(m.x, m.y, nice(m.name) || 'MONSTER', '', m.m[0] && m.m[0][0], 'monster', -1, m.m.length));
   });
 }
-// As AutoMapScene_SearchHitRank: the name, the word FOOD for anything edible, GEN, MON; a text
-// anywhere in its words, from three letters on
+// As AutoMapScene_SearchHitRank: the name, the word FOOD for anything edible, three letters of a
+// SHOW menu word for its items (ARMOUR is all clothing), GEN, MON; a text anywhere in its words,
+// from three letters on, and three letters of WALL WRITING or WRITING for every wall's
 const TEXT_KINDS = ['scroll', 'wall'];
-function matches(h, q) { if (!q) return false; if (TEXT_KINDS.includes(h.kind)) return q.length >= 3 && h.name.includes(q); if (h.name.includes(q)) return true; if (h.food && 'FOOD'.includes(q)) return true; if (('GENERATOR'.startsWith(q) || q === 'GEN') && h.kind === 'gen') return true; if ('MONSTER'.startsWith(q) && q.length >= 3 && h.kind === 'monster') return true; return false; }
+const KIND_WORDS = [['WEAPONS', 'WEAPONS'], ['ARMOUR', 'ARMOUR'], ['ARMOUR', 'ARMOR'], ['POTIONS', 'POTIONS'], ['SCROLLS', 'SCROLLS'], ['CHESTS', 'CHESTS'], ['KEYS', 'KEYS']];
+const startsWord = (word, q) => q.length >= 3 && word.startsWith(q);
+function matches(h, q) { if (!q) return false; if (TEXT_KINDS.includes(h.kind)) return q.length >= 3 && (h.name.includes(q) || (h.kind === 'wall' && (startsWord('WALL WRITING', q) || startsWord('WRITING', q)))); if (h.name.includes(q)) return true; if (h.ik === KIND_SHOW.indexOf('FOOD') && 'FOOD'.includes(q)) return true; if (KIND_WORDS.some(([show, word]) => KIND_SHOW[h.ik] === show && startsWord(word, q))) return true; if (('GENERATOR'.startsWith(q) || q === 'GEN') && h.kind === 'gen') return true; if ('MONSTER'.startsWith(q) && q.length >= 3 && h.kind === 'monster') return true; return false; }
 function rebuild(keepSel) {
   const q = query.trim().toUpperCase(); const old = sRows[sSel] && sRows[sSel].hit; const hs = INDEX.filter(h => matches(h, q));
   hitsByLevel = {}; thingsByLevel = {}; hs.forEach(h => { hitsByLevel[h.l] = (hitsByLevel[h.l] || 0) + 1; thingsByLevel[h.l] = (thingsByLevel[h.l] || 0) + Math.max(1, h.n); });

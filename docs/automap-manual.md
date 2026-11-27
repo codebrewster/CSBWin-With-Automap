@@ -459,7 +459,12 @@ every level and finds:
 - the words of scrolls and of wall texts, from three letters on: `KING` finds `THE GRAVE OF KING
   FILIUS`. The lines of a text are joined, so words broken across two lines are found too.
 
-`FOOD` finds everything edible, `GEN` every generator, and `MON` every monster group.
+`FOOD` finds everything edible, `GEN` every generator, and `MON` every monster group. The
+words of the SHOW menu work the same, from three letters on: `WEAPONS`, `ARMOUR` (or `ARMOR`),
+`POTIONS`, `SCROLLS`, `CHESTS` and `KEYS` list every item the menu sorts under that row, so
+`ARMOUR` finds robes, boots and all other clothing too. `WRITING` or `WALL WRITING` lists every
+wall writing the map shows. A word of a kind lists those items before the texts that hold the
+letters: `WEA` brings every weapon first, then a wall that reads `WEAK`.
 
 The results are grouped under a heading per level, the shown level first; a click on a heading
 folds it away. Each hit shows its icon, the cell as the rulers number it, its name and a tag: `X3`,

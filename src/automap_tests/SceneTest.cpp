@@ -6752,6 +6752,93 @@ static void ANullFoodTestFindsNoFoodByTheWord(void)
   CHECK(AutoMapScene_SearchItems(FoodCorridor(), "food", FoodItemName, NULL).empty());
 }
 
+static const char *KindItemName(int nameIndex)
+{
+  if (nameIndex == 20) return "SWORD";
+  if (nameIndex == 21) return "ROBE";
+  if (nameIndex == 22) return "VI POTION";
+  if (nameIndex == 23) return "CHEST";
+  if (nameIndex == 180) return "GOLD KEY";
+  return "";
+}
+
+static AutoMapItem KindItem(int picture, int descIndex, int nameIndex)
+{
+  AutoMapItem item = NamedItem(picture, 0, nameIndex);
+  item.descIndex = descIndex;
+  return item;
+}
+
+// A sword, a robe, a potion and a nameless weapon on (1, 1); a chest and a key on (2, 1); a
+// writing on the south face of (1, 0)
+static AutoMapDrawList KindCorridor(void)
+{
+  AutoMapLevelSnapshot snapshot = Corridor();
+  std::vector<AutoMapItem> &pile = snapshot.cells[1 * 4 + 1].itemPictures;
+  pile.push_back(KindItem(360, 30, 20));
+  pile.push_back(KindItem(361, 80, 21));
+  pile.push_back(KindItem(362, 5, 22));
+  pile.push_back(KindItem(363, 31, 99));
+  snapshot.cells[1 * 4 + 2].itemPictures.push_back(KindItem(364, 1, 23));
+  snapshot.cells[1 * 4 + 2].itemPictures.push_back(KindItem(365, 140, 180));
+  snapshot.cells[0 * 4 + 1].wallSides[AutoMapSouth].text = "THE SPELL DES EW\nWEAKENS";
+  AutoMapExplored explored = NothingExplored();
+  AutoMapVisibleCells visibleNow;
+  return AutoMapScene_BuildDrawList(snapshot, NoFog(explored, visibleNow));
+}
+
+static std::vector<AutoMapSearchHit> KindSearch(const char *query)
+{
+  std::vector<AutoMapSearchHit> hits = AutoMapScene_SearchItems(KindCorridor(), query, KindItemName, NULL);
+  AutoMapScene_SortSearchHits(&hits, query);
+  return hits;
+}
+
+static bool OnlyNamed(const std::vector<AutoMapSearchHit> &hits, const char *name)
+{
+  return hits.size() == 1 && hits[0].name == name;
+}
+
+// Three letters of a SHOW menu word list the items that row shows: ARMOUR is all clothing, as
+// the menu has it; an item of no known name stays out
+static void TheShowMenuWordsFindTheirItems(void)
+{
+  CHECK(OnlyNamed(KindSearch("weapon"), "SWORD"));
+  CHECK(OnlyNamed(KindSearch("WEAPONS"), "SWORD"));
+  CHECK(OnlyNamed(KindSearch("arm"), "ROBE"));
+  CHECK(OnlyNamed(KindSearch("armour"), "ROBE"));
+  CHECK(OnlyNamed(KindSearch("armor"), "ROBE"));
+  CHECK(OnlyNamed(KindSearch("pot"), "VI POTION"));
+  CHECK(OnlyNamed(KindSearch("che"), "CHEST"));
+  CHECK(OnlyNamed(KindSearch("keys"), "GOLD KEY"));
+  CHECK(AutoMapScene_SearchHitRank(KindSearch("weapon")[0], "weapon") == 1);
+  // Fewer than three letters, or more than the word, find no kind
+  CHECK(KindSearch("ar").empty());
+  CHECK(KindSearch("weaponsx").empty());
+}
+
+// WEA lists the weapons before a writing that holds the letters
+static void AWordOfAKindComesBeforeTheTexts(void)
+{
+  std::vector<AutoMapSearchHit> hits = KindSearch("wea");
+  CHECK(hits.size() == 2);
+  if (hits.size() == 2)
+  {
+    CHECK(hits[0].name == "SWORD");
+    CHECK(hits[1].kind == AutoMapHitWallText);
+  }
+}
+
+// Three letters of WALL WRITING or WRITING list every writing, whatever its words
+static void WritingListsEveryWallWriting(void)
+{
+  std::vector<AutoMapSearchHit> wri = KindSearch("wri");
+  CHECK(wri.size() == 1 && wri[0].kind == AutoMapHitWallText);
+  std::vector<AutoMapSearchHit> wall = KindSearch("wall writing");
+  CHECK(wall.size() == 1 && wall[0].kind == AutoMapHitWallText);
+  CHECK(KindSearch("wa").empty());
+}
+
 // BREAD and CHEESE on (1, 1), in the draw-list order given
 static AutoMapDrawList BreadAndCheese(bool breadFirst)
 {
@@ -7546,6 +7633,9 @@ void TestAutoMapScene(void)
   SearchPossessionsHideWithTheirMonster();
   SearchRankIsShared();
   FoodFindsEveryFoodItem();
+  TheShowMenuWordsFindTheirItems();
+  AWordOfAKindComesBeforeTheTexts();
+  WritingListsEveryWallWriting();
   FoodWordMatchesByPrefix();
   AFoodItemIsListedOnceWhenItsNameMatchesToo();
   FoodNamesStillMatch();

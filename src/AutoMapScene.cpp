@@ -2598,11 +2598,47 @@ static bool StartsWord(const std::string &word, const std::string &query, size_t
 
 static int TextRank(const AutoMapSearchHit &hit, const std::string &query);
 
+// The words of the SHOW menu's item rows, three letters or more of one listing every item of its
+// kind the way that row shows or hides them (ARMOUR is all clothing, robes and boots too). FOOD
+// keeps its own word above, which matches from one letter.
+struct ItemKindWord
+{
+  AutoMapItemKind kind;
+  const char *word;
+};
+static const ItemKindWord ITEM_KIND_WORDS[] = {
+    {AutoMapItemWeapon, "WEAPONS"}, {AutoMapItemArmour, "ARMOUR"}, {AutoMapItemArmour, "ARMOR"},
+    {AutoMapItemPotion, "POTIONS"}, {AutoMapItemScroll, "SCROLLS"}, {AutoMapItemChest, "CHESTS"},
+    {AutoMapItemKey, "KEYS"}};
+static const size_t SHORTEST_KIND_WORD = 3;
+
+static bool IsItemHit(AutoMapHitKind kind)
+{
+  return kind != AutoMapHitFeature && kind != AutoMapHitMonster && kind != AutoMapHitGenerator
+         && kind != AutoMapHitScroll && kind != AutoMapHitWallText;
+}
+
+static bool QueryNamesItemKind(AutoMapItemKind kind, const std::string &query)
+{
+  for (size_t i = 0; i < sizeof(ITEM_KIND_WORDS) / sizeof(ITEM_KIND_WORDS[0]); i++)
+  {
+    if (ITEM_KIND_WORDS[i].kind == kind && StartsWord(ITEM_KIND_WORDS[i].word, query, SHORTEST_KIND_WORD))
+      return true;
+  }
+  return false;
+}
+
 int AutoMapScene_SearchHitRank(const AutoMapSearchHit &hit, const std::string &query)
 {
   if (hit.kind == AutoMapHitScroll || hit.kind == AutoMapHitWallText) return TextRank(hit, query);
   int rank = AutoMapScene_SearchRank(hit.name, query);
   if (hit.isFood) rank = BetterRank(rank, AutoMapScene_SearchRank(AUTOMAP_FOOD_WORD, query));
+  // An item of no known name stays out, as it does for FOOD
+  if (IsItemHit(hit.kind) && hit.name != "" && hit.name != "(UNKNOWN)"
+      && QueryNamesItemKind(AutoMapScene_KindOfItem(hit.slot.item), query))
+  {
+    rank = BetterRank(rank, 1);
+  }
   if (hit.kind == AutoMapHitGenerator && StartsWord("GENERATOR", query, 3)) rank = BetterRank(rank, 1);
   if (hit.kind == AutoMapHitMonster && StartsWord("MONSTER", query, 3)) rank = BetterRank(rank, 1);
   return rank;
@@ -2611,11 +2647,18 @@ int AutoMapScene_SearchHitRank(const AutoMapSearchHit &hit, const std::string &q
 static const int TEXT_RANK = 3;
 
 // A text holds the query anywhere, from three letters on; the words on a scroll or wall come
-// after every name
+// after every name. Three letters or more of WALL WRITING or WRITING (the SHOW menu's row) list
+// every wall writing the map shows.
 static int TextRank(const AutoMapSearchHit &hit, const std::string &query)
 {
   std::string trimmed = Lowered(Trimmed(query));
   if (trimmed.size() < AUTOMAP_SHORTEST_TEXT_QUERY) return -1;
+  if (hit.kind == AutoMapHitWallText
+      && (StartsWord("WALL WRITING", query, AUTOMAP_SHORTEST_TEXT_QUERY)
+          || StartsWord("WRITING", query, AUTOMAP_SHORTEST_TEXT_QUERY)))
+  {
+    return 1;
+  }
   return Lowered(hit.text).find(trimmed) != std::string::npos ? TEXT_RANK : -1;
 }
 
