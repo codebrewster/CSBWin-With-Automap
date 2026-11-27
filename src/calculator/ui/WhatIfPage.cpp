@@ -106,6 +106,7 @@ const std::vector<Variable> &variables()
     {"Monster: dexterity", [](Setup &s) { return &s.target.type.dexterity; }, 0, 255},
     {"Monster: attack", [](Setup &s) { return &s.target.type.attack; }, 0, 255},
     {"Monster: fire resistance", [](Setup &s) { return &s.target.type.fireResistance; }, 0, 15},
+    {"Monster: poison resistance", [](Setup &s) { return &s.target.type.poisonResistance; }, 0, 15},
     {"Throw: distance (squares)", [](Setup &s) { return &s.squares; }, 1, 30},
   };
   return v;
