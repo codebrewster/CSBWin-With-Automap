@@ -8,6 +8,7 @@
 #include <QPushButton>
 #include <QHBoxLayout>
 #include <QScrollArea>
+#include <QSpinBox>
 #include <QVBoxLayout>
 #include <QWheelEvent>
 
@@ -17,6 +18,7 @@
 
 #include "../core/Defense.h"
 #include "../core/Spells.h"
+#include "Pages.h"
 #include "Widgets.h"
 
 using namespace calc;
@@ -25,14 +27,24 @@ namespace ui {
 
 namespace {
 
-// Fill a choice with (name, id) pairs sorted by name, after the entries already in it
-void addSorted(QComboBox *box, std::vector<std::pair<QString, int>> items)
+struct Entry {
+  QString text;
+  int id;
+  QString tip;   // the other game's name, shown when the pointer rests on the entry
+};
+
+// Fill a choice with entries sorted by their text, after the entries already in it
+void addSorted(QComboBox *box, std::vector<Entry> items)
 {
-  std::stable_sort(items.begin(), items.end(), [](const auto &a, const auto &b) {
-    return QString::localeAwareCompare(a.first, b.first) < 0;
+  std::stable_sort(items.begin(), items.end(), [](const Entry &a, const Entry &b) {
+    return QString::localeAwareCompare(a.text, b.text) < 0;
   });
-  for (const auto &it : items) box->addItem(it.first, it.second);
+  for (const Entry &it : items) {
+    box->addItem(it.text, it.id);
+    if (!it.tip.isEmpty()) box->setItemData(box->count() - 1, it.tip, Qt::ToolTipRole);
+  }
 }
+
 // Combo boxes in a scrolling panel must not eat the wheel
 class Choice : public QComboBox {
  public:
@@ -421,19 +433,17 @@ void Sidebar::buildRules(QVBoxLayout *column)
        tr("While the party sleeps the game ticks on every vertical blank, far faster than awake; "
           "58.8 was measured"));
   {
-    auto *box = new QDoubleSpinBox;
-    box->setRange(0.0, 20.0);
-    box->setDecimals(1);
-    box->setSingleStep(0.5);
+    auto *box = new QSpinBox;
+    box->setRange(0, 20);
     box->setSuffix(tr(" ticks"));
     box->setValue(swingTiming().extra);
     box->setFocusPolicy(Qt::StrongFocus);
     Card::addPair(g, 3, 1, tr("Slowness per swing"), box,
                   tr("Ticks you lose per swing on top of the game's own cost. The game handles one click per "
-                     "tick and a swing takes two clicks, so every swing already costs the weapon's delay plus "
+                     "tick and a swing takes two clicks, so every swing already costs the action's delay plus "
                      "2 ticks, even holding a key. 0 is a perfect clicker; a human reacting to the hand being "
                      "ready loses about 1 more"));
-    connect(box, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this](double v) {
+    connect(box, QOverload<int>::of(&QSpinBox::valueChanged), this, [this](int v) {
       swingTiming().extra = v;
       s_->touch();
     });
@@ -483,8 +493,9 @@ void Sidebar::refill()
   weaponBox_->clear();
   weaponBox_->addItem(tr("Bare hands"), -1);
   {
-    std::vector<std::pair<QString, int>> items;
-    for (const WeaponType &w : d.weapons) items.push_back({QString::fromStdString(w.name), w.id});
+    std::vector<Entry> items;
+    for (const WeaponType &w : d.weapons)
+      items.push_back({QString::fromStdString(w.name), w.id, otherGameTip(w.otherName, d.chaosStrikesBack)});
     addSorted(weaponBox_, items);
   }
   selectData(weaponBox_, s_->hero.weapon);
@@ -493,11 +504,12 @@ void Sidebar::refill()
     QComboBox *box = armourBox_[slot];
     box->clear();
     box->addItem(slot == 0 ? tr("No shield") : tr("Nothing"), -1);
-    std::vector<std::pair<QString, int>> items;
+    std::vector<Entry> items;
     for (const ArmourType &a : d.armours) {
       bool fits = slot == 0 ? a.isShield() : (a.wearSlots & slotBit[slot]) != 0;
       if (fits || a.id == s_->hero.armour[slot])
-        items.push_back({tr("%1  (%2)").arg(QString::fromStdString(a.name)).arg(a.defense), a.id});
+        items.push_back({tr("%1  (%2)").arg(QString::fromStdString(a.name)).arg(a.defense), a.id,
+                         otherGameTip(a.otherName, d.chaosStrikesBack)});
     }
     addSorted(box, items);
     selectData(box, s_->hero.armour[slot]);
@@ -517,8 +529,9 @@ void Sidebar::refill()
   fillGroups();
   monsterBox_->clear();
   {
-    std::vector<std::pair<QString, int>> items;
-    for (const MonsterType &m : d.monsters) items.push_back({QString::fromStdString(m.name), m.id});
+    std::vector<Entry> items;
+    for (const MonsterType &m : d.monsters)
+      items.push_back({QString::fromStdString(m.name), m.id, otherGameTip(m.otherName, d.chaosStrikesBack)});
     addSorted(monsterBox_, items);
   }
   selectData(monsterBox_, s_->target.type.id);

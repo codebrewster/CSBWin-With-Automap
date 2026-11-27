@@ -300,22 +300,22 @@ SavedItem describe(const Dungeon &d, uint16_t rn, const GameData &g)
     case 5:
       item.kind = ItemWeapon;
       item.type = word2 & 0x7f;
-      item.name = weaponName(item.type);
+      item.name = gameName(weaponName(item.type), g.chaosStrikesBack);
       break;
     case 6:
       item.kind = ItemArmour;
       item.type = word2 & 0x7f;
-      item.name = armourName(item.type);
+      item.name = gameName(armourName(item.type), g.chaosStrikesBack);
       break;
     case 10:
       item.kind = ItemMisc;
       item.type = word2 & 0x7f;
-      item.name = miscName(item.type);
+      item.name = gameName(miscName(item.type), g.chaosStrikesBack);
       break;
     case 8:
       item.kind = ItemPotion;
       item.type = (word2 >> 8) & 0x7f;
-      item.name = potionName(item.type);
+      item.name = gameName(potionName(item.type), g.chaosStrikesBack);
       break;
     case 7: item.name = "Scroll"; break;
     case 9: item.name = "Chest"; break;

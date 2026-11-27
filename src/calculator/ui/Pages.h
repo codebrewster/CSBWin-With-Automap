@@ -44,7 +44,17 @@ class Page : public QWidget {
 // A table cell that sorts by its number, not by its text
 QTableWidgetItem *numberCell(double value, const QString &text);
 QTableWidgetItem *textCell(const QString &text);
+// "In Chaos Strikes Back: Storm" for a name the other game gives differently, else ""
+QString otherGameTip(const std::string &otherName, bool chaosStrikesBack);
+// "The Hardcleave is too heavy for this hero: ..." when the weapon is over the weight limit the
+// hero's strength allows (DetermineThrowingDistance), else "".  what = "swing" or "throw".
+QString weightNote(const calc::Hero &hero, const calc::WeaponType &weapon, const QString &what);
 void styleTable(QTableWidget *table);
+// The first click on a column header sorts the best rows to the top: text columns A to Z, the
+// columns in lowerIsBetter (stamina, time to kill) from the least, every other number from the
+// most.  A second click on the same column turns the order round as usual.
+void sortBestFirst(QTableWidget *table, const std::vector<int> &textColumns,
+                   const std::vector<int> &lowerIsBetter);
 // Makes the table as tall as its rows, so it never scrolls inside the page
 void fitTableHeight(QTableWidget *table);
 

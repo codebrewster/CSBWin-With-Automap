@@ -137,6 +137,7 @@ static void emit(const GameData &g, const char *function, const char *label)
   std::printf("    static const int wounds[4] = {%d, %d, %d, %d};\n", g.woundSlots[0], g.woundSlots[1],
               g.woundSlots[2], g.woundSlots[3]);
   std::printf("    for (int i = 0; i < 4; i++) g.woundSlots[i] = wounds[i];\n");
+  std::printf("    g.chaosStrikesBack = %s;\n    useGameNames(g);\n", g.chaosStrikesBack ? "true" : "false");
   std::printf("    return g;\n  }();\n  return data;\n}\n\n");
 }
 

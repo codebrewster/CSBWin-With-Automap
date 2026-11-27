@@ -8,7 +8,12 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 ## Unreleased
 
 **Calculator**
+- Names follow the game of the tables in use: Dungeon Master's (Bolt Blade, Giant Wasp) or Chaos Strikes Back's (Storm, Muncher), one name per entry; the other game's name shows as a tooltip. Without a savegame the Dungeon Master names are used.
 - The weapon, armour and monster lists in the side panel are sorted by name.
+- The result boxes above the tables keep their size whatever they say, so the table no longer jumps when another row is picked.
+- Clicking a column in the Hero attacks or Throw table puts the best rows on top at once: the highest damage, hit chance or experience, the least stamina, skill level or time to kill, names A to Z. A second click turns the order round.
+- The time of a swing names its parts: "a swing takes 10 ticks: Chop's delay (8) plus the clicking (2)"; a throw or shot likewise. "Slowness per swing" takes whole ticks only, as the game counts them.
+- A weapon too heavy for the hero's strength gets a note under the Hero attacks and Throw tables: how far it is over the weight the hero can wield, the power that costs, and the strength from which it is no longer too heavy.
 - "Max out" in the Hero card puts every attribute at 255, every skill at level 21 (the most experience the game can hold), hit points at 999, stamina at 9999 and mana at 900; "As in the savegame" puts the hero back.
 
 ## 1.7.9 (2026-11-27)

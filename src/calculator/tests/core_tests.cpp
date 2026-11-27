@@ -495,6 +495,42 @@ static void maxedHero(const GameData &g)
          "max out twice changes nothing");
 }
 
+// Each game's tables carry its own names; the other game's name is kept beside it
+static void gameNames()
+{
+  const GameData &dm = builtinDungeonMaster(), &csb = builtinChaosStrikesBack();
+  expect(!dm.chaosStrikesBack && csb.chaosStrikesBack, "names: which game each table set is");
+  expect(dm.weapons[5].name == "Bolt Blade" && dm.weapons[5].otherName == "Storm" &&
+           csb.weapons[5].name == "Storm" && csb.weapons[5].otherName == "Bolt Blade",
+         "names: Bolt Blade in Dungeon Master, Storm in Chaos Strikes Back");
+  expect(dm.monsters[17].name == "Giant Wasp" && csb.monsters[17].name == "Muncher",
+         "names: Giant Wasp or Muncher");
+  expect(dm.weapons[10].name == "Sword" && dm.weapons[10].otherName.empty(),
+         "names: a name both games share has no other name");
+  expect(gameName("Copper Coin / Sar Coin", true) == "Sar Coin" && gameName("Torch", true) == "Torch",
+         "names: gameName picks the half");
+}
+
+// The weight of the weapon in hand (DetermineThrowingDistance): strength 70 carries 66 kg, so up
+// to 4.1 kg a weapon is comfortable and 5.5 kg is the limit
+static void weaponWeight(const GameData &g)
+{
+  Hero h;
+  h.attr[Strength] = 70;
+  const int ml = eng::maxLoad(h, h.stamina);
+  eng::WeightFit inquisitor = eng::weightFit(39, ml), hardcleave = eng::weightFit(65, ml);
+  expect(ml == 660 && inquisitor.comfortable == 41 && inquisitor.limit == 55,
+         "weight: strength 70 is comfortable up to 4.1 kg, limited at 5.5 kg");
+  expect(inquisitor.term == 39 - 12 && hardcleave.term == -2 * (65 - 55),
+         "weight: The Inquisitor adds 27, the Hardcleave loses 20");
+  expect(eng::weightFit(48, ml).term == (48 - 41) / 2, "weight: between the two, half of what is over");
+  expect(eng::strengthForWeight(h, 65) == 83, "weight: the Hardcleave stops being too heavy at strength 83");
+  expect(eng::strengthForWeight(h, 0) == 0 && eng::strengthForWeight(h, 30) > 0 &&
+           eng::strengthForWeight(h, 30) < 70,
+         "weight: bare hands are never too heavy, 3 kg needs a little strength");
+  (void)g;
+}
+
 static void recovery()
 {
   Hero h;
@@ -634,7 +670,7 @@ static void thrown(const GameData &g)
   inv.type.invincible = true;
   expect(damageOnMonster(l, dagger, inv, 3, false, 1, dice).mass() == 0, "an invincible monster is not hurt");
   // Shots from a launcher
-  const WeaponType &bow = weaponNamed(g, "Claw Bow / Bow");
+  const WeaponType &bow = weaponNamed(g, "Bow");
   const WeaponType &arrow = weaponNamed(g, "Arrow");
   const WeaponType &sling = weaponNamed(g, "Sling");
   const WeaponType &rock = weaponNamed(g, "Rock");
@@ -723,6 +759,8 @@ int main(int argc, char **argv)
   engineDetails(g);
   configRules();
   maxedHero(g);
+  gameNames();
+  weaponWeight(g);
   std::printf("%d checks, %d failed\n", checks, failures);
   return failures ? 1 : 0;
 }

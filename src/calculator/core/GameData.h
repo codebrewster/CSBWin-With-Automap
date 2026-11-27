@@ -39,6 +39,7 @@ enum Wound {
 struct MonsterType {            // MONSTERDESC (CSB.h)
   int id = 0;
   std::string name;
+  std::string otherName;        // the other game's name for it, where it differs
   int moveTicks = 1;            // movementTicks06
   int attackTicks = 1;          // attackTicks07
   int defense = 0;              // defense08
@@ -62,6 +63,7 @@ struct MonsterType {            // MONSTERDESC (CSB.h)
 struct WeaponType {             // WEAPONDESC
   int id = -1;                  // -1 = bare hands
   std::string name;
+  std::string otherName;        // the other game's name for it, where it differs
   int weight = 0;               // 0.1 kg
   int cls = 0;                  // uByte1: which skills add strength
   int strength = 0;             // damage
@@ -75,6 +77,7 @@ enum { WeaponDiamondEdge = 15, WeaponVorpalBlade = 16, WeaponExecutioner = 19,
 struct ArmourType {             // CLOTHINGDESC
   int id = 0;
   std::string name;
+  std::string otherName;        // the other game's name for it, where it differs
   int weight = 0;
   int defense = 0;
   int pierce = 0;               // bits 0-2 sharp resistance, bit 7 = a shield
@@ -128,6 +131,7 @@ struct FoodType {
 
 struct GameData {
   std::string source;                 // where the tables came from, for display
+  bool chaosStrikesBack = false;      // Chaos Strikes Back's names instead of Dungeon Master's
   std::vector<MonsterType> monsters;  // 27
   std::vector<WeaponType> weapons;    // 46
   std::vector<ArmourType> armours;    // 58
@@ -152,6 +156,11 @@ const char *powerName(int power);           // 1..6: LO .. MON
 
 // The names the engine has no table for
 const char *monsterName(int id);
+// The name tables hold "Dungeon Master's name / Chaos Strikes Back's name" where the two games
+// differ.  gameName picks one game's half; other (if given) gets the other half, or "".
+std::string gameName(const std::string &names, bool chaosStrikesBack, std::string *other = nullptr);
+// Give every monster, weapon and armour of g the names of its game (g.chaosStrikesBack)
+void useGameNames(GameData &g);
 const char *weaponName(int id);
 const char *armourName(int id);
 const char *miscName(int id);

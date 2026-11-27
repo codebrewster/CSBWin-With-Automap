@@ -64,6 +64,7 @@ HeroAttackPage::HeroAttackPage(Session *session, QWidget *parent) : Page(session
   table_->horizontalHeaderItem(CWeapon)->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
   table_->horizontalHeaderItem(CAction)->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
   table_->setSortingEnabled(true);
+  sortBestFirst(table_, {CWeapon, CAction}, {CLevel, CStamina, CKillSwings, CKillTime});
   table_->sortByColumn(CDps, Qt::DescendingOrder);
   table_->setMinimumHeight(260);
   column()->addWidget(table_, 3);
@@ -149,6 +150,7 @@ void HeroAttackPage::recalculate()
   for (int i = 0; i < int(rows_.size()); i++) {
     const SwingResult &r = rows_[size_t(i)];
     auto *weapon = textCell(QString::fromStdString(g.weapon(r.weapon).name));
+    weapon->setToolTip(otherGameTip(g.weapon(r.weapon).otherName, g.chaosStrikesBack));
     weapon->setData(Qt::UserRole, i);
     table_->setItem(i, CWeapon, weapon);
     table_->setItem(i, CAction, textCell(QString::fromStdString(g.actions[size_t(r.action)].name)));
@@ -202,7 +204,15 @@ void HeroAttackPage::showRow()
   tHit_->set(percent(r.hitChance));
   tDamage_->set(num(r.perHit), tr("%1 per swing").arg(num(r.perSwing, 2)));
   tRange_->set(QStringLiteral("%1 – %2").arg(r.minHit).arg(r.maxHit));
-  tDps_->set(num(r.dps, 2), tr("a swing takes %1 ticks, the weapon's delay plus the clicking").arg(num(r.ticks)));
+  {
+    // the action's delay as the swing really takes it (halved for a Disrupt that attacks nothing)
+    const int clicking = swingTiming().input + swingTiming().extra;
+    tDps_->set(num(r.dps, 2), tr("a swing takes %1 ticks: %2's delay (%3) plus the clicking (%4)")
+                                .arg(wholeOrDecimal(r.ticks))
+                                .arg(QString::fromStdString(g.actions[size_t(r.action)].name))
+                                .arg(wholeOrDecimal(r.ticks - clicking))
+                                .arg(wholeOrDecimal(clicking)));
+  }
   if (r.swingsToKill > 0)
     tKill_->set(duration(r.secondsToKill), tr("%1 swings for %2 hp").arg(num(r.swingsToKill)).arg(t.hp));
   else
@@ -223,6 +233,10 @@ void HeroAttackPage::showRow()
   if (t.type.nonMaterial && r.hitChance == 0)
     notes << tr("Non-material: only the Vorpal Blade and Disrupt can hurt it.");
   if (t.type.invincible) notes << tr("The game does not let this monster lose hit points.");
+  {
+    const QString heavy = weightNote(s_->hero, g.weapon(r.weapon), tr("swing"));
+    if (!heavy.isEmpty()) notes << heavy;
+  }
   if (scope_->currentIndex() == 1)
     notes << tr("Other weapons are tried on with the hero's load as it is.");
   note_->setText(notes.join(QStringLiteral("  ")));

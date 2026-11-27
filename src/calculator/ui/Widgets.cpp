@@ -15,6 +15,12 @@
 
 namespace ui {
 
+QString wholeOrDecimal(double v)
+{
+  const double r = std::round(v);
+  return std::fabs(v - r) < 1e-9 ? QString::number(qRound64(r)) : num(v);
+}
+
 QString num(double v, int decimals)
 {
   if (!std::isfinite(v)) return QStringLiteral("–");
@@ -220,15 +226,32 @@ Tile::Tile(const QString &label, QWidget *parent) : QFrame(parent)
   value_->setObjectName(QStringLiteral("tileValue"));
   note_ = new QLabel;
   note_->setObjectName(QStringLiteral("tileNote"));
+  // The value and the note change with every row picked; if they set the tile's width, the
+  // flow layout would fit a different number of tiles per row and the page below would jump.
+  // So they take the width they are given: the note wraps and always keeps room for two lines.
+  value_->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+  note_->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
+  note_->setWordWrap(true);
   l->addWidget(label_);
   l->addWidget(value_);
   l->addWidget(note_);
+  set(value_->text());   // the note's two lines from the start
 }
 
 void Tile::set(const QString &value, const QString &note)
 {
   value_->setText(value);
   note_->setText(note.isEmpty() ? QStringLiteral(" ") : note);
+  note_->setToolTip(note);   // in case two lines are not enough in a narrow window
+  note_->ensurePolished();
+  note_->setFixedHeight(2 * note_->fontMetrics().lineSpacing());
+}
+
+QSize Tile::sizeHint() const
+{
+  // wide enough for the longest notes ("a swing takes 10 ticks: Chop's delay (8) plus the
+  // clicking (2)") in two lines
+  return QSize(qMax(260, minimumWidth()), QFrame::sizeHint().height());
 }
 
 void Tile::setTone(const QColor &color)

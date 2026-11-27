@@ -290,6 +290,8 @@ const GameData &builtinDungeonMaster()
     for (int i = 0; i < 6; i++) g.slotProtection[i] = slots[i];
     static const int wounds[4] = {32, 16, 8, 4};
     for (int i = 0; i < 4; i++) g.woundSlots[i] = wounds[i];
+    g.chaosStrikesBack = false;
+    useGameNames(g);
     return g;
   }();
   return data;
@@ -581,6 +583,8 @@ const GameData &builtinChaosStrikesBack()
     for (int i = 0; i < 6; i++) g.slotProtection[i] = slots[i];
     static const int wounds[4] = {32, 16, 8, 4};
     for (int i = 0; i < 4; i++) g.woundSlots[i] = wounds[i];
+    g.chaosStrikesBack = true;
+    useGameNames(g);
     return g;
   }();
   return data;

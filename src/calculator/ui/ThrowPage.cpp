@@ -90,6 +90,7 @@ ThrowPage::ThrowPage(Session *session, QWidget *parent) : Page(session, parent)
                                      tr("XP / s"), tr("Throws to kill"), tr("Time to kill")});
   table_->horizontalHeaderItem(CWeapon)->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
   table_->setSortingEnabled(true);
+  sortBestFirst(table_, {CWeapon}, {CLevel, CStamina, CKillThrows, CKillTime});
   table_->sortByColumn(CDps, Qt::DescendingOrder);
   table_->setMinimumHeight(260);
   column()->addWidget(table_, 3);
@@ -208,6 +209,13 @@ void ThrowPage::recalculate()
     QString name = QString::fromStdString(g.weapon(r.object).name);
     if (r.shot) name = QString::fromStdString(g.weapon(r.launcher).name) + QStringLiteral(" + ") + name;
     auto *weapon = textCell(name);
+    {
+      QStringList tips;
+      if (r.shot) tips << otherGameTip(g.weapon(r.launcher).otherName, g.chaosStrikesBack);
+      tips << otherGameTip(g.weapon(r.object).otherName, g.chaosStrikesBack);
+      tips.removeAll(QString());
+      weapon->setToolTip(tips.join(QStringLiteral("\n")));
+    }
     weapon->setData(Qt::UserRole, i);
     table_->setItem(i, CWeapon, weapon);
     const int need = needs_[size_t(i)];
@@ -276,7 +284,15 @@ void ThrowPage::showRow()
   tDamage_->set(num(r.perHit), tr("%1 per throw").arg(num(r.perThrow, 2)));
   tRange_->set(r.maxHit > 0 ? QStringLiteral("%1 – %2").arg(r.minHit).arg(r.maxHit) : QStringLiteral("–"),
                t.hp > 0 && r.maxHit > 0 ? tr("kills in one throw: %1").arg(percent(r.killChance)) : QString());
-  tDps_->set(num(r.dps, 2), tr("a throw takes %1 ticks").arg(num(r.ticks)));
+  {
+    const int clicking = swingTiming().input + swingTiming().extra;
+    tDps_->set(num(r.dps, 2), tr("a %1 takes %2 ticks: %3 (%4) plus the clicking (%5)")
+                                .arg(r.shot ? tr("shot") : tr("throw"))
+                                .arg(wholeOrDecimal(r.ticks))
+                                .arg(r.shot ? tr("Shoot's delay") : tr("the throw's delay"))
+                                .arg(wholeOrDecimal(r.ticks - clicking))
+                                .arg(wholeOrDecimal(clicking)));
+  }
   if (r.throwsToKill > 0)
     tKill_->set(duration(r.secondsToKill), tr("%1 throws for %2 hp").arg(num(r.throwsToKill)).arg(t.hp));
   else
@@ -305,6 +321,10 @@ void ThrowPage::showRow()
     curve_->setMarks({{double(squares_->value()), tr("now: %1").arg(squares_->value()), theme().muted}});
   }
   if (t.type.invincible) notes << tr("The game does not let this monster lose hit points.");
+  if (!r.shot) {   // a shot's power is the launcher's; a throw's follows the weight like a swing
+    const QString heavy = weightNote(s_->hero, s_->data.weapon(r.object), tr("throw"));
+    if (!heavy.isEmpty()) notes << heavy;
+  }
   if (scope_->currentIndex() == 1 && !r.shot)
     notes << tr("Other weapons are tried on with the hero's load as it is.");
   note_->setText(notes.join(QStringLiteral("  ")));

@@ -24,10 +24,10 @@ int main(int argc, char **argv)
       std::printf("%s %s: hp %d/%d sta %d/%d mana %d/%d load %d wounds %d food %d water %d shield %d\n  attr",
                   h.name.c_str(), sh.title.c_str(), h.hp, h.maxHp, h.stamina, h.maxStamina, h.mana,
                   h.maxMana, h.load, h.wounds, h.food, h.water, h.shield);
-      for (int k = 0; k < AttributeCount; k++) std::printf(" %d", h.attr[k]);
+      for (int k = 0; k < AttributeCount; k++) std::printf(" %s %d", attributeName(k), h.attr[k]);
       std::printf("\n  mastery");
-      for (int k = 0; k < SkillCount; k++) std::printf(" %d", h.mastery[k]);
-      std::printf("\n  weapon %s, boots %d, cross %d\n  items", weaponName(h.weapon), h.elvenBoots,
+      for (int k = 0; k < SkillCount; k++) std::printf(" %s %d", skillName(k), h.mastery[k]);
+      std::printf("\n  weapon %s, boots %d, cross %d\n  items", gameName(weaponName(h.weapon), g.chaosStrikesBack).c_str(), h.elvenBoots,
                   h.ekkhardCross);
       for (int k = 0; k < SlotCount; k++)
         if (sh.items[k].kind != ItemNone) std::printf(" [%d %s]", k, sh.items[k].name.c_str());
@@ -38,7 +38,7 @@ int main(int argc, char **argv)
       std::printf("level %zu: %dx%d at global (%d,%d) multiplier %d, %zu groups:", i, l.width,
                   l.height, l.offsetX, l.offsetY, l.expMultiplier, l.groups.size());
       for (auto &grp : l.groups) {
-        std::printf(" %s x%d (", monsterName(grp.type), grp.count);
+        std::printf(" %s x%d (", gameName(monsterName(grp.type), g.chaosStrikesBack).c_str(), grp.count);
         for (int k = 0; k < grp.count; k++) std::printf("%s%d", k ? "," : "", grp.hp[k]);
         std::printf(")");
       }

@@ -25,6 +25,17 @@ int maxLoad(const Hero &h, int stamina);
 int quickness(const Hero &h, int maxLoad, int a, int b, int c);
 int throwingDistance(const Hero &h, const WeaponType &w, int hand, int maxLoad, int stamina,
                      int roll16);
+// What the weight of the thing in hand adds to the power (DetermineThrowingDistance): up to
+// maxLoad / 16 its weight minus 12; up to a limit above that half of what it is over; beyond
+// the limit twice the excess is taken away.
+struct WeightFit {
+  int comfortable = 0;   // maxLoad / 16
+  int limit = 0;         // (comfortable - 12) / 2 + comfortable
+  int term = 0;          // what the weight adds to the power before it is halved
+};
+WeightFit weightFit(int weight, int maxLoad);
+// The least strength (0..255) at which the weapon is no longer over the limit; -1 if none
+int strengthForWeight(const Hero &h, int weight);
 // The monster's defence for one roll r32 of STRandom(32)
 int armorTerm(const Target &t, const WeaponType &w, bool halved, int r32);
 }  // namespace eng

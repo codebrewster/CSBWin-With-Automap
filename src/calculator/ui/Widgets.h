@@ -24,6 +24,8 @@ class QVBoxLayout;
 namespace ui {
 
 QString num(double v, int decimals = 1);
+// 8 as "8", 2.5 as "2.5": for counts that are mostly whole
+QString wholeOrDecimal(double v);
 QString percent(double share, int decimals = 1);
 QString duration(double seconds);          // "12.4 s", "3 min 20 s", "1 h 5 min"
 QString ticksAndTime(double ticks);         // "384 ticks (1 min 4 s)"
@@ -93,6 +95,8 @@ class Tile : public QFrame {
   explicit Tile(const QString &label, QWidget *parent = nullptr);
   void set(const QString &value, const QString &note = QString());
   void setTone(const QColor &color);   // invalid = the normal text colour
+  // The same for every tile and every text, so the tiles per row follow only the window's width
+  QSize sizeHint() const override;
  private:
   QLabel *label_, *value_, *note_;
 };

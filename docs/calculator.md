@@ -31,6 +31,13 @@ cmake --build build -j8
   read from the `graphics.dat` beside the savegame. Without one, the built-in
   tables of Dungeon Master or Chaos Strikes Back are used; the two differ in a
   few places (Berzerk costs 26 stamina in one and 40 in the other).
+- **Names** follow the tables: Dungeon Master's names with its tables,
+  Chaos Strikes Back's with its tables (Bolt Blade or Storm, Giant Wasp or
+  Muncher). Without a savegame the built-in Dungeon Master tables and names are
+  used; "Tables" in the side panel switches both. Where the other game names a
+  thing differently, its name shows when the pointer rests on the entry. The
+  item names are those of the games' `graphics.dat`; the monster names are not
+  in the game files and come from the games' documentation.
 - **The rules** ("Monsters vulnerable on attack", Nostalgia Mode) are read from
   the `csb.cfg` beside the savegame.
 

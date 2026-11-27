@@ -19,20 +19,22 @@ const char *const kMonsters[] = {
   "Materializer / Zytaz", "Water Elemental", "Oitu", "Demon", "Lord Chaos", "Red Dragon",
   "Lord Order", "Grey Lord"};
 
+// Items too: Dungeon Master's name first (as its graphics.dat names them), Chaos Strikes
+// Back's after the slash where it differs
 const char *const kWeapons[] = {
-  "Eye of Time", "Storm Ring", "Torch", "Flamitt", "Staff of Claws", "Storm / Bolt Blade",
-  "Ra Blade / Fury", "The Firestaff", "Dagger", "Falchion", "Sword", "Rapier",
-  "Biter / Sabre", "Samurai Sword", "Side Splitter / Delta", "Diamond Edge", "Vorpal Blade",
-  "Dragon Fang / The Inquisitor", "Axe", "Executioner / Hardcleave", "Mace", "Mace of Order",
-  "Morningstar", "Club", "Stone Club", "Claw Bow / Bow", "Crossbow", "Arrow", "Slayer",
+  "Eye of Time", "Storm Ring", "Torch", "Flamitt", "Staff of Claws", "Bolt Blade / Storm",
+  "Fury / Ra Blade", "The Firestaff", "Dagger", "Falchion", "Sword", "Rapier",
+  "Sabre / Biter", "Samurai Sword", "Delta / Side Splitter", "Diamond Edge", "Vorpal Blade",
+  "The Inquisitor / Dragon Fang", "Axe", "Hardcleave / Executioner", "Mace", "Mace of Order",
+  "Morningstar", "Club", "Stone Club", "Bow / Claw Bow", "Crossbow", "Arrow", "Slayer",
   "Sling", "Rock", "Poison Dart", "Throwing Star", "Stick", "Staff", "Wand", "Teowand",
-  "Yew Staff", "Staff of Irra / Staff of Manar", "Cross of Neta / Snake Staff",
-  "Serpent Staff / The Conduit", "Dragon Spit", "Sceptre of Lyf", "Horn of Fear", "Speedbow",
+  "Yew Staff", "Staff of Manar / Staff of Irra", "Snake Staff / Cross of Neta",
+  "The Conduit / Serpent Staff", "Dragon Spit", "Sceptre of Lyf", "Horn of Fear", "Speedbow",
   "The Firestaff (complete)"};
 
 const char *const kArmours[] = {
-  "Cape", "Cloak of Night", "Tattered Pants / Barbarian Hide", "Sandals", "Leather Boots",
-  "Tattered Shirt / Robe (body)", "Robe (legs)", "Fine Robe (body)", "Fine Robe (legs)",
+  "Cape", "Cloak of Night", "Barbarian Hide / Tattered Pants", "Sandals", "Leather Boots",
+  "Robe (body) / Tattered Shirt", "Robe (legs)", "Fine Robe (body)", "Fine Robe (legs)",
   "Kirtle", "Silk Shirt", "Tabard", "Gunna", "Elven Doublet", "Elven Huke", "Elven Boots",
   "Leather Jerkin", "Leather Pants", "Suede Boots", "Blue Pants", "Tunic", "Ghi",
   "Ghi Trousers", "Calista", "Crown of Nerra", "Bezerker Helm", "Helmet", "Basinet",
@@ -58,7 +60,7 @@ const char *const kMisc[] = {
 
 const char *const kPotions[] = {
   "Mon Potion", "Um Potion", "Des Potion", "Ven Potion", "Sar Potion", "Zo Potion", "Ros Potion",
-  "Ku Potion", "Dane Potion", "Neta Potion", "Anti Venin", "Mon Potion", "Ya Potion", "Ee Potion",
+  "Ku Potion", "Dane Potion", "Neta Potion", "Antiven Potion / Antivenin", "Mon Potion", "Ya Potion", "Ee Potion",
   "Vi Potion", "Water Flask", "Kath Bomb", "Pew Bomb", "Ra Bomb", "Ful Bomb", "Empty Flask"};
 
 // enum ATTACKTYPE (CSB.h)
@@ -85,6 +87,29 @@ const char *const kRunes[4][6] = {
 }  // namespace
 
 const char *monsterName(int id) { return pick(kMonsters, id); }
+std::string gameName(const std::string &names, bool chaosStrikesBack, std::string *other)
+{
+  const size_t slash = names.find(" / ");
+  if (slash == std::string::npos) {
+    if (other) other->clear();
+    return names;
+  }
+  std::string dm = names.substr(0, slash), csb = names.substr(slash + 3);
+  if (other) *other = chaosStrikesBack ? dm : csb;
+  return chaosStrikesBack ? csb : dm;
+}
+
+void useGameNames(GameData &g)
+{
+  const bool csb = g.chaosStrikesBack;
+  auto pick = [csb](std::string &name, std::string &other) {
+    if (name.find(" / ") != std::string::npos) name = gameName(name, csb, &other);
+  };
+  for (MonsterType &m : g.monsters) pick(m.name, m.otherName);
+  for (WeaponType &w : g.weapons) pick(w.name, w.otherName);
+  for (ArmourType &a : g.armours) pick(a.name, a.otherName);
+}
+
 const char *weaponName(int id) { return id < 0 ? "Bare hands" : pick(kWeapons, id); }
 const char *armourName(int id) { return pick(kArmours, id); }
 const char *miscName(int id) { return pick(kMisc, id); }

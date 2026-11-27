@@ -46,16 +46,8 @@ int quickness(const Hero &h, int ml, int a, int b, int c)
 int throwingDistance(const Hero &h, const WeaponType &w, int hand, int ml, int stamina,
                      int roll16)
 {
-  int d7 = h.strength() + roll16;
-  int d6 = w.weight;
-  int d5 = ml / 16;
-  if (d6 <= d5) {
-    d7 = d7 + d6 - 12;
-  } else {
-    int w2 = (d5 - 12) / 2 + d5;
-    if (d6 <= w2) d7 = d7 + (d6 - d5) / 2;
-    else d7 = d7 - 2 * (d6 - w2);
-  }
+  int d7 = h.strength() + roll16 + weightFit(w.weight, ml).term;
+  int d6;
   if (w.id >= 0) {                         // a weapon: its strength and the skills behind it
     d7 += w.strength;
     d6 = 0;
@@ -69,6 +61,27 @@ int throwingDistance(const Hero &h, const WeaponType &w, int hand, int ml, int s
   if (h.wounds & (hand == 0 ? WoundReadyHand : WoundActionHand)) d7 /= 2;
   int r = d7 / 2;
   return r <= 0 ? 0 : (r > 100 ? 100 : r);
+}
+
+WeightFit weightFit(int weight, int ml)
+{
+  WeightFit f;
+  f.comfortable = ml / 16;
+  f.limit = (f.comfortable - 12) / 2 + f.comfortable;
+  if (weight <= f.comfortable) f.term = weight - 12;
+  else if (weight <= f.limit) f.term = (weight - f.comfortable) / 2;
+  else f.term = -2 * (weight - f.limit);
+  return f;
+}
+
+int strengthForWeight(const Hero &h, int weight)
+{
+  Hero t = h;
+  for (int s = 0; s <= 255; s++) {
+    t.attr[Strength] = s;
+    if (weight <= weightFit(weight, maxLoad(t, t.stamina)).limit) return s;
+  }
+  return -1;
 }
 
 int armorTerm(const Target &t, const WeaponType &w, bool halved, int r32)

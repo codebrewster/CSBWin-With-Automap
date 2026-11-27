@@ -154,6 +154,29 @@ Bytes graphicsItem(const Bytes &file, int item)
 
 // The items are images of the engine's data block; a field the engine names
 // by its distance from the block's end sits at (end of item's range - name).
+// Which game the file belongs to, by the names it gives the items (graphic 0x22c, read by
+// TAG0010ae, CSBCode.cpp): 199 names, the last letter of each with bit 7 set.  Name 23 is
+// BOLT BLADE in Dungeon Master and STORM in Chaos Strikes Back.  A file without that graphic
+// falls back on Berzerk's stamina, 26 in one and 40 in the other.
+static bool chaosStrikesBackNames(const Bytes &file, const GameData &g)
+{
+  try {
+    Bytes b = graphicsItem(file, 0x22c);
+    size_t p = 0;
+    for (int i = 0; i <= 23 && p < b.size(); i++) {
+      std::string name;
+      while (p < b.size() && !(b[p] & 128)) name += char(b[p++]);
+      if (p < b.size()) name += char(b[p++] & 0x7f);
+      if (i == 23) {
+        if (name == "STORM") return true;
+        if (name == "BOLT BLADE") return false;
+      }
+    }
+  } catch (const FormatError &) {
+  }
+  return g.actions.size() > 19 && g.actions[19].energy == 40;
+}
+
 GameData readGraphicsDat(const Bytes &file, const std::string &label)
 {
   GameData g;
@@ -284,6 +307,8 @@ GameData readGraphicsDat(const Bytes &file, const std::string &label)
     for (int k = 0; k < 6; k++) g.runeCost[row][k] = a.u8(at230(19010) + size_t(row) * 6 + size_t(k));
   for (int i = 0; i < 6; i++) g.slotProtection[i] = u.u8(at232(1412) + size_t(i));
   for (int i = 0; i < 4; i++) g.woundSlots[i] = u.u8(at232(590) + size_t(i));
+  g.chaosStrikesBack = chaosStrikesBackNames(file, g);
+  useGameNames(g);
   return g;
 }
 

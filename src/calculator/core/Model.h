@@ -140,8 +140,8 @@ inline double ticksPerSecond(bool sleeping = false)
 // delay + 2 ticks (measured: Eye of Time 1 + 2 = 3, Hardcleave 8 + 2 = 10).
 // extra is the player's own slowness, ticks lost per swing.
 struct SwingTiming {
-  double input = 2.0;
-  double extra = 0.0;
+  int input = 2;
+  int extra = 0;   // whole ticks: the game counts nothing smaller
 };
 inline SwingTiming &swingTiming() { static SwingTiming t; return t; }
 // Ticks from one swing to the next.  A swing at a monster keeps the full delay
