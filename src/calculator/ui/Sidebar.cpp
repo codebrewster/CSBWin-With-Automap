@@ -471,6 +471,10 @@ void Sidebar::fillGroups()
   }
   selectData(groupBox_, s_->groupIndex);
   groupBox_->setEnabled(groupBox_->count() > 1);
+  groupBox_->setToolTip(!s_->save ? tr("Open a savegame to pick one of its monster groups")
+                        : s_->levelIndex < 0 ? tr("Choose a level to pick one of the monster groups on it")
+                        : groupBox_->count() > 1 ? QString()
+                                                 : tr("No monsters on this level"));
 }
 
 void Sidebar::refill()
@@ -526,6 +530,7 @@ void Sidebar::refill()
     }
   selectData(levelBox_, s_->levelIndex);
   levelBox_->setEnabled(levelBox_->count() > 1);
+  levelBox_->setToolTip(s_->save ? QString() : tr("Open a savegame to pick one of its levels and the monsters on it"));
   fillGroups();
   monsterBox_->clear();
   {
