@@ -7,6 +7,8 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 ## Unreleased
 
+## 1.7.9 (2026-11-27)
+
 **Calculator**
 - A missed swing gives the action's full experience, as in the game; only a Disrupt on a material monster gives half. Before, every miss counted half.
 - A shot gives 20 experience under the port's rules (9 in Nostalgia Mode), with a tick for it in the side panel.
