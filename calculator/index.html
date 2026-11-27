@@ -1,0 +1,97 @@
+<!doctype html>
+<!--
+  The page for the calculator's browser build (Qt for WebAssembly). It shows a loading screen,
+  then hands the whole window to the program. scripts/publish-calculator-web.sh puts it next
+  to dm_calculator.js, dm_calculator.wasm and qtloader.js from the build.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, height=device-height, user-scalable=0">
+  <title>Dungeon Master Calculator</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --window: #f3f1ec; --surface: #fbfaf7; --border: #d9d4c8;
+      --text: #23252b; --muted: #6b6f7a; --accent: #a86a1c; --bad: #b8443a;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --window: #16181d; --surface: #1e2128; --border: #353a46;
+        --text: #e6e8ec; --muted: #9299a8; --accent: #e0a458; --bad: #e07a6a;
+      }
+    }
+    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: var(--window); }
+    body { font: 15px/1.5 system-ui, -apple-system, "Segoe UI", "Noto Sans", sans-serif; color: var(--text); }
+    #screen { width: 100%; height: 100%; display: none; }
+    #loading { height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; }
+    .card { max-width: 34rem; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 28px 32px; }
+    h1 { font-size: 1.35rem; margin: 0 0 .25rem; }
+    .lead { color: var(--muted); margin: 0 0 1.25rem; }
+    #status { font-weight: 600; color: var(--accent); margin: 0 0 1.25rem; }
+    #status.failed { color: var(--bad); }
+    .bar { height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; margin: 0 0 1.25rem; }
+    .bar::after { content: ""; display: block; height: 100%; width: 35%; background: var(--accent); border-radius: 2px; animation: slide 1.4s ease-in-out infinite; }
+    @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+    #status.failed + .bar { display: none; }
+    ul { margin: 0 0 1.25rem; padding-left: 1.2rem; }
+    li { margin: .2rem 0; }
+    .small { font-size: .82rem; color: var(--muted); margin: 0; }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <div class="card">
+      <h1>Dungeon Master Calculator</h1>
+      <p class="lead">What heroes, monsters and spells do to each other in Dungeon Master and Chaos Strikes Back,
+        worked out from the game engine's own formulas.</p>
+      <p id="status">Loading the calculator (about 5 MB, kept by the browser after the first time)…</p>
+      <div class="bar"></div>
+      <ul>
+        <li>Everything runs in your browser. A savegame you open stays on your computer.</li>
+        <li>Savegames of the Atari ST, the Amiga (also <code>.adf</code> disks), CSBwin and CSBwin Plus.</li>
+        <li>The built-in tables of both games are used; choose the one of your game under <em>Tables</em> in the side panel.</li>
+        <li>Zoom with your browser: <kbd>Ctrl</kbd> + and <kbd>Ctrl</kbd> −.</li>
+      </ul>
+      <p class="small">Part of <a href="https://github.com/codebrewster/CSBwin-Plus">CSBwin Plus</a>, where its source is
+        (<code>src/calculator</code>). Made with <a href="https://www.qt.io/">Qt</a> under the
+        <a href="https://www.gnu.org/licenses/lgpl-3.0.html">LGPL&nbsp;v3</a>; text in
+        <a href="https://github.com/notofonts/latin-greek-cyrillic">Noto Sans</a> under the
+        <a href="OFL.txt">SIL Open Font License</a>. Dungeon Master and Chaos Strikes Back belong to their owners;
+        see <a href="https://github.com/codebrewster/CSBwin-Plus/blob/main/COPYING">COPYING</a>.</p>
+    </div>
+  </div>
+  <div id="screen"></div>
+
+  <script>
+    async function start() {
+      const loading = document.getElementById('loading');
+      const screen = document.getElementById('screen');
+      const status = document.getElementById('status');
+      const fail = (text) => {
+        status.textContent = text;
+        status.classList.add('failed');
+        loading.style.display = 'flex';
+        screen.style.display = 'none';
+      };
+      try {
+        await qtLoad({
+          qt: {
+            onLoaded: () => { loading.style.display = 'none'; screen.style.display = 'block'; },
+            onExit: (exit) => fail('The calculator stopped' + (exit.text ? ': ' + exit.text : '.') + ' Reload the page to start it again.'),
+            entryFunction: window.dm_calculator_entry,
+            containerElements: [screen],
+          },
+        });
+      } catch (e) {
+        console.error(e);
+        fail('The calculator could not start in this browser (' + e + '). It needs a current Chrome, Edge, Firefox or Safari.');
+      }
+    }
+  </script>
+  <script src="dm_calculator.js"></script>
+  <script src="qtloader.js" onload="start()"></script>
+</body>
+</html>
