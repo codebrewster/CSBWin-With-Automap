@@ -7,6 +7,8 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 ## Unreleased
 
+## 1.7.7 (2026-11-27)
+
 **Statistics**
 - A turn no longer ends a teleport chain, only a step does: in a maze whose teleporters switch on a moment after the party lands, turning between two of them kept the record short. A turn still ends a fall.
 
