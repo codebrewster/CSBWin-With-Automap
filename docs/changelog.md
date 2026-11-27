@@ -7,6 +7,8 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 
 ## Unreleased
 
+## 1.7.8 (2026-11-27)
+
 **Map**
 - The search knows the SHOW menu's words: three letters or more of `WEAPONS`, `ARMOUR` (or `ARMOR`), `POTIONS`, `SCROLLS`, `CHESTS` or `KEYS` list every item of that kind, as the menu sorts them, so `ARMOUR` finds robes and boots too. `WRITING` or `WALL WRITING` lists every wall writing the map shows. The same in the exported map page.
 
