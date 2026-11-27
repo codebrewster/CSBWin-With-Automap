@@ -1,4 +1,6 @@
 #include <QCheckBox>
+#include <QScrollArea>
+#include <QScrollBar>
 #include <QComboBox>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -80,6 +82,45 @@ HeroAttackPage::HeroAttackPage(Session *session, QWidget *parent) : Page(session
   connect(drain_, &QCheckBox::toggled, this, [this] { schedule(); });
   connect(swings_, QOverload<int>::of(&QSpinBox::valueChanged), this, [this] { schedule(); });
   connect(table_, &QTableWidget::itemSelectionChanged, this, &HeroAttackPage::showRow);
+}
+
+int HeroAttackPage::widthForAllColumns()
+{
+  // One row of the widest values, sized by the table itself and taken out again
+  auto longest = [](auto names) {
+    QString best;
+    for (const auto &n : names)
+      if (QString::fromStdString(n).size() > best.size()) best = QString::fromStdString(n);
+    return best;
+  };
+  std::vector<std::string> weapons{weaponName(-1)}, actions;
+  for (const GameData *g : std::initializer_list<const GameData *>{&builtinDungeonMaster(), &builtinChaosStrikesBack(), &s_->data}) {
+    for (const WeaponType &w : g->weapons) weapons.push_back(w.name);
+    for (const ActionType &a : g->actions) actions.push_back(a.name);
+  }
+  const QString widest[ColCount] = {
+    longest(weapons), longest(actions), QStringLiteral("16"), percent(1.0), num(999.9),
+    QStringLiteral("999"), QStringLiteral("999"), num(999.99, 2), num(99.99, 2), num(99.9),
+    num(99.99, 2), num(9999.9), num(9999.9), duration(3599)};
+  table_->ensurePolished();
+  const bool sorting = table_->isSortingEnabled();
+  table_->setSortingEnabled(false);
+  table_->horizontalHeader()->setSortIndicatorShown(true);   // its arrow takes room in every header
+  const int row = table_->rowCount();
+  table_->insertRow(row);
+  for (int c = 0; c < ColCount; c++) table_->setItem(row, c, c <= CAction ? textCell(widest[c]) : numberCell(0, widest[c]));
+  table_->resizeColumnsToContents();
+  int width = table_->horizontalHeader()->length() + 2 * table_->frameWidth() +
+              table_->verticalScrollBar()->sizeHint().width();
+  table_->removeRow(row);
+  table_->resizeColumnsToContents();
+  table_->setSortingEnabled(sorting);
+  // the page around the table: its margins, its frame and its own scroll bar
+  const QMargins m = column()->contentsMargins();
+  width += m.left() + m.right();
+  if (auto *scroll = findChild<QScrollArea *>())
+    width += 2 * scroll->frameWidth() + scroll->verticalScrollBar()->sizeHint().width();
+  return width;
 }
 
 void HeroAttackPage::recalculate()

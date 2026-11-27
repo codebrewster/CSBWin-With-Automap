@@ -5,12 +5,32 @@
 #include <QCommandLineParser>
 #include <QSettings>
 #include <QTimer>
+#include <QScreen>
+
+#include <cstdlib>
+#include <cstring>
 
 #include "MainWindow.h"
 #include "Theme.h"
 
+// The zoom: Qt's own scale factor, which grows fonts, spacing, tables and the drawn charts
+// alike.  It has to be set before the application starts, so a new zoom restarts the window
+// (MainWindow::setZoom).  --zoom on the command line wins over the saved one; a QT_SCALE_FACTOR
+// the user set in the environment is left alone.
+static void applyZoom(int argc, char **argv)
+{
+  if (qEnvironmentVariableIsSet("QT_SCALE_FACTOR")) return;
+  int percent = QSettings(QStringLiteral("CSBwin"), QStringLiteral("Calculator"))
+                  .value(QStringLiteral("zoom"), 100).toInt();
+  for (int i = 1; i + 1 < argc; i++)
+    if (!std::strcmp(argv[i], "--zoom")) percent = std::atoi(argv[i + 1]);
+  percent = qBound(50, percent, 400);
+  if (percent != 100) qputenv("QT_SCALE_FACTOR", QByteArray::number(percent / 100.0));
+}
+
 int main(int argc, char **argv)
 {
+  applyZoom(argc, argv);
   QApplication app(argc, argv);
   QCoreApplication::setOrganizationName(QStringLiteral("CSBwin"));
   QCoreApplication::setApplicationName(QStringLiteral("Calculator"));
@@ -26,7 +46,12 @@ int main(int argc, char **argv)
                           QStringLiteral("file.png"));
   QCommandLineOption hero(QStringLiteral("hero"), QStringLiteral("Hero of the savegame to start with (1-4)"),
                           QStringLiteral("n"));
-  parser.addOptions({tab, hero, dark, light, size, shot});
+  QCommandLineOption zoom(QStringLiteral("zoom"), QStringLiteral("Zoom in percent (50-400), for this start only"),
+                          QStringLiteral("percent"));
+  QCommandLineOption noSetup(QStringLiteral("no-setup"), QStringLiteral("Start with the side panel hidden"));
+  QCommandLineOption state(QStringLiteral("state"), QStringLiteral("What the window had when the zoom changed"),
+                           QStringLiteral("data"));
+  parser.addOptions({tab, hero, dark, light, size, shot, zoom, noSetup, state});
   parser.process(app);
 
   QSettings settings;
@@ -44,6 +69,14 @@ int main(int argc, char **argv)
   if (!parser.positionalArguments().isEmpty()) window.openSave(parser.positionalArguments().first());
   if (parser.isSet(hero)) window.session()->selectHero(parser.value(hero).toInt() - 1);
   if (parser.isSet(tab)) window.showTab(parser.value(tab).toInt() - 1);
+  if (parser.isSet(noSetup)) window.showSetup(false);
+  if (parser.isSet(state)) window.restoreState(QByteArray::fromBase64(parser.value(state).toLatin1()));
+  // zoomed in, the window's usual size may no longer fit the screen
+  if (QScreen *screen = window.screen()) {
+    const QSize room = screen->availableGeometry().size();
+    if (window.width() > room.width() || window.height() > room.height())
+      window.resize(window.size().boundedTo(room * 0.95));
+  }
   window.show();
   if (parser.isSet(shot)) {
     const QString file = parser.value(shot);

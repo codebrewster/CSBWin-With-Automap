@@ -62,6 +62,9 @@ class HeroAttackPage : public Page {
   Q_OBJECT
  public:
   explicit HeroAttackPage(Session *session, QWidget *parent = nullptr);
+  // How wide the page must be to show every column of its table with the widest names and
+  // numbers either game has (for the window's first width)
+  int widthForAllColumns();
  protected:
   void recalculate() override;
  private:

@@ -1,5 +1,6 @@
 #include "Session.h"
 
+#include <QDataStream>
 #include <QDir>
 #include <QFileInfo>
 
@@ -237,13 +238,145 @@ QStringList Session::warnings() const
   return out;
 }
 
+namespace {
+
+// Written field by field: a new field of Hero, Party, Target or MonsterType goes in both lists
+const qint32 kStateVersion = 1;
+
+template <class T, size_t N>
+void putArray(QDataStream &out, const T (&a)[N])
+{
+  for (const T &v : a) out << qint32(v);
+}
+template <class T, size_t N>
+void getArray(QDataStream &in, T (&a)[N])
+{
+  for (T &v : a) {
+    qint32 x;
+    in >> x;
+    v = T(x);
+  }
+}
+template <class T>
+void get(QDataStream &in, T &v)
+{
+  qint32 x;
+  in >> x;
+  v = T(x);
+}
+
+void putHero(QDataStream &o, const calc::Hero &h)
+{
+  o << QString::fromStdString(h.name);
+  putArray(o, h.attr); putArray(o, h.attrMin); putArray(o, h.attrMax);
+  for (int v : {h.hp, h.maxHp, h.stamina, h.maxStamina, h.mana, h.maxMana, h.load, h.wounds, h.food,
+                h.water, h.shield, h.actionDefense, h.weapon, int(h.negativeActionIsZero),
+                int(h.elvenBoots), int(h.ekkhardCross), int(h.gemOfAges)})
+    o << qint32(v);
+  putArray(o, h.mastery); putArray(o, h.armour); putArray(o, h.handWeight);
+}
+void getHero(QDataStream &i, calc::Hero &h)
+{
+  QString name;
+  i >> name;
+  h.name = name.toStdString();
+  getArray(i, h.attr); getArray(i, h.attrMin); getArray(i, h.attrMax);
+  get(i, h.hp); get(i, h.maxHp); get(i, h.stamina); get(i, h.maxStamina); get(i, h.mana);
+  get(i, h.maxMana); get(i, h.load); get(i, h.wounds); get(i, h.food); get(i, h.water);
+  get(i, h.shield); get(i, h.actionDefense); get(i, h.weapon); get(i, h.negativeActionIsZero);
+  get(i, h.elvenBoots); get(i, h.ekkhardCross); get(i, h.gemOfAges);
+  getArray(i, h.mastery); getArray(i, h.armour); getArray(i, h.handWeight);
+}
+
+void putMonster(QDataStream &o, const calc::MonsterType &m)
+{
+  o << QString::fromStdString(m.name) << QString::fromStdString(m.otherName);
+  for (int v : {m.id, m.moveTicks, m.attackTicks, m.defense, m.baseHealth, m.attack, m.poison, m.dexterity,
+                m.missileClass, m.expClass, m.fireResistance, m.poisonResistance, m.attackPause,
+                m.woundNibbles, m.attackKind, m.size, int(m.nonMaterial), int(m.invincible),
+                int(m.hitsAnyHero)})
+    o << qint32(v);
+}
+void getMonster(QDataStream &i, calc::MonsterType &m)
+{
+  QString name, other;
+  i >> name >> other;
+  m.name = name.toStdString();
+  m.otherName = other.toStdString();
+  get(i, m.id); get(i, m.moveTicks); get(i, m.attackTicks); get(i, m.defense); get(i, m.baseHealth);
+  get(i, m.attack); get(i, m.poison); get(i, m.dexterity); get(i, m.missileClass); get(i, m.expClass);
+  get(i, m.fireResistance); get(i, m.poisonResistance); get(i, m.attackPause); get(i, m.woundNibbles);
+  get(i, m.attackKind); get(i, m.size); get(i, m.nonMaterial); get(i, m.invincible); get(i, m.hitsAnyHero);
+}
+
+}  // namespace
+
+QByteArray Session::saveState() const
+{
+  QByteArray bytes;
+  QDataStream o(&bytes, QIODevice::WriteOnly);
+  o << kStateVersion << savePath;
+  for (int v : {tableSource, heroIndex, levelIndex, groupIndex, int(negativeActionIsZero)}) o << qint32(v);
+  putHero(o, hero);
+  for (int v : {party.partyShield, party.spellShield, party.fireShield, int(party.sleeping)}) o << qint32(v);
+  putMonster(o, target.type);
+  for (int v : {target.level, target.hp, target.count, int(target.attacking)}) o << qint32(v);
+  for (int v : {int(rules.vulnerableOnAttack), rules.shotDamageFactor, int(rules.moduloBias),
+                int(rules.luckDrift), int(rules.shootExperience20), calc::swingTiming().extra})
+    o << qint32(v);
+  o << calc::tickRates().awake << calc::tickRates().asleep;
+  return bytes;
+}
+
+bool Session::restoreState(const QByteArray &state)
+{
+  QDataStream i(state);
+  qint32 version;
+  QString path;
+  i >> version >> path;
+  if (version != kStateVersion || path != savePath) return false;
+  int tables, heroAt, levelAt, groupAt;
+  get(i, tables); get(i, heroAt); get(i, levelAt); get(i, groupAt); get(i, negativeActionIsZero);
+  calc::Hero h;
+  getHero(i, h);
+  calc::Party p;
+  get(i, p.partyShield); get(i, p.spellShield); get(i, p.fireShield); get(i, p.sleeping);
+  calc::Target t;
+  getMonster(i, t.type);
+  get(i, t.level); get(i, t.hp); get(i, t.count); get(i, t.attacking);
+  calc::Rules r;
+  get(i, r.vulnerableOnAttack); get(i, r.shotDamageFactor); get(i, r.moduloBias); get(i, r.luckDrift);
+  get(i, r.shootExperience20); get(i, calc::swingTiming().extra);
+  i >> calc::tickRates().awake >> calc::tickRates().asleep;
+  if (i.status() != QDataStream::Ok) return false;
+  // the tables first, as a click on them would; then what was picked and typed in over the top
+  if (tables != tableSource) selectTables(tables);
+  if (save && heroAt >= 0 && heroAt < int(save->heroes.size())) {
+    heroIndex = heroAt;
+    heroBase = save->heroes[size_t(heroAt)].hero;
+  }
+  // the monster: the level and group (or kind) as the side panel picks them, so the base values
+  // for the "changed" marks are the savegame's; the values typed in come on top below
+  selectLevel(levelAt);
+  if (groupAt >= 0 && levelIndex >= 0) selectGroup(groupAt);
+  else selectMonsterType(t.type.id);
+  hero = h;
+  party = p;
+  target = t;
+  rules = r;
+  emit reloaded();
+  emit changed();
+  return true;
+}
+
 QString Session::summary() const
 {
   if (!save) return tr("No savegame: all values are typed in");
-  return tr("%1  ·  level %2  ·  %3 heroes  ·  tick %4")
+  const int n = int(save->heroes.size());
+  return tr("%1  ·  level %2  ·  %3  ·  tick %4")
     .arg(QString::fromStdString(save->label))
     .arg(save->level)
-    .arg(save->heroes.size())
+    .arg(n == 1 ? tr("1 hero") : tr("%1 heroes").arg(n))
     .arg(save->time);
 }
 

@@ -1,6 +1,13 @@
 #include "MainWindow.h"
 
 #include <QApplication>
+#include <QTableWidget>
+#include <QSpinBox>
+#include <QHeaderView>
+#include <QDoubleSpinBox>
+#include <QDataStream>
+#include <QComboBox>
+#include <QCheckBox>
 #include <QDragEnterEvent>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -10,6 +17,8 @@
 #include <QMimeData>
 #include <QPushButton>
 #include <QSettings>
+#include <QProcess>
+#include <QMenu>
 #include <QSplitter>
 #include <QTabWidget>
 #include <QToolButton>
@@ -55,6 +64,29 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
   warning_ = new QLabel;
   warning_->setObjectName(QStringLiteral("warning"));
   barLayout->addWidget(warning_);
+  zoomButton_ = new QToolButton;
+  {
+    const int now = qRound(qEnvironmentVariable("QT_SCALE_FACTOR", QStringLiteral("1")).toDouble() * 100);
+    zoomButton_->setText(tr("Zoom %1 %").arg(now));
+    zoomButton_->setToolTip(tr("Make everything larger or smaller: text, tables and charts. The window "
+                               "starts again at the new size, with everything as it was."));
+    zoomButton_->setPopupMode(QToolButton::InstantPopup);
+    auto *menu = new QMenu(zoomButton_);
+    for (int percent : {75, 100, 125, 150, 175, 200, 250, 300}) {
+      QAction *a = menu->addAction(tr("%1 %").arg(percent));
+      a->setCheckable(true);
+      a->setChecked(percent == now);
+      connect(a, &QAction::triggered, this, [this, a, percent, now] {
+        if (percent == now) {
+          a->setChecked(true);   // the zoom in use: nothing to start again for
+          return;
+        }
+        setZoom(percent);
+      });
+    }
+    zoomButton_->setMenu(menu);
+  }
+  barLayout->addWidget(zoomButton_);
   themeButton_ = new QToolButton;
   themeButton_->setToolTip(tr("Light or dark"));
   barLayout->addWidget(themeButton_);
@@ -68,7 +100,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
   splitter_->addWidget(sidebar_);
   tabs_ = new QTabWidget;
   tabs_->setDocumentMode(true);
-  tabs_->addTab(new HeroAttackPage(&session_), tr("Hero attacks"));
+  tabs_->addTab(heroPage_ = new HeroAttackPage(&session_), tr("Hero attacks"));
   tabs_->addTab(new ThrowPage(&session_), tr("Throw && shoot"));
   tabs_->addTab(new MonsterAttackPage(&session_), tr("Monster attacks"));
   tabs_->addTab(new SpellPage(&session_), tr("Spells"));
@@ -90,7 +122,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
   });
   connect(&session_, &Session::reloaded, this, &MainWindow::refreshBar);
   refreshBar();
-  resize(1320, 880);
+  // Wide enough that, with the side panel hidden, the Hero attacks table shows every column
+  resize(qMax(kNarrow, heroPage_->widthForAllColumns()), 880);
 }
 
 void MainWindow::refreshBar()
@@ -125,6 +158,12 @@ void MainWindow::openSave(const QString &path)
 
 void MainWindow::showTab(int index) { tabs_->setCurrentIndex(index); }
 
+void MainWindow::showSetup(bool show)
+{
+  sidebarWanted_ = show;
+  sidebar_->setVisible(show && !narrow_);
+}
+
 void MainWindow::toggleTheme()
 {
   bool dark = !theme().dark;
@@ -133,6 +172,105 @@ void MainWindow::toggleTheme()
   refreshBar();
   for (QWidget *w : findChildren<QWidget *>()) w->update();
   session_.touch();   // colours baked into table cells and charts
+}
+
+namespace {
+// The settings of a tab page: its choice boxes, ticks and number fields, and how its tables
+// are sorted, in the order the page made them (the same in the new window)
+void putPage(QDataStream &o, QWidget *page)
+{
+  const QList<QWidget *> all = page->findChildren<QWidget *>();
+  QList<QWidget *> kept;
+  for (QWidget *w : all)
+    if (qobject_cast<QComboBox *>(w) || qobject_cast<QCheckBox *>(w) || qobject_cast<QSpinBox *>(w) ||
+        qobject_cast<QDoubleSpinBox *>(w) || qobject_cast<QTableWidget *>(w))
+      kept << w;
+  o << qint32(kept.size());
+  for (QWidget *w : kept) {
+    if (auto *c = qobject_cast<QComboBox *>(w)) o << double(c->currentIndex());
+    else if (auto *b = qobject_cast<QCheckBox *>(w)) o << double(b->isChecked());
+    else if (auto *n = qobject_cast<QSpinBox *>(w)) o << double(n->value());
+    else if (auto *d = qobject_cast<QDoubleSpinBox *>(w)) o << d->value();
+    else if (auto *t = qobject_cast<QTableWidget *>(w))
+      o << double(t->horizontalHeader()->sortIndicatorSection() * 2 +
+                  (t->horizontalHeader()->sortIndicatorOrder() == Qt::DescendingOrder ? 1 : 0));
+  }
+}
+void getPage(QDataStream &in, QWidget *page)
+{
+  qint32 n;
+  in >> n;
+  QList<double> values;
+  for (int k = 0; k < n; k++) {
+    double v;
+    in >> v;
+    values << v;
+  }
+  const QList<QWidget *> all = page->findChildren<QWidget *>();
+  int k = 0;
+  for (QWidget *w : all) {
+    if (k >= values.size()) break;
+    const double v = values[k];
+    if (auto *c = qobject_cast<QComboBox *>(w)) {
+      if (int(v) >= 0 && int(v) < c->count()) c->setCurrentIndex(int(v));
+    } else if (auto *b = qobject_cast<QCheckBox *>(w)) {
+      b->setChecked(v != 0);
+    } else if (auto *sb = qobject_cast<QSpinBox *>(w)) {
+      sb->setValue(int(v));
+    } else if (auto *d = qobject_cast<QDoubleSpinBox *>(w)) {
+      d->setValue(v);
+    } else if (auto *t = qobject_cast<QTableWidget *>(w)) {
+      const int code = int(v);
+      if (code >= 0 && code / 2 < t->columnCount())
+        t->sortByColumn(code / 2, code % 2 ? Qt::DescendingOrder : Qt::AscendingOrder);
+    } else {
+      continue;
+    }
+    k++;
+  }
+}
+}  // namespace
+
+QByteArray MainWindow::saveState() const
+{
+  QByteArray bytes;
+  QDataStream o(&bytes, QIODevice::WriteOnly);
+  o << session_.saveState() << qint32(tabs_->currentIndex()) << sidebarWanted_ << qint32(tabs_->count());
+  for (int i = 0; i < tabs_->count(); i++) putPage(o, tabs_->widget(i));
+  return bytes;
+}
+
+void MainWindow::restoreState(const QByteArray &state)
+{
+  QDataStream in(state);
+  QByteArray session;
+  qint32 tab, pages;
+  bool setup;
+  in >> session >> tab >> setup >> pages;
+  if (in.status() != QDataStream::Ok || !session_.restoreState(session)) return;
+  if (pages == tabs_->count())
+    for (int i = 0; i < pages; i++) getPage(in, tabs_->widget(i));
+  showTab(tab);
+  showSetup(setup);
+}
+
+void MainWindow::setZoom(int percent)
+{
+  QSettings().setValue(QStringLiteral("zoom"), percent);
+  QStringList args{QStringLiteral("--zoom"), QString::number(percent),
+                   QStringLiteral("--tab"), QString::number(tabs_->currentIndex() + 1)};
+  if (session_.save) {
+    args << session_.savePath << QStringLiteral("--hero") << QString::number(session_.heroIndex + 1);
+  }
+  args << QStringLiteral("--state") << QString::fromLatin1(saveState().toBase64());
+  // a zoom set in the environment would win over --zoom in the new window
+  QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+  env.remove(QStringLiteral("QT_SCALE_FACTOR"));
+  QProcess process;
+  process.setProgram(QCoreApplication::applicationFilePath());
+  process.setArguments(args);
+  process.setProcessEnvironment(env);
+  if (process.startDetached()) qApp->quit();
 }
 
 void MainWindow::fitSidebar()

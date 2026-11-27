@@ -44,6 +44,15 @@ cmake --build build -j8
 Every value can be changed by hand. A field that no longer holds the savegame's
 value is marked; a right-click puts the value back.
 
+## Zoom
+
+**Zoom** in the top bar makes everything larger or smaller, from 75 % to 300 %:
+text, tables and charts alike, for poor eyesight, a small screen or a screen with
+a very high resolution that the system does not scale. The window starts again
+at the new size with everything as it was (savegame, hero, monster, the values
+typed in, the tab and its settings), and the zoom is kept for the next start. `--zoom 150` sets it for
+one start; a `QT_SCALE_FACTOR` set in the environment is left as it is.
+
 ## The tabs
 
 **Hero attacks.** Each physical action of the weapon in hand, or of every

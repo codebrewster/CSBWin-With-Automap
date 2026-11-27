@@ -2,6 +2,7 @@
 // and the hero, party, monster and rules every tab calculates with.  The
 // side panels change these values; the tabs listen and recalculate.
 #pragma once
+#include <QByteArray>
 #include <QObject>
 #include <QString>
 #include <QStringList>
@@ -49,6 +50,10 @@ class Session : public QObject {
   void selectGroup(int index);           // -1 = a fresh monster of the chosen type
   void selectMonsterType(int type);
   void resetMonsterHp();
+  // Everything chosen or typed in, to carry over into a new window (a zoom restarts it).
+  // restoreState expects the same savegame to be open already.
+  QByteArray saveState() const;
+  bool restoreState(const QByteArray &state);
   QStringList warnings() const;
   QString summary() const;               // one line for the top bar
 

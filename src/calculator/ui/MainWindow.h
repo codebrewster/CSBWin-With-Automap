@@ -10,6 +10,7 @@ class QToolButton;
 namespace ui {
 
 class Sidebar;
+class HeroAttackPage;
 
 class MainWindow : public QMainWindow {
   Q_OBJECT
@@ -17,6 +18,10 @@ class MainWindow : public QMainWindow {
   explicit MainWindow(QWidget *parent = nullptr);
   void openSave(const QString &path);
   void showTab(int index);
+  void showSetup(bool show);   // the side panel with the hero, monster and rules
+  // All the window shows and was given, for a new window to start as this one left off
+  QByteArray saveState() const;
+  void restoreState(const QByteArray &state);
   Session *session() { return &session_; }
 
  protected:
@@ -27,6 +32,7 @@ class MainWindow : public QMainWindow {
  private:
   void chooseSave();
   void toggleTheme();
+  void setZoom(int percent);   // saves it and starts the window again at that size
   void refreshBar();
   void fitSidebar();
 
@@ -34,8 +40,9 @@ class MainWindow : public QMainWindow {
   Sidebar *sidebar_;
   QSplitter *splitter_;
   QTabWidget *tabs_;
+  HeroAttackPage *heroPage_;
   QLabel *saveLabel_, *warning_;
-  QToolButton *setupButton_, *themeButton_;
+  QToolButton *setupButton_, *themeButton_, *zoomButton_;
   bool sidebarWanted_ = true;   // the user's choice once the window is wide enough
   bool narrow_ = false;
 };
