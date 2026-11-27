@@ -66,6 +66,8 @@
   <div id="screen"></div>
 
   <script>
+    // set by scripts/publish-calculator-web.sh to a hash of the build
+    const build = '17c1c93ef8a6';
     async function start() {
       const loading = document.getElementById('loading');
       const screen = document.getElementById('screen');
@@ -84,6 +86,9 @@
             entryFunction: window.dm_calculator_entry,
             containerElements: [screen],
           },
+          // the same build tag on the .wasm as on the scripts, so a cached file of an older
+          // build is never paired with a newer one
+          locateFile: (file) => file + '?v=' + build,
         });
       } catch (e) {
         console.error(e);
@@ -91,7 +96,7 @@
       }
     }
   </script>
-  <script src="dm_calculator.js"></script>
-  <script src="qtloader.js" onload="start()"></script>
+  <script src="dm_calculator.js?v=17c1c93ef8a6"></script>
+  <script src="qtloader.js?v=17c1c93ef8a6" onload="start()"></script>
 </body>
 </html>
