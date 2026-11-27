@@ -111,6 +111,26 @@ static void ChainsEndWithAMove(void)
   records.CountTeleport(1, 11);
   records.CountMove();
   CHECK(Value(records, HeroRecLongestTeleportChain, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN) == 2);
+  // A turn between two teleports keeps the chain; a step ends it
+  records.CountTeleport(1, 20);
+  records.CountTeleport(1, 21);
+  records.EndFall();
+  records.CountTeleport(1, 22);
+  records.EndFall();
+  records.CountTeleport(1, 23);
+  records.CountMove();
+  records.CountTeleport(1, 30);
+  records.CountMove();
+  CHECK(Value(records, HeroRecLongestTeleportChain, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN) == 4);
+  // A turn between two falls still makes them two falls
+  records.CountPitFall(3, 400);
+  records.CountPitFall(4, 401);
+  records.CountPitFall(5, 402);
+  records.CountPitFall(6, 403);
+  records.EndFall();
+  records.CountPitFall(7, 404);
+  records.CountMove();
+  CHECK(Value(records, HeroRecLongestFall, HERO_STATS_PARTY, HERO_STATS_WHOLE_RUN) == 4);
   for (int t = 0; t < 5; t++) records.CountSleepTick(2, 300 + t, true);
   records.CountSleepTick(2, 305, false);
   records.CountSleepTick(2, 306, true);

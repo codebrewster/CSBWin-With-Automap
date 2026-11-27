@@ -230,9 +230,17 @@ void HeroStatsRecords::CountTeleport(int level, uint32_t time)
 
 void HeroStatsRecords::CountMove(void)
 {
-  if (m_fall.count > 0) Offer(HeroRecLongestFall, FallEntryOf(m_fall));
+  EndFall();
   OfferRunning(HeroRecLongestTeleportChain, HERO_STATS_PARTY, m_teleports);
-  m_fall = m_teleports = Running();
+  m_teleports = Running();
+}
+
+// A teleporter maze whose pads switch on a tick after the party lands (DM level 9 at 32,24)
+// lets the party turn between two teleports: the chain goes on, only a step ends it
+void HeroStatsRecords::EndFall(void)
+{
+  if (m_fall.count > 0) Offer(HeroRecLongestFall, FallEntryOf(m_fall));
+  m_fall = Running();
 }
 
 void HeroStatsRecords::CountSleepTick(int level, uint32_t time, bool asleep)

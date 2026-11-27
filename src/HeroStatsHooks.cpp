@@ -784,7 +784,7 @@ void HeroStats_OnPartyTurned(void)
 {
   if (d.partyLevel == LEVEL_OF_THE_PRISON_SCREEN) return;
   store.CountTurn(PartyLevel());
-  store.Records().CountMove();
+  store.Records().EndFall();
 }
 
 void HeroStats_OnPartyTeleported(int level, int x, int y)

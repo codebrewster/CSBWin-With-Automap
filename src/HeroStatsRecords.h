@@ -75,7 +75,8 @@ public:
   // Chains: pits fallen through, teleporters, one after the other; a step or turn ends them
   void CountPitFall(int level, uint32_t time);
   void CountTeleport(int level, uint32_t time);
-  void CountMove(void);
+  void CountMove(void);           // a step: ends the fall and the teleport chain
+  void EndFall(void);             // a turn: ends the fall only, a teleport chain goes on
   // A tick: asleep it adds to the sleep, awake it ends it
   void CountSleepTick(int level, uint32_t time, bool asleep);
 
