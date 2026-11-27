@@ -47,6 +47,10 @@ rm -rf "$site"
 mkdir -p "$site"
 cp "$calc/web/index.html" "$calc/web/favicon.svg" "$calc/ui/fonts/OFL.txt" "$site/"
 cp "$build/dm_calculator.js" "$build/dm_calculator.wasm" "$build/qtloader.js" "$site/"
+# A tag of this build on every file the page loads: a browser that still has the previous
+# build's files cached then fetches all of them anew instead of mixing old and new
+tag=$(cat "$build/dm_calculator.js" "$build/dm_calculator.wasm" "$build/qtloader.js" | sha1sum | cut -c1-12)
+sed -i "s/@BUILD@/$tag/g" "$site/index.html"
 echo "Site in $site:"
 ls -l "$site"
 

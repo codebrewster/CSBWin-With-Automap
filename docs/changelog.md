@@ -8,6 +8,7 @@ forum post are written from it. Internal changes (refactoring, tests) do not bel
 ## Unreleased
 
 **Calculator**
+- The calculator in the browser no longer fails to start ("ASM_CONSTS[code] is not a function") when the browser still has parts of the previous version cached: each version's files now have addresses of their own.
 - What if can sweep the monster's poison resistance (0 to 15, 15 = immune), for the Poison Bolt and Poison Cloud lines.
 - The greyed-out Level and Group choices say why: they need a savegame (and Group a level of it).
 - The calculator also runs in a web browser (Qt for WebAssembly, see BUILDING.md): the whole program in a page with its own loading screen and icon, Noto Sans for its text, savegames opened from any folder, the browser's zoom instead of the Zoom button.
